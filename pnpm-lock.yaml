@@ -290,8 +290,8 @@ importers:
         specifier: 1.61.0
         version: 1.61.0
       marked:
-        specifier: 17.0.6
-        version: 17.0.6
+        specifier: 18.1.2
+        version: 18.1.2
       modern-screenshot:
         specifier: 4.7.0
         version: 4.7.0
@@ -1335,6 +1335,11 @@ packages:
 
   marked@17.0.6:
     resolution: {integrity: sha512-gB0gkNafnonOw0obSTEGZTT86IuhILt2Wfx0mWH/1Au83kybTayroZ/V6nS25mN7u8ASy+5fMhgB3XPNrOZdmA==}
+    engines: {node: '>= 20'}
+    hasBin: true
+
+  marked@18.1.2:
+    resolution: {integrity: sha512-DfOnvLAQ6WYeWxWO1u4RyFOeqyHup6dks5PPqnoFiooU7ipRvidO/2j8plhAHIiZg574E9ZlzSjUiPMLAzFkgg==}
     engines: {node: '>= 20'}
     hasBin: true
 
@@ -2638,6 +2643,8 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.6.0
 
   marked@17.0.6: {}
+
+  marked@18.1.2: {}
 
   minimatch@10.2.6:
     dependencies:

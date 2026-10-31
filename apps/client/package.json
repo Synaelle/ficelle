@@ -42,7 +42,7 @@
     "highlight.js": "11.12.0",
     "lowlight": "3.3.0",
     "lucide-static": "1.61.0",
-    "marked": "17.0.6",
+    "marked": "18.1.2",
     "modern-screenshot": "4.7.0",
     "svelte": "5.57.2"
   },
