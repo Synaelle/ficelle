@@ -1,10 +1,11 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- First launch. A password first: it always opens the notes, and it is
-     the way back when the quicker way is gone. Then how they open day to
-     day: Windows Hello or a fingerprint, a PIN typed here, or the password
-     each time. "More options" leaves the notes unencrypted, with a warning.
-     An old vault that opened without asking goes through the same steps
-     once open, `upgrade` set. -->
+<!-- First launch. First the kind of notes: encrypted (recommended), or
+     standard, open to anyone using the device, which ends the setup there.
+     Encrypted, a password next: it always opens the notes, and it is the
+     way back when the quicker way is gone. Then how they open day to day:
+     Windows Hello or a fingerprint, a PIN typed here, or the password each
+     time. An old vault that opened without asking goes through the password
+     steps once open, `upgrade` set. -->
 <script lang="ts">
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
@@ -29,9 +30,13 @@
     upgrade?: boolean
   } = $props()
 
-  type Step = 'password' | 'quick' | 'pin' | 'recovery'
-  let step: Step = $state('password')
+  type Step = 'kind' | 'password' | 'quick' | 'pin' | 'recovery'
+  // svelte-ignore state_referenced_locally
+  let step: Step = $state(upgrade ? 'password' : 'kind')
+  /** Encrypted notes, or standard ones open to anyone using the device. */
+  let encrypted = $state(true)
   $effect(() => {
+    if (step === 'password' && !upgrade) return onBack(() => (step = 'kind'))
     if (step === 'quick') return onBack(() => (step = 'password'))
     if (step === 'pin') return onBack(() => ((step = 'quick'), (firstPin = '')))
   })
@@ -49,8 +54,6 @@
   let pinShake = $state(0)
   let busy = $state(false)
   let error = $state('')
-  /** "More options": the way to keep the notes unencrypted. */
-  let more = $state(false)
   const method = $derived(biometricMethod())
 
   onMount(async () => {
@@ -80,6 +83,13 @@
           ? t('setup.mismatch')
           : '',
   )
+
+  function submitKind(event: SubmitEvent) {
+    event.preventDefault()
+    error = ''
+    if (encrypted) step = 'password'
+    else void plain()
+  }
 
   function submitPassword(event: SubmitEvent) {
     event.preventDefault()
@@ -180,13 +190,43 @@
 
 <main class="screen">
   <div class="card">
-    {#if step === 'password'}
-      <form onsubmit={submitPassword}>
+    {#if step === 'kind'}
+      <form onsubmit={submitKind}>
         <img class="logo" src={logo} alt="" />
-        <h1>
-          {upgrade ? t('setup.upgradeTitle') : t('setup.title', { appName: brand.displayName })}
-        </h1>
-        <p class="muted center">{upgrade ? t('setup.upgradeHelp') : t('setup.welcome')}</p>
+        <h1>{t('setup.title', { appName: brand.displayName })}</h1>
+        <p class="muted center">{t('setup.welcome')}</p>
+        <div class="choices" role="radiogroup" aria-label={t('setup.kindTitle')}>
+          <label class="choice" class:chosen={encrypted}>
+            <input type="radio" name="kind" value={true} bind:group={encrypted} />
+            <span class="tile"><Icon name="lock" size={18} /></span>
+            <span class="words">
+              <strong>{t('setup.kindEncrypted')}</strong>
+              <span class="muted small">{t('setup.kindEncryptedHelp')}</span>
+            </span>
+          </label>
+          <label class="choice" class:chosen={!encrypted}>
+            <input type="radio" name="kind" value={false} bind:group={encrypted} />
+            <span class="tile"><Icon name="eye" size={18} /></span>
+            <span class="words">
+              <strong>{t('setup.kindStandard')}</strong>
+              <span class="muted small">{t('setup.plainHelp')}</span>
+            </span>
+          </label>
+        </div>
+        {#if error}<p class="error" role="alert">{error}</p>{/if}
+        <button class="btn primary big" type="submit" disabled={busy}
+          >{busy ? t('setup.working') : encrypted ? t('setup.next') : t('setup.start')}</button
+        >
+      </form>
+    {:else if step === 'password'}
+      <form onsubmit={submitPassword}>
+        {#if upgrade}
+          <img class="logo" src={logo} alt="" />
+          <h1>{t('setup.upgradeTitle')}</h1>
+          <p class="muted center">{t('setup.upgradeHelp')}</p>
+        {:else}
+          <h1>{t('setup.passwordTitle')}</h1>
+        {/if}
         <p class="muted small center">{t('setup.passwordWhy')}</p>
         <!-- password managers and Chromium expect a username next to a password -->
         <input type="text" autocomplete="username" value={brand.displayName} hidden readonly />
@@ -214,21 +254,18 @@
         <p class="small" class:warning={!wantRecovery} class:muted={wantRecovery}>
           {wantRecovery ? t('recovery.createHelp') : t('setup.noRecovery')}
         </p>
-        <button class="btn primary big" type="submit" disabled={!!problem}>{t('setup.next')}</button
-        >
-        {#if !upgrade}
-          <button class="link" type="button" aria-expanded={more} onclick={() => (more = !more)}
-            >{t('setup.more')}</button
+        {#if upgrade}
+          <button class="btn primary big" type="submit" disabled={!!problem}
+            >{t('setup.next')}</button
           >
-          {#if more}
-            <div class="more">
-              <p class="small warning">{t('setup.plainHelp')}</p>
-              <button class="btn" type="button" disabled={busy} onclick={() => void plain()}
-                >{t('setup.plain')}</button
-              >
-              {#if error}<p class="error" role="alert">{error}</p>{/if}
-            </div>
-          {/if}
+        {:else}
+          <div class="actions">
+            <button class="btn" type="button" onclick={() => (step = 'kind')}
+              >{t('common.back')}</button
+            >
+            <button class="btn primary" type="submit" disabled={!!problem}>{t('setup.next')}</button
+            >
+          </div>
         {/if}
       </form>
     {:else if step === 'quick'}
@@ -388,27 +425,6 @@
   }
   .warning {
     color: var(--color-warning);
-  }
-  .link {
-    justify-self: center;
-    /* a finger sized target around the words */
-    padding: var(--space-2);
-    border: 0;
-    background: none;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    font: inherit;
-    font-size: 13px;
-  }
-  .link:hover {
-    text-decoration: underline;
-  }
-  .more {
-    display: grid;
-    gap: var(--space-3);
-    padding: var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-popover);
   }
   .error {
     color: var(--color-danger);
