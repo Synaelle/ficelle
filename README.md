@@ -25,7 +25,7 @@ Get the latest version from the [Releases](../../releases/latest) page:
 
 - **Windows**: `Ficelle_…_x64-setup.exe`
 - **Windows, portable**: `Ficelle_…_x64_portable.exe` keeps your notes in a folder beside it, nothing is installed
-- **Linux** (experimental): `Ficelle_…_amd64.AppImage`, make it executable and open it
+- **Linux**: `Ficelle_…_amd64.AppImage`, make it executable and open it
 - **Android**: `ficelle-…-android.apk`, for every phone and tablet (allow installing apps from your browser or files app when asked). Play Protect may warn about an unknown app. Choose Install anyway.
 
 ### What it runs on
