@@ -10,6 +10,10 @@
   "commitMessageTopic": "{{depName}}",
   "commitMessageExtra": "",
   "ignorePaths": ["apps/client/src-tauri/gen/**"],
+  "dependencyDashboardApproval": false,
+  "major": {
+    "dependencyDashboardApproval": true
+  },
   "vulnerabilityAlerts": {
     "minimumReleaseAge": null,
     "schedule": ["at any time"]
