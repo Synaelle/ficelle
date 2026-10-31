@@ -6,6 +6,10 @@
 
 <p align="center">A lightweight, private notes app for your computer and your phone.</p>
 
+<p align="center">
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Synaelle/ficelle"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="80"></a>
+</p>
+
 > [!CAUTION]
 > Ficelle is in early beta: its design and features may still change. Keep backups of your notes.
 
@@ -23,10 +27,6 @@ Get the latest version from the [Releases](../../releases/latest) page:
 - **Windows, portable**: `Ficelle_…_x64_portable.exe` keeps your notes in a folder beside it, nothing is installed
 - **Linux** (experimental): `Ficelle_…_amd64.AppImage`, make it executable and open it
 - **Android**: `ficelle-…-android.apk`, for every phone and tablet (allow installing apps from your browser or files app when asked). Play Protect may warn about an unknown app. Choose Install anyway.
-
-On Android, Obtainium can also install it and keep it up to date:
-
-[<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="54">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Synaelle/ficelle)
 
 ### What it runs on
 
