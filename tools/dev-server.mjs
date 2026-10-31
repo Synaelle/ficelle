@@ -5,6 +5,7 @@
 //     here instead of sending it,
 //   - a pretend single sign-on provider on port 9100, with one person.
 // Data stays in .dev-data/server between runs, `--fresh` starts over.
+// `--lan` opens it to the home network, for a phone on the same Wi-Fi.
 // Ctrl+C stops everything. For trying things, never for real use.
 
 import { execSync, spawn } from 'node:child_process'
@@ -12,6 +13,7 @@ import { createHash, createSign, generateKeyPairSync, randomBytes } from 'node:c
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { createServer as createTcpServer } from 'node:net'
+import { networkInterfaces } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -21,7 +23,21 @@ const data = join(root, '.dev-data', 'server')
 const PORT = 8080
 const MAIL_PORT = 2525
 const SSO_PORT = 9100
-const site = `http://localhost:${PORT}`
+
+/** This computer's address on the home network, for `--lan`. */
+function lanAddress() {
+  const all = Object.values(networkInterfaces())
+    .flat()
+    .filter((a) => a && a.family === 'IPv4' && !a.internal)
+    .map((a) => a?.address ?? '')
+  return all.find((a) => a.startsWith('192.168.')) ?? all[0]
+}
+const lan = process.argv.includes('--lan') ? lanAddress() : undefined
+if (process.argv.includes('--lan') && !lan) {
+  console.error('no home network address found, is this computer on Wi-Fi or a cable?')
+  process.exit(1)
+}
+const site = `http://${lan ?? 'localhost'}:${PORT}`
 const bold = (/** @type {string} */ s) => `\x1b[1m${s}\x1b[0m`
 const dim = (/** @type {string} */ s) => `\x1b[2m${s}\x1b[0m`
 
@@ -206,16 +222,23 @@ contact = "you@example.org"
   )
 
 const binary = join(root, 'target', 'debug', brand.serverBinary)
-const server = spawn(binary, ['--config', config], { stdio: ['ignore', 'pipe', 'pipe'] })
+// the saved config stays local, the home network one is given for this run
+const overrides = lan
+  ? {
+      [`${brand.envPrefix}_SERVER__BIND`]: `0.0.0.0:${PORT}`,
+      [`${brand.envPrefix}_SERVER__PUBLIC_URL`]: site,
+    }
+  : {}
+const server = spawn(binary, ['--config', config], {
+  stdio: ['ignore', 'pipe', 'pipe'],
+  env: { ...process.env, ...overrides },
+})
 /** @param {Buffer} chunk */
 function relay(chunk) {
   const text = chunk.toString()
   process.stdout.write(dim(text))
-  const code = /setup code: ([A-Z0-9-]+)/.exec(text)?.[1]
-  if (code)
-    console.log(
-      `\n${bold('First admin:')} open ${site}/admin and enter the setup code ${bold(code)}\n`,
-    )
+  const link = /(https?:\/\/\S+\/setup#token=\S+)/.exec(text)?.[1]
+  if (link) console.log(`\n${bold('First admin:')} open ${bold(link)} (once, within the hour)\n`)
 }
 server.stdout.on('data', relay)
 server.stderr.on('data', relay)
@@ -230,6 +253,7 @@ ${bold(`${brand.displayName} test server`)}  ${site}/admin
   single sign-on: the "Test sign-on" button, signs in as Zoé
   privacy page: ${site}/privacy
   data: ${data}  (pnpm dev:server --fresh to start over)
+  ${lan ? `phone: in the app, sign in to ${site} (same Wi-Fi), single sign-on stays on this computer` : 'for a phone on the same Wi-Fi: pnpm dev:server --lan'}
   Ctrl+C stops everything
 `)
 process.on('SIGINT', () => server.kill())
