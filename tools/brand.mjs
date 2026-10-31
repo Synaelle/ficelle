@@ -178,17 +178,13 @@ function followedTag() {
 
 /**
  * A compose file for one instance on the machine its reverse proxy runs on.
- * @param {{ name: string, tag: string, port: number, subnet: number, staging: boolean }} o
+ * @param {{ name: string, tag: string, port: number, subnet: number }} o
  */
 function compose(o) {
   const env = brand.envPrefix
   const gateway = `172.30.${o.subnet}.1`
-  const about = o.staging
-    ? `# The staging instance: the main branch's image, next to the main one on the
-# same machine, with its own port, network and volume. Its people's feedback
-# goes to the main instance, it takes none itself.`
-    : `# ${brand.displayName} behind a reverse proxy on this machine.`
-  const feedback = o.staging ? `'false'` : `\${FEEDBACK_RECEIVE:-false}`
+  const about = `# ${brand.displayName} behind a reverse proxy on this machine.`
+  const feedback = `\${FEEDBACK_RECEIVE:-false}`
   return `# ${header}
 #
 ${about}
@@ -477,18 +473,7 @@ const targets = [
   ],
   [
     'deploy/compose.yml',
-    () => compose({ name: brand.slug, tag: followedTag(), port: 8080, subnet: 80, staging: false }),
-  ],
-  [
-    'deploy/staging/compose.yml',
-    () =>
-      compose({
-        name: `${brand.slug}-staging`,
-        tag: 'main',
-        port: 8081,
-        subnet: 81,
-        staging: true,
-      }),
+    () => compose({ name: brand.slug, tag: followedTag(), port: 8080, subnet: 80 }),
   ],
   ['deploy/traefik/compose.yml', traefik],
   [`deploy/systemd/${brand.serverBinary}.service`, systemd],
