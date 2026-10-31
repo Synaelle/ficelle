@@ -39,7 +39,7 @@ macOS and iOS builds need testers with a Mac or an iPhone, which I do not have. 
 
 ## Your own server
 
-A guide to running the sync server is on its way.
+Run it with Docker, see [Self-hosting with Docker](docs/self-hosting-docker.md). Running it without Docker is possible but not supported, see [Self-hosting without Docker](docs/self-hosting-without-docker.md).
 
 ## License
 
