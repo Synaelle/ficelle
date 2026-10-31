@@ -39,7 +39,7 @@ tempfile = "3.27.0"
 thiserror = "2.0.21"
 uuid = { version = "1.28.0", features = ["v7", "serde"] }
 zeroize = { version = "1.9.1", features = ["derive"] }
-zip = { version = "=9.0.5", default-features = false, features = ["deflate-flate2"] }
+zip = { version = "=9.1.3", default-features = false, features = ["deflate-flate2"] }
 
 # SQLCipher everywhere. Apple targets use the system crypto (CommonCrypto),
 # the others build OpenSSL from source so no system library is needed.
