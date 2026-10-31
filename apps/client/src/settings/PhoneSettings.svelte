@@ -18,6 +18,7 @@
   import BackupSettings from './BackupSettings.svelte'
   import FeedbackSettings from './FeedbackSettings.svelte'
   import TestTools from '../devreport/TestTools.svelte'
+  import ContactLine from './ContactLine.svelte'
   import { backups } from '../lib/backups.svelte'
   import { UI_SIZES } from '../lib/uiSize'
   import { workspace } from '../lib/workspace.svelte'
@@ -564,6 +565,7 @@
             </div>
           {/if}
         </div>
+        <div class="group spaced pad"><ContactLine /></div>
         {#if updatesHere}
           <div class="group spaced pad">
             <UpdateCheck />

@@ -23,6 +23,7 @@ const lockPath = join(root, 'brand.lock.json')
 // their keys can be replaced, and the dev identity never ships: changing them
 // breaks no installed app
 const unfrozen = new Set([
+  'contactEmail',
   'feedbackUrl',
   'catalogUrl',
   'fontsUrl',

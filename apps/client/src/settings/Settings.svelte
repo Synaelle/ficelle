@@ -32,6 +32,7 @@
   import SyncSettings from './SyncSettings.svelte'
   import UpdateCheck from './UpdateCheck.svelte'
   import TestTools from '../devreport/TestTools.svelte'
+  import ContactLine from './ContactLine.svelte'
   import { serverProtocol } from '../lib/sync.svelte'
   import { updatesHere } from '../lib/appUpdate.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
@@ -488,6 +489,7 @@
                 {/if}
               </dl>
             </div>
+            <div class="settings-group"><ContactLine /></div>
             {#if updatesHere}
               <div class="settings-group">
                 <h3>{t('appUpdate.title')}</h3>
