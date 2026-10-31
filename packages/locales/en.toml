@@ -78,6 +78,9 @@ autoFetch = "Download files up to"
 always = "Any size"
 autoFetchHelp = "Larger files download when you open them. Image previews always come."
 saveCopy = "Save a copy…"
+attach = "Attach files"
+mention = "Insert in the note"
+notMentioned = "not in the text"
 
 [files.inNote]
 one = "{count} attachment"

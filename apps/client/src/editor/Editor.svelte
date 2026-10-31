@@ -141,7 +141,7 @@
    * the file is marked removed (kept a while, so other devices and an undo
    * of the text still find it, then deleted).
    */
-  async function removeFile(file: AttachmentFile) {
+  export async function removeFile(file: AttachmentFile) {
     const current = editor
     if (!current) return
     const target = ATTACHMENT_PREFIX + encodeURI(file.fileName)
@@ -230,7 +230,26 @@
     if (patchMarkdown(editor, incoming)) opened = editor.state.doc
   })
 
-  async function insertFiles(chosen: File[], at?: number) {
+  /** What a file's mention is in the text: the image itself, or a link to it. */
+  function mentionOf(file: { fileName: string; mimeType: string }) {
+    const src = ATTACHMENT_PREFIX + encodeURI(file.fileName)
+    return file.mimeType.startsWith('image/')
+      ? { type: 'image', attrs: { src, alt: file.fileName.replace(/\.[^.]+$/, '') } }
+      : { type: 'text', text: file.fileName, marks: [{ type: 'link', attrs: { href: src } }] }
+  }
+
+  /** Mentions a file of the note at the caret. */
+  export function mentionFile(file: AttachmentFile) {
+    editor?.chain().focus().insertContent(mentionOf(file)).run()
+  }
+
+  /** Adds files to the note without mentioning them in the text. */
+  export async function attachFiles(chosen: File[]) {
+    await insertFiles(chosen, undefined, false)
+    window.dispatchEvent(new Event(ATTACHMENTS_CHANGED))
+  }
+
+  async function insertFiles(chosen: File[], at?: number, mention = true) {
     const policy = (await backend.filesInfo().catch(() => null))?.policy
     for (const picked of chosen) {
       try {
@@ -247,14 +266,8 @@
           here: true,
           refused: null,
         })
-        const src = ATTACHMENT_PREFIX + encodeURI(attachment.fileName)
-        const content = file.type.startsWith('image/')
-          ? { type: 'image', attrs: { src, alt: attachment.fileName.replace(/\.[^.]+$/, '') } }
-          : {
-              type: 'text',
-              text: attachment.fileName,
-              marks: [{ type: 'link', attrs: { href: src } }],
-            }
+        if (!mention) continue
+        const content = mentionOf({ fileName: attachment.fileName, mimeType: file.type })
         const chain = editor?.chain().focus()
         if (at !== undefined) chain?.insertContentAt(at, content).run()
         else chain?.insertContent(content).run()

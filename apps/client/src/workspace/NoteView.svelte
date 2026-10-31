@@ -37,6 +37,8 @@
     if (historyShown) return onBack(() => (versions = null))
   })
   let source = $state(false)
+  /** The open editor, for the attachments list to add, mention and remove files. */
+  let editorRef: Editor | undefined = $state()
   let tagDraft = $state('')
 
   $effect(() => {
@@ -205,6 +207,7 @@
         {:else}
           {#key `${note.id}:${prefs.autoLists}:${prefs.emojiShortcodes}:${workspace.revision}:${readonly}`}
             <Editor
+              bind:this={editorRef}
               noteId={note.id}
               markdown={note.body}
               {readonly}
@@ -229,7 +232,12 @@
           </aside>
         {/if}
 
-        <NoteFiles noteId={note.id} body={note.body} />
+        <NoteFiles
+          noteId={note.id}
+          body={note.body}
+          editor={source ? undefined : editorRef}
+          {readonly}
+        />
       </article>
     </div>
 
