@@ -24,6 +24,10 @@ Get the latest version from the [Releases](../../releases/latest) page:
 - **Linux** (experimental): `Ficelle_…_amd64.AppImage`, make it executable and open it
 - **Android**: `ficelle-…-android.apk`, for every phone and tablet (allow installing apps from your browser or files app when asked). Play Protect may warn about an unknown app. Choose Install anyway.
 
+On Android, Obtainium can also install it and keep it up to date:
+
+[<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="54">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Synaelle/ficelle)
+
 ### What it runs on
 
 - **Windows** 10 or 11, 64-bit
