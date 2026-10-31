@@ -64,7 +64,7 @@ chrono = "0.4.45"
 futures-util = "0.3"
 openssl = "0.10.81"
 tempfile = "3.27.0"
-tokio-tungstenite = "0.29.0"
+tokio-tungstenite = "0.30.0"
 tower = { version = "0.5", features = ["util"] }
 webauthn-authenticator-rs = { version = "0.5.5", features = ["softpasskey"] }
 
