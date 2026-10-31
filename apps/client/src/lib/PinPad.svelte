@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- A PIN: one dot per digit and a number pad. Typing works too (a hidden
-     field, the number keyboard on phones). The last digit sends it, and
-     the dots clear for the next try. -->
+<!-- A PIN: one dot per digit and a number pad. Typing works too, through a
+     hidden field. On touch screens the pad is the keyboard: the system one
+     stays closed, it would push the pad up between two taps. The last digit
+     sends it, and the dots clear for the next try. -->
 <script lang="ts">
   import { onMount } from 'svelte'
   import { PIN_LENGTH } from './backend'
@@ -26,7 +27,12 @@
   let field: HTMLInputElement | undefined = $state()
   let shaking = $state(false)
 
-  onMount(() => field?.focus())
+  /** A phone or tablet: the pad alone, no system keyboard. */
+  const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
+
+  onMount(() => {
+    if (!touch) field?.focus()
+  })
 
   $effect(() => {
     if (!shake) return
@@ -63,7 +69,7 @@
       bind:this={field}
       class="hidden-field"
       type="password"
-      inputmode="numeric"
+      inputmode={touch ? 'none' : 'numeric'}
       autocomplete="off"
       maxlength={PIN_LENGTH}
       {disabled}
