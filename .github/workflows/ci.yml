@@ -1,8 +1,11 @@
 name: ci
 
+# text-only changes cannot break the build, they skip it
 on:
   push:
+    paths-ignore: ['**.md', 'LICENSE']
   pull_request:
+    paths-ignore: ['**.md', 'LICENSE']
 
 permissions:
   contents: read
