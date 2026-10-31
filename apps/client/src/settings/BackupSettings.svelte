@@ -50,6 +50,11 @@
   let existing = $state(false)
   let password = $state('')
   let again = $state('')
+  /** On a device whose notes are not encrypted, the backup password is
+   * optional: left empty, a fixed one stands in, so the backups are as open
+   * as the notes they copy, and restoring works with the field empty too. */
+  let openDevice = $state(false)
+  const NO_PASSWORD = 'ficelle-backup-without-password'
   let host = $state('')
 
   /** Everything past a folder and a password, see the comment on top. */
@@ -63,6 +68,7 @@
   let check: BackupCheck | null = $state(null)
 
   onMount(() => {
+    void backend.vaultStatus().then((v) => (openDevice = !v.encrypted))
     void backups.refresh().then(() => {
       if (!config && view) kind = view.kinds[0] ?? 'folder'
     })
@@ -118,6 +124,7 @@
   }
 
   const passwordProblem = $derived.by(() => {
+    if (openDevice && !password && !again) return null
     if (!password) return t('backups.passwordNeeded')
     if (!existing && password.length < 8) return t('backups.passwordShort')
     if (!existing && password !== again) return t('backups.passwordsDiffer')
@@ -133,7 +140,8 @@
 
   function connect() {
     void act(async () => {
-      backups.view = await backend.backupsConnect(target(), password, !existing, host)
+      const used = password || (openDevice ? NO_PASSWORD : password)
+      backups.view = await backend.backupsConnect(target(), used, !existing, host)
       password = ''
       again = ''
       editing = false
@@ -400,7 +408,9 @@
       {t('backups.passwordAgain')}
       <PasswordField eye={false} class="field" bind:value={again} autocomplete="new-password" />
     </label>
-    <p class="settings-help warn">{t('backups.passwordWarning')}</p>
+    <p class="settings-help warn">
+      {openDevice ? t('backups.passwordOptional') : t('backups.passwordWarning')}
+    </p>
     {#if passwordProblem && password && (again || password.length < 8)}
       <p class="settings-help bad">{passwordProblem}</p>
     {/if}
@@ -545,7 +555,9 @@
         {t('backups.passwordAgain')}
         <PasswordField eye={false} class="field" bind:value={again} autocomplete="new-password" />
       </label>
-      <p class="settings-help warn">{t('backups.passwordWarning')}</p>
+      <p class="settings-help warn">
+        {openDevice ? t('backups.passwordOptional') : t('backups.passwordWarning')}
+      </p>
     {/if}
     <label class="settings-field">
       {t('backups.host')}
