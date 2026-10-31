@@ -1,0 +1,50 @@
+# cargo deny check: every dependency's licence must fit the AGPL, none may
+# have a known security advisory, and all come from crates.io.
+
+[advisories]
+version = 2
+yanked = "deny"
+# unmaintained crates count only when the project depends on them directly
+unmaintained = "workspace"
+ignore = [
+    # crypto-bigint 0.5 timing: reached through opaque-ke and openidconnect,
+    # never on secrets here (OPAQUE runs on Ristretto255, sign-on only checks
+    # public signatures). Goes when both move to elliptic-curve 0.14.
+    { id = "RUSTSEC-2026-0387", reason = "no secret values reach crypto-bigint 0.5" },
+    # rsa Marvin attack: openidconnect only verifies RSA signatures, it never
+    # decrypts with a private key. No fixed rsa release yet.
+    { id = "RUSTSEC-2023-0071", reason = "no RSA decryption anywhere" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+allow = [
+    "0BSD",
+    "AGPL-3.0-or-later",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-1-Clause",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "LGPL-2.1-or-later",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
