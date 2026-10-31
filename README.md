@@ -11,7 +11,7 @@
 </p>
 
 > [!CAUTION]
-> Ficelle is in early beta: its design and features may still change. Keep backups of your notes.
+> Ficelle is in early beta, its design and features may still change. Keep backups of your notes.
 
 ## What it does
 
