@@ -528,7 +528,7 @@ pub use platform::Pending;
 
 #[cfg(test)]
 mod tests {
-    use super::list::{Latest, clean, newer, platform_key, signed_for, verify};
+    use super::list::{Latest, clean, newer, signed_for, verify};
 
     #[test]
     fn reads_tauris_list() {
@@ -547,7 +547,7 @@ mod tests {
         assert_eq!(latest.platforms["android-aarch64"].signature, "t");
         assert_eq!(latest.platforms["windows-x86_64"].signature, "s");
         #[cfg(all(windows, target_arch = "x86_64"))]
-        assert_eq!(platform_key(), "windows-x86_64");
+        assert_eq!(super::list::platform_key(), "windows-x86_64");
     }
 
     #[test]
@@ -611,7 +611,7 @@ mod tests {
     #[ignore = "downloads the public release"]
     fn the_public_release_checks_out() {
         let latest = super::list::latest().unwrap();
-        let file = &latest.platforms[&platform_key()];
+        let file = &latest.platforms[&super::list::platform_key()];
         let bytes = super::list::download(file, &latest.version).unwrap();
         assert!(bytes.starts_with(b"MZ"), "a Windows program");
     }
