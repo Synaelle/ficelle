@@ -459,16 +459,12 @@
             on: prefs.autoLists,
             run: () => (prefs.autoLists = !prefs.autoLists),
           })}
-        </div>
-        <div class="group spaced">
           {@render row({
             icon: 'list',
             label: t('settings.emojiShortcodes'),
             on: prefs.emojiShortcodes,
             run: () => (prefs.emojiShortcodes = !prefs.emojiShortcodes),
           })}
-        </div>
-        <div class="group spaced">
           {@render row({
             icon: 'pin',
             label: t('settings.openNoteFirst'),

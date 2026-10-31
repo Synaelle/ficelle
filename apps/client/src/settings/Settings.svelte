@@ -222,14 +222,10 @@
                 <input type="checkbox" bind:checked={prefs.autoLists} />
                 {t('settings.autoLists')}
               </label>
-            </div>
-            <div class="settings-group">
               <label class="settings-check">
                 <input type="checkbox" bind:checked={prefs.emojiShortcodes} />
                 {t('settings.emojiShortcodes')}
               </label>
-            </div>
-            <div class="settings-group">
               <label class="settings-check">
                 <input type="checkbox" bind:checked={prefs.openNoteFirst} />
                 {t('settings.openNoteFirst')}
