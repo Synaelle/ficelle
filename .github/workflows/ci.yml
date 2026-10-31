@@ -7,6 +7,11 @@ on:
 permissions:
   contents: read
 
+# a newer push to the same branch stops the run before it
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
