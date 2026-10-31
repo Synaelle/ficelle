@@ -145,7 +145,7 @@ name = "app-e2ee"
 version = "0.2.2"
 dependencies = [
  "aead-stream",
- "argon2 0.5.3",
+ "argon2 0.6.0",
  "base64 0.23.1",
  "chacha20poly1305",
  "hkdf 0.13.0",
