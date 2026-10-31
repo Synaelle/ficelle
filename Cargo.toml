@@ -4,7 +4,7 @@ members = ["crates/*", "apps/server", "apps/client/src-tauri"]
 
 [workspace.package]
 # the release number, shown as is in release builds and as dev-{commit} otherwise
-version = "0.2.2"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.99"
 publish = false

@@ -62,7 +62,7 @@ services:
       - docker
 
   server:
-    image: ghcr.io/synaelle/ficelle-server:0.2
+    image: ghcr.io/synaelle/ficelle-server:0.3
     restart: unless-stopped
     environment:
       # BASE_PATH in .env serves it under a path of the name, like /notes
