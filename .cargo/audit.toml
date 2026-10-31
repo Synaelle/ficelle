@@ -1,0 +1,16 @@
+# Advisories looked at and found not to reach this project, each with why.
+# Look again whenever a dependency named here changes.
+
+[advisories]
+ignore = [
+    # rsa, the Marvin attack: timing leaks while decrypting or signing with a
+    # private RSA key. Only openidconnect uses rsa here, to verify a provider's
+    # signatures with its public key, which holds no secret. No fixed release.
+    "RUSTSEC-2023-0071",
+    # crypto-bigint 0.5, timing variations in operations meant to be constant
+    # time. It comes through elliptic-curve 0.13: opaque-ke links it but our
+    # suite is Ristretto255 (curve25519-dalek, crates/e2ee/src/suite.rs), and
+    # openidconnect only verifies P-256 and P-384 signatures with public keys.
+    # russh uses crypto-bigint 0.7.10, which has the fix.
+    "RUSTSEC-2026-0387",
+]

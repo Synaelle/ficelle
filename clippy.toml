@@ -1,0 +1,2 @@
+# names the doc_markdown lint should accept without backticks
+doc-valid-idents = ["SQLCipher", "SQLite", "RustCrypto", "CommonCrypto", "OpenSSL", "OpenID", "WebAuthn", "AppImage", "OpenDyslexic", ".."]

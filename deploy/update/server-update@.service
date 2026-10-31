@@ -1,0 +1,12 @@
+# Updates the compose instance in the folder the unit is named after, see
+# server-update. The instance name is the folder, escaped:
+#   systemctl start "server-update@$(systemd-escape --path /opt/ficelle).service"
+
+[Unit]
+Description=Update the server in %f
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/server-update %f

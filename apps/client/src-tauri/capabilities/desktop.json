@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "Desktop only: the global shortcut and the quick note window it opens.",
+  "platforms": ["windows", "macOS", "linux"],
+  "windows": ["main", "quick"],
+  "permissions": [
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "core:window:allow-show",
+    "core:window:allow-unminimize",
+    "core:window:allow-set-focus",
+    "core:window:allow-close"
+  ]
+}

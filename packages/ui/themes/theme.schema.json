@@ -1,0 +1,251 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "theme.schema.json",
+  "title": "Theme",
+  "description": "A theme is a set of design tokens. Every color is given for dark and light mode.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "description",
+    "fonts",
+    "icons",
+    "colors",
+    "radius",
+    "space",
+    "motion"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "description": "2 for a theme that may carry css. Leave it out in a theme without css.",
+      "enum": [1, 2]
+    },
+    "id": {
+      "description": "Unique lowercase id, also the file name.",
+      "type": "string",
+      "pattern": "^[a-z0-9-]{1,40}$"
+    },
+    "name": {
+      "description": "Name shown in the theme picker.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60
+    },
+    "description": {
+      "description": "One line shown under the name.",
+      "type": "string",
+      "maxLength": 200
+    },
+    "fonts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ui", "editor", "mono"],
+      "properties": {
+        "ui": {
+          "description": "Font for menus, lists and buttons.",
+          "type": "string",
+          "pattern": "^[\\p{L}\\p{N} ._-]{1,64}$"
+        },
+        "editor": {
+          "description": "Font for note text.",
+          "type": "string",
+          "pattern": "^[\\p{L}\\p{N} ._-]{1,64}$"
+        },
+        "mono": {
+          "description": "Font for code and small metadata.",
+          "type": "string",
+          "pattern": "^[\\p{L}\\p{N} ._-]{1,64}$"
+        }
+      }
+    },
+    "icons": {
+      "description": "Icon set used by the theme.",
+      "enum": ["lucide", "phosphor-regular", "stitch"]
+    },
+    "colors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dark", "light"],
+      "properties": {
+        "dark": {
+          "$ref": "#/$defs/palette"
+        },
+        "light": {
+          "$ref": "#/$defs/palette"
+        }
+      }
+    },
+    "radius": {
+      "description": "Corner radius in px.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["control", "popover", "window"],
+      "properties": {
+        "control": {
+          "description": "Buttons, inputs, list rows.",
+          "$ref": "#/$defs/px"
+        },
+        "popover": {
+          "description": "Menus, cards, code blocks.",
+          "$ref": "#/$defs/px"
+        },
+        "window": {
+          "description": "Windows and dialogs.",
+          "$ref": "#/$defs/px"
+        }
+      }
+    },
+    "space": {
+      "description": "Spacing scale in px, from tightest to widest, 7 steps.",
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 128
+      },
+      "minItems": 7,
+      "maxItems": 7
+    },
+    "motion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fast", "base", "slow", "easeOut", "easeInOut"],
+      "properties": {
+        "fast": {
+          "description": "Presses and hovers, in ms.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
+        },
+        "base": {
+          "description": "Toggles and small moves, in ms.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
+        },
+        "slow": {
+          "description": "Screen transitions, in ms.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
+        },
+        "easeOut": {
+          "$ref": "#/$defs/easing"
+        },
+        "easeInOut": {
+          "$ref": "#/$defs/easing"
+        }
+      }
+    },
+    "css": {
+      "description": "Extra css applied after the tokens, at most 1 MB. Only data: addresses (fonts, pictures), no @import, no backslash escapes. App class names can change between versions, the tokens and :root[data-mode] stay.",
+      "type": "string",
+      "maxLength": 1048576
+    }
+  },
+  "$defs": {
+    "px": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 64
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "easing": {
+      "description": "A css cubic-bezier, for example cubic-bezier(0.2, 0.7, 0.2, 1).",
+      "type": "string",
+      "pattern": "^cubic-bezier\\(.+\\)$"
+    },
+    "palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bg",
+        "surface",
+        "surface2",
+        "border",
+        "borderStrong",
+        "text",
+        "textMuted",
+        "textFaint",
+        "accent",
+        "accentText",
+        "accentPressed",
+        "accentOn",
+        "danger",
+        "success",
+        "warning",
+        "selection"
+      ],
+      "properties": {
+        "bg": {
+          "description": "Window background.",
+          "$ref": "#/$defs/color"
+        },
+        "surface": {
+          "description": "Panels, the editor.",
+          "$ref": "#/$defs/color"
+        },
+        "surface2": {
+          "description": "Raised elements, hover rows.",
+          "$ref": "#/$defs/color"
+        },
+        "border": {
+          "description": "Hairlines between areas.",
+          "$ref": "#/$defs/color"
+        },
+        "borderStrong": {
+          "description": "Input outlines, focus.",
+          "$ref": "#/$defs/color"
+        },
+        "text": {
+          "description": "Body text, at least 4.5:1 on bg.",
+          "$ref": "#/$defs/color"
+        },
+        "textMuted": {
+          "description": "Secondary text, at least 4.5:1 on bg.",
+          "$ref": "#/$defs/color"
+        },
+        "textFaint": {
+          "description": "Icons and disabled only, never for reading.",
+          "$ref": "#/$defs/color"
+        },
+        "accent": {
+          "description": "Main brand color, user can override it.",
+          "$ref": "#/$defs/color"
+        },
+        "accentText": {
+          "description": "Accent used as small text or links, at least 4.5:1 on bg.",
+          "$ref": "#/$defs/color"
+        },
+        "accentPressed": {
+          "description": "Accent while pressed.",
+          "$ref": "#/$defs/color"
+        },
+        "accentOn": {
+          "description": "Text on an accent fill, at least 4.5:1 on accent.",
+          "$ref": "#/$defs/color"
+        },
+        "danger": {
+          "$ref": "#/$defs/color"
+        },
+        "success": {
+          "$ref": "#/$defs/color"
+        },
+        "warning": {
+          "$ref": "#/$defs/color"
+        },
+        "selection": {
+          "description": "Selected row and text selection fill.",
+          "$ref": "#/$defs/color"
+        }
+      }
+    }
+  }
+}

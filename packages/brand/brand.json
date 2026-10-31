@@ -1,0 +1,23 @@
+{
+  "displayName": "Ficelle",
+  "slug": "ficelle",
+  "identifier": "com.synaelle.ficelle",
+  "envPrefix": "FICELLE",
+  "serverBinary": "ficelle-server",
+  "configFile": "ficelle.toml",
+  "backupExtension": "ficelle",
+  "dockerImage": "ghcr.io/synaelle/ficelle-server",
+  "feedbackUrl": "https://ficelle.synaelle.com",
+  "catalogUrl": "https://ficelle.synaelle.com/catalog/",
+  "fontsUrl": "https://ficelle.synaelle.com/fonts",
+  "catalogKey": "",
+  "releasesUrl": "https://ficelle.synaelle.com/releases.json",
+  "releasesKey": "b87ba069a2e5ab6807cd59bd3f5c06186e62f3519a5d2bc16edbe0f458dcc0cc",
+  "appUpdatesUrl": "https://github.com/Synaelle/ficelle/releases/latest/download/latest.json",
+  "appUpdatesKey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENEOTEzOUVENDdFMzYyMjcKUldRbll1Tkg3VG1SelhSalBqMlF3KzA5WkU5SmJRZENHWjFkM2NvVE5hZGxQWWNXM2pRSGo4NlMK",
+  "dev": {
+    "displayName": "Ficelle Dev",
+    "slug": "ficelle-dev",
+    "identifier": "com.synaelle.ficelle.dev"
+  }
+}

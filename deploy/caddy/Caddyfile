@@ -1,0 +1,26 @@
+# Caddy in front of the server: it gets and renews the certificate by itself
+# and passes WebSocket and the X-Forwarded headers without being told.
+# Replace notes.example.org and 8080, then: sudo systemctl reload caddy
+
+notes.example.org {
+	# 16 MB matches the server's own limit, files go up in 8 MB parts
+	request_body {
+		max_size 16MB
+	}
+	reverse_proxy 127.0.0.1:8080
+}
+
+# Under a path of a site instead, with the public address
+# https://example.org/notes: handle keeps /notes in the path, which the
+# server expects (handle_path would remove it).
+#
+# example.org {
+# 	redir /notes /notes/
+# 	handle /notes/* {
+# 		request_body {
+# 			max_size 16MB
+# 		}
+# 		reverse_proxy 127.0.0.1:8080
+# 	}
+# 	# ... the rest of your site ...
+# }

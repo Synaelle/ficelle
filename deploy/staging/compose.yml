@@ -1,0 +1,48 @@
+# Written by tools/brand.mjs from packages/brand/brand.json. Edit that file, then run pnpm brand.
+#
+# The staging instance: the main branch's image, next to the main one on the
+# same machine, with its own port, network and volume. Its people's feedback
+# goes to the main instance, it takes none itself.
+#
+# Next to this file a .env file says where people reach it (copy
+# .env.example). Every secret is made on the first start, inside the volume:
+# none goes here.
+name: ficelle-staging
+
+services:
+  server:
+    image: ghcr.io/synaelle/ficelle-server:main
+    restart: unless-stopped
+    # only the proxy on this machine reaches it
+    ports:
+      - '127.0.0.1:${PORT:-8081}:8080'
+    environment:
+      FICELLE_SERVER__PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL in .env}
+      # the proxy on the host arrives from this network's gateway
+      FICELLE_SERVER__TRUSTED_PROXIES: '["172.30.81.1"]'
+      FICELLE_FEEDBACK__RECEIVE: 'false'
+      FICELLE_PRIVACY__OPERATOR: ${PRIVACY_OPERATOR:-}
+      FICELLE_PRIVACY__CONTACT: ${PRIVACY_CONTACT:-}
+    volumes:
+      - data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      options:
+        max-size: 10m
+        max-file: '3'
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.81.0/24
+          gateway: 172.30.81.1
+
+volumes:
+  data:

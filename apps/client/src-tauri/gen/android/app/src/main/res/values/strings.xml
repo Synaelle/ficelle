@@ -1,0 +1,6 @@
+<resources>
+    <string name="shortcut_new_note">New note</string>
+    <string name="shortcut_search">Search</string>
+    <string name="widget_description">New note, search and your recent notes</string>
+    <string name="widget_open_once">Open the app once to show your notes here.</string>
+</resources>

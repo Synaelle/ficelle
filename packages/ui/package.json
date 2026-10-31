@@ -1,0 +1,20 @@
+{
+  "name": "@app/ui",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    "./theme": "./src/theme.ts",
+    "./color": "./src/color.ts",
+    "./themes": "./themes/index.ts"
+  },
+  "scripts": {
+    "check": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}

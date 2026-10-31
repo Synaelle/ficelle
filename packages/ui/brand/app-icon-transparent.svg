@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 50 512 350">
+  <!-- app-icon.svg's knot without its tile, for light and dark pages (the README). The crossing is cut with a mask, not the tile color, so nothing dark shows on a light page. -->
+  <defs>
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="#fff"/>
+      <path d="M224.2 222C239.8 247.8 262.9 273.4 288.3 293.6" fill="none" stroke="#000" stroke-width="84"/>
+    </mask>
+  </defs>
+  <path d="M40 340C140 340 210 320 260 250C300 195 320 130 280 110C240 90 195 120 205 175C215 230 280 300 340 325C390 345 430 340 472 340" fill="none" stroke="#E44C3E" stroke-width="40" stroke-linecap="round" mask="url(#cut)"/>
+  <path d="M224.2 222C239.8 247.8 262.9 273.4 288.3 293.6" fill="none" stroke="#E44C3E" stroke-width="40" stroke-linecap="round"/>
+</svg>

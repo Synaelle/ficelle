@@ -1,0 +1,58 @@
+#!/bin/bash
+# Installs server-update and its nightly timer for one compose instance, the
+# way updates are meant to come: each night the newer image of the series,
+# its signature checked when cosign is installed, the data copied first, and
+# everything put back when the new version does not come up.
+#
+#   sudo bash install-server-update /opt/ficelle
+#
+# Run it from a copy of deploy/update/ (it uses the files beside it), or
+# alone, downloaded from the repository (it fetches the other files the same
+# way):
+#
+#   curl -fsSLO https://raw.githubusercontent.com/Synaelle/ficelle/main/deploy/update/install-server-update
+#   sudo bash install-server-update /opt/ficelle
+#
+# Running it again updates server-update itself and keeps the timer.
+set -euo pipefail
+
+dir=${1:-/opt/ficelle}
+source=${SOURCE:-https://raw.githubusercontent.com/Synaelle/ficelle/main/deploy/update}
+
+[ "$(id -u)" = 0 ] || { echo "run it as root: sudo bash $0 $dir"; exit 1; }
+[ -f "$dir/compose.yml" ] || { echo "no compose.yml in $dir: give the folder of the instance"; exit 1; }
+command -v systemctl > /dev/null || { echo "systemd is needed for the nightly timer"; exit 1; }
+dir=$(cd "$dir" && pwd)
+here=$(cd "$(dirname "$0")" && pwd)
+
+# a file beside this script, else the repository's
+fetch() {
+  if [ -f "$here/$1" ]; then
+    cat "$here/$1"
+  else
+    curl -fsSL "$source/$1"
+  fi
+}
+
+# written beside, then moved: a failed download leaves the old ones
+put() { # name, destination, mode
+  fetch "$1" > "$2.new"
+  [ -s "$2.new" ] || { rm -f "$2.new"; echo "$1 came empty, nothing changed"; exit 1; }
+  chmod "$3" "$2.new"
+  mv "$2.new" "$2"
+}
+put server-update /usr/local/sbin/server-update 755
+put 'server-update@.service' /etc/systemd/system/server-update@.service 644
+put 'server-update@.timer' /etc/systemd/system/server-update@.timer 644
+systemctl daemon-reload
+
+unit=$(systemd-escape --path "$dir")
+systemctl enable --now "server-update@$unit.timer"
+
+echo "server-update runs each night for $dir."
+echo "  now:       sudo systemctl start server-update@$unit.service"
+echo "  its lines: journalctl -u 'server-update@$unit'"
+if ! command -v cosign > /dev/null; then
+  echo "cosign is not installed: images are updated without checking their signature."
+  echo "  to check them: https://docs.sigstore.dev/cosign/system_config/installation/"
+fi

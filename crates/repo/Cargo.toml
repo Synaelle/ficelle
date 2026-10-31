@@ -1,0 +1,37 @@
+[package]
+name = "app-repo"
+version.workspace = true
+description = "Backup repositories: encrypted, deduplicated snapshots on a folder, S3 or WebDAV"
+license = "AGPL-3.0-or-later"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[features]
+# a target in memory that can be told to fail, for the tests of others
+testing = []
+
+[dependencies]
+argon2 = { version = "0.6.0", default-features = false, features = ["alloc"] }
+base64 = "0.23.1"
+chacha20poly1305 = "0.11.0"
+flate2 = "1.1.10"
+getrandom = "0.4.3"
+hmac = "0.13.0"
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = "0.11.1"
+thiserror = "2.0.21"
+# the HTTP client the apps have already, for S3 and WebDAV
+ureq = "3.5.0"
+zeroize = { version = "1.9.1", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[lints]
+workspace = true
+
+[[test]]
+name = "targets"
+required-features = ["testing"]

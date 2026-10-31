@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Preview builds: app-icon.svg with a yellow knot, so a preview is never taken for the release. After editing: pnpm -F @app/client tauri icon ../../packages/ui/brand/app-icon-preview.svg -o src-tauri/icons-preview, then keep the files tauri.preview.conf.json names. -->
+  <path d="M256 0C437 0 512 75 512 256S437 512 256 512 0 437 0 256 75 0 256 0Z" fill="#0F0F10"/>
+  <path d="M256 6C432 6 506 80 506 256S432 506 256 506 6 432 6 256 80 6 256 6Z" fill="none" stroke="#2A2829" stroke-width="3"/>
+  <!-- moved down to sit in the middle of the tile -->
+  <g transform="translate(0 30)">
+    <path d="M40 340C140 340 210 320 260 250C300 195 320 130 280 110C240 90 195 120 205 175C215 230 280 300 340 325C390 345 430 340 472 340" fill="none" stroke="#F2C230" stroke-width="40" stroke-linecap="round"/>
+    <!-- a wide stroke in the tile color cuts the lower thread so the knot reads as passing over -->
+    <path d="M224.2 222C239.8 247.8 262.9 273.4 288.3 293.6" fill="none" stroke="#0F0F10" stroke-width="84"/>
+    <path d="M224.2 222C239.8 247.8 262.9 273.4 288.3 293.6" fill="none" stroke="#F2C230" stroke-width="40" stroke-linecap="round"/>
+  </g>
+</svg>

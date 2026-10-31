@@ -1,0 +1,106 @@
+# Written by tools/brand.mjs from packages/brand/brand.json. Edit that file, then run pnpm brand.
+#
+# Ficelle with Traefik in front, both in Docker, for a machine
+# where nothing else answers on ports 80 and 443. Traefik gets and renews
+# the certificate from Let's Encrypt. Next to this file a .env file gives
+# DOMAIN (the name people use, its DNS pointing here) and ACME_EMAIL (where
+# Let's Encrypt writes about the certificate).
+name: ficelle-traefik
+
+services:
+  traefik:
+    image: traefik:v3.7
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      # Docker through the proxy below, which answers container listings
+      # only: Traefik never holds the Docker socket itself
+      - --providers.docker.endpoint=tcp://docker-proxy:2375
+      # only the containers labelled traefik.enable are published
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL:?set ACME_EMAIL in .env}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - certificates:/letsencrypt
+    security_opt:
+      - no-new-privileges:true
+    # a fixed address, the one the server trusts
+    networks:
+      default:
+        ipv4_address: 172.30.82.2
+      docker:
+    depends_on:
+      - docker-proxy
+
+  # The Docker socket gives whoever holds it the whole machine, read only
+  # or not. This proxy holds it and answers the container listings Traefik
+  # reads the labels from, nothing else, on a network of their own.
+  docker-proxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy:v0.5.0
+    restart: unless-stopped
+    environment:
+      CONTAINERS: '1'
+      EVENTS: '1'
+      POST: '0'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    read_only: true
+    tmpfs:
+      - /run
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - docker
+
+  server:
+    image: ghcr.io/synaelle/ficelle-server:0.2
+    restart: unless-stopped
+    environment:
+      # BASE_PATH in .env serves it under a path of the name, like /notes
+      FICELLE_SERVER__PUBLIC_URL: https://${DOMAIN:?set DOMAIN in .env}${BASE_PATH:-}
+      # Traefik only: not the network's gateway, which is how a client
+      # reaching Traefik through Docker's own proxy arrives
+      FICELLE_SERVER__TRUSTED_PROXIES: '["172.30.82.2"]'
+      FICELLE_PRIVACY__OPERATOR: ${PRIVACY_OPERATOR:-}
+      FICELLE_PRIVACY__CONTACT: ${PRIVACY_CONTACT:-}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.ficelle.rule=Host(`${DOMAIN}`) && PathPrefix(`${BASE_PATH:-/}`)
+      - traefik.http.routers.ficelle.entrypoints=websecure
+      - traefik.http.routers.ficelle.tls.certresolver=le
+      - traefik.http.services.ficelle.loadbalancer.server.port=8080
+    volumes:
+      - data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      options:
+        max-size: 10m
+        max-file: '3'
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.82.0/24
+  # Traefik and the Docker proxy only, no way out
+  docker:
+    internal: true
+
+volumes:
+  data:
+  certificates:

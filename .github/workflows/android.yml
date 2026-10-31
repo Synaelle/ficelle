@@ -1,0 +1,155 @@
+name: android
+
+# The Android APK, one for every phone and tablet: 64-bit ARM, 32-bit ARM
+# and x86_64 (Chromebooks, emulators) in the same file. Signed with the release key (the
+# ANDROID_KEYSTORE, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD secrets).
+# release.yml calls it for each release, signed for the app updater with the
+# TAURI_SIGNING_PRIVATE_KEY one too, and attaches it. A manual run builds the
+# APK of the chosen branch, or of `ref` (a released tag, to build its APK
+# again), kept as an artifact for a week, signed for the updater if asked.
+
+on:
+  workflow_call:
+    inputs:
+      signed:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: A tag or commit to build instead of the branch
+        type: string
+        default: ''
+      signed:
+        description: Signed for the app updater too
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  NDK_VERSION: 29.0.14206865
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: android sdk and ndk
+        run: |
+          sdk="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdk" --licenses > /dev/null || true
+          "$sdk" --install "ndk;$NDK_VERSION" "platforms;android-37.0" > /dev/null
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+          # OpenSSL, built from source for SQLCipher, looks for the target's
+          # own ar and ranlib, which the NDK names llvm-ar and llvm-ranlib
+          bin="$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          # the cc crate's variable name, then the NDK's compiler prefix
+          for pair in \
+            aarch64_linux_android:aarch64-linux-android \
+            armv7_linux_androideabi:armv7a-linux-androideabi \
+            x86_64_linux_android:x86_64-linux-android; do
+            {
+              echo "CC_${pair%%:*}=$bin/${pair#*:}24-clang"
+              echo "AR_${pair%%:*}=$bin/llvm-ar"
+              echo "RANLIB_${pair%%:*}=$bin/llvm-ranlib"
+            } >> "$GITHUB_ENV"
+          done
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      # rust-toolchain.toml selects the version and components
+      - run: rustup show && rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      # the client carries the e2ee code as WebAssembly, see tools/wasm.mjs
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: wasm-bindgen@0.2.129
+      - run: pnpm install --frozen-lockfile
+
+      - name: release signing key
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "::error::the ANDROID_KEYSTORE, ANDROID_KEY_ALIAS or ANDROID_KEY_PASSWORD secret is missing"
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
+          # build.gradle.kts reads it, see the comment there
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "password=$ANDROID_KEY_PASSWORD"
+          } > apps/client/src-tauri/gen/android/keystore.properties
+
+      - name: version
+        run: |
+          set -eu
+          # Android only updates to a higher version code: 0.2.1 is 2001,
+          # 0.3.0 is 3000. The tauri cli writes this file only when
+          # tauri.conf.json names a version, which ours does not, and
+          # without it gradle falls back to 1 (0.2.2 went out that way)
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          IFS=. read -r major minor patch <<< "$version"
+          code=$((major * 1000000 + minor * 1000 + patch))
+          {
+            echo "tauri.android.versionName=$version"
+            echo "tauri.android.versionCode=$code"
+          } > apps/client/src-tauri/gen/android/app/tauri.properties
+          cat apps/client/src-tauri/gen/android/app/tauri.properties
+
+      - name: build
+        env:
+          APP_RELEASE: '1'
+        run: pnpm --filter @app/client tauri android build --target aarch64 armv7 x86_64 --apk
+
+      - name: name and updater signature
+        id: apk
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -eu
+          built=$(ls -t apps/client/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk | head -1)
+          test -f "$built"
+          # all three, or a phone gets an APK that does not run on it
+          libs=$(unzip -l "$built" | grep -o 'lib/[^/]*/' | sort -u | paste -sd ' ')
+          echo "$libs"
+          test "$libs" = "lib/arm64-v8a/ lib/armeabi-v7a/ lib/x86_64/"
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          # the version Android reads, or phones refuse it as an update
+          aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          badging=$("$aapt2" dump badging "$built" | sed -n 1p)
+          echo "$badging"
+          echo "$badging" | grep -q "versionName='$version'"
+          slug=$(jq -r .slug packages/brand/brand.json)
+          mkdir -p out
+          name="$slug-$version-android.apk"
+          cp "$built" "out/$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.signed }}" = true ]; then
+            if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+              echo "::error::the TAURI_SIGNING_PRIVATE_KEY secret is missing"
+              exit 1
+            fi
+            pnpm --filter @app/client tauri signer sign "$PWD/out/$name"
+            test -f "out/$name.sig"
+          fi
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apk
+          path: out/
+          retention-days: 7

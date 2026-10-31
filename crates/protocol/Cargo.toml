@@ -1,0 +1,17 @@
+[package]
+name = "app-protocol"
+version.workspace = true
+description = "Api and sync types shared by the clients and the server"
+license = "AGPL-3.0-or-later"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+# the feedback proof of work, the version the server and the core use
+sha2 = "0.11.1"
+
+[lints]
+workspace = true

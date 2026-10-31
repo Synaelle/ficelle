@@ -1,0 +1,60 @@
+# Written by tools/brand.mjs from packages/brand/brand.json. Edit that file, then run pnpm brand.
+#
+# Ficelle as a system service, without Docker. It runs as its own
+# user, ficelle, and may write only to its data folder,
+# /var/lib/ficelle (made by systemd). The config file is
+# /etc/ficelle/ficelle.toml, owned by ficelle, mode 600. The web pages
+# go in /usr/local/share/ficelle/web.
+#
+#   sudo cp ficelle-server.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ficelle-server
+#
+# A backup folder elsewhere on this machine needs a ReadWritePaths= line
+# (sudo systemctl edit ficelle-server).
+
+[Unit]
+Description=Ficelle server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ficelle
+Group=ficelle
+ExecStart=/usr/local/bin/ficelle-server --config /etc/ficelle/ficelle.toml
+WorkingDirectory=/var/lib/ficelle
+Environment=FICELLE_STORAGE__DATA_DIR=/var/lib/ficelle
+Environment=FICELLE_SERVER__WEB_DIR=/usr/local/share/ficelle/web
+StateDirectory=ficelle
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=5
+
+# the server needs its port, its folder and the network, nothing more
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

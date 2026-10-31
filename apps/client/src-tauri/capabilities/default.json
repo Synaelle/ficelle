@@ -1,0 +1,20 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions of the app windows: main and the desktop quick note. Keep this list as short as possible.",
+  "windows": [
+    "main",
+    "quick"
+  ],
+  "permissions": [
+    "core:default",
+    "core:webview:allow-set-webview-zoom",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "fs:allow-write-text-file",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text",
+    "haptics:allow-impact-feedback",
+    "haptics:allow-selection-feedback"
+  ]
+}

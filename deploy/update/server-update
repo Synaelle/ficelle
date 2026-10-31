@@ -1,0 +1,120 @@
+#!/bin/bash
+# Updates one compose instance to the newest image of the tag it follows,
+# and puts it back as it was when the new version does not come up:
+#
+#   1. pulls the tag (0.1 takes 0.1.1, 0.1.2... never 0.2), and checks it
+#      was signed by the project's image workflow when cosign is installed
+#      (https://docs.sigstore.dev/cosign/system_config/installation/),
+#   2. stops the server and copies its data volume into <folder>/updates/,
+#   3. starts the new image and waits for it to report healthy,
+#   4. if it does not: the copy goes back, the previous image is started
+#      again, and that new image is skipped from then on.
+#
+# Usage: server-update <compose folder>, as root (it reads and writes the
+# volume). server-update@.timer runs it each night. Its lines go to the
+# journal: journalctl -u 'server-update@*'
+set -euo pipefail
+
+dir=${1:?usage: server-update <compose folder>}
+keep=${KEEP_COPIES:-5}
+wait_seconds=${HEALTH_WAIT:-180}
+helper=${HELPER_IMAGE:-debian:stable-slim}
+# the workflow whose signature an image must carry
+signer=${IMAGE_SIGNER:-https://github.com/Synaelle/ficelle/.github/workflows/image.yml}
+service=server
+
+cd "$dir"
+log() { echo "server-update $dir: $*"; }
+dc() { docker compose "$@"; }
+
+image=$(dc config --images "$service" | head -n 1)
+[ -n "$image" ] || { log "no image for the $service service"; exit 1; }
+mkdir -p updates
+chmod 700 updates
+
+cid=$(dc ps -q "$service" || true)
+old=""
+[ -n "$cid" ] && old=$(docker inspect -f '{{.Image}}' "$cid")
+
+dc pull -q "$service"
+new=$(docker image inspect -f '{{.Id}}' "$image")
+version() { docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' "$1" 2>/dev/null || true; }
+
+if [ -z "$old" ]; then
+  log "not running, starting $(version "$new")"
+  dc up -d "$service"
+  exit 0
+fi
+if [ "$new" = "$old" ]; then
+  log "up to date, $(version "$old")"
+  exit 0
+fi
+if grep -qx "$new" updates/refused 2>/dev/null; then
+  log "skips $(version "$new"), it failed here before"
+  exit 0
+fi
+
+# an image the project's workflow did not build and sign is not run, even
+# from the right registry
+digest=$(docker image inspect -f '{{index .RepoDigests 0}}' "$image" 2>/dev/null || true)
+if command -v cosign > /dev/null; then
+  if ! cosign verify --certificate-identity-regexp "^${signer}@" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    "$digest" > /dev/null 2>&1; then
+    log "$(version "$new") is not signed by $signer, not updating"
+    echo "$new" >> updates/refused
+    exit 1
+  fi
+else
+  log "cosign is not installed, the image's signature is not checked"
+fi
+
+healthy() { # waits for the running container to report healthy
+  local end=$((SECONDS + wait_seconds)) id state
+  while [ $SECONDS -lt $end ]; do
+    id=$(dc ps -q "$service" || true)
+    state=$([ -n "$id" ] && docker inspect -f '{{.State.Health.Status}}' "$id" 2>/dev/null || true)
+    [ "$state" = healthy ] && return 0
+    sleep 3
+  done
+  return 1
+}
+
+volume=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' "$cid")
+[ -n "$volume" ] || { log "no volume mounted at /data"; exit 1; }
+copy="updates/before-$(date -u +%Y%m%dT%H%M%SZ).tgz"
+
+log "updating $(version "$old") to $(version "$new")"
+dc stop "$service"
+if ! docker run --rm -v "$volume":/data:ro -v "$PWD/updates":/out "$helper" \
+  tar -C /data -czf "/out/${copy#updates/}" .; then
+  log "the copy of the data failed, nothing updated"
+  # the container still has the previous image
+  dc start "$service"
+  exit 1
+fi
+chmod 600 "$copy"
+
+dc up -d "$service"
+if healthy; then
+  log "now running $(version "$new"), the data from before is in $dir/$copy"
+  # the oldest copies go, the newest $keep stay
+  ls -1t updates/before-*.tgz | tail -n +$((keep + 1)) | xargs -r rm -f
+  exit 0
+fi
+
+log "$(version "$new") did not come up healthy, going back to $(version "$old")"
+dc logs --tail 30 "$service" || true
+echo "$new" >> updates/refused
+dc stop "$service"
+docker run --rm -v "$volume":/data -v "$PWD/updates":/in:ro "$helper" \
+  sh -c "find /data -mindepth 1 -delete && tar -C /data -xzf /in/${copy#updates/}"
+# the tag points at the previous image again, here only
+docker tag "$old" "$image"
+dc up -d "$service"
+if healthy; then
+  log "back on $(version "$old") with the data from before the update"
+else
+  log "the previous version does not come up either: look at docker compose logs"
+fi
+exit 1

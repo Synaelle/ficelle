@@ -1,0 +1,15 @@
+# Each night, for the instance in the folder the timer is named after:
+#   systemctl enable --now "server-update@$(systemd-escape --path /opt/ficelle).timer"
+
+[Unit]
+Description=Update the server in %f each night
+
+[Timer]
+OnCalendar=*-*-* 04:00
+# not on the minute every server in the world would pick
+RandomizedDelaySec=45m
+# a night missed while the machine was off runs at the next start
+Persistent=true
+
+[Install]
+WantedBy=timers.target

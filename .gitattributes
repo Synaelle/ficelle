@@ -1,0 +1,5 @@
+# lf everywhere so shell hooks run on windows checkouts too
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.icns binary

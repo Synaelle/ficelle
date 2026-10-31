@@ -1,0 +1,37 @@
+# Dependency updates as pull requests, each week. Minor and patch updates
+# come grouped, one pull request per ecosystem, so they read in one go.
+# Security fixes come on their own as soon as they are published.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor:
+        update-types: [minor, patch]
+
+  # pnpm workspace: the root lockfile covers every package
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+
+  # the image's build and base images
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

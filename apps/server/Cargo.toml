@@ -1,0 +1,72 @@
+[package]
+name = "server"
+version.workspace = true
+description = "Self-hosted sync and sharing server"
+license = "AGPL-3.0-or-later"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# the binary name comes from brand.json, see tools/brand.mjs
+[[bin]]
+name = "ficelle-server"
+path = "src/main.rs"
+
+[dependencies]
+app-brand.workspace = true
+app-e2ee = { path = "../../crates/e2ee" }
+app-protocol.workspace = true
+# backups of the instance, and SFTP as a place for them (the apps leave it out)
+app-repo.workspace = true
+russh = { version = "0.65.0", default-features = false, features = ["ring"] }
+russh-sftp = "3.0.1"
+argon2 = "0.6.0"
+axum = { workspace = true, features = ["ws"] }
+base64 = "0.23.1"
+chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc"] }
+data-encoding = "2.11.1"
+# the official catalog's signatures, the version openidconnect brings
+ed25519-dalek = "2.2.0"
+futures-core = "0.3.34"
+getrandom = "0.4.3"
+hmac = "0.13.0"
+lettre = { version = "0.11.23", default-features = false, features = ["builder", "hostname", "pool", "ring", "smtp-transport", "tokio1", "tokio1-rustls", "webpki-roots"] }
+openidconnect = "4.0.1"
+# fetches the official catalog, the build openidconnect brings already
+reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls"] }
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+serde.workspace = true
+serde_json.workspace = true
+sha1 = "0.11.0"
+sha2 = "0.11.1"
+thiserror = "2.0.21"
+tokio = { workspace = true, features = ["fs", "sync", "time", "io-util"] }
+toml = "1.1.8"
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["json"] }
+uuid = { version = "1.28.0", features = ["v7"] }
+zeroize = "1.9.1"
+url = "2"
+webauthn-rs = { version = "0.5.5", features = ["danger-allow-state-serialisation", "conditional-ui"] }
+rpassword = "7.5.4"
+
+# the same SQLite build as the core: two builds cannot link into one workspace
+[target.'cfg(target_vendor = "apple")'.dependencies]
+rusqlite = { version = "0.40.2", features = ["bundled-sqlcipher"] }
+
+[target.'cfg(not(target_vendor = "apple"))'.dependencies]
+rusqlite = { version = "0.40.2", features = ["bundled-sqlcipher-vendored-openssl"] }
+
+[dev-dependencies]
+app-repo = { workspace = true, features = ["testing"] }
+app-core = { workspace = true, features = ["testing"] }
+chrono = "0.4.45"
+futures-util = "0.3"
+openssl = "0.10.81"
+tempfile = "3.27.0"
+tokio-tungstenite = "0.29.0"
+tower = { version = "0.5", features = ["util"] }
+webauthn-authenticator-rs = { version = "0.5.5", features = ["softpasskey"] }
+
+[lints]
+workspace = true

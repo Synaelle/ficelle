@@ -1,0 +1,59 @@
+{
+  "$schema": "./theme.schema.json",
+  "id": "darkroom",
+  "name": "Ficelle",
+  "description": "Default Ficelle look",
+  "fonts": {
+    "ui": "Hanken Grotesk",
+    "editor": "Atkinson Hyperlegible Next",
+    "mono": "IBM Plex Mono"
+  },
+  "icons": "lucide",
+  "colors": {
+    "dark": {
+      "bg": "#0E0D0D",
+      "surface": "#161414",
+      "surface2": "#1F1C1B",
+      "border": "#2E2A28",
+      "borderStrong": "#423B38",
+      "text": "#E6DFD8",
+      "textMuted": "#9A918A",
+      "textFaint": "#5F5752",
+      "accent": "#E44C3E",
+      "accentText": "#E44C3E",
+      "accentPressed": "#B93A2E",
+      "accentOn": "#140B09",
+      "danger": "#FF7A5C",
+      "success": "#8DB07A",
+      "warning": "#D9A441",
+      "selection": "#3A1915"
+    },
+    "light": {
+      "bg": "#F1EFEA",
+      "surface": "#FBFAF7",
+      "surface2": "#E5E2DB",
+      "border": "#CBC6BC",
+      "borderStrong": "#A9A298",
+      "text": "#161413",
+      "textMuted": "#5E5853",
+      "textFaint": "#9C958C",
+      "accent": "#C1271B",
+      "accentText": "#C1271B",
+      "accentPressed": "#9A1D13",
+      "accentOn": "#FFF6F0",
+      "danger": "#A3341F",
+      "success": "#3D6B35",
+      "warning": "#8A5A00",
+      "selection": "#F5D5CE"
+    }
+  },
+  "radius": { "control": 2, "popover": 4, "window": 6 },
+  "space": [4, 8, 12, 16, 24, 32, 48],
+  "motion": {
+    "fast": 140,
+    "base": 220,
+    "slow": 360,
+    "easeOut": "cubic-bezier(0.2, 0.7, 0.2, 1)",
+    "easeInOut": "cubic-bezier(0.65, 0, 0.35, 1)"
+  }
+}

@@ -1,0 +1,61 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "apps/server", "apps/client/src-tauri"]
+
+[workspace.package]
+# the release number, shown as is in release builds and as dev-{commit} otherwise
+version = "0.2.2"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+[workspace.dependencies]
+app-brand = { path = "crates/brand" }
+app-core = { path = "crates/core" }
+app-protocol = { path = "crates/protocol" }
+app-repo = { path = "crates/repo" }
+
+axum = "0.8.9"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tauri = "2.12.5"
+tauri-build = "2.7.4"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "net", "signal"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# pedantic noise that does not improve readability here
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+# `assert!(x.is_empty())` reads better than comparing to a typed empty array
+assert_is_empty = "allow"
+
+[profile.release]
+# size matters more than peak speed for a budget of 15 mb for the bare app
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# password hashing is deliberately slow, unoptimized it takes seconds in debug
+# builds, which makes unlocking during development painful
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3
+
+# the release keeps password hashing at full speed: unlocking waits on it
+[profile.release.package.argon2]
+opt-level = 3
+
+[profile.release.package.blake2]
+opt-level = 3

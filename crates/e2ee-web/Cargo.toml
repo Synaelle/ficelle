@@ -1,0 +1,26 @@
+[package]
+name = "app-e2ee-web"
+version.workspace = true
+description = "The e2ee account client for the web pages, as WebAssembly"
+license = "AGPL-3.0-or-later"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+app-e2ee = { path = "../e2ee" }
+serde_json = { workspace = true }
+# the exact version the wasm-bindgen command line tool must match
+wasm-bindgen = "=0.2.129"
+
+# randomness in the browser comes from crypto.getRandomValues
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+# the same for the newer getrandom that hpke (sharing keys) uses
+getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
+
+[lints]
+workspace = true

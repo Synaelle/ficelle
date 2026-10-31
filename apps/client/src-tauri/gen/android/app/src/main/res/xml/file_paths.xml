@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the app hands to other apps, nothing more: the checked update
+     for the system installer, and a photo taken
+     for a note by the camera app. -->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+  <cache-path name="updates" path="updates/" />
+  <external-files-path name="camera" path="Pictures/" />
+</paths>

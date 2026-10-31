@@ -1,0 +1,56 @@
+{
+  "name": "workspace",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @app/client tauri dev",
+    "dev:web": "pnpm --filter @app/client dev",
+    "dev:server": "node tools/dev-server.mjs",
+    "build:release": "node tools/build-release.mjs",
+    "build:preview": "node tools/build-release.mjs --preview",
+    "build:portable": "node tools/build-release.mjs --portable",
+    "brand": "node tools/brand.mjs",
+    "devtool": "cargo run -q --release -p devtool --",
+    "catalog": "cargo run -q --release -p devtool -- catalog",
+    "releases": "cargo run -q --release -p devtool -- releases",
+    "icons": "pnpm --filter @app/client tauri icon ../../packages/ui/brand/app-icon.svg",
+    "lint": "eslint . && prettier --check . && pnpm -r check && node tools/brand.mjs --check && node tools/i18n-check.mjs",
+    "i18n": "node tools/i18n-check.mjs",
+    "format": "prettier --write . && cargo fmt --all",
+    "lint:rust": "cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings",
+    "test": "cargo test --workspace && pnpm -r --if-present test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "eslint-plugin-svelte": "3.23.1",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "prettier-plugin-svelte": "4.1.1",
+    "smol-toml": "1.9.1",
+    "svelte": "5.57.2",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0"
+  },
+  "prettier": {
+    "semi": false,
+    "singleQuote": true,
+    "printWidth": 100,
+    "plugins": [
+      "prettier-plugin-svelte"
+    ],
+    "overrides": [
+      {
+        "files": "*.svelte",
+        "options": {
+          "parser": "svelte"
+        }
+      }
+    ]
+  }
+}

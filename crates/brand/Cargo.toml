@@ -1,0 +1,11 @@
+[package]
+name = "app-brand"
+version.workspace = true
+description = "Product names and identifiers, kept in one place for easy renaming"
+license = "AGPL-3.0-or-later"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,8 @@
+.atelier/
+target/
+dist/
+pnpm-lock.yaml
+**/LICENSE
+apps/client/src-tauri/
+**/fixtures/
+apps/client/src/generated/

@@ -1,0 +1,15 @@
+# only what the image build needs, and never local data or secrets
+.git
+.github
+.dev-data
+.env
+.env.*
+**/node_modules
+target
+apps/client/dist
+apps/client/src/generated
+apps/client/src-tauri/gen
+docs
+guides
+deploy
+**/*.log

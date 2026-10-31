@@ -1,0 +1,326 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Rendered note content. Global because TipTap builds this DOM itself. */
+
+.prose {
+  min-height: 50vh;
+  font-family: var(--font-editor);
+  font-size: 16px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.prose:focus,
+.prose:focus-visible {
+  /* the whole note is one editable area, a frame around it only distracts */
+  outline: none;
+}
+.prose > * + * {
+  margin-top: 0.75em;
+}
+/* an empty note says where to write (the placeholder extension) */
+.prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+.prose p {
+  margin: 0;
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  margin: 1.4em 0 0.4em;
+  line-height: 1.25;
+  font-weight: 650;
+}
+.prose h1 {
+  font-size: 1.6em;
+}
+.prose h2 {
+  font-size: 1.3em;
+}
+.prose h3 {
+  font-size: 1.12em;
+}
+.prose a {
+  color: var(--color-accent-text);
+}
+.prose .wiki-link {
+  color: var(--color-accent-text);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.prose code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+.prose pre {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-popover);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  overflow-x: auto;
+}
+.prose pre code {
+  padding: 0;
+  background: none;
+}
+
+/* a code block with its language picker in the corner (extensions/codeBlock) */
+.prose .code-block {
+  position: relative;
+}
+.prose .code-language {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  max-width: 45%;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-faint);
+  font: inherit;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.prose .code-block:hover .code-language,
+.prose .code-language:focus-visible {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+.prose .code-language:disabled {
+  cursor: default;
+}
+
+/* syntax colors, from the theme's own readable colors */
+.prose .hljs-keyword,
+.prose .hljs-selector-tag,
+.prose .hljs-built_in,
+.prose .hljs-doctag {
+  color: var(--color-accent-text);
+}
+.prose .hljs-string,
+.prose .hljs-regexp,
+.prose .hljs-addition,
+.prose .hljs-selector-attr,
+.prose .hljs-template-variable {
+  color: var(--color-success);
+}
+.prose .hljs-number,
+.prose .hljs-literal,
+.prose .hljs-symbol,
+.prose .hljs-variable.constant_,
+.prose .hljs-attr,
+.prose .hljs-attribute {
+  color: var(--color-warning);
+}
+.prose .hljs-comment,
+.prose .hljs-quote,
+.prose .hljs-meta {
+  color: var(--color-text-faint);
+  font-style: italic;
+}
+.prose .hljs-title,
+.prose .hljs-section,
+.prose .hljs-name,
+.prose .hljs-type {
+  color: color-mix(in srgb, var(--color-accent-text) 55%, var(--color-text));
+}
+.prose .hljs-deletion {
+  color: var(--color-danger);
+}
+.prose .hljs-emphasis {
+  font-style: italic;
+}
+.prose .hljs-strong {
+  font-weight: 600;
+}
+.prose blockquote {
+  margin-left: 0;
+  padding-left: var(--space-4);
+  border-left: 3px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+}
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--color-border-strong);
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.5em;
+}
+.prose ul[data-type='taskList'] {
+  padding-left: 0.2em;
+  list-style: none;
+}
+.prose ul[data-type='taskList'] li {
+  display: flex;
+  gap: var(--space-2);
+}
+.prose ul[data-type='taskList'] li > label {
+  flex: none;
+  margin-top: 0.15em;
+}
+.prose ul[data-type='taskList'] input {
+  accent-color: var(--color-accent);
+}
+.prose li[data-checked='true'] > div {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.prose th,
+.prose td {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  vertical-align: top;
+}
+.prose th {
+  background: var(--color-surface-2);
+  font-weight: 600;
+  text-align: left;
+}
+.prose .callout {
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+}
+.prose .callout[data-title]:not([data-title=''])::before {
+  content: attr(data-title);
+  display: block;
+  margin-bottom: var(--space-1);
+  font-weight: 600;
+}
+.prose .math {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+/* <details>: always open while writing, its title on a line of its own */
+.prose .details {
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+.prose .details-summary {
+  font-weight: 600;
+}
+.prose .details-summary::before {
+  content: '▾ ';
+  color: var(--color-text-muted);
+}
+/* footnotes: the mark small and raised, the note with its label */
+.prose .footnote-ref {
+  color: var(--color-accent);
+  font-size: 0.75em;
+}
+.prose .footnote {
+  display: flex;
+  gap: var(--space-2);
+  font-size: 0.9em;
+  color: var(--color-text-muted);
+}
+.prose .footnote-label {
+  flex: none;
+}
+
+/* images placed like in a word processor */
+.prose .image-view {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+  vertical-align: bottom;
+}
+.prose .image-view img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-control);
+}
+.prose .image-view[data-wrap='left'] {
+  float: left;
+  margin: 0.3em 1.2em 0.6em 0;
+}
+.prose .image-view[data-wrap='right'] {
+  float: right;
+  margin: 0.3em 0 0.6em 1.2em;
+}
+.prose .image-view[data-wrap='center'] {
+  display: block;
+  width: fit-content;
+  margin: 0.6em auto;
+}
+.prose .image-view[data-wrap='full'] {
+  display: block;
+  width: 100%;
+}
+.prose .image-view.selected img {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.prose .image-view .handle {
+  display: none;
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--color-accent);
+  border: 2px solid var(--color-surface);
+  border-radius: 2px;
+  touch-action: none;
+}
+.prose .image-view.selected .handle {
+  display: block;
+}
+.prose .handle[data-dir='n'],
+.prose .handle[data-dir='s'] {
+  left: calc(50% - 5px);
+  cursor: ns-resize;
+}
+.prose .handle[data-dir='e'],
+.prose .handle[data-dir='w'] {
+  top: calc(50% - 5px);
+  cursor: ew-resize;
+}
+.prose .handle[data-dir^='n'] {
+  top: -5px;
+}
+.prose .handle[data-dir^='s'] {
+  bottom: -5px;
+}
+.prose .handle[data-dir$='w'] {
+  left: -5px;
+}
+.prose .handle[data-dir$='e'] {
+  right: -5px;
+}
+.prose .handle[data-dir='nw'],
+.prose .handle[data-dir='se'] {
+  cursor: nwse-resize;
+}
+.prose .handle[data-dir='ne'],
+.prose .handle[data-dir='sw'] {
+  cursor: nesw-resize;
+}
+/* text after floated images starts below them only when asked, like Word */
+.prose::after {
+  content: '';
+  display: block;
+  clear: both;
+}
