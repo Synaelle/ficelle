@@ -466,12 +466,6 @@
             on: prefs.emojiShortcodes,
             run: () => (prefs.emojiShortcodes = !prefs.emojiShortcodes),
           })}
-          {@render row({
-            icon: 'pin',
-            label: t('settings.openNoteFirst'),
-            on: prefs.openNoteFirst,
-            run: () => (prefs.openNoteFirst = !prefs.openNoteFirst),
-          })}
         </div>
       {:else if page === 'language'}
         <div class="group">
@@ -525,7 +519,6 @@
             })}
           </div>
         {/if}
-        {#if settings.message}<p class="note">{settings.message}</p>{/if}
       {:else if page === 'sync'}
         <div class="sync"><SyncSettings /></div>
       {:else if page === 'notes'}
