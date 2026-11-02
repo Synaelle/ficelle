@@ -1,6 +1,6 @@
 # Self-hosting with Docker
 
-The server is one container, `ghcr.io/synaelle/ficelle-server`, with its data in one volume. Put a reverse proxy with HTTPS in front of it. This is the recommended and supported way to run a server.
+The server is one container, `ghcr.io/synaelle/ficelle-server`, with its data in one volume. Put a reverse proxy with HTTPS in front of it. This is the recommended way to run a server.
 
 ## Install
 

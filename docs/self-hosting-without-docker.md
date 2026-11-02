@@ -3,7 +3,7 @@
 The server is one binary, `ficelle-server`, with the web pages beside it and its data in one folder. It runs as a systemd service behind a reverse proxy with HTTPS.
 
 > [!WARNING]
-> Running without Docker is not supported and not recommended. You build from source, update by hand and get no automatic rollback or image signature check. Use [self-hosting with Docker](self-hosting-docker.md) unless you know why you need this.
+> Running without Docker is supported but not recommended. You build from source, update by hand and get no automatic rollback or image signature check. Use [self-hosting with Docker](self-hosting-docker.md) unless you know why you need this.
 
 ## Build
 

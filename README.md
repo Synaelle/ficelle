@@ -31,7 +31,7 @@ macOS and iOS need testers with a Mac or an iPhone, see [Ficelle on a Mac or an 
 
 ## Your own server
 
-Run it with Docker, see [Self-hosting with Docker](docs/self-hosting-docker.md). Running it without Docker is possible but not supported, see [Self-hosting without Docker](docs/self-hosting-without-docker.md).
+Run it with Docker, see [Self-hosting with Docker](docs/self-hosting-docker.md). Running it without Docker is supported but not recommended, see [Self-hosting without Docker](docs/self-hosting-without-docker.md).
 
 ## License
 
