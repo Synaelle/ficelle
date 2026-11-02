@@ -44,6 +44,12 @@ jobs:
             | jq '.bundle.createUpdaterArtifacts = false' > "$RUNNER_TEMP/apple.json"
           echo "TAURI_CONFIG=$(jq -c . "$RUNNER_TEMP/apple.json")" >> "$GITHUB_ENV"
           TAURI_CONFIG="$(jq -c . "$RUNNER_TEMP/apple.json")" pnpm tauri ios init --ci
+          # signing off in the project itself: tauri does not pass build
+          # settings on to xcodebuild, and an unsigned app needs no team
+          project=$(ls -d src-tauri/gen/apple/*.xcodeproj | head -n1)
+          sed -i '' 's/buildSettings = {/buildSettings = { CODE_SIGNING_ALLOWED = NO; CODE_SIGNING_REQUIRED = NO; CODE_SIGN_IDENTITY = ""; DEVELOPMENT_TEAM = "";/' \
+            "$project/project.pbxproj"
+          grep -c 'CODE_SIGNING_ALLOWED = NO' "$project/project.pbxproj"
       - name: build, unsigned
         working-directory: apps/client
         env:
