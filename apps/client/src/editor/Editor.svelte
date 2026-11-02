@@ -220,6 +220,9 @@
     const next = editor.getMarkdown()
     shown = next
     if (next !== markdown) onchange(next)
+    // what is saved is the new start: an edit taken back afterwards (a file
+    // inserted then removed) differs from it, and is saved too
+    opened = editor.state.doc
   }
 
   // another device's text for this note: patched in, the caret stays
@@ -238,9 +241,20 @@
       : { type: 'text', text: file.fileName, marks: [{ type: 'link', attrs: { href: src } }] }
   }
 
-  /** Mentions a file of the note at the caret. */
+  /** Whether the person placed the caret in this note since it opened. */
+  let placed = false
+
+  /** Mentions a file of the note at the caret, or on a line of its own at
+   * the end when the caret was never placed (it would sit before the first
+   * word otherwise). */
   export function mentionFile(file: AttachmentFile) {
-    editor?.chain().focus().insertContent(mentionOf(file)).run()
+    if (placed) editor?.chain().focus().insertContent(mentionOf(file)).run()
+    else
+      editor
+        ?.chain()
+        .focus('end')
+        .insertContent({ type: 'paragraph', content: [mentionOf(file)] })
+        .run()
   }
 
   /** Adds files to the note without mentioning them in the text. */
@@ -410,6 +424,9 @@
             if (!destroyed) tick += 1
           })
         } else tick += 1
+      },
+      onFocus: () => {
+        placed = true
       },
       // a blur can come while Svelte draws another screen: saved just after,
       // and a destroyed editor was saved by its teardown already
