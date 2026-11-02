@@ -10,8 +10,8 @@
   <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Synaelle/ficelle"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="80"></a>
 </p>
 
-> [!CAUTION]
-> Ficelle is in early beta, its design and features may still change. Keep backups of your notes.
+> [!WARNING]
+> Ficelle is in early development, it is recommended to keep backups of your notes.
 
 ## What it does
 
