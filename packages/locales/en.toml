@@ -815,7 +815,7 @@ other = "At most {count} images."
 
 [admin]
 title = "{app} admin"
-factorRequired = "This admin account was made or reset from the command line. Add a passkey or an authenticator app below: the rest of the admin page opens once it has one."
+factorRequired = "Admins need a second step. Add a passkey or an authenticator app below: the rest of the admin page opens once this account has one."
 sections = "Admin sections"
 signOut = "Sign out"
 retry = "Try again"

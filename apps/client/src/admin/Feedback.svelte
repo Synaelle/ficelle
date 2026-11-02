@@ -250,8 +250,12 @@
     })
   }
 
-  /** The caps as typed, an empty field for the config's. */
-  let capsDraft = $state({ perHour: '', perDay: '' })
+  /** The caps as typed, an empty field for the config's. A number field
+   * gives a number once something is typed in it, null once cleared. */
+  let capsDraft = $state<{ perHour: number | string | null; perDay: number | string | null }>({
+    perHour: '',
+    perDay: '',
+  })
   $effect(() => {
     if (!settings) return
     capsDraft = {
@@ -262,7 +266,8 @@
 
   async function saveCaps(event: SubmitEvent) {
     event.preventDefault()
-    const cap = (text: string) => (text.trim() ? Number(text) : null)
+    const cap = (value: number | string | null) =>
+      value === null || String(value).trim() === '' ? null : Number(value)
     await act(async () => {
       settings = await api<Settings>('PUT', '/admin/feedback/caps', {
         perHour: cap(capsDraft.perHour),
