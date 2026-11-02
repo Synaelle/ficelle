@@ -921,7 +921,7 @@ mod tests {
         db.call(move |c| create_session(c, &id, &device(), later - 1_000, &auth()))
             .await
             .unwrap();
-        db.call(move |c| Ok(cleanup(c, later)?)).await.unwrap();
+        db.call(move |c| cleanup(c, later)).await.unwrap();
         let id = user.id.clone();
         let devices = db.call(move |c| list_devices(c, &id)).await.unwrap();
         assert_eq!(devices.len(), 1, "only the device still signed in");
