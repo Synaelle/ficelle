@@ -857,3 +857,177 @@ pub async fn revoke_token(
         .await?;
     Ok(StatusCode::NO_CONTENT)
 }
+
+/// What the admin page sends about this server to the main instance.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToMain {
+    /// What it is about, in one line.
+    about: String,
+    /// The admin's words, may be empty.
+    #[serde(default)]
+    message: String,
+    /// An email address or a Discord name, for an answer.
+    #[serde(default)]
+    contact: Option<String>,
+}
+
+/// The main instance answers within this, a report is small.
+const MAIN_TIME: Duration = Duration::from_secs(15);
+
+/// Most of an answer from the main instance read back.
+const MAIN_ANSWER: usize = 64 * 1024;
+
+fn unreachable() -> Error {
+    Error::new(
+        StatusCode::BAD_GATEWAY,
+        error_code::INTERNAL,
+        "the main server could not be reached",
+    )
+}
+
+/// `POST /api/v1/admin/feedback/send`: feedback about this server, sent by
+/// the server itself to the project's main instance as an app sends it,
+/// since the admin page may only call its own server.
+pub async fn send_to_main(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    CurrentUser(me): CurrentUser,
+    Body(draft): Body<ToMain>,
+) -> Result<StatusCode, Error> {
+    admin(&me)?;
+    let about = draft.about.trim().to_owned();
+    if about.is_empty() {
+        return Err(Error::invalid("say what it is about"));
+    }
+    let main = state.config.feedback.main_url.trim().trim_end_matches('/');
+    if main.is_empty() {
+        return Err(Error::new(
+            StatusCode::NOT_FOUND,
+            error_code::FEEDBACK_OFF,
+            "this server has no main server to send feedback to",
+        ));
+    }
+    // the main instance counts its caps per server: this one's public host
+    let server = reqwest::Url::parse(&state.config.server.public_url)
+        .ok()
+        .and_then(|url| {
+            let host = url.host_str()?.to_owned();
+            Some(match url.port() {
+                Some(port) => format!("{host}:{port}"),
+                None => host,
+            })
+        });
+    let mut report = Report {
+        challenge: String::new(),
+        nonce: 0,
+        install: None,
+        category: None,
+        about: Some(about),
+        message: draft.message,
+        contact: draft.contact,
+        version: app_brand::VERSION.to_owned(),
+        platform: "server".to_owned(),
+        logs: None,
+        images: Vec::new(),
+        server,
+        receipt: None,
+    };
+    // checked here as the main instance would, a refusal is told plainly
+    feedback::validate(report.clone()).map_err(Error::invalid)?;
+    let http = reqwest::Client::builder()
+        .timeout(MAIN_TIME)
+        .connect_timeout(Duration::from_secs(5))
+        // the name alone, as for the release list
+        .user_agent(app_brand::SLUG)
+        .build()
+        .map_err(|_| unreachable())?;
+    let protocol = app_protocol::PROTOCOL_VERSION.to_string();
+    let response = http
+        .post(format!("{main}/api/v1/feedback/challenge"))
+        .header(app_protocol::PROTOCOL_HEADER, &protocol)
+        .send()
+        .await
+        .map_err(|e| {
+            tracing::warn!("feedback to the main server: {e}");
+            unreachable()
+        })?;
+    let (status, body) = answer(response).await?;
+    if !status.is_success() {
+        return Err(refused(status, &body));
+    }
+    let challenge: Challenge = serde_json::from_slice(&body).map_err(|e| {
+        tracing::warn!("feedback to the main server: not a challenge: {e}");
+        unreachable()
+    })?;
+    let text = challenge.challenge.clone();
+    report.nonce =
+        tokio::task::spawn_blocking(move || app_protocol::feedback::solve(&text, challenge.bits))
+            .await
+            .map_err(|_| Error::internal("the proof of work stopped"))?;
+    report.challenge = challenge.challenge;
+    let body = serde_json::to_vec(&report).map_err(|_| Error::internal("report"))?;
+    let response = http
+        .post(format!("{main}/api/v1/feedback"))
+        .header(app_protocol::PROTOCOL_HEADER, &protocol)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(body)
+        .send()
+        .await
+        .map_err(|e| {
+            tracing::warn!("feedback to the main server: {e}");
+            unreachable()
+        })?;
+    let (status, body) = answer(response).await?;
+    if !status.is_success() {
+        return Err(refused(status, &body));
+    }
+    let now = state.clock.now();
+    let ip = ip.0.to_string();
+    let detail = format!("to {main}");
+    state
+        .db
+        .call(move |c| admin_event(c, now, "feedback_sent", None, &me, &ip, &detail))
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// The main instance's status and at most [`MAIN_ANSWER`] of its body.
+async fn answer(mut response: reqwest::Response) -> Result<(StatusCode, Vec<u8>), Error> {
+    let status = StatusCode::from_u16(response.status().as_u16())
+        .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|_| unreachable())? {
+        body.extend_from_slice(&chunk);
+        if body.len() > MAIN_ANSWER {
+            break;
+        }
+    }
+    Ok((status, body))
+}
+
+/// What the admin is told when the main instance says no.
+fn refused(status: StatusCode, body: &[u8]) -> Error {
+    let code = serde_json::from_slice::<serde_json::Value>(body)
+        .ok()
+        .and_then(|v| v["error"].as_str().map(str::to_owned))
+        .unwrap_or_default();
+    tracing::warn!("feedback to the main server: answered {status} {code}");
+    match code.as_str() {
+        error_code::RATE_LIMITED => Error::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            error_code::RATE_LIMITED,
+            "the main server takes no more reports for now, try again later",
+        ),
+        error_code::FEEDBACK_OFF => Error::new(
+            StatusCode::BAD_GATEWAY,
+            error_code::FEEDBACK_OFF,
+            "the main server does not take feedback",
+        ),
+        _ => Error::new(
+            StatusCode::BAD_GATEWAY,
+            error_code::INTERNAL,
+            "the main server refused the report",
+        ),
+    }
+}

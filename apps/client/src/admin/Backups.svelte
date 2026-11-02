@@ -261,6 +261,13 @@
     const config = (view as View | null)?.config
     return config ? JSON.stringify(config.target, null, 2) : ''
   })
+  /** Where backups go, in a few words: the folder, bucket, address or host. */
+  const where = $derived.by(() => {
+    const target = (view as View | null)?.config?.target
+    if (!target) return ''
+    const field = { folder: 'path', s3: 'bucket', webdav: 'url', sftp: 'host' }[target.kind]
+    return String(target[field] ?? '')
+  })
   const SCHEDULES: Schedule[] = ['off', 'hourly', 'daily', 'weekly']
   const KEEP = ['last', 'daily', 'weekly', 'monthly'] as const
 </script>
@@ -284,6 +291,7 @@
 {#if view?.config && !editing}
   <section data-backups-status>
     <h2>{t('backups.status')}</h2>
+    {#if where}<p class="muted">{t('backups.where', { where })}</p>{/if}
     {#if view.running}
       <p>{t('backups.running')}</p>
     {:else if view.status.lastError}
@@ -404,9 +412,12 @@
   </section>
 
   <section>
-    <h2>{t('admin.backups.recovery')}</h2>
-    <p class="muted">{t('admin.backups.recoveryHelp')}</p>
-    <pre data-backups-recovery>{recovery}</pre>
+    <!-- rarely needed, long: folded -->
+    <details class="recovery">
+      <summary>{t('admin.backups.recovery')}</summary>
+      <p class="muted">{t('admin.backups.recoveryHelp')}</p>
+      <pre data-backups-recovery>{recovery}</pre>
+    </details>
     <div class="actions">
       <button class="btn" disabled={busy} onclick={edit}>{t('backups.change')}</button>
       <button class="btn danger" disabled={busy} onclick={() => void stop()}
@@ -561,6 +572,14 @@
   h2 {
     margin: 0;
     font-size: 16px;
+  }
+  .recovery summary {
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .recovery[open] summary {
+    margin-bottom: var(--space-2);
   }
   p {
     margin: 0;

@@ -8,8 +8,11 @@
   import { t } from '../lib/i18n.svelte'
   import { overlay } from '../lib/overlay.svelte'
   import { api, download } from './api.svelte'
-  import { bytes, dateTime, errorText } from './format'
+  import { bytes, date, dateTime, errorText } from './format'
   import { zip } from './zip'
+  import { downloadAll, reportFiles, saveBlob } from './feedbackZip'
+  import Icon from '../lib/icons/Icon.svelte'
+  import ServerReport from './ServerReport.svelte'
 
   let { admin }: { admin: boolean } = $props()
 
@@ -103,6 +106,14 @@
   let saved = $state('')
   let busy = $state(false)
   let settings: Settings | null = $state(null)
+  /** The inbox first; settings and the form for server issues apart. */
+  let view: 'inbox' | 'settings' | 'send' = $state('inbox')
+  // reporting a server issue is the admins' alone
+  const views = $derived(
+    admin ? (['inbox', 'settings', 'send'] as const) : (['inbox', 'settings'] as const),
+  )
+  /** Reports zipped so far while every report is downloaded. */
+  let zipping: { done: number; total: number } | null = $state(null)
   let blocks: Block[] = $state([])
   let reader = $state('')
   let token = $state('')
@@ -168,24 +179,23 @@
     const report = open
     if (!report) return
     await act(async () => {
-      const text = (s: string) => new TextEncoder().encode(s)
-      const details: Partial<Full> = { ...report }
-      delete details.contact
-      const files = [{ name: 'report.json', data: text(JSON.stringify(details, null, 2)) }]
-      if (report.logs) files.push({ name: 'logs.txt', data: text(report.logs) })
-      for (const [n, image] of report.images.entries()) {
-        const file = imageFiles[n]
-        if (!file) continue
-        const data = new Uint8Array(await file.arrayBuffer())
-        files.push({ name: `image-${image.position}.${image.kind}`, data })
-      }
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(zip(files))
-      link.download = `feedback-${report.id}.zip`
-      link.click()
-      // once the download has taken it
-      setTimeout(() => URL.revokeObjectURL(link.href), 10_000)
+      saveBlob(zip(await reportFiles(report, imageFiles)), `feedback-${report.id}.zip`)
     })
+  }
+
+  /** Every report the list shows, its status and filters, in one zip. */
+  async function zipAll() {
+    zipping = { done: 0, total: 0 }
+    try {
+      await act(async () => {
+        await downloadAll(
+          { status, platform, version },
+          (done, total) => (zipping = { done, total }),
+        )
+      })
+    } finally {
+      zipping = null
+    }
   }
 
   function back() {
@@ -456,6 +466,17 @@
     </div>
   </section>
 {:else}
+  <div class="views" role="tablist">
+    {#each views as v (v)}
+      <button role="tab" aria-selected={view === v} onclick={() => (view = v)}
+        >{t(`admin.feedback.view_${v}`)}</button
+      >
+    {/each}
+  </div>
+{/if}
+{#if !open && view === 'send'}
+  <ServerReport />
+{:else if !open && view === 'inbox'}
   <section aria-busy={busy}>
     <div class="tabs" role="tablist">
       {#each STATUSES as s (s)}
@@ -476,7 +497,9 @@
         {t('admin.feedback.platform')}
         <select class="field" bind:value={platform} onchange={() => load()}>
           <option value="">{t('admin.feedback.any')}</option>
-          {#each page?.platforms ?? [] as p (p)}<option value={p}>{p}</option>{/each}
+          {#each page?.platforms ?? [] as p (p)}<option value={p}
+              >{p === 'server' ? t('admin.feedback.fromServers') : p}</option
+            >{/each}
         </select>
       </label>
       <label class="field-label small-field">
@@ -486,22 +509,33 @@
           {#each page?.versions ?? [] as v (v)}<option value={v}>{v}</option>{/each}
         </select>
       </label>
+      {#if admin}
+        <button class="btn zip-all" disabled={busy || !!zipping} onclick={zipAll}
+          >{zipping ? t('admin.feedback.zipping', zipping) : t('admin.feedback.zipAll')}</button
+        >
+      {/if}
     </div>
     <ul class="reports">
       {#each reports as report (report.id)}
         <li>
+          <!-- one line: when, where from, what about, then the start of it -->
           <button onclick={() => read(report.id)}>
-            <span class="meta muted">
-              {dateTime(report.createdAt)} ·
-              {#if report.category}{t(`admin.feedback.category_${report.category}`)} ·{/if}
-              {report.platform} · {report.version}
-              {#if report.images}· {t('admin.feedback.images', { count: report.images })}{/if}
-              {#if report.hasLogs}· {t('admin.feedback.logs')}{/if}
-              {#if report.hasContact}· {t('admin.feedback.hasContact')}{/if}
-              {#if report.kept}· {t('admin.feedback.kept')}{/if}
+            <span class="meta muted">{date(report.createdAt)}</span>
+            <span class="meta muted"
+              >{report.platform === 'server' ? t('admin.feedback.fromServer') : report.platform}
+              {report.version}</span
+            >
+            <span class="excerpt"
+              >{#if report.about}<strong>{report.about}</strong>{/if}
+              {#if report.category}{t(`admin.feedback.category_${report.category}`)}{/if}
+              <span class="muted">{report.excerpt}</span></span
+            >
+            <span class="meta muted marks">
+              {#if report.images}<Icon name="image" size={13} />{report.images}{/if}
+              {#if report.hasLogs}<Icon name="log" size={13} />{/if}
+              {#if report.hasContact}<Icon name="feedback" size={13} />{/if}
+              {#if report.kept}<Icon name="pin" size={13} />{/if}
             </span>
-            {#if report.about}<strong class="excerpt">{report.about}</strong>{/if}
-            {#if report.excerpt}<span class="excerpt">{report.excerpt}</span>{/if}
           </button>
         </li>
       {:else}
@@ -512,7 +546,7 @@
       <button class="btn" onclick={() => load(true)}>{t('admin.feedback.older')}</button>
     {/if}
   </section>
-
+{:else if !open}
   {#if settings}
     <section>
       <h2>{t('admin.feedback.settings')}</h2>
@@ -777,15 +811,51 @@
     padding: 0;
     list-style: none;
   }
+  .views {
+    display: flex;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .views button {
+    margin-bottom: -1px;
+    padding: var(--space-2) 0;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--color-text-muted);
+    font: inherit;
+    cursor: pointer;
+  }
+  .views button[aria-selected='true'] {
+    border-bottom-color: var(--color-accent);
+    color: var(--color-text);
+  }
+  .zip-all {
+    margin-left: auto;
+    align-self: end;
+  }
+  /* a report on one line: date, from, about and its start, marks */
+  .reports {
+    gap: 0;
+  }
   .reports button {
     display: grid;
-    gap: var(--space-1);
+    grid-template-columns: 6.5em 9em minmax(0, 1fr) auto;
+    gap: var(--space-3);
+    align-items: baseline;
     width: 100%;
     padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-popover);
-    background: var(--color-surface);
+    border: 0;
+    border-bottom: 1px solid var(--color-border);
+    background: none;
+    color: inherit;
+    font: inherit;
     text-align: left;
+    cursor: pointer;
+  }
+  .reports button:hover {
+    background: var(--color-surface);
   }
   .excerpt {
     overflow: hidden;
@@ -794,6 +864,19 @@
   }
   .meta {
     font-size: 12px;
+  }
+  .marks {
+    display: flex;
+    gap: var(--space-1);
+    align-items: center;
+  }
+  @media (max-width: 640px) {
+    .reports button {
+      grid-template-columns: auto 1fr;
+    }
+    .reports .excerpt {
+      grid-column: 1 / -1;
+    }
   }
   .plain li {
     display: flex;

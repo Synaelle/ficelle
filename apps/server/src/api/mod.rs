@@ -184,6 +184,7 @@ fn feedback_routes() -> Router<AppState> {
             get(feedback::settings).put(feedback::set_settings),
         )
         .route("/admin/feedback/caps", put(feedback::set_caps))
+        .route("/admin/feedback/send", post(feedback::send_to_main))
         .route("/admin/feedback/access", get(feedback::access))
         .route("/admin/feedback/reports", get(feedback::reports))
         .route(

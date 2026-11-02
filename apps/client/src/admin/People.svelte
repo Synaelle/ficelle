@@ -241,7 +241,9 @@
             <td>
               <button class="link" onclick={() => show(person.id)}>
                 <b>{person.username}</b>
-                <span class="muted">{person.displayName}</span>
+                {#if person.displayName && person.displayName !== person.username}
+                  <span class="muted">{person.displayName}</span>
+                {/if}
               </button>
               {#if person.role === 'admin'}<span class="badge">{t('admin.role.admin')}</span>{/if}
               {#if person.deleteAt}<span class="badge off">{t('admin.people.leaving')}</span>{/if}
@@ -281,77 +283,87 @@
     {@const user = open.user}
     <section class="detail" aria-label={user.username}>
       <header>
-        <h2>{user.displayName}</h2>
+        <div>
+          <h2>{user.displayName || user.username}</h2>
+          <p class="muted">
+            {user.username} · {t(`admin.role.${user.role}`)} · {t('admin.people.since')}
+            {dateTime(user.createdAt)}
+          </p>
+        </div>
         <button class="icon-btn" aria-label={t('common.close')} onclick={() => (open = null)}
           ><Icon name="close" /></button
         >
       </header>
       <dl>
-        <dt>{t('admin.username')}</dt>
-        <dd>{user.username}</dd>
-        <dt>{t('admin.people.created')}</dt>
-        <dd>{dateTime(user.createdAt)}</dd>
         <dt>{t('admin.people.groups')}</dt>
         <dd>{user.groups.join(', ') || '–'}</dd>
         <dt>{t('admin.people.email')}</dt>
         <dd>{user.email ?? '–'}</dd>
-        {#if user.deleteAt}
-          <dt>{t('admin.people.deletion')}</dt>
-          <dd>{dateTime(user.deleteAt)}</dd>
-        {/if}
         <dt>{t('admin.people.kind')}</dt>
         <dd>{t(`admin.kinds.${user.kind}`)}</dd>
         <dt>{t('admin.people.secondFactor')}</dt>
         <dd>{user.secondFactor ? t('admin.account.on') : t('admin.account.off')}</dd>
+        {#if user.deleteAt}
+          <dt>{t('admin.people.deletion')}</dt>
+          <dd>{dateTime(user.deleteAt)}</dd>
+        {/if}
       </dl>
-      <label class="role">
-        {t('admin.people.role')}
-        <select
-          class="field"
-          value={user.role}
-          onchange={(e) => patch({ role: e.currentTarget.value }, t('admin.people.saved'))}
-        >
-          <option value="user">{t('admin.role.user')}</option>
-          <option value="admin">{t('admin.role.admin')}</option>
-        </select>
-      </label>
-      <div class="actions">
-        <button class="btn" onclick={rename}>{t('admin.people.rename')}</button>
-        {#if user.kind === 'standard'}
-          <button class="btn" onclick={resetPassword}>{t('admin.people.resetPassword')}</button>
-        {/if}
-        <button class="btn" onclick={signOutEverywhere} disabled={user.devices === 0}
-          >{t('admin.people.signOutAll')}</button
-        >
-        {#if user.secondFactor}
-          <button class="btn" onclick={resetFactors}>{t('admin.people.resetFactors')}</button>
-        {/if}
-        {#if user.lockedUntil && user.lockedUntil > Date.now()}
-          <button class="btn" onclick={() => patch({ unlock: true }, t('admin.people.unlocked'))}
-            >{t('admin.people.unlock')}</button
+      <!-- the rest folded, one part opened at a time as needed -->
+      <details>
+        <summary>{t('admin.people.devices', { count: open.deviceList.length })}</summary>
+        <ul class="devices">
+          {#each open.deviceList as device (device.id)}
+            <li>
+              <b>{device.name}</b><span class="muted"
+                >{device.platform}, {relative(device.lastSeenAt)}</span
+              >
+            </li>
+          {:else}
+            <li class="muted">{t('admin.people.noDevices')}</li>
+          {/each}
+        </ul>
+      </details>
+      <details>
+        <summary>{t('admin.policy.title')}</summary>
+        <Policy path="/admin/users/{user.id}/policy" level="user" />
+      </details>
+      <details>
+        <summary>{t('admin.people.actions')}</summary>
+        <label class="role">
+          {t('admin.people.role')}
+          <select
+            class="field"
+            value={user.role}
+            onchange={(e) => patch({ role: e.currentTarget.value }, t('admin.people.saved'))}
           >
-        {/if}
-        <button class="btn" class:danger={!user.disabledAt} onclick={toggleOff}>
-          {user.disabledAt ? t('admin.people.enable') : t('admin.people.disable')}
-        </button>
-        <button class="btn danger" onclick={remove} disabled={user.id === auth.session?.user.id}
-          >{t('admin.people.delete')}</button
-        >
-      </div>
-      <h3>{t('admin.people.devices', { count: open.deviceList.length })}</h3>
-      <ul class="devices">
-        {#each open.deviceList as device (device.id)}
-          <li>
-            <b>{device.name}</b><span class="muted"
-              >{device.platform}, {relative(device.lastSeenAt)}</span
+            <option value="user">{t('admin.role.user')}</option>
+            <option value="admin">{t('admin.role.admin')}</option>
+          </select>
+        </label>
+        <div class="actions">
+          <button class="btn" onclick={rename}>{t('admin.people.rename')}</button>
+          {#if user.kind === 'standard'}
+            <button class="btn" onclick={resetPassword}>{t('admin.people.resetPassword')}</button>
+          {/if}
+          <button class="btn" onclick={signOutEverywhere} disabled={user.devices === 0}
+            >{t('admin.people.signOutAll')}</button
+          >
+          {#if user.secondFactor}
+            <button class="btn" onclick={resetFactors}>{t('admin.people.resetFactors')}</button>
+          {/if}
+          {#if user.lockedUntil && user.lockedUntil > Date.now()}
+            <button class="btn" onclick={() => patch({ unlock: true }, t('admin.people.unlocked'))}
+              >{t('admin.people.unlock')}</button
             >
-          </li>
-        {:else}
-          <li class="muted">{t('admin.people.noDevices')}</li>
-        {/each}
-      </ul>
-      <h3>{t('admin.policy.title')}</h3>
-      <Policy path="/admin/users/{user.id}/policy" level="user" />
+          {/if}
+          <button class="btn" class:danger={!user.disabledAt} onclick={toggleOff}>
+            {user.disabledAt ? t('admin.people.enable') : t('admin.people.disable')}
+          </button>
+          <button class="btn danger" onclick={remove} disabled={user.id === auth.session?.user.id}
+            >{t('admin.people.delete')}</button
+          >
+        </div>
+      </details>
     </section>
   {/if}
 </div>
@@ -455,15 +467,26 @@
   .detail header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+  }
+  .detail header p {
+    margin: 2px 0 0;
+    font-size: 13px;
   }
   h2 {
     margin: 0;
     font-size: 18px;
   }
-  h3 {
-    margin: var(--space-4) 0 var(--space-2);
-    font-size: 14px;
+  .detail details {
+    border-top: 1px solid var(--color-border);
+    padding: var(--space-2) 0;
+  }
+  .detail summary {
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .detail details[open] summary {
+    margin-bottom: var(--space-2);
   }
   dl {
     display: grid;

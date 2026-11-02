@@ -879,3 +879,142 @@ async fn a_sender_reads_how_their_report_stands() {
     let (status, _, _) = ask(json!([""])).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+/// A main instance served on a free local port, its address: tests never
+/// reach the real one.
+async fn main_instance(feedback: FeedbackConfig) -> (AppState, String) {
+    let (state, app, _) = receiving(feedback).await;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        .unwrap();
+    });
+    (state, format!("http://{addr}"))
+}
+
+/// A server whose feedback goes to `main_url`, its admin's token.
+async fn sending_to(main_url: String) -> (AppState, Router, String) {
+    let config = Config {
+        feedback: FeedbackConfig {
+            main_url,
+            ..FeedbackConfig::default()
+        },
+        ..Config::default()
+    };
+    admin_on(server_with(config).await).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_admin_sends_feedback_about_the_server_to_the_main_instance() {
+    let (main, url) = main_instance(FeedbackConfig::default()).await;
+    let (state, app, admin) = sending_to(format!("{url}/")).await;
+    let body = json!({
+        "about": "  Backups to S3 fail  ",
+        "message": "Every night since the update.",
+        "contact": "admin@example.org",
+    });
+    let (status, answer) = call(
+        &app,
+        "POST",
+        "/admin/feedback/send",
+        Some(&admin),
+        Some(body.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{answer}");
+    let platforms: Vec<(String, String, String, Option<String>)> = main
+        .feedback
+        .call(|c| {
+            let mut stmt = c.prepare("SELECT platform, about, message, contact FROM reports")?;
+            let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
+            Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        platforms,
+        [(
+            "server".to_owned(),
+            "Backups to S3 fail".to_owned(),
+            "Every night since the update.".to_owned(),
+            Some("admin@example.org".to_owned())
+        )]
+    );
+    assert!(events(&state).await.contains(&"feedback_sent".to_owned()));
+
+    // only an admin, with something to say it is about
+    let (status, _) = call(&app, "POST", "/admin/feedback/send", None, Some(body)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/admin/feedback/send",
+        Some(&admin),
+        Some(json!({ "about": "   ", "message": "words" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/admin/feedback/send",
+        Some(&admin),
+        Some(json!({ "about": "Hello", "contact": "not a contact" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_main_instance_that_says_no_or_is_gone_is_told_plainly() {
+    // a main instance that takes no feedback
+    let (_, app, admin) = {
+        let (state, app, _) = admin_on(server_with(Config::default()).await).await;
+        drop(state);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .unwrap();
+        });
+        sending_to(format!("http://{addr}")).await
+    };
+    let body = json!({ "about": "Hello" });
+    let (status, answer) = call(
+        &app,
+        "POST",
+        "/admin/feedback/send",
+        Some(&admin),
+        Some(body.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(answer["error"], "feedbackOff");
+    assert_eq!(answer["message"], "the main server does not take feedback");
+
+    // nothing listens there any more
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    drop(listener);
+    let (state, app, admin) = sending_to(format!("http://{addr}")).await;
+    let (status, answer) = call(
+        &app,
+        "POST",
+        "/admin/feedback/send",
+        Some(&admin),
+        Some(body),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(answer["message"], "the main server could not be reached");
+    assert!(!events(&state).await.contains(&"feedback_sent".to_owned()));
+}

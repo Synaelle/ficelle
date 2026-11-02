@@ -26,7 +26,19 @@
   const load = () =>
     run(async () => {
       groups = await api<Group[]>('GET', '/admin/groups')
+      // for the names shown in the list, read again with it
+      if (groups.length > 0) {
+        people = (await api<{ items: AdminUser[] }>('GET', '/admin/users?limit=200')).items
+      }
     })
+
+  /** A group's members by name, a few then how many more. */
+  function names(group: Group): string {
+    const all = people.filter((p) => p.groups.includes(group.name)).map((p) => p.username)
+    if (all.length === 0) return t('admin.groups.memberCount', { count: group.members })
+    const few = all.slice(0, 4).join(', ')
+    return all.length > 4 ? t('admin.groups.andMore', { names: few, count: all.length - 4 }) : few
+  }
 
   const show = (id: string) =>
     run(async () => {
@@ -117,7 +129,7 @@
           onclick={() => show(group.id)}
         >
           <b>{group.name}</b>
-          <span class="muted">{t('admin.groups.memberCount', { count: group.members })}</span>
+          <span class="muted">{names(group)}</span>
         </button>
       </li>
     {:else}

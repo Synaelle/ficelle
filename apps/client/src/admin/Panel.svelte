@@ -4,6 +4,7 @@
      stays where it was. -->
 <script lang="ts">
   import { brand } from '@app/brand'
+  import logo from '../../../../packages/ui/brand/app-icon.svg?url'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
@@ -17,6 +18,7 @@
   import Storage from './Storage.svelte'
   import Backups from './Backups.svelte'
   import Feedback from './Feedback.svelte'
+  import Experimental from './Experimental.svelte'
   import { api } from './api.svelte'
 
   let { info, admin }: { info: ServerInfo; admin: boolean } = $props()
@@ -29,6 +31,7 @@
     | 'storage'
     | 'backups'
     | 'feedback'
+    | 'experimental'
     | 'log'
     | 'account'
   const SECTIONS: [Section, IconName][] = [
@@ -39,11 +42,12 @@
     ['storage', 'database'],
     ['backups', 'backup'],
     ['feedback', 'feedback'],
+    ['experimental', 'flask'],
     ['log', 'log'],
     ['account', 'shield'],
   ]
   /** What a server for its admin alone shows: nothing about other people. */
-  const PERSONAL: Section[] = ['overview', 'storage', 'backups', 'log', 'account']
+  const PERSONAL: Section[] = ['overview', 'storage', 'backups', 'experimental', 'log', 'account']
   /** Members the admins named read the feedback inbox too. */
   let reader = $state(false)
   /** The server is for its admin alone, from the overview. */
@@ -88,6 +92,7 @@
 
 <div class="panel">
   <header>
+    <img class="logo" src={logo} alt="" />
     <b
       >{admin
         ? t('admin.title', { app: brand.displayName })
@@ -125,6 +130,8 @@
       <Backups />
     {:else if section === 'feedback'}
       <Feedback {admin} />
+    {:else if section === 'experimental'}
+      <Experimental onpersonal={(on) => (personal = on)} />
     {:else if section === 'log'}
       <AuditLog />
     {:else}
@@ -153,6 +160,11 @@
     padding: var(--space-2) var(--space-4);
     border-bottom: 1px solid var(--color-border);
     background: var(--color-surface);
+  }
+  .logo {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
   }
   .version {
     font-family: var(--font-mono);
