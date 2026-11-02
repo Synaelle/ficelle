@@ -185,7 +185,7 @@
     {/each}
   </ul>
   {#if hiddenCount > 0}
-    <p class="muted">
+    <p class="muted hidden-lines">
       {t('admin.checklist.hidden', { count: hiddenCount })}
       <button
         class="link"
@@ -312,5 +312,24 @@
   }
   .problem {
     color: var(--color-danger);
+  }
+  .hidden-lines {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: baseline;
+  }
+  .link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-accent);
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .link:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
 </style>
