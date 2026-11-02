@@ -41,6 +41,8 @@
   let editorRef: Editor | undefined = $state()
   let tagDraft = $state('')
   let titleInput: HTMLInputElement | undefined = $state()
+  /** Phones: no spelling popup on the title either, see the editor. */
+  const PHONE = /android|iphone|ipad/i.test(navigator.userAgent)
 
   // a note just made: the caret in its title, ready to type
   $effect(() => {
@@ -196,6 +198,7 @@
         <input
           bind:this={titleInput}
           class="title"
+          spellcheck={!PHONE}
           placeholder={t('note.untitled')}
           aria-label={t('note.title')}
           {readonly}

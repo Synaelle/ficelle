@@ -45,6 +45,8 @@
 
   /** Idle time before the document is turned back into markdown. */
   const SERIALIZE_DELAY_MS = 250
+  /** Phones and tablets, where the system spells and selects. */
+  const PHONE = /android|iphone|ipad/i.test(navigator.userAgent)
 
   let element: HTMLDivElement
   let editor: Editor | null = $state(null)
@@ -363,7 +365,13 @@
       contentType: 'markdown',
       editable: !readonly,
       editorProps: {
-        attributes: { class: 'prose', 'aria-label': t('editor.label'), spellcheck: 'true' },
+        attributes: {
+          class: 'prose',
+          'aria-label': t('editor.label'),
+          // on a phone a tap on an unknown word opens the system's spelling
+          // popup instead of the usual selection: the phone's own handles only
+          spellcheck: PHONE ? 'false' : 'true',
+        },
         handlePaste: (_view, event) => {
           const files = [...(event.clipboardData?.files ?? [])]
           if (files.length === 0) return false
