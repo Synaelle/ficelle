@@ -313,8 +313,8 @@ export function reportMarkdown(
     const items = written.report.filter((r) => r.kind === kind)
     lines.push(`## ${labels.kinds[kind] ?? kind} (${items.length})`, '')
     for (const item of items) {
-      const where = item.note ? `**${item.note.replace(/[*_[\]]/g, '\\$&')}**: ` : ''
-      lines.push(`- ${where}${(item.detail ?? '').replace(/[[\]]/g, '\\$&')}`)
+      const where = item.note ? `**${item.note.replace(/[\\*_[\]]/g, '\\$&')}**: ` : ''
+      lines.push(`- ${where}${(item.detail ?? '').replace(/[\\[\]]/g, '\\$&')}`)
     }
     lines.push('')
   }

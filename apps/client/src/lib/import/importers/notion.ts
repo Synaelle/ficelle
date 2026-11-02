@@ -53,7 +53,7 @@ export function parseCsv(text: string): string[][] {
 export function csvTable(rows: string[][]): string {
   const [head, ...body] = rows
   if (!head) return ''
-  const cell = (text = '') => text.replace(/\|/g, '\\|').replace(/\n/g, ' ').trim() || ' '
+  const cell = (text = '') => text.replace(/[\\|]/g, '\\$&').replace(/\n/g, ' ').trim() || ' '
   const line = (cells: string[]) => `| ${head.map((_, i) => cell(cells[i])).join(' | ')} |`
   return [line(head), `| ${head.map(() => '---').join(' | ')} |`, ...body.map(line)].join('\n')
 }
