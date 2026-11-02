@@ -2,6 +2,18 @@
 
 The Mac app is coming soon with the Beta releases. A web version is on its way too, and will be the recommended way to use Ficelle on Apple devices. Until then, [Obsidian](https://obsidian.md) on macOS and iOS opens Markdown notes, and Ficelle's Export as markdown (Settings, Data and backups) opens in it.
 
+## Mac
+
+Once the Mac app is out, download the `.dmg` for your Mac (Apple Silicon for M1 and later, or Intel), open it and drag Ficelle to Applications.
+
+The app is not signed by Apple, so macOS refuses to open it the first time. Click Done, then open System Settings, Privacy & Security, scroll down and click Open Anyway next to Ficelle. Confirm with your password and open Ficelle again.
+
+If macOS says the app is damaged, or Open Anyway does not show, run this once in Terminal, then open Ficelle.
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Ficelle.app
+```
+
 ## iPhone and iPad
 
 > [!CAUTION]
