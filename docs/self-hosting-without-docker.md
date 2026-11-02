@@ -9,7 +9,17 @@ The commands below are written for Debian and Ubuntu. Other Linux systems with s
 
 ## Build
 
-Needs Rust (rustup), Node.js 24 with pnpm, and `wasm-bindgen-cli` at the version in `Cargo.lock`.
+What the build needs, with Debian and Ubuntu package names. They may differ on other distributions.
+
+| What         | How                                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------------------- |
+| Build tools  | `sudo apt install git curl build-essential pkg-config perl`                                                |
+| Rust         | [rustup](https://rustup.rs), which reads the version and the WebAssembly target from `rust-toolchain.toml` |
+| Node.js 24   | from [nodejs.org](https://nodejs.org) or NodeSource, the distribution's own is often older                 |
+| pnpm         | `npm install -g pnpm`                                                                                      |
+| wasm-bindgen | `cargo install --locked wasm-bindgen-cli --version 0.2.129`, the version in `Cargo.lock`                   |
+
+Perl and the build tools are for OpenSSL, built from source for the encrypted database.
 
 ```bash
 git clone https://github.com/Synaelle/ficelle.git && cd ficelle
