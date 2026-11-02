@@ -26,6 +26,7 @@ export function createTauriBackend(): Backend {
     appUpdateLatest: () => invoke('app_update_latest'),
     appUpdateInstall: () => invoke('app_update_install'),
     quickWindowOpen: (title) => invoke('quick_window_open', { title }),
+    quickWindowReady: (title) => invoke('quick_window_ready', { title }),
     fontDownload: (id, files) => invoke('font_download', { id, files }),
     fontFiles: (id, files) => invoke('font_files', { id, files }),
     fontFile: (id, name) => invoke('font_file', { id, name }),

@@ -70,6 +70,8 @@ export interface Backend {
   appUpdateInstall(): Promise<void>
   /** Desktop: opens the quick note window (commands/quick.rs). */
   quickWindowOpen(title: string): Promise<void>
+  /** The quick note page is drawn: its window shows, in front. */
+  quickWindowReady(title: string): Promise<void>
   /** Downloads a font's files (commands/fonts.rs), returns those it has.
    * `files` defaults to the usual eight, see `FILES` there. */
   fontDownload(id: string, files?: string[]): Promise<string[]>

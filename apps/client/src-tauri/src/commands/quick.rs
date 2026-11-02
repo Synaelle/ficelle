@@ -10,19 +10,20 @@ use tauri::AppHandle;
 use crate::error::{CommandError, CommandResult};
 
 /// Opens the quick note window, or brings it back when it is already open,
-/// in front and ready to type. Async: a window made in a synchronous
-/// command blocks on Windows.
+/// in front and ready to type. A new window starts hidden and shows once its
+/// page is drawn ([`quick_window_ready`]), not as an empty frame first.
+/// Async: a window made in a synchronous command blocks on Windows.
 #[cfg(desktop)]
 #[tauri::command]
 pub async fn quick_window_open(app: AppHandle, title: String) -> CommandResult<()> {
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
     let failed = |e: tauri::Error| CommandError::new("unknown", e.to_string());
-    let window = if let Some(open) = app.get_webview_window("quick") {
+    if let Some(open) = app.get_webview_window("quick") {
         open.unminimize().map_err(failed)?;
-        open.show().map_err(failed)?;
-        open
-    } else {
+        return show(&open, &title);
+    }
+    {
         let mut builder =
             WebviewWindowBuilder::new(&app, "quick", WebviewUrl::App("index.html#quick".into()))
                 .title(&title)
@@ -30,15 +31,37 @@ pub async fn quick_window_open(app: AppHandle, title: String) -> CommandResult<(
                 .min_inner_size(320.0, 220.0)
                 .center()
                 .always_on_top(true)
-                .focused(true);
+                .visible(false);
         if let Some(dir) = crate::portable::webview_dir(&app) {
             builder = builder.data_directory(dir);
         }
-        builder.build().map_err(failed)?
-    };
+        builder.build().map_err(failed)?;
+    }
+    Ok(())
+}
+
+/// The quick note page is drawn: the window shows, in front.
+#[cfg(desktop)]
+#[tauri::command]
+pub async fn quick_window_ready(app: AppHandle, title: String) -> CommandResult<()> {
+    use tauri::Manager;
+
+    match app.get_webview_window("quick") {
+        Some(window) => show(&window, &title),
+        None => Ok(()),
+    }
+}
+
+#[cfg(desktop)]
+fn show(window: &tauri::WebviewWindow, title: &str) -> CommandResult<()> {
+    window
+        .show()
+        .map_err(|e| CommandError::new("unknown", e.to_string()))?;
     let _ = window.set_focus();
     #[cfg(windows)]
-    forward::bring(&title);
+    forward::bring(title);
+    #[cfg(not(windows))]
+    drop(title);
     Ok(())
 }
 
@@ -82,4 +105,12 @@ pub async fn quick_window_open(app: AppHandle, title: String) -> CommandResult<(
         "unsupported",
         "the quick note window is for desktops",
     ))
+}
+
+/// Phones have no quick note window.
+#[cfg(mobile)]
+#[tauri::command]
+pub async fn quick_window_ready(app: AppHandle, title: String) -> CommandResult<()> {
+    drop((app, title));
+    Ok(())
 }

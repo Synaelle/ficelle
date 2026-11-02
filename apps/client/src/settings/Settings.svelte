@@ -232,6 +232,31 @@
                 {t('settings.openNoteFirst')}
               </label>
             </div>
+            {#if quickNoteSupported}
+              <div class="settings-group">
+                <h3>{t('settings.quickNote')}</h3>
+                <div class="settings-actions">
+                  <label class="settings-check">
+                    <input
+                      type="checkbox"
+                      aria-label={t('settings.quickNote')}
+                      checked={prefs.quickNoteShortcut !== null}
+                      onchange={(e) =>
+                        void setQuick(e.currentTarget.checked ? DEFAULT_QUICK_SHORTCUT : null)}
+                    />
+                    {prefs.quickNoteShortcut ? '' : t('settings.quickNoteOff')}
+                  </label>
+                  {#if prefs.quickNoteShortcut}
+                    <button class="btn key" onclick={() => (recordingQuick = true)}>
+                      {recordingQuick
+                        ? t('settings.pressKeys')
+                        : displayBinding(prefs.quickNoteShortcut)}
+                    </button>
+                  {/if}
+                </div>
+                {#if quickTaken}<p role="alert">{t('settings.quickNoteTaken')}</p>{/if}
+              </div>
+            {/if}
           {:else if section === 'language'}
             <div class="settings-group">
               <label class="settings-field">
@@ -277,31 +302,6 @@
                 >
               </div>
             </div>
-            {#if quickNoteSupported}
-              <div class="settings-group">
-                <h3>{t('settings.quickNote')}</h3>
-                <div class="settings-actions">
-                  <label class="settings-check">
-                    <input
-                      type="checkbox"
-                      aria-label={t('settings.quickNote')}
-                      checked={prefs.quickNoteShortcut !== null}
-                      onchange={(e) =>
-                        void setQuick(e.currentTarget.checked ? DEFAULT_QUICK_SHORTCUT : null)}
-                    />
-                    {prefs.quickNoteShortcut ? '' : t('settings.quickNoteOff')}
-                  </label>
-                  {#if prefs.quickNoteShortcut}
-                    <button class="btn key" onclick={() => (recordingQuick = true)}>
-                      {recordingQuick
-                        ? t('settings.pressKeys')
-                        : displayBinding(prefs.quickNoteShortcut)}
-                    </button>
-                  {/if}
-                </div>
-                {#if quickTaken}<p role="alert">{t('settings.quickNoteTaken')}</p>{/if}
-              </div>
-            {/if}
           {:else if section === 'security'}
             {@const vault = settings.vault}
             {#if vault && !vault.encrypted}

@@ -103,6 +103,7 @@ pub fn run() {
             commands::accent::system_accent,
             commands::clock::system_clock_24h,
             commands::quick::quick_window_open,
+            commands::quick::quick_window_ready,
             commands::updates::app_update_check,
             commands::updates::app_update_latest,
             commands::updates::app_update_install,

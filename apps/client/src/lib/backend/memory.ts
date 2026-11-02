@@ -175,6 +175,7 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     quickWindowOpen: async () => {
       throw { kind: 'unsupported', message: 'the quick note needs the desktop app' }
     },
+    quickWindowReady: async () => {},
     vaultCreateRecovery: async () => {
       throw { kind: 'unsupported', message: 'recovery keys need the app' }
     },

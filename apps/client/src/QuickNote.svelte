@@ -31,9 +31,14 @@
 
   onMount(async () => {
     document.title = t('quick.title')
-    const status = await backend.vaultStatus()
-    if (!status.unlocked) problem = t('quick.locked', { app: brand.displayName })
-    else bodyField?.focus()
+    try {
+      const status = await backend.vaultStatus()
+      if (!status.unlocked) problem = t('quick.locked', { app: brand.displayName })
+    } finally {
+      // the window waited hidden for the page, it shows now, already drawn
+      await backend.quickWindowReady(t('quick.title'))
+    }
+    if (!problem) bodyField?.focus()
   })
   // the window comes forward after the page is ready, and again each time
   // the shortcut brings it back: the text takes the keys then
