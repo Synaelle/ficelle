@@ -1,21 +1,13 @@
 # Ficelle on a Mac or an iPhone
 
-> [!CAUTION]
-> These builds are untested, may not start, and do not follow Ficelle's version numbers. Do not use them for anything serious, keep your real notes elsewhere.
-
-Get them from [Apple test builds](https://github.com/Synaelle/ficelle/releases/tag/apple-test). A web version is on its way and will be the recommended way to use Ficelle on Apple devices. Until then, [Obsidian](https://obsidian.md) on macOS and iOS opens Markdown notes, and Ficelle's Export as markdown (Settings, Data and backups) opens in it.
-
-## Mac
-
-Open `ficelle-apple-test-macos-arm.dmg` on a Mac with Apple Silicon (M1 and later), or `ficelle-apple-test-macos-intel.dmg` on an Intel Mac, and drag Ficelle to Applications. It is not signed by Apple, so macOS refuses to open it the first time. Click Done, then in System Settings, Privacy & Security, scroll down and click Open Anyway next to Ficelle. Or run this once in Terminal, which also helps when macOS says the app is damaged.
-
-```sh
-xattr -dr com.apple.quarantine /Applications/Ficelle.app
-```
+The Mac app is coming soon with the Beta releases. A web version is on its way too, and will be the recommended way to use Ficelle on Apple devices. Until then, [Obsidian](https://obsidian.md) on macOS and iOS opens Markdown notes, and Ficelle's Export as markdown (Settings, Data and backups) opens in it.
 
 ## iPhone and iPad
 
-Install `ficelle-apple-test-ios.ipa` with [AltStore](https://altstore.io) or [SideStore](https://sidestore.io), which sign it with your own Apple ID. With a free Apple ID it needs a refresh every 7 days.
+> [!CAUTION]
+> The iOS build is untested, may not start, and does not follow Ficelle's version numbers. Do not use it for anything serious, keep your real notes elsewhere.
+
+Get `ficelle-apple-test-ios.ipa` from the [iOS test build](https://github.com/Synaelle/ficelle/releases/tag/apple-test) and install it with [AltStore](https://altstore.io) or [SideStore](https://sidestore.io), which sign it with your own Apple ID. With a free Apple ID it needs a refresh every 7 days.
 
 ## Help with testing
 
