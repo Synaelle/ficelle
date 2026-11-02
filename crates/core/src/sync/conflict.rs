@@ -90,13 +90,22 @@ pub(crate) fn suspicious(base: &Texts, mine: &Texts, theirs: &Texts) -> bool {
     ours.iter().any(|a| {
         other.iter().any(|b| {
             let overlap = a.start < b.end && b.start < a.end;
-            overlap
-                && changed(&a.old, &a.new) >= REWRITTEN
-                && changed(&b.old, &b.new) >= REWRITTEN
-                && a.new != b.new
+            if !overlap || a.new == b.new {
+                return false;
+            }
+            let (ours, theirs) = (changed(&a.old, &a.new), changed(&b.old, &b.new));
+            // both rewrote it, or both cut into it and kept different
+            // parts: two different choices made after an earlier merge
+            // leave only the letters they share
+            (ours >= REWRITTEN && theirs >= REWRITTEN)
+                || (ours >= CUT && theirs >= CUT && changed(&a.new, &b.new) >= REWRITTEN)
         })
     })
 }
+
+/// A passage both sides changed this much, into two texts far apart, is
+/// worth a look too.
+const CUT: f32 = 0.15;
 
 /// What a conflict is about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -132,6 +141,7 @@ pub(crate) fn record_merge(
     note: NoteId,
     mine: &Texts,
     theirs: &Texts,
+    merged: &Texts,
     now: Timestamp,
 ) -> Result<()> {
     if !exists(conn, note)? {
@@ -157,9 +167,19 @@ pub(crate) fn record_merge(
     )?;
     conn.execute(
         "INSERT OR REPLACE INTO note_conflicts
-             (note_id, kind, mine_title, mine_body, theirs_title, theirs_body, at)
-         VALUES (?1, 'merge', ?2, ?3, ?4, ?5, ?6)",
-        params![note, mine.title, mine.body, theirs.title, theirs.body, now],
+             (note_id, kind, mine_title, mine_body, theirs_title, theirs_body, at,
+              merged_title, merged_body)
+         VALUES (?1, 'merge', ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            note,
+            mine.title,
+            mine.body,
+            theirs.title,
+            theirs.body,
+            now,
+            merged.title,
+            merged.body
+        ],
     )?;
     Ok(())
 }

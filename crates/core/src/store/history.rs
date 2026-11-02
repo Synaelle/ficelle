@@ -123,6 +123,7 @@ impl Store {
             params![old.note_id, old.title, old.body, now],
         )?;
         reindex(&tx, old.note_id)?;
+        super::links::follow_rename(&tx, old.note_id, &current.title, &old.title, now)?;
         crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
         load_note(&self.conn, old.note_id)
     }

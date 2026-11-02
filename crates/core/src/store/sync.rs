@@ -563,7 +563,6 @@ impl Store {
                             &mut self.docs,
                             &crate::sync::doc_key(space, &change.doc),
                             &bytes,
-                            now,
                             &mut touched,
                         ) {
                             Ok(()) => None,

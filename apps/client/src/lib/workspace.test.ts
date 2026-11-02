@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Runs on the in-memory backend, the one a plain browser gets.
 import { describe, expect, it } from 'vitest'
-import { backend } from './backend'
+import { backend, type NoteChange } from './backend'
 import { workspace } from './workspace.svelte'
 
 const ids = async () => (await backend.listNotes({ kind: 'all' }, 'updatedDesc')).map((n) => n.id)
@@ -79,6 +79,28 @@ describe('changes from another device', () => {
       expect(workspace.current?.body).toBe('start and more')
       await workspace.flush()
       expect(sent.at(-1)).toEqual({ body: 'start and more', baseBody: 'start' })
+    } finally {
+      backend.updateNote = update
+    }
+  })
+
+  it('after a merged save the next one starts from the text sent, not again from the old one', async () => {
+    workspace.coediting = () => false
+    await workspace.create({ title: 'Draft', body: 'start' })
+    const sent: NoteChange[] = []
+    const update = backend.updateNote
+    // another device wrote first: the save comes back merged
+    backend.updateNote = async (id, change) => {
+      sent.push(change)
+      const saved = await update(id, { body: change.body })
+      return sent.length === 1 ? { ...saved, body: `elsewhere ${change.body}` } : saved
+    }
+    try {
+      workspace.edit({ body: 'start more' })
+      await workspace.flush()
+      workspace.edit({ body: 'start more again' })
+      await workspace.flush()
+      expect(sent.at(-1)).toEqual({ body: 'start more again', baseBody: 'start more' })
     } finally {
       backend.updateNote = update
     }

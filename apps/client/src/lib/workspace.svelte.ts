@@ -295,10 +295,16 @@ class Workspace {
         }
         if (!merged) this.base = { title: saved.title, body: saved.body }
         // another device's edit came in while this one was typed: with
-        // co-editing the editor takes in the merge of both. Otherwise, or
-        // with more typing queued, the editor still derives from the old
-        // base and the next save merges again from it
+        // co-editing the editor takes in the merge of both
         else if (!queued && this.coediting()) this.adopt(saved)
+        // otherwise the editor goes on from the text it sent, which the
+        // server holds merged now: the next save is that text's change,
+        // never the same typing merged a second time
+        else if (base)
+          this.base = {
+            title: change.title ?? base.title,
+            body: change.body ?? base.body,
+          }
       }
       await Promise.all([this.refreshNotes(), this.refreshConflicts()])
       if (change.title !== undefined) await this.refreshTags()

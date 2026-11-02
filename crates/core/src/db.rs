@@ -90,6 +90,10 @@ const MIGRATIONS: &[Migration] = &[
         sql: include_str!("db/016_space_trust.sql"),
         then: None,
     },
+    Migration {
+        sql: include_str!("db/017_conflict_merged.sql"),
+        then: None,
+    },
 ];
 
 /// Opens or creates the database at `path`. With a key the file is encrypted

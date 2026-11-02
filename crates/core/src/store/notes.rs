@@ -152,7 +152,11 @@ impl Store {
             body: current.body.clone(),
         };
         if theirs != base && crate::sync::conflict::suspicious(&base, &mine, &theirs) {
-            crate::sync::conflict::record_merge(&tx, id, &mine, &theirs, now)?;
+            let merged = crate::sync::conflict::Texts {
+                title: title.clone(),
+                body: body.clone(),
+            };
+            crate::sync::conflict::record_merge(&tx, id, &mine, &theirs, &merged, now)?;
         }
         history::snapshot_if_new_session(&tx, &current, now)?;
         tx.execute(

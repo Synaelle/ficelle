@@ -19,12 +19,14 @@ fn device(start: i64) -> (Store, Arc<ManualClock>) {
     )
 }
 
-/// Everything in `from`'s outbox, applied on `to` in order, then acked.
+/// Everything in `from`'s outbox, applied on `to` as one page, then acked.
 fn send(from: &mut Store, to: &mut Store) {
     let out = from.sync_outbox(usize::MAX).unwrap();
-    for item in &out {
-        to.apply_remote(&item.doc_id, &item.bytes).unwrap();
-    }
+    let page: Vec<(String, Vec<u8>)> = out
+        .iter()
+        .map(|item| (item.doc_id.clone(), item.bytes.clone()))
+        .collect();
+    to.apply_remote_page(&page).unwrap();
     if let Some(last) = out.last() {
         from.sync_ack(last.seq).unwrap();
     }
@@ -760,6 +762,82 @@ mod conflicts {
     }
 
     #[test]
+    fn typing_after_the_merge_stays_whichever_side_is_kept() {
+        let (mut a, _b, id) = rewritten_on_both();
+        let merged = a.note(id).unwrap().body;
+        edit_body(&mut a, id, &format!("{merged}\n\nBring snacks."));
+        a.resolve_conflict(id, &Resolution::Mine).unwrap();
+        let body = a.note(id).unwrap().body;
+        assert!(body.contains("Alex") && !body.contains("Friday"), "{body}");
+        assert!(body.contains("Bring snacks."), "{body}");
+    }
+
+    #[test]
+    fn a_rewrite_saved_in_many_steps_is_weighed_whole() {
+        let (mut a, clock) = device(1_000_000);
+        let (mut b, _) = device(1_000_000);
+        let id = note_with(&mut a, "Trip", BASE);
+        sync(&mut a, &mut b);
+        // the editor saves a second after each pause in typing
+        let steps = [
+            BASE.replace("We leave on Monday", "Plans changed: we leave on Monday"),
+            BASE.replace(
+                "We leave on Monday morning by train",
+                "Plans changed: we drive down on Sunday",
+            ),
+            MINE.to_owned(),
+        ];
+        for step in &steps {
+            clock.advance(1_000);
+            edit_body(&mut a, id, step);
+        }
+        edit_body(&mut b, id, THEIRS);
+        sync(&mut a, &mut b);
+        let asked = b.note_conflict(id).unwrap().expect("b asks");
+        assert_eq!(asked.theirs.unwrap().body, MINE, "a's rewrite as it ended");
+        let versions = b.list_versions(id).unwrap();
+        let theirs = versions
+            .iter()
+            .filter(|v| v.reason == VersionReason::TheirsBeforeMerge)
+            .count();
+        assert_eq!(theirs, 1, "one merge, one pair of versions");
+    }
+
+    #[test]
+    fn a_few_words_typed_into_the_same_line_on_both_devices_merge_without_asking() {
+        let (mut a, _) = device(1_000_000);
+        let (mut b, _) = device(1_000_000);
+        let id = note_with(&mut a, "Trip", BASE);
+        sync(&mut a, &mut b);
+        edit_body(
+            &mut a,
+            id,
+            &BASE.replace("Monday morning", "Monday early morning"),
+        );
+        edit_body(&mut b, id, &BASE.replace("by train", "by the fast train"));
+        sync(&mut a, &mut b);
+        assert_eq!(a.note_conflict(id).unwrap(), None);
+        assert_eq!(b.note_conflict(id).unwrap(), None);
+    }
+
+    #[test]
+    fn each_device_keeping_its_own_side_loses_nothing_unasked() {
+        let (mut a, mut b, id) = rewritten_on_both();
+        a.resolve_conflict(id, &Resolution::Mine).unwrap();
+        b.resolve_conflict(id, &Resolution::Mine).unwrap();
+        sync(&mut a, &mut b);
+        same(&a, &b);
+        let body = a.note(id).unwrap().body;
+        let whole = |text: &str| body.contains(text.lines().nth(2).unwrap());
+        let asked =
+            a.note_conflict(id).unwrap().is_some() || b.note_conflict(id).unwrap().is_some();
+        assert!(
+            whole(MINE) || whole(THEIRS) || asked,
+            "neither side kept whole and nobody asked: {body:?}"
+        );
+    }
+
+    #[test]
     fn keeping_theirs_and_keeping_the_merge() {
         let (mut a, mut b, id) = rewritten_on_both();
         a.resolve_conflict(id, &Resolution::Theirs).unwrap();
@@ -773,6 +851,46 @@ mod conflicts {
             a.resolve_conflict(id, &Resolution::Mine).is_err(),
             "nothing left to decide"
         );
+    }
+
+    #[test]
+    fn keeping_both_gives_the_copy_the_files_its_text_shows() {
+        let (mut a, _) = device(1_000_000);
+        let (mut b, _) = device(1_000_000);
+        let id = note_with(&mut a, "Trip", BASE);
+        let sha = "ab".repeat(32);
+        a.add_attachment(id, "the map.png", "image/png", 10, &sha)
+            .unwrap();
+        a.add_attachment(id, "other.pdf", "application/pdf", 10, &sha)
+            .unwrap();
+        sync(&mut a, &mut b);
+        edit_body(&mut a, id, MINE);
+        edit_body(
+            &mut b,
+            id,
+            &format!("{THEIRS}\n\n![map](attachments/the%20map.png)"),
+        );
+        sync(&mut a, &mut b);
+        a.resolve_conflict(
+            id,
+            &Resolution::Both {
+                copy_title: "Trip (other device)".into(),
+            },
+        )
+        .unwrap();
+        let copy = a
+            .list_notes(NoteScope::All, NoteSort::TitleAsc)
+            .unwrap()
+            .into_iter()
+            .find(|n| n.title == "Trip (other device)")
+            .expect("the copy");
+        let files: Vec<String> = a
+            .list_attachments(copy.id)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.file_name)
+            .collect();
+        assert_eq!(files, vec!["the map.png"]);
     }
 
     #[test]
@@ -852,6 +970,28 @@ mod conflicts {
         let asked = b.note_conflict(id).unwrap().expect("b asks");
         assert_eq!(asked.mine.unwrap().body, MINE);
         assert_eq!(asked.theirs.unwrap().body, THEIRS);
+    }
+
+    #[test]
+    fn two_saves_from_an_older_screen_add_the_typing_once() {
+        let (mut a, _) = device(1_000_000);
+        let (mut b, _) = device(1_000_000);
+        let id = note_with(&mut a, "Trip", "start");
+        sync(&mut a, &mut b);
+        edit_body(&mut a, id, "elsewhere start");
+        sync(&mut a, &mut b);
+        let save = |body: &str, base: &str| NoteChange {
+            body: Some(body.into()),
+            base_body: Some(base.into()),
+            ..NoteChange::default()
+        };
+        // b's editor never took in a's edit: the second save goes on from
+        // the text the first one sent
+        b.update_note(id, save("start more", "start")).unwrap();
+        let saved = b
+            .update_note(id, save("start more again", "start more"))
+            .unwrap();
+        assert_eq!(saved.body, "elsewhere start more again");
     }
 }
 

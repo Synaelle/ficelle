@@ -252,6 +252,31 @@ mod tests {
     }
 
     #[test]
+    fn restoring_an_old_title_brings_the_links_back_with_it() {
+        let (mut store, clock) = store();
+        let target = store.create_note(&note("Old name", "")).unwrap();
+        let linker = store
+            .create_note(&note("Linker", "see [[Old name]]"))
+            .unwrap();
+        clock.advance(crate::store::history::EDIT_SESSION);
+        let rename = NoteChange {
+            title: Some("New name".into()),
+            ..NoteChange::default()
+        };
+        store.update_note(target.id, rename).unwrap();
+        assert_eq!(store.note(linker.id).unwrap().body, "see [[New name]]");
+        let old = store
+            .list_versions(target.id)
+            .unwrap()
+            .into_iter()
+            .find(|v| v.title == "Old name")
+            .expect("the old title is in the history");
+        clock.advance(MINUTE);
+        store.restore_version(old.id).unwrap();
+        assert_eq!(store.note(linker.id).unwrap().body, "see [[Old name]]");
+    }
+
+    #[test]
     fn renaming_updates_links_elsewhere() {
         let (mut store, clock) = store();
         let target = store.create_note(&note("Old name", "")).unwrap();

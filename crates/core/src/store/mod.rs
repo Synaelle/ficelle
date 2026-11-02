@@ -163,6 +163,20 @@ impl Store {
         done
     }
 
+    /// Changes from elsewhere taken in as one page, as a pull does.
+    #[cfg(test)]
+    pub(crate) fn apply_remote_page(&mut self, changes: &[(String, Vec<u8>)]) -> Result<()> {
+        let now = self.now();
+        let tx = self.conn.transaction()?;
+        let mut taken = crate::sync::Taken::default();
+        for (doc_id, bytes) in changes {
+            crate::sync::import_remote(&tx, &mut self.docs, doc_id, bytes, &mut taken)?;
+        }
+        crate::sync::rebuild(&tx, &mut self.docs, taken, now)?;
+        tx.commit()?;
+        Ok(())
+    }
+
     /// The whole state of a document, for a device starting from nothing.
     ///
     /// # Errors

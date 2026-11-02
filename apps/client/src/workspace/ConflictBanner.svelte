@@ -20,7 +20,8 @@
     if (!note) return
     busy = true
     comparing = false
-    const title = note.title || t('note.untitled')
+    // the copy holds the other device's text, so its title too
+    const title = conflict?.theirs?.title || note.title || t('note.untitled')
     await workspace.resolve(
       choice === 'both'
         ? { keep: 'both', copyTitle: t('conflict.copyTitle', { title }) }

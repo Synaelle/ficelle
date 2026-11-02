@@ -547,6 +547,22 @@ pub(crate) struct Taken {
     spaces: Vec<(String, loro::Frontiers)>,
     /// Notes changed, with their space.
     notes: Vec<(String, NoteId)>,
+    /// Notes to weigh for a conflict once the page is in, see
+    /// [`check_merge`].
+    checks: Vec<MergeCheck>,
+}
+
+/// A note's changes from elsewhere in one page, weighed together: an edit
+/// saved in many small steps is one rewrite, not many small ones.
+struct MergeCheck {
+    doc_id: String,
+    note: NoteId,
+    /// What this device had before the page.
+    known: VersionVector,
+    /// Its text then.
+    mine: conflict::Texts,
+    /// The last change taken in from each other device.
+    ends: HashMap<loro::PeerID, loro::Counter>,
 }
 
 /// Takes a change from another device into its document, see [`rebuild`].
@@ -563,7 +579,6 @@ pub(crate) fn import_remote(
     docs: &mut Docs,
     doc_id: &str,
     bytes: &[u8],
-    now: Timestamp,
     taken: &mut Taken,
 ) -> Result<()> {
     let (space_id, bare) = split_key(doc_id);
@@ -578,10 +593,6 @@ pub(crate) fn import_remote(
     let doc = docs.get(tx, doc_id)?;
     let before = doc.state_frontiers();
     let known = doc.oplog_vv();
-    let mine = conflict::Texts {
-        title: doc.get_text("title").to_string(),
-        body: doc.get_text("body").to_string(),
-    };
     let status = doc
         .import(bytes)
         .map_err(|e| Error::Invalid(format!("not a change of this document: {e}")))?;
@@ -598,7 +609,30 @@ pub(crate) fn import_remote(
     settle_waiting(tx, &doc, doc_id)?;
     match note {
         Some(note) => {
-            check_merge(tx, &doc, note, &known, &status.success, &mine, now)?;
+            let at = if let Some(at) = taken.checks.iter().position(|c| c.doc_id == doc_id) {
+                at
+            } else {
+                // the state before the page: the document as it was before
+                // this first change of it
+                let fork = doc.fork_at(&before).map_err(sync_error)?;
+                taken.checks.push(MergeCheck {
+                    doc_id: doc_id.to_owned(),
+                    note,
+                    known: known.clone(),
+                    mine: conflict::Texts {
+                        title: fork.get_text("title").to_string(),
+                        body: fork.get_text("body").to_string(),
+                    },
+                    ends: HashMap::new(),
+                });
+                taken.checks.len() - 1
+            };
+            for (peer, (start, end)) in status.success.iter() {
+                if end > start {
+                    let last = taken.checks[at].ends.entry(*peer).or_insert(*end);
+                    *last = (*last).max(*end);
+                }
+            }
             let entry = (space_id.to_owned(), note);
             if !taken.notes.contains(&entry) {
                 taken.notes.push(entry);
@@ -622,11 +656,23 @@ pub(crate) fn import_remote(
 pub(crate) fn rebuild(
     tx: &Connection,
     docs: &mut Docs,
-    taken: Taken,
+    mut taken: Taken,
     now: Timestamp,
 ) -> Result<()> {
     if taken.spaces.is_empty() && taken.notes.is_empty() {
         return Ok(());
+    }
+    for check in std::mem::take(&mut taken.checks) {
+        let doc = docs.get(tx, &check.doc_id)?;
+        check_merge(
+            tx,
+            &doc,
+            check.note,
+            &check.known,
+            &check.ends,
+            &check.mine,
+            now,
+        )?;
     }
     for (space, _) in &taken.spaces {
         docs.persist(tx, &doc_key(space, SPACE), false, now)?;
@@ -676,7 +722,7 @@ pub(crate) fn apply_remote(
     now: Timestamp,
 ) -> Result<()> {
     let mut taken = Taken::default();
-    import_remote(tx, docs, doc_id, bytes, now, &mut taken)?;
+    import_remote(tx, docs, doc_id, bytes, &mut taken)?;
     rebuild(tx, docs, taken, now)
 }
 
@@ -689,14 +735,13 @@ fn check_merge(
     doc: &LoroDoc,
     note: NoteId,
     known: &VersionVector,
-    imported: &loro::VersionRange,
+    imported: &HashMap<loro::PeerID, loro::Counter>,
     mine: &conflict::Texts,
     now: Timestamp,
 ) -> Result<()> {
     let ends: Vec<loro::ID> = imported
         .iter()
-        .filter(|(_, (start, end))| end > start)
-        .map(|(peer, (_, end))| loro::ID::new(*peer, end - 1))
+        .map(|(peer, end)| loro::ID::new(*peer, end - 1))
         .collect();
     if ends.is_empty() {
         return Ok(());
@@ -727,7 +772,11 @@ fn check_merge(
     let base = text_at(&base_vv)?;
     let theirs = text_at(&theirs_vv)?;
     if conflict::suspicious(&base, mine, &theirs) {
-        conflict::record_merge(conn, note, mine, &theirs, now)?;
+        let merged = conflict::Texts {
+            title: doc.get_text("title").to_string(),
+            body: doc.get_text("body").to_string(),
+        };
+        conflict::record_merge(conn, note, mine, &theirs, &merged, now)?;
     }
     Ok(())
 }

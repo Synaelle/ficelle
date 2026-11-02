@@ -56,6 +56,23 @@ pub enum Resolution {
     },
 }
 
+/// The merged text a conflict was found with, none for older rows.
+fn merged_at(conn: &rusqlite::Connection, note: NoteId) -> Result<Option<Side>> {
+    Ok(conn
+        .query_row(
+            "SELECT merged_title, merged_body FROM note_conflicts WHERE note_id = ?1",
+            [note],
+            |row| {
+                Ok(row
+                    .get::<_, Option<String>>(0)?
+                    .zip(row.get::<_, Option<String>>(1)?)
+                    .map(|(title, body)| Side { title, body }))
+            },
+        )
+        .optional()?
+        .flatten())
+}
+
 impl Store {
     /// The decision a note waits for, if any.
     ///
@@ -113,6 +130,7 @@ impl Store {
             .ok_or(Error::NotFound("conflict"))?;
         let now = self.now();
         let tx = self.conn.transaction()?;
+        let merged = merged_at(&tx, note)?;
         tx.execute("DELETE FROM note_conflicts WHERE note_id = ?1", [note])?;
         let chosen = match keep {
             Resolution::Merged => None,
@@ -122,8 +140,18 @@ impl Store {
         if keep != &Resolution::Merged && chosen.is_none() {
             return Err(Error::Invalid("nothing to choose between".into()));
         }
-        if let Some(text) = chosen {
+        if let Some(mut text) = chosen {
             let current = load_note(&tx, note)?;
+            // typed since the merge: kept, on top of the side chosen
+            if let Some(merged) = &merged {
+                if merged.title != current.title {
+                    text.title =
+                        crate::sync::merge_text(&merged.title, &current.title, &text.title)?;
+                }
+                if merged.body != current.body {
+                    text.body = crate::sync::merge_text(&merged.body, &current.body, &text.body)?;
+                }
+            }
             super::history_save(
                 &tx,
                 note,
@@ -137,17 +165,34 @@ impl Store {
                 params![note, text.title, text.body, now],
             )?;
             reindex(&tx, note)?;
+            super::links::follow_rename(&tx, note, &current.title, &text.title, now)?;
         }
         crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
         if let (Resolution::Both { copy_title }, Some(theirs)) = (keep, conflict.theirs) {
             let original = self.note(note)?;
-            self.create_note(&super::NewNote {
+            let copy = self.create_note(&super::NewNote {
                 title: copy_title.clone(),
-                body: theirs.body,
+                body: theirs.body.clone(),
                 folder_id: original.folder_id,
                 tags: original.tags,
                 pinned: false,
             })?;
+            // the files its text shows or links come along, under the same names
+            for file in self.list_attachments(note)? {
+                let named = |name: &str| theirs.body.contains(&format!("attachments/{name}"));
+                if named(&file.file_name) || named(&file.file_name.replace(' ', "%20")) {
+                    let added = self.add_attachment(
+                        copy.id,
+                        &file.file_name,
+                        &file.mime_type,
+                        file.size,
+                        &file.sha256,
+                    )?;
+                    if let Some(thumb) = &file.thumb_sha256 {
+                        self.set_attachment_thumb(added.id, thumb)?;
+                    }
+                }
+            }
         }
         Ok(())
     }
