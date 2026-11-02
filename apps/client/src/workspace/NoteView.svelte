@@ -40,6 +40,8 @@
   /** The open editor, for the attachments list to add, mention and remove files. */
   let editorRef: Editor | undefined = $state()
   let tagDraft = $state('')
+  /** Phones: no spelling popup on the title either, see the editor. */
+  const PHONE = /android|iphone|ipad/i.test(navigator.userAgent)
 
   $effect(() => {
     const id = note?.id
@@ -187,6 +189,7 @@
         {/if}
         <input
           class="title"
+          spellcheck={!PHONE}
           placeholder={t('note.untitled')}
           aria-label={t('note.title')}
           {readonly}
