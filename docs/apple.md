@@ -7,7 +7,7 @@ Get them from [Apple test builds](https://github.com/Synaelle/ficelle/releases/t
 
 ## Mac
 
-Open `ficelle-apple-test-macos.dmg` and drag Ficelle to Applications. It is not signed by Apple, so the first time right-click it, choose Open, then Open again. If macOS says it is damaged, run this once in Terminal.
+Open `ficelle-apple-test-macos-arm.dmg` on a Mac with Apple Silicon (M1 and later), or `ficelle-apple-test-macos-intel.dmg` on an Intel Mac, and drag Ficelle to Applications. It is not signed by Apple, so the first time right-click it, choose Open, then Open again. If macOS says it is damaged, run this once in Terminal.
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Ficelle.app
