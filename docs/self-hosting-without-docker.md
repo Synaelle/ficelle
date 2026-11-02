@@ -2,6 +2,8 @@
 
 The server is one binary, `ficelle-server`, with the web pages beside it and its data in one folder. It runs as a systemd service behind a reverse proxy with HTTPS.
 
+The commands below are written for Debian and Ubuntu. Other Linux systems with systemd work the same way, with their own package names and paths.
+
 > [!WARNING]
 > Running without Docker is supported but not recommended. You build from source, update by hand and get no automatic rollback or image signature check. Use [self-hosting with Docker](self-hosting-docker.md) unless you know why you need this.
 
