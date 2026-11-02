@@ -22,11 +22,9 @@
 
 ## Download
 
-Get the latest version from the [Releases](../../releases/latest) page:
+Ficelle runs on Windows, Linux and Android. Get it from the [latest release](../../releases/latest).
 
-- **Windows**: `Ficelle_…_x64-setup.exe`, or `Ficelle_…_x64_portable.exe` to keep your notes in a folder beside it
-- **Linux**: `Ficelle_…_amd64.AppImage`, make it executable and open it
-- **Android**: `ficelle-…-android.apk`. Play Protect may warn about an unknown app. Choose Install anyway.
+macOS and iOS need testers with a Mac or an iPhone, get in touch if you can help. A web version is on its way.
 
 ## Your own server
 
