@@ -5,12 +5,10 @@
 // QuickNote.svelte.
 
 import { emitTo, listen } from '@tauri-apps/api/event'
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { register, unregister } from '@tauri-apps/plugin-global-shortcut'
 import { backend } from './backend'
 import { t } from './i18n.svelte'
 
-export const QUICK_LABEL = 'quick'
 /** Suggested when the shortcut is turned on. */
 export const DEFAULT_QUICK_SHORTCUT = 'Mod+Alt+N'
 /** Sent to the main window after a quick note is saved. */
@@ -56,14 +54,9 @@ export async function applyQuickShortcut(binding: string | null): Promise<boolea
   }
 }
 
+/** Opens the quick note window, or brings it back, in front: the app
+ * brings it forward itself, Windows would leave it behind otherwise. */
 export async function openQuickNote() {
-  const existing = await WebviewWindow.getByLabel(QUICK_LABEL)
-  if (existing) {
-    await existing.unminimize()
-    await existing.show()
-    await existing.setFocus()
-    return
-  }
   await backend.quickWindowOpen(t('quick.title'))
 }
 

@@ -5,7 +5,7 @@
 <script lang="ts">
   import { brand } from '@app/brand'
   import { getCurrentWindow } from '@tauri-apps/api/window'
-  import { onMount } from 'svelte'
+  import { onDestroy, onMount } from 'svelte'
   import { backend } from './lib/backend'
   import { applyDyslexicFont } from './lib/dyslexicFont'
   import { setLocale, systemLocale, t } from './lib/i18n.svelte'
@@ -35,6 +35,13 @@
     if (!status.unlocked) problem = t('quick.locked', { app: brand.displayName })
     else bodyField?.focus()
   })
+  // the window comes forward after the page is ready, and again each time
+  // the shortcut brings it back: the text takes the keys then
+  const toText = () => {
+    if (!problem) bodyField?.focus()
+  }
+  window.addEventListener('focus', toText)
+  onDestroy(() => window.removeEventListener('focus', toText))
 
   async function save() {
     if (empty || busy) return
