@@ -762,7 +762,8 @@ pub fn audit(conn: &Connection, now: i64, event: &Event<'_>) -> Result<(), DbErr
 }
 
 /// Deletes what can never work again: expired access tokens, and refresh
-/// tokens past their expiry, used or not.
+/// tokens past their expiry, used or not. A device left with neither is
+/// signed out: it no longer counts among the signed in devices.
 ///
 /// # Errors
 ///
@@ -770,6 +771,12 @@ pub fn audit(conn: &Connection, now: i64, event: &Event<'_>) -> Result<(), DbErr
 pub fn cleanup(conn: &Connection, now: i64) -> Result<usize, DbError> {
     let access = conn.execute("DELETE FROM access_tokens WHERE expires_at <= ?1", [now])?;
     let refresh = conn.execute("DELETE FROM refresh_tokens WHERE expires_at <= ?1", [now])?;
+    conn.execute(
+        "UPDATE devices SET revoked_at = ?1 WHERE revoked_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM refresh_tokens r WHERE r.device_id = devices.id AND r.used_at IS NULL)
+         AND NOT EXISTS (SELECT 1 FROM access_tokens a WHERE a.device_id = devices.id)",
+        [now],
+    )?;
     let challenges = super::factors::cleanup(conn, now)?;
     Ok(access + refresh + challenges)
 }
@@ -898,6 +905,26 @@ mod tests {
             rotate(token::hash(&lost.refresh), 2_600 + REFRESH_RETRY_MS).await,
             Err(RefreshRefused::Reused { .. } | RefreshRefused::Invalid)
         ));
+    }
+
+    #[tokio::test]
+    async fn a_device_whose_sign_in_ran_out_is_no_longer_counted() {
+        let (db, user) = with_user().await;
+        let id = user.id.clone();
+        db.call(move |c| create_session(c, &id, &device(), 1_000, &auth()))
+            .await
+            .unwrap();
+        let days = i64::from(auth().refresh_token_days) * 24 * 60 * 60 * 1000;
+        let later = 1_000 + days + 1;
+        // a second device signs in long after, and stays signed in
+        let id = user.id.clone();
+        db.call(move |c| create_session(c, &id, &device(), later - 1_000, &auth()))
+            .await
+            .unwrap();
+        db.call(move |c| Ok(cleanup(c, later)?)).await.unwrap();
+        let id = user.id.clone();
+        let devices = db.call(move |c| list_devices(c, &id)).await.unwrap();
+        assert_eq!(devices.len(), 1, "only the device still signed in");
     }
 
     #[tokio::test]
