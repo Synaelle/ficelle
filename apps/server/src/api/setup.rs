@@ -387,7 +387,9 @@ pub async fn finish(
         .with_session(&req.session, now, |s| {
             (s.user_id.clone(), s.totp.clone(), s.passkey.clone())
         })
-        .ok_or_else(link_invalid)?;
+        // a request racing another one that just finished setup finds its
+        // session gone with it: setup is done, not the link wrong
+        .ok_or_else(|| if state.setup.is_done() { gone() } else { link_invalid() })?;
     let username = new_credentials(&req.username, &req.password)?;
     let is_totp = matches!(req.factor, SetupFactor::Totp { .. });
     let no_factor = matches!(req.factor, SetupFactor::None);
