@@ -57,9 +57,9 @@ jobs:
         run: |
           set -u
           # Xcode's build step needs tauri ios build running beside it, so
-          # tauri drives the build, with signing off. Its export to an .ipa
-          # needs signing and fails: the app is taken from the archive
-          pnpm tauri ios build --ci -- CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+          # tauri drives the build (signing is off in the project). Its export
+          # to an .ipa needs signing and fails: the app is taken from the archive
+          pnpm tauri ios build --ci \
             || echo "tauri ios build ended with an error, looking for the app in the archive"
           app=$(find src-tauri/gen/apple "$HOME/Library/Developer/Xcode" -maxdepth 8 \
             -path '*.xcarchive/Products/Applications/*.app' 2>/dev/null | head -n1)
