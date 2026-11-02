@@ -24,6 +24,8 @@
 
 Ficelle runs on Windows, Linux and Android. Get it from the [latest release](../../releases/latest).
 
+From 2027, Google plans to check the developer of every Android app, APKs from outside the Play Store included, which may make installing Ficelle harder. See [Android developer verification](https://developer.android.com/developer-verification).
+
 macOS and iOS need testers with a Mac or an iPhone, see [Ficelle on a Mac or an iPhone](docs/apple.md) for the untested builds. A web version is on its way.
 
 ## Your own server

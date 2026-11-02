@@ -1,0 +1,42 @@
+name: Report or idea
+description: Something that does not work, could be better, or a new idea
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, or what you would like
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: For a problem, the steps that lead to it.
+      placeholder: |
+        1. Open …
+        2. Tap …
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      multiple: true
+      options:
+        - Windows
+        - Linux
+        - Android
+        - macOS
+        - iOS
+        - Server
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown in Settings, About.
+      placeholder: 0.3.2
+  - type: textarea
+    id: more
+    attributes:
+      label: Screenshots or logs
+      description: Drop images here, or paste logs.
