@@ -1,6 +1,6 @@
 # Ficelle on a Mac or an iPhone
 
-The Mac app is coming soon with the Beta releases. A web version is on its way too, and will be the recommended way to use Ficelle on Apple devices. Until then, [Obsidian](https://obsidian.md) on macOS and iOS opens Markdown notes, and Ficelle's Export as markdown (Settings, Data and backups) opens in it.
+The Mac app is coming soon with the Beta releases. Until then, [Obsidian](https://obsidian.md) on macOS and iOS opens Markdown notes, and Ficelle's Export as markdown (Settings, Data and backups) opens in it.
 
 ## Mac
 
