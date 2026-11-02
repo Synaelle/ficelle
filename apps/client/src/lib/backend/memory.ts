@@ -52,7 +52,9 @@ function preview(title: string, body: string): string {
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/^\s*(>\s*)*(#+\s|[-*+]\s(\[[ xX]\]\s)?|\d+[.)]\s|\[![\w-]+\]\s?)?/gm, '')
     .replace(/[*~`]/g, '')
-  const flat = plain.split(/\s+/).filter(Boolean).join(' ')
+  // the first line with text, as the list shows only that
+  const line = plain.split('\n').find((l) => l.trim()) ?? ''
+  const flat = line.split(/\s+/).filter(Boolean).join(' ')
   return flat.length > 140 ? `${flat.slice(0, 140)}…` : flat
 }
 

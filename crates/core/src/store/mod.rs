@@ -195,7 +195,7 @@ pub(crate) fn clean_text(text: &str) -> String {
         .collect()
 }
 
-/// Short single line preview of a body for lists.
+/// The first line of a body, shortened, for lists.
 fn preview(title: &str, body: &str) -> String {
     crate::preview::preview(title, body, 140)
 }
@@ -410,8 +410,8 @@ mod tests {
     }
 
     #[test]
-    fn preview_flattens_and_shortens() {
-        assert_eq!(preview("", "one\n\ntwo   three"), "one two three");
+    fn preview_keeps_the_first_line_and_shortens() {
+        assert_eq!(preview("", "one\n\ntwo   three"), "one");
         let long = "word ".repeat(100);
         let p = preview("", &long);
         assert!(p.ends_with('…'));

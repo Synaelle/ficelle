@@ -40,6 +40,14 @@
   /** The open editor, for the attachments list to add, mention and remove files. */
   let editorRef: Editor | undefined = $state()
   let tagDraft = $state('')
+  let titleInput: HTMLInputElement | undefined = $state()
+
+  // a note just made: the caret in its title, ready to type
+  $effect(() => {
+    if (!note || !titleInput || workspace.fresh !== note.id) return
+    workspace.fresh = null
+    titleInput.focus()
+  })
 
   $effect(() => {
     const id = note?.id
@@ -186,6 +194,7 @@
           </p>
         {/if}
         <input
+          bind:this={titleInput}
           class="title"
           placeholder={t('note.untitled')}
           aria-label={t('note.title')}

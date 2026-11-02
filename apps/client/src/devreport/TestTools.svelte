@@ -47,7 +47,13 @@
   {:else if phone}
     <p class="problem small">{t('testTools.noFolder')}</p>
   {/if}
-  <p class="settings-help">{phone ? t('testTools.folderHelpPhone') : t('testTools.folderHelp')}</p>
+  <p class="settings-help">
+    {!phone
+      ? t('testTools.folderHelp')
+      : folder
+        ? t('testTools.folderHelpChosen')
+        : t('testTools.folderHelpPhone')}
+  </p>
   <div class="settings-actions">
     <button class="btn" onclick={choose}>{t('testTools.choose')}</button>
     {#if !phone && prefs.reportFolder}

@@ -9,6 +9,31 @@ use serde::{Deserialize, Serialize};
 use super::RunReport;
 use crate::error::Result;
 
+/// The folder backups get inside the chosen one. A folder the app named
+/// itself (Android's, "Ficelle Preview backups" in a preview build) is
+/// already that folder.
+fn folder_name(chosen: &str) -> String {
+    let own = std::path::Path::new(chosen)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .filter(|n| n.starts_with(app_brand::DISPLAY_NAME) && n.ends_with(" backups"));
+    own.map_or_else(
+        || format!("{} backups", app_brand::DISPLAY_NAME),
+        str::to_owned,
+    )
+}
+
+/// What the backups folder holds, for whoever opens it.
+fn readme() -> String {
+    let app = app_brand::DISPLAY_NAME;
+    format!(
+        "These are {app}'s backups of your notes, encrypted with the backup password.\n\n\
+         The files only work together, so do not rename, edit or remove any of them.\n\n\
+         To restore, open {app}, go to Settings, Data and backups, Backups, \
+         choose the folder that holds this one, then Restore.\n"
+    )
+}
+
 /// Where backups go.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -36,7 +61,7 @@ impl TargetConfig {
                 if path.trim().is_empty() {
                     return Err(crate::error::Error::Invalid("choose a folder".into()));
                 }
-                std::sync::Arc::new(FolderTarget::new(path))
+                std::sync::Arc::new(FolderTarget::named(path, &folder_name(path), &readme()))
             }
             Self::S3(config) => std::sync::Arc::new(S3Target::new(config.clone())?),
             Self::Webdav(config) => std::sync::Arc::new(WebdavTarget::new(config)?),

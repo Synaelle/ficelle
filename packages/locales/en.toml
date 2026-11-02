@@ -543,6 +543,7 @@ help = "Only in dev and preview builds, for reporting issues to the developer wi
 folder = "Reports folder"
 folderHelp = "Each report is a folder with its text and images. By default the folder set when this build was made, or the app's data folder."
 folderHelpPhone = "Reports can only be saved once a folder is chosen. Pick one a computer can read, a folder synced with Syncthing for example."
+folderHelpChosen = "Each report is a folder with its text and images, saved in this one."
 noFolder = "No folder chosen yet."
 choose = "Choose a folder"
 default = "Use the default"
@@ -651,7 +652,7 @@ here = "{name} is in this note"
 
 [sync]
 intro = "Connect to a {appName} server to keep your notes the same on all your devices. Notes stay on this device too and work offline."
-address = "Server address, for example notes.example.org"
+address = "Address, like notes.example.org"
 continue = "Continue"
 checking = "Checking…"
 signInTo = "Sign in to {server}"

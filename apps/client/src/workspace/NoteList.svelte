@@ -382,17 +382,23 @@
               <span class="snippet">{note.snippet}</span>
               <span class="date">{when(note.updatedAt)}</span>
             </button>
+            {#if trash}
+              <div class="row-actions">
+                <button
+                  class="icon-btn"
+                  aria-label={t('list.restore')}
+                  title={t('list.restore')}
+                  onclick={() => workspace.restore(note.id)}><Icon name="restore" /></button
+                >
+                <button
+                  class="icon-btn purge"
+                  aria-label={t('list.purge')}
+                  title={t('list.purge')}
+                  onclick={() => purge(note.id)}><Icon name="trash" /></button
+                >
+              </div>
+            {/if}
           </div>
-          {#if trash}
-            <div class="row-actions">
-              <button class="btn" onclick={() => workspace.restore(note.id)}
-                >{t('list.restore')}</button
-              >
-              <button class="btn danger" onclick={() => purge(note.id)}>
-                {t('list.purge')}
-              </button>
-            </div>
-          {/if}
         {/snippet}
         {#snippet empty()}
           <li class="empty">{trash ? t('list.trashEmpty') : t('list.empty')}</li>
@@ -617,12 +623,10 @@
     grid-column: 1 / -1;
     color: var(--color-text-muted);
     font-size: 13px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    /* always two lines, the virtual list needs rows of one height */
-    height: 2lh;
-    -webkit-box-orient: vertical;
+    /* one line, always there, the virtual list needs rows of one height */
+    height: 1lh;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     overflow: hidden;
   }
   .date {
@@ -636,10 +640,19 @@
     color: var(--color-accent-text);
     font-weight: 600;
   }
+  /* in the Trash, two small buttons at the row's right, rows keep their height */
   .row-actions {
+    position: absolute;
+    top: 50%;
+    right: var(--space-1);
+    transform: translateY(-50%);
     display: flex;
-    gap: var(--space-2);
-    padding: 0 var(--space-3) var(--space-2);
+  }
+  .row-actions .purge {
+    color: var(--color-danger);
+  }
+  .swipe:has(.row-actions) .row {
+    padding-right: 96px;
   }
   .empty {
     padding: var(--space-6) var(--space-3);

@@ -521,7 +521,9 @@
   .backdrop {
     position: fixed;
     inset: 0;
-    z-index: 20;
+    /* over the open note and its toolbar (30) and history (35), under the
+       report button, toasts and dialogs (40 and up) */
+    z-index: 38;
     display: grid;
     place-items: center;
     padding: var(--space-4);

@@ -66,6 +66,54 @@ fn noise(seed: u64, len: usize) -> Vec<u8> {
 }
 
 #[test]
+fn a_chosen_folder_gets_its_own_backups_folder_unless_it_holds_one() {
+    let chosen = tempfile::tempdir().unwrap();
+    let target = Arc::new(FolderTarget::named(
+        chosen.path(),
+        "App backups",
+        "what this is",
+    ));
+    Repo::init(target.clone(), "backup password", KDF, 0).unwrap();
+    let inside = chosen.path().join("App backups");
+    assert!(inside.join("config").is_file());
+    assert_eq!(
+        std::fs::read_to_string(inside.join("README.txt")).unwrap(),
+        "what this is"
+    );
+    assert!(!chosen.path().join("config").exists());
+    // opened again from the chosen folder, the same repository
+    let again = Arc::new(FolderTarget::named(
+        chosen.path(),
+        "App backups",
+        "what this is",
+    ));
+    Repo::open(again, "backup password").unwrap();
+
+    // a repository made straight in the chosen folder stays there
+    let old = tempfile::tempdir().unwrap();
+    Repo::init(
+        Arc::new(FolderTarget::new(old.path())),
+        "backup password",
+        KDF,
+        0,
+    )
+    .unwrap();
+    let kept = Arc::new(FolderTarget::named(
+        old.path(),
+        "App backups",
+        "what this is",
+    ));
+    Repo::open(kept, "backup password").unwrap();
+    assert!(!old.path().join("App backups").exists());
+
+    // a folder already named so is not nested again
+    let named = chosen.path().join("Other").join("App backups");
+    let target = Arc::new(FolderTarget::named(&named, "App backups", "what this is"));
+    Repo::init(target, "backup password", KDF, 0).unwrap();
+    assert!(named.join("config").is_file());
+}
+
+#[test]
 fn a_repository_opens_with_its_password_only() {
     let dir = tempfile::tempdir().unwrap();
     let target = Arc::new(FolderTarget::new(dir.path().join("repo")));

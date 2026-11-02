@@ -326,8 +326,11 @@
   figure img {
     display: block;
     height: 72px;
+    /* a phone's tall screenshot stays wide enough to see, its top shown */
+    min-width: 72px;
     max-width: 140px;
     object-fit: cover;
+    object-position: top;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-control);
   }
@@ -335,6 +338,13 @@
     position: absolute;
     top: 2px;
     right: 2px;
+    /* small, so it covers a corner and not the picture */
+    width: 22px;
+    height: 22px;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    line-height: 1;
     background: var(--color-surface);
   }
   .link {

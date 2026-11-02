@@ -38,6 +38,8 @@ class Workspace {
   query = $state('')
   hits: SearchHit[] | null = $state(null)
   current: Note | null = $state(null)
+  /** A note just made here, its title takes the caret once shown. */
+  fresh: Id | null = $state(null)
   /** What the open note waits for after a sync. */
   conflict: NoteConflict | null = $state(null)
   /** Notes waiting for a decision, marked in lists. */
@@ -226,7 +228,10 @@ class Workspace {
     const folderId = this.newNoteFolder()
     const tags = this.scope.kind === 'tag' ? [this.tagName(this.scope.id)] : []
     const note = await backend.createNote({ ...initial, folderId, tags })
-    if (open) this.show(note)
+    if (open) {
+      this.fresh = note.id
+      this.show(note)
+    }
     await this.refreshNotes()
     return note
   }

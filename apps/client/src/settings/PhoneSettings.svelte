@@ -6,6 +6,7 @@
   import { serverProtocol, sync } from '../lib/sync.svelte'
   import SyncSettings from './SyncSettings.svelte'
   import { brand } from '@app/brand'
+  import { tick, untrack } from 'svelte'
   import { onBack } from '../lib/back'
   import { modal } from '../lib/modal'
   import { biometricMethod } from '../lib/biometric'
@@ -302,6 +303,22 @@
   $effect(() => {
     if (onPage) return onBack(back)
   })
+
+  // each page keeps its place: going back finds the list where it was left,
+  // a page opened starts at its top
+  let screen: HTMLDivElement | undefined = $state()
+  const places: Partial<Record<Page, number>> = {}
+  // the page as last drawn, apart from `page` which already moved on
+  let shown: Page = untrack(() => page)
+  $effect.pre(() => {
+    const next = page
+    if (!screen || next === shown) return
+    const box = screen
+    places[shown] = box.scrollTop
+    const returning = next === parentOf(shown)
+    shown = next
+    void tick().then(() => (box.scrollTop = returning ? (places[next] ?? 0) : 0))
+  })
 </script>
 
 {#snippet row(r: Row)}
@@ -328,6 +345,7 @@
 {/snippet}
 
 <div
+  bind:this={screen}
   class="screen"
   role="dialog"
   aria-modal="true"
@@ -592,7 +610,9 @@
   .screen {
     position: fixed;
     inset: 0;
-    z-index: 20;
+    /* over the open note and its toolbar (30) and history (35), under the
+       report button, toasts and dialogs (40 and up) */
+    z-index: 38;
     overflow-y: auto;
     padding: 0 var(--space-4) var(--space-6);
     background: var(--color-bg);
@@ -788,9 +808,9 @@
     top: 0;
     z-index: 1;
     display: grid;
-    /* the sides may shrink below their text, so a long title or a wide font
-       cuts the back label short instead of running into it */
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    /* the back label keeps its whole text: with a long title or a wide font
+       the title gives way, centered for as long as it fits */
+    grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(0, 1fr);
     column-gap: var(--space-2);
     align-items: center;
     min-height: 52px;
@@ -800,6 +820,9 @@
   }
   .bar b {
     font-size: 17px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .back {
     justify-self: start;

@@ -90,12 +90,35 @@ pub fn safe_path(path: &str) -> bool {
 #[derive(Debug, Clone)]
 pub struct FolderTarget {
     root: PathBuf,
+    /// Written beside the repository when it is made.
+    readme: Option<String>,
 }
 
 impl FolderTarget {
     /// A target in `root`, created when the first file is written.
     pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into() }
+        Self {
+            root: root.into(),
+            readme: None,
+        }
+    }
+
+    /// A target in its own folder `name` inside the folder the person
+    /// chose, with `readme` as README.txt in it. A chosen folder already
+    /// holding a repository (made before these folders), or already named
+    /// so (the folder Android's app picks itself), is used as it is.
+    pub fn named(chosen: impl Into<PathBuf>, name: &str, readme: &str) -> Self {
+        let chosen = chosen.into();
+        let root =
+            if chosen.join("config").is_file() || chosen.file_name().is_some_and(|n| n == name) {
+                chosen
+            } else {
+                chosen.join(name)
+            };
+        Self {
+            root,
+            readme: Some(readme.to_owned()),
+        }
     }
 
     fn at(&self, path: &str) -> Result<PathBuf> {
@@ -158,6 +181,12 @@ impl Target for FolderTarget {
         std::fs::rename(&partial, &to).inspect_err(|_| {
             let _ = std::fs::remove_file(&partial);
         })?;
+        // the repository is made: say what the folder holds
+        if path == "config"
+            && let Some(readme) = &self.readme
+        {
+            std::fs::write(self.root.join("README.txt"), readme)?;
+        }
         Ok(())
     }
 

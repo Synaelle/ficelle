@@ -18,7 +18,7 @@
   let shown = $state(false)
 </script>
 
-<span class="password" class:eyed={eye}>
+<span class="password">
   <!-- svelte-ignore a11y_autofocus -->
   <input {...rest} {autofocus} type={shown ? 'text' : 'password'} bind:value />
   {#if eye}
@@ -41,8 +41,9 @@
   .password :global(input) {
     width: 100%;
   }
-  .eyed :global(input) {
-    /* room for the eye */
+  .password :global(input) {
+    /* room for the eye, kept without one too: a repeat field below its
+       password lines up with it */
     padding-right: 36px;
   }
   .eye {

@@ -92,7 +92,16 @@
 </script>
 
 {#if files.length}
-  <details class="files" data-note-files>
+  <details
+    class="files"
+    data-note-files
+    ontoggle={(e) => {
+      // at the very bottom of the note, the list opens out of sight on phones
+      const list = e.currentTarget
+      if (list.open)
+        requestAnimationFrame(() => list.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+    }}
+  >
     <summary>
       <Icon name="attachment" size={14} />
       {t('files.inNote', { count: files.length })}

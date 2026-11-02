@@ -221,8 +221,8 @@ fn text_lines(body: &str, with_code: bool) -> Vec<String> {
         .collect()
 }
 
-/// One line summary of a note, at most `max` characters. It starts with
-/// real text: code, link or image only lines, rules and a first line that
+/// The first line of a note's text for its summary, at most `max`
+/// characters. Code, link or image only lines, rules and a first line that
 /// repeats the title are left out. A note with nothing else shows its code.
 pub fn preview(title: &str, body: &str, max: usize) -> String {
     let mut lines = text_lines(body, false);
@@ -237,10 +237,10 @@ pub fn preview(title: &str, body: &str, max: usize) -> String {
     {
         lines.remove(0);
     }
-    let flat = lines.join(" ");
-    match flat.char_indices().nth(max) {
-        Some((cut, _)) => format!("{}…", &flat[..cut]),
-        None => flat,
+    let first = lines.into_iter().next().unwrap_or_default();
+    match first.char_indices().nth(max) {
+        Some((cut, _)) => format!("{}…", &first[..cut]),
+        None => first,
     }
 }
 
@@ -251,9 +251,10 @@ mod tests {
     #[test]
     fn removes_markdown_people_would_notice() {
         let body = "# Plan\n\n![vines](attachments/a.png){width=320 wrap=left}Six **cedar** posts, see [[Garden log|the log]] and [site](https://x.y).\n\n- [ ] Ask *Inès*\n> [!note] Prune\n> weekly\n```\ncode = 1\n```\n1. \\# literal";
+        assert_eq!(preview("", body, 200), "Plan");
         assert_eq!(
-            preview("", body, 200),
-            "Plan Six cedar posts, see the log and site. Ask Inès Prune weekly # literal"
+            preview("Plan", body, 200),
+            "Six cedar posts, see the log and site."
         );
     }
 
@@ -293,8 +294,8 @@ mod tests {
         );
         assert_eq!(preview("Café list", "café LIST\nBeans", 100), "Beans");
         // only the first line, and only when it is the title
-        assert_eq!(preview("Plan", "Intro\n# Plan", 100), "Intro Plan");
-        assert_eq!(preview("", "# Heading\nText", 100), "Heading Text");
+        assert_eq!(preview("Plan", "Intro\n# Plan", 100), "Intro");
+        assert_eq!(preview("", "# Heading\nText", 100), "Heading");
     }
 
     #[test]
@@ -316,16 +317,17 @@ mod tests {
     fn tables_read_as_words() {
         assert_eq!(
             preview("", "| Plant | Days |\n| --- | :-: |\n| Basil | 7 |", 100),
-            "Plant Days Basil 7"
+            "Plant Days"
         );
     }
 
     #[test]
     fn github_extras_read_as_their_text() {
         let body = "<details>\n<summary>Watering :seedling:</summary>\n\nTwice a week[^1], more in July :sunny:.\n\n</details>\n\n[^1]: Less when it rains.";
+        assert_eq!(preview("", body, 200), "Watering 🌱");
         assert_eq!(
-            preview("", body, 200),
-            "Watering 🌱 Twice a week, more in July ☀️. Less when it rains."
+            preview("", &body[body.find("Twice").unwrap()..], 200),
+            "Twice a week, more in July ☀️."
         );
         // an unknown name, times and plain brackets stay as written
         assert_eq!(

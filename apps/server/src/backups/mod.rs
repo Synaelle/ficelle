@@ -25,6 +25,25 @@ use crate::routes::AppState;
 use crate::sftp::{SftpConfig, SftpTarget};
 use instance::RunReport;
 
+/// The folder backups get inside the chosen one.
+fn folder_name() -> String {
+    format!("{} server backups", app_brand::DISPLAY_NAME)
+}
+
+/// What the backups folder holds, for whoever opens it.
+fn readme() -> String {
+    let (app, binary) = (app_brand::DISPLAY_NAME, app_brand::SERVER_BINARY);
+    format!(
+        "These are backups of a {app} server, encrypted with the backup password.\n\n\
+         The files only work together, so do not rename, edit or remove any of them.\n\n\
+         To restore, stop the server and run\n\
+         {binary} backup restore --target <target.json> --into <empty folder>\n\
+         with the backup password in {}_BACKUP_PASSWORD. The target file is the one shown \
+         on the admin page, Backups, under To restore the whole instance.\n",
+        app_brand::ENV_PREFIX
+    )
+}
+
 /// Where the instance's backups go.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -43,7 +62,8 @@ pub enum ServerTarget {
 }
 
 /// A folder the admin page may back up to: an absolute path that is not
-/// there yet, empty, or a repository already (its `config` file). A folder
+/// there yet, empty, or holding a repository already (its `config` file,
+/// in the folder itself or in its named backups folder). A folder
 /// holding anything else, like the server's own files or a system folder,
 /// is never written into or pruned.
 fn folder_allowed(path: &Path) -> Result<(), String> {
@@ -57,7 +77,10 @@ fn folder_allowed(path: &Path) -> Result<(), String> {
             Ok(())
         };
     };
-    if entries.next().is_none() || path.join("config").is_file() {
+    if entries.next().is_none()
+        || path.join("config").is_file()
+        || path.join(folder_name()).join("config").is_file()
+    {
         Ok(())
     } else {
         Err("this folder holds other files: choose an empty folder or a backup".into())
@@ -77,7 +100,7 @@ impl ServerTarget {
                     return Err("a folder is needed".into());
                 }
                 folder_allowed(Path::new(path.trim()))?;
-                Arc::new(FolderTarget::new(path.trim()))
+                Arc::new(FolderTarget::named(path.trim(), &folder_name(), &readme()))
             }
             Self::S3(c) => Arc::new(S3Target::new(c.clone()).map_err(|e| e.to_string())?),
             Self::Webdav(c) => Arc::new(WebdavTarget::new(c).map_err(|e| e.to_string())?),
