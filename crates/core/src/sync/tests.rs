@@ -725,6 +725,44 @@ mod conflicts {
     }
 
     #[test]
+    fn restoring_a_version_answers_the_question() {
+        let (mut a, _b, id) = rewritten_on_both();
+        let theirs = a
+            .list_versions(id)
+            .unwrap()
+            .into_iter()
+            .find(|v| v.reason == VersionReason::TheirsBeforeMerge)
+            .unwrap();
+        a.restore_version(theirs.id).unwrap();
+        assert_eq!(a.note(id).unwrap().body, THEIRS);
+        assert_eq!(a.note_conflict(id).unwrap(), None, "the restore was the choice");
+    }
+
+    #[test]
+    fn a_merge_keeps_each_text_once_in_the_history() {
+        let (mut a, clock) = device(1_000_000);
+        let (mut b, _) = device(1_000_000);
+        let id = note_with(&mut a, "Trip", BASE);
+        sync(&mut a, &mut b);
+        clock.advance(crate::store::EDIT_SESSION);
+        edit_body(&mut a, id, MINE);
+        edit_body(&mut b, id, THEIRS);
+        sync(&mut a, &mut b);
+        // a goes on typing after a pause
+        clock.advance(crate::store::EDIT_SESSION);
+        let merged = a.note(id).unwrap().body;
+        edit_body(&mut a, id, &format!("{merged}\n\nMore."));
+        let bodies: Vec<String> = a
+            .list_versions(id)
+            .unwrap()
+            .into_iter()
+            .map(|v| v.body)
+            .collect();
+        let doubled = bodies.windows(2).any(|w| w[0] == w[1]);
+        assert!(!doubled, "{bodies:#?}");
+    }
+
+    #[test]
     fn edits_of_different_paragraphs_merge_without_asking() {
         let (mut a, _) = device(1_000_000);
         let (mut b, _) = device(1_000_000);

@@ -100,10 +100,27 @@
   }
 
   async function restore(version: NoteVersion) {
+    const yes = await overlay.ask(t('note.restoreConfirm', { when: stamp(version.createdAt) }), {
+      confirmLabel: t('note.restore'),
+    })
+    if (!yes) return
     await workspace.flush()
     workspace.replace(await backend.restoreVersion(version.id))
     versions = null
     await workspace.refreshNotes()
+  }
+
+  /** The start of a version's text, for telling entries apart: the
+   * markdown marks and the title line left out. */
+  function opening(version: NoteVersion): string {
+    const lines = version.body.split('\n').map((line) => line.trim())
+    if (lines[0]?.replace(/^#+\s*/, '') === version.title.trim()) lines.shift()
+    const text = lines
+      .join(' ')
+      .replace(/[#>*_`~[\]()|-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    return text.length > 120 ? `${text.slice(0, 120)}…` : text
   }
 
   const stamp = (at: number) =>
@@ -260,9 +277,10 @@
               <div>
                 <strong>{stamp(version.createdAt)}</strong>
                 <span class="muted">{version.title || t('note.untitled')}</span>
-                {#if version.reason === 'mineBeforeMerge' || version.reason === 'theirsBeforeMerge'}
+                {#if version.reason !== 'edit'}
                   <span class="reason">{t(`note.version_${version.reason}`)}</span>
                 {/if}
+                {#if opening(version)}<span class="opening">{opening(version)}</span>{/if}
               </div>
               <button class="btn" onclick={() => restore(version)}
                 ><Icon name="restore" size={16} />{t('note.restore')}</button
@@ -462,6 +480,11 @@
   .reason {
     font-size: 12px;
     color: var(--color-accent);
+  }
+  .opening {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    overflow-wrap: anywhere;
   }
   .sheet h2 {
     flex: 1;

@@ -29,8 +29,12 @@ fn version_from_row(row: &Row<'_>) -> rusqlite::Result<NoteVersion> {
     })
 }
 
+/// Keeps `note` as it is, dated when its text was written, not when it
+/// was replaced: an entry of today could hold yesterday's text otherwise. A
+/// date ahead of this device's clock is taken as now.
 fn save(conn: &Connection, note: &Note, reason: VersionReason, now: Timestamp) -> Result<()> {
-    save_text(conn, note.id, &note.title, &note.body, reason, now)
+    let written = note.updated_at.min(now);
+    save_text(conn, note.id, &note.title, &note.body, reason, written)
 }
 
 /// Keeps a text of a note in its history.
@@ -118,6 +122,11 @@ impl Store {
             ));
         }
         save(&tx, &current, VersionReason::BeforeRestore, now)?;
+        // a restore is a choice too: the merge question is answered
+        tx.execute(
+            "DELETE FROM note_conflicts WHERE note_id = ?1 AND kind = 'merge'",
+            [old.note_id],
+        )?;
         tx.execute(
             "UPDATE notes SET title = ?2, body = ?3, updated_at = ?4 WHERE id = ?1",
             params![old.note_id, old.title, old.body, now],
@@ -208,5 +217,22 @@ mod tests {
         let undo = &store.list_versions(note.id).unwrap()[0];
         assert_eq!(undo.reason, VersionReason::BeforeRestore);
         assert_eq!(undo.body, "new");
+    }
+
+    #[test]
+    fn a_version_is_dated_when_its_text_was_written() {
+        let (mut store, clock) = store();
+        let note = store
+            .create_note(&NewNote {
+                body: "written".into(),
+                ..NewNote::default()
+            })
+            .unwrap();
+        // a day later the note is edited again
+        clock.advance(24 * 60 * MINUTE);
+        store.update_note(note.id, body("rewritten")).unwrap();
+        let kept = &store.list_versions(note.id).unwrap()[0];
+        assert_eq!(kept.body, "written");
+        assert_eq!(kept.created_at, note.updated_at, "the day it was written");
     }
 }

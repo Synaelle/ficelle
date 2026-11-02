@@ -258,7 +258,7 @@ mod tests {
         let linker = store
             .create_note(&note("Linker", "see [[Old name]]"))
             .unwrap();
-        clock.advance(crate::store::history::EDIT_SESSION);
+        clock.advance(crate::store::EDIT_SESSION);
         let rename = NoteChange {
             title: Some("New name".into()),
             ..NoteChange::default()
