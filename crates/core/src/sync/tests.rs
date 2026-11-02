@@ -735,7 +735,11 @@ mod conflicts {
             .unwrap();
         a.restore_version(theirs.id).unwrap();
         assert_eq!(a.note(id).unwrap().body, THEIRS);
-        assert_eq!(a.note_conflict(id).unwrap(), None, "the restore was the choice");
+        assert_eq!(
+            a.note_conflict(id).unwrap(),
+            None,
+            "the restore was the choice"
+        );
     }
 
     #[test]
