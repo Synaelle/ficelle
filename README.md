@@ -15,27 +15,18 @@
 
 ## What it does
 
-- Notes are plain Markdown files, shown formatted as you write, with tables, task lists, code and quotes.
-- Paste or drop images and place them like in a word processor, with the text flowing around them.
-- Sync your devices through a server you host yourself.
+- **Write in Markdown**, formatted as you type, with tables, task lists, code, images and attachments.
+- **Keep it private**, notes can be encrypted on your device, and synced end-to-end encrypted.
+- **Sync your devices** through a server you host yourself, or keep everything on one device.
+- **Undo anything**, every note keeps its earlier versions.
 
 ## Download
 
 Get the latest version from the [Releases](../../releases/latest) page:
 
-- **Windows**: `Ficelle_…_x64-setup.exe`
-- **Windows, portable**: `Ficelle_…_x64_portable.exe` keeps your notes in a folder beside it, nothing is installed
+- **Windows**: `Ficelle_…_x64-setup.exe`, or `Ficelle_…_x64_portable.exe` to keep your notes in a folder beside it
 - **Linux**: `Ficelle_…_amd64.AppImage`, make it executable and open it
-- **Android**: `ficelle-…-android.apk`, for every phone and tablet (allow installing apps from your browser or files app when asked). Play Protect may warn about an unknown app. Choose Install anyway.
-
-### What it runs on
-
-- **Windows** 10 or 11, 64-bit
-- **Linux** Ubuntu 22.04, Debian 12, Fedora 36, Linux Mint 21 or newer, 64-bit
-- **Android** 7.0 or newer, any phone, tablet or Chromebook
-- **Your own server** any 64-bit PC or cloud server (x86_64) with Docker, not a Raspberry Pi yet
-
-macOS and iOS builds need testers with a Mac or an iPhone, which I do not have. Get in touch if you can help.
+- **Android**: `ficelle-…-android.apk`. Play Protect may warn about an unknown app. Choose Install anyway.
 
 ## Your own server
 
