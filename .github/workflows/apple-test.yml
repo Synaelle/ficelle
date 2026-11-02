@@ -92,14 +92,19 @@ jobs:
         env:
           APP_PREVIEW: '1'
         run: |
-          set -eu
-          pnpm build
-          project=$(ls -d src-tauri/gen/apple/*.xcodeproj | head -n1)
-          scheme=$(basename "$project" .xcodeproj)_iOS
-          xcodebuild -project "$project" -scheme "$scheme" -configuration release \
-            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/ios" \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
-          app=$(find "$RUNNER_TEMP/ios/Build/Products" -name '*.app' -maxdepth 2 | head -n1)
+          set -u
+          # Xcode's build step needs tauri ios build running beside it, so
+          # tauri drives the build, with signing off. Its export to an .ipa
+          # needs signing and fails: the app is taken from the archive
+          pnpm tauri ios build --ci -- CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            || echo "tauri ios build ended with an error, looking for the app in the archive"
+          app=$(find src-tauri/gen/apple "$HOME/Library/Developer/Xcode" -maxdepth 8 \
+            -path '*.xcarchive/Products/Applications/*.app' 2>/dev/null | head -n1)
+          if [ -z "$app" ]; then
+            echo "::error::no app was built"
+            exit 1
+          fi
+          echo "app: $app"
           # an unsigned .ipa: the app in a Payload folder, zipped
           mkdir -p "$RUNNER_TEMP/ipa/Payload" ../../out
           cp -R "$app" "$RUNNER_TEMP/ipa/Payload/"
