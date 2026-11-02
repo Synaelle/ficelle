@@ -505,11 +505,13 @@ async fn caps_set_on_the_admin_page_replace_the_config_s() {
         StatusCode::TOO_MANY_REQUESTS
     );
 
-    // this instance's own people are not capped, and still anonymous
+    // this instance's own people are not capped, and still anonymous. From
+    // an address of their own: one address asks at most ten challenges a
+    // minute, and the reports above asked five
     for n in 0..6 {
         let body = json!({ "message": format!("report {n} from a member"), "server": "notes.example.org" });
         assert_eq!(
-            report_as(&app, "10.0.0.1", body, Some(&admin)).await.0,
+            report_as(&app, "10.0.0.2", body, Some(&admin)).await.0,
             StatusCode::NO_CONTENT,
             "member report {n}"
         );

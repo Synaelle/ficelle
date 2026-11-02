@@ -41,6 +41,17 @@ fn link_invalid() -> Error {
     )
 }
 
+/// A session that is not there. A request racing another one that just
+/// finished setup finds its session gone with it: setup is done, not the
+/// link wrong.
+fn no_session(state: &AppState) -> Error {
+    if state.setup.is_done() {
+        gone()
+    } else {
+        link_invalid()
+    }
+}
+
 /// Refuses once setup is locked, asking the database when memory does not
 /// know yet: the command line may have made the first admin.
 async fn not_locked(state: &AppState) -> Result<(), Error> {
@@ -387,15 +398,7 @@ pub async fn finish(
         .with_session(&req.session, now, |s| {
             (s.user_id.clone(), s.totp.clone(), s.passkey.clone())
         })
-        // a request racing another one that just finished setup finds its
-        // session gone with it: setup is done, not the link wrong
-        .ok_or_else(|| {
-            if state.setup.is_done() {
-                gone()
-            } else {
-                link_invalid()
-            }
-        })?;
+        .ok_or_else(|| no_session(&state))?;
     let username = new_credentials(&req.username, &req.password)?;
     let is_totp = matches!(req.factor, SetupFactor::Totp { .. });
     let no_factor = matches!(req.factor, SetupFactor::None);
