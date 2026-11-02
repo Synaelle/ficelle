@@ -14,6 +14,33 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # whether this push or pull request touched Rust: without it the Rust
+  # checks and tests are skipped, they cannot have changed
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.diff.outputs.rust }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base=${BASE:-$BEFORE}
+          # a new branch or tag, or a base no longer there: everything runs
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$base" HEAD | grep -qE '^(crates/|apps/server/|apps/client/src-tauri/|Cargo\.|rust-toolchain\.toml|deny\.toml|\.github/workflows/ci\.yml)'; then
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rust=false" >> "$GITHUB_OUTPUT"
+          fi
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -35,12 +62,16 @@ jobs:
 
   # licences that fit the AGPL, no known advisories, crates.io only (deny.toml)
   deny:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
 
   rust:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -57,6 +88,8 @@ jobs:
 
   build-desktop:
     needs: [lint, rust]
+    # after the Rust tests, or without them when no Rust changed
+    if: ${{ !cancelled() && needs.lint.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.rust.result) }}
     strategy:
       fail-fast: false
       matrix:
