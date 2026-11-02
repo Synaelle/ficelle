@@ -10,6 +10,9 @@
   <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Synaelle/ficelle"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="80"></a>
 </p>
 
+> [!CAUTION]
+> From 2027, Google plans to check the developer of every Android app, APKs from outside the Play Store included, which may make installing Ficelle harder. See [Android developer verification](https://developer.android.com/developer-verification).
+
 > [!WARNING]
 > Ficelle is in early development, it is recommended to keep backups of your notes.
 
@@ -23,8 +26,6 @@
 ## Download
 
 Ficelle runs on Windows, Linux and Android. Get it from the [latest release](../../releases/latest).
-
-From 2027, Google plans to check the developer of every Android app, APKs from outside the Play Store included, which may make installing Ficelle harder. See [Android developer verification](https://developer.android.com/developer-verification).
 
 macOS and iOS need testers with a Mac or an iPhone, see [Ficelle on a Mac or an iPhone](docs/apple.md) for the untested builds. A web version is on its way.
 
