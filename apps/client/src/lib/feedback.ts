@@ -32,6 +32,16 @@ function keep(level: string, args: unknown[]) {
   if (lines.length > MAX_LINES) lines.shift()
 }
 
+/** The first places of an error's stack, after its message. */
+function calls(error: unknown): string {
+  if (!(error instanceof Error) || !error.stack) return ''
+  const places = error.stack
+    .split('\n')
+    .slice(1, 4)
+    .map((line) => line.trim().replace(/^at /, ''))
+  return places.length ? ` (${places.join(' < ')})` : ''
+}
+
 /** Keeps the last errors and warnings in memory, never on disk. */
 export function captureLogs() {
   if (capturing) return
@@ -43,11 +53,13 @@ export function captureLogs() {
       original(...args)
     }
   }
+  // the column and the first calls: a built file is a few long lines, the
+  // line alone does not say where
   window.addEventListener('error', (e) =>
-    keep('error', [`${e.message} at ${e.filename}:${e.lineno}`]),
+    keep('error', [`${e.message} at ${e.filename}:${e.lineno}:${e.colno}${calls(e.error)}`]),
   )
   window.addEventListener('unhandledrejection', (e) =>
-    keep('error', [`unhandled: ${String(e.reason)}`]),
+    keep('error', [`unhandled: ${String(e.reason)}${calls(e.reason)}`]),
   )
 }
 

@@ -114,8 +114,20 @@ export function captureErrors() {
     remember(args.map((a) => (a instanceof Error ? (a.stack ?? a.message) : String(a))).join(' '))
     original(...args)
   }
-  window.addEventListener('error', (e) => remember(`${e.message} at ${e.filename}:${e.lineno}`))
-  window.addEventListener('unhandledrejection', (e) => remember(`unhandled: ${String(e.reason)}`))
+  window.addEventListener('error', (e) =>
+    remember(
+      e.error instanceof Error && e.error.stack
+        ? e.error.stack
+        : `${e.message} at ${e.filename}:${e.lineno}:${e.colno}`,
+    ),
+  )
+  window.addEventListener('unhandledrejection', (e) =>
+    remember(
+      e.reason instanceof Error && e.reason.stack
+        ? e.reason.stack
+        : `unhandled: ${String(e.reason)}`,
+    ),
+  )
 }
 
 export const recentErrors = () => [...recent]
