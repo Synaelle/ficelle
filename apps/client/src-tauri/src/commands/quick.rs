@@ -61,7 +61,7 @@ fn show(window: &tauri::WebviewWindow, title: &str) -> CommandResult<()> {
     #[cfg(windows)]
     forward::bring(title);
     #[cfg(not(windows))]
-    drop(title);
+    let _ = title;
     Ok(())
 }
 
