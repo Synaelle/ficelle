@@ -211,6 +211,9 @@ services:
       ${env}_PRIVACY__CONTACT: \${PRIVACY_CONTACT:-}
     volumes:
       - data:/data
+      # the folder offered for backups. Better on another disk: a host
+      # folder owned by 65532, like /mnt/backups/${brand.slug}:/backups
+      - backups:/backups
     read_only: true
     tmpfs:
       - /tmp
@@ -232,6 +235,7 @@ networks:
 
 volumes:
   data:
+  backups:
 `
 }
 
@@ -321,6 +325,9 @@ services:
       - traefik.http.services.${brand.slug}.loadbalancer.server.port=8080
     volumes:
       - data:/data
+      # the folder offered for backups. Better on another disk: a host
+      # folder owned by 65532, like /mnt/backups/${brand.slug}:/backups
+      - backups:/backups
     read_only: true
     tmpfs:
       - /tmp
@@ -344,6 +351,7 @@ networks:
 
 volumes:
   data:
+  backups:
   certificates:
 `
 }

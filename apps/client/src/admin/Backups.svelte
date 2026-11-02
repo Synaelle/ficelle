@@ -29,6 +29,7 @@
     running: boolean
     masterKeyApart: boolean
     suggestedFolder: string
+    suggestedApart: boolean
   }
   interface Snapshot {
     id: string
@@ -432,7 +433,11 @@
           autocomplete="off"
         /></label
       >
-      <p class="muted small">{t('admin.backups.simpleWhere')}</p>
+      {#if view.suggestedApart}
+        <p class="muted small">{t('admin.backups.simpleWhere')}</p>
+      {:else}
+        <p class="muted small">{t('admin.backups.simpleInData')}</p>
+      {/if}
     {:else}
       <fieldset>
         <legend>{t('backups.placeKind')}</legend>

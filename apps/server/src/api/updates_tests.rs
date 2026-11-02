@@ -188,14 +188,20 @@ async fn the_checklist_says_what_to_fix() {
         "POST",
         "/admin/checklist/dismiss",
         Some(&token),
+        Some(json!({ "key": "nothing" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "no such line");
+    // a line that is fine hides too, once read
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/admin/checklist/dismiss",
+        Some(&token),
         Some(json!({ "key": "secondFactors" })),
     )
     .await;
-    assert_eq!(
-        status,
-        StatusCode::BAD_REQUEST,
-        "a line that is fine has nothing to hide"
-    );
+    assert_eq!(status, StatusCode::NO_CONTENT);
     // a line an admin finds fine as it is hides, as it stands now
     let (status, _) = call(
         &app,
@@ -208,6 +214,7 @@ async fn the_checklist_says_what_to_fix() {
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (_, list) = call(&app, "GET", "/admin/checklist", Some(&token), None).await;
     assert_eq!(line(&list, "registration").unwrap()["dismissed"], true);
+    assert_eq!(line(&list, "secondFactors").unwrap()["dismissed"], true);
     assert!(line(&list, "tls").unwrap().get("dismissed").is_none());
     let (status, _) = call(&app, "POST", "/admin/checklist/restore", Some(&token), None).await;
     assert_eq!(status, StatusCode::NO_CONTENT);

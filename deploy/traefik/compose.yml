@@ -80,6 +80,9 @@ services:
       - traefik.http.services.ficelle.loadbalancer.server.port=8080
     volumes:
       - data:/data
+      # the folder offered for backups. Better on another disk: a host
+      # folder owned by 65532, like /mnt/backups/ficelle:/backups
+      - backups:/backups
     read_only: true
     tmpfs:
       - /tmp
@@ -103,4 +106,5 @@ networks:
 
 volumes:
   data:
+  backups:
   certificates:

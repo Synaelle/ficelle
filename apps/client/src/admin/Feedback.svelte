@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The feedback inbox: reports from anyone's apps, by status, with
      filters; one report whole with its images and logs, to mark, note, keep,
-     block its sender or delete. Admins also set whether this server takes
+     block its sender, save as a zip or delete. Admins also set whether this server takes
      reports, where its people send theirs, who reads the inbox, the token
      for `reports pull` and the block lists. -->
 <script lang="ts">
@@ -9,6 +9,7 @@
   import { overlay } from '../lib/overlay.svelte'
   import { api, download } from './api.svelte'
   import { bytes, dateTime, errorText } from './format'
+  import { zip } from './zip'
 
   let { admin }: { admin: boolean } = $props()
 
@@ -94,6 +95,8 @@
   let reports: Summary[] = $state([])
   let open: Full | null = $state(null)
   let images: string[] = $state([])
+  /** The images themselves, for the zip: the page may not read its own blob links back. */
+  let imageFiles: Blob[] = []
   let note = $state('')
   let answer = $state('')
   let problem = $state('')
@@ -136,6 +139,7 @@
   function forget() {
     for (const url of images) URL.revokeObjectURL(url)
     images = []
+    imageFiles = []
   }
 
   function show(full: Full) {
@@ -151,11 +155,36 @@
       show(full)
       // fetched with the session and shown from memory: the server only
       // hands them out as downloads
-      images = await Promise.all(
-        full.images.map(async (i) =>
-          URL.createObjectURL(await download(`/admin/feedback/reports/${id}/images/${i.position}`)),
-        ),
+      imageFiles = await Promise.all(
+        full.images.map((i) => download(`/admin/feedback/reports/${id}/images/${i.position}`)),
       )
+      images = imageFiles.map((file) => URL.createObjectURL(file))
+    })
+  }
+
+  /** The open report in one zip, to hand over for a look: its details,
+   * text, logs and images, without the sender's contact. */
+  async function saveZip() {
+    const report = open
+    if (!report) return
+    await act(async () => {
+      const text = (s: string) => new TextEncoder().encode(s)
+      const details: Partial<Full> = { ...report }
+      delete details.contact
+      const files = [{ name: 'report.json', data: text(JSON.stringify(details, null, 2)) }]
+      if (report.logs) files.push({ name: 'logs.txt', data: text(report.logs) })
+      for (const [n, image] of report.images.entries()) {
+        const file = imageFiles[n]
+        if (!file) continue
+        const data = new Uint8Array(await file.arrayBuffer())
+        files.push({ name: `image-${image.position}.${image.kind}`, data })
+      }
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(zip(files))
+      link.download = `feedback-${report.id}.zip`
+      link.click()
+      // once the download has taken it
+      setTimeout(() => URL.revokeObjectURL(link.href), 10_000)
     })
   }
 
@@ -371,6 +400,7 @@
           >
         {/if}
       {/each}
+      <button class="btn" disabled={busy} onclick={saveZip}>{t('admin.feedback.saveZip')}</button>
       <label class="choice">
         <input
           type="checkbox"

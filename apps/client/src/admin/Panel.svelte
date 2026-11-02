@@ -15,7 +15,6 @@
   import Overview from './Overview.svelte'
   import People from './People.svelte'
   import Storage from './Storage.svelte'
-  import Extensions from './Extensions.svelte'
   import Backups from './Backups.svelte'
   import Feedback from './Feedback.svelte'
   import { api } from './api.svelte'
@@ -29,7 +28,6 @@
     | 'groups'
     | 'storage'
     | 'backups'
-    | 'extensions'
     | 'feedback'
     | 'log'
     | 'account'
@@ -40,7 +38,6 @@
     ['groups', 'groups'],
     ['storage', 'database'],
     ['backups', 'backup'],
-    ['extensions', 'palette'],
     ['feedback', 'feedback'],
     ['log', 'log'],
     ['account', 'shield'],
@@ -126,8 +123,6 @@
       <Storage />
     {:else if section === 'backups'}
       <Backups />
-    {:else if section === 'extensions'}
-      <Extensions />
     {:else if section === 'feedback'}
       <Feedback {admin} />
     {:else if section === 'log'}

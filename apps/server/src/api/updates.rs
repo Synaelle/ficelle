@@ -278,7 +278,7 @@ pub async fn checklist(
     let mut items = lines(&state, &secure).await?;
     let hidden = state.db.call(|c| hidden(c)).await?;
     for item in &mut items {
-        item.dismissed = item.state != CheckState::Ok && hidden.contains(&fingerprint(item));
+        item.dismissed = hidden.contains(&fingerprint(item));
     }
     Ok(Json(Checklist { items }))
 }
@@ -368,7 +368,7 @@ pub async fn dismiss(
         let items = lines(&state, &secure).await?;
         let line = items
             .iter()
-            .find(|i| i.key == req.key && i.state != CheckState::Ok)
+            .find(|i| i.key == req.key)
             .map(fingerprint)
             .ok_or_else(|| Error::invalid("no such line to hide"))?;
         // the lines that no longer stand as they did are forgotten

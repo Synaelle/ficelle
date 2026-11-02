@@ -311,6 +311,9 @@ pub struct StorageConfig {
     /// File with the master key that encrypts standard accounts' notes at
     /// rest. Empty: `master.key` in `data_dir`, made on first start.
     pub master_key_file: PathBuf,
+    /// Folder the admin page offers for backups, when the server can write
+    /// there. Empty, or not writable: `backups` in `data_dir`.
+    pub backups_dir: PathBuf,
 }
 
 /// `[log]`
@@ -581,6 +584,7 @@ impl Default for StorageConfig {
         Self {
             data_dir: PathBuf::from("data"),
             master_key_file: PathBuf::new(),
+            backups_dir: PathBuf::new(),
         }
     }
 }

@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The dashboard's security checklist: what the server sees of itself
      (admins' second factors, sign-up, storage, backups, version, https, its address)
-     and the update check with its switch. A line that is not fine can be
-     hidden when the admin finds it fine as it is; it shows again once it
-     says something else. -->
+     and the update check with its switch. Any line can be hidden, one that
+     is fine once read, one that is not when the admin finds it fine as it
+     is; it shows again once it says something else. -->
 <script lang="ts">
   /** The server is for its admin alone: lines speak to that one person. */
   let { personal = false }: { personal?: boolean } = $props()
@@ -171,16 +171,16 @@
       <li class={item.state}>
         <Icon name={item.state === 'ok' ? 'check' : 'info'} size={16} />
         <span>{text(item)}</span>
-        {#if item.state !== 'ok'}
-          <button
-            class="btn"
-            disabled={busy}
-            onclick={() => act(() => api('POST', '/admin/checklist/dismiss', { key: item.key }))}
-            >{item.key === 'secrets'
-              ? t('admin.checklist.secretsDone')
+        <button
+          class="btn"
+          disabled={busy}
+          onclick={() => act(() => api('POST', '/admin/checklist/dismiss', { key: item.key }))}
+          >{item.key === 'secrets'
+            ? t('admin.checklist.secretsDone')
+            : item.state === 'ok'
+              ? t('admin.checklist.hide')
               : t('admin.checklist.fine')}</button
-          >
-        {/if}
+        >
       </li>
     {/each}
   </ul>

@@ -50,7 +50,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     pnpm --filter @app/client build; \
     cargo build --release --locked -p server; \
     mkdir -p /out/bin /out/web /out/root; \
-    install -d -m 700 /out/root/data; \
+    install -d -m 700 /out/root/data /out/root/backups; \
     cp "target/release/$BINARY" /out/bin/; \
     cp -r apps/client/dist/. /out/web/; \
     node tools/fonts-mirror.mjs /out/web/fonts
@@ -61,11 +61,12 @@ ARG ENV_PREFIX
 ARG SLUG
 COPY --from=build /out/bin/ /usr/local/bin/
 COPY --from=build /out/web/ /usr/share/${SLUG}/web/
-# the volume takes this folder's owner and mode when it is first made. The
+# the volumes take these folders' owner and mode when it is first made. The
 # folder is copied from its parent so its own mode comes along
 COPY --from=build --chown=65532:65532 /out/root/ /
 ENV ${ENV_PREFIX}_SERVER__BIND=0.0.0.0:8080 \
     ${ENV_PREFIX}_STORAGE__DATA_DIR=/data \
+    ${ENV_PREFIX}_STORAGE__BACKUPS_DIR=/backups \
     ${ENV_PREFIX}_SERVER__WEB_DIR=/usr/share/${SLUG}/web \
     APP_BINARY=/usr/local/bin/${BINARY}
 # the config file, when there is one, sits with the data

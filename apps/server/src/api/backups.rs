@@ -45,9 +45,26 @@ pub struct BackupsView {
     running: bool,
     /// The master key is read from a file of its own (`storage.master_key_file`).
     master_key_apart: bool,
-    /// Where the simple setup puts backups: a folder in the data folder,
-    /// the one place a container can always write.
+    /// Where the simple setup puts backups: `storage.backups_dir` when the
+    /// server can write there (the image's /backups volume), else a folder
+    /// in the data folder, the one place a container can always write.
     suggested_folder: String,
+    /// The suggested folder is not inside the data folder.
+    suggested_apart: bool,
+}
+
+/// `storage.backups_dir` when a file can be made in it, else `backups` in
+/// the data folder; and whether it lies outside the data folder.
+fn suggested_folder(storage: &crate::config::StorageConfig) -> (std::path::PathBuf, bool) {
+    let dir = &storage.backups_dir;
+    if !dir.as_os_str().is_empty() {
+        let probe = dir.join(".write-check");
+        if std::fs::write(&probe, b"").is_ok() {
+            let _ = std::fs::remove_file(&probe);
+            return (dir.clone(), !dir.starts_with(&storage.data_dir));
+        }
+    }
+    (storage.data_dir.join("backups"), false)
 }
 
 async fn view(state: &AppState) -> Result<BackupsView, Error> {
@@ -56,6 +73,7 @@ async fn view(state: &AppState) -> Result<BackupsView, Error> {
         .db
         .call(move |c| Ok((backups::config(c, &master)?, backups::status(c)?)))
         .await?;
+    let (suggested, suggested_apart) = suggested_folder(&state.config.storage);
     Ok(BackupsView {
         config: config.map(|c| ConfigView {
             target: c.target.without_secrets(),
@@ -65,13 +83,8 @@ async fn view(state: &AppState) -> Result<BackupsView, Error> {
         status,
         running: backups::running(),
         master_key_apart: !state.config.storage.master_key_file.as_os_str().is_empty(),
-        suggested_folder: state
-            .config
-            .storage
-            .data_dir
-            .join("backups")
-            .display()
-            .to_string(),
+        suggested_folder: suggested.display().to_string(),
+        suggested_apart,
     })
 }
 
