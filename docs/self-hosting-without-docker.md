@@ -9,6 +9,8 @@ The commands below are written for Debian and Ubuntu. Other Linux systems with s
 
 ## Build
 
+For now the server is built from source. Ready-made server builds, with an easy way to update them, will come in a later version.
+
 What the build needs, with Debian and Ubuntu package names. They may differ on other distributions.
 
 | What         | How                                                                                                        |
