@@ -25,7 +25,7 @@
 
 ## Download
 
-Ficelle runs on Windows, Linux and Android. Get it from the [latest release](../../releases/latest).
+Ficelle runs on Windows, Linux and Android. Get it from the [latest release](../../releases/latest). ARM builds for Windows and Linux are coming soon.
 
 macOS is coming soon with the Beta releases. iOS needs testers with an iPhone or iPad, see [Ficelle on a Mac or an iPhone](docs/apple.md).
 
