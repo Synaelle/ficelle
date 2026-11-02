@@ -1,14 +1,13 @@
 name: codeql
 
-# GitHub's code scanning on every push to main and each week. It is free for
-# public repositories only, so it waits until this one is public.
+# GitHub's code scanning, for each stable release that raises the middle
+# number (vX.Y.0), and by hand. Not on every push: it takes long and slowed
+# the work down. It is free for public repositories only.
 
 on:
   push:
-    branches: [main]
-  pull_request:
-  schedule:
-    - cron: '23 4 * * 1'
+    tags: ['v[0-9]+.[0-9]+.0']
+  workflow_dispatch:
 
 permissions:
   contents: read
