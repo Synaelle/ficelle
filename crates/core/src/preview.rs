@@ -164,12 +164,22 @@ fn strip_inline(line: &str) -> String {
             rest = &rest[len..];
         } else if matches!(c, '*' | '~' | '`') {
             rest = &rest[1..];
+        } else if c == '_' && !inside_word(&out, &rest[1..]) {
+            // _italic_ at a word's edge; inside one (spacing_cm) it stays,
+            // as Markdown leaves it
+            rest = &rest[1..];
         } else {
             out.push(c);
             rest = &rest[c.len_utf8()..];
         }
     }
     out
+}
+
+/// Letters or digits on both sides: an underscore in a name, not emphasis.
+fn inside_word(before: &str, after: &str) -> bool {
+    let word = |c: Option<char>| c.is_some_and(char::is_alphanumeric);
+    word(before.chars().next_back()) && word(after.chars().next())
 }
 
 /// A line that only draws something: a horizontal rule or a table's
@@ -301,6 +311,14 @@ Garden log"
         assert_eq!(
             preview("", "spacing_cm = 45 [draft] [[Note#Part]]", 100),
             "spacing_cm = 45 [draft] Note"
+        );
+    }
+
+    #[test]
+    fn underscore_emphasis_goes_names_stay() {
+        assert_eq!(
+            preview("", "Some _italic_, __strong__ and my_var_name.", 100),
+            "Some italic, strong and my_var_name."
         );
     }
 
