@@ -204,7 +204,7 @@
         />
       </label>
       <label class="settings-field">
-        {t('feedback.info')}
+        <span>{t('feedback.info')} <span class="optional">{t('common.optional')}</span></span>
         <textarea
           class="field wide-field message"
           rows="5"
@@ -217,7 +217,7 @@
         {/if}
       </label>
       <label class="settings-field">
-        {t('feedback.contact')}
+        <span>{t('feedback.contact')} <span class="optional">{t('common.optional')}</span></span>
         <input
           class="field wide-field"
           autocomplete="email"
@@ -336,6 +336,10 @@
   .message {
     height: auto;
     resize: vertical;
+  }
+  .optional {
+    color: var(--color-text-muted);
+    font-weight: normal;
   }
   .count {
     color: var(--color-text-muted);

@@ -11,7 +11,6 @@ interface AndroidReports {
   pickFolder(): void
   create(name: string, markdown: string): string
   addImage(report: string, file: string, base64: string): string
-  screenshot(): string
 }
 
 declare global {
@@ -42,37 +41,7 @@ export function pickPhoneFolder(): Promise<string> {
 export const desktopFolder = () =>
   invoke<string>('dev_report_folder', { folder: prefs.reportFolder })
 
-/** Elements with this attribute stay out of the screenshot (the report button). */
-const NO_SHOT = 'data-no-shot'
-
-/**
- * The app as it shows now, before the report window opens: the webview's own
- * picture on phones, drawn from the page on computers. Null when it failed,
- * the report goes without.
- */
-export async function screenshot(): Promise<File | null> {
-  try {
-    const android = window.AppReports
-    if (android) {
-      const base64 = android.screenshot()
-      if (!base64) return null
-      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
-      return new File([bytes], 'screenshot.png', { type: 'image/png' })
-    }
-    // loaded only here, release builds never reach it
-    const { domToBlob } = await import('modern-screenshot')
-    const blob = await domToBlob(document.documentElement, {
-      scale: window.devicePixelRatio,
-      width: window.innerWidth,
-      height: window.innerHeight,
-      filter: (node) => !(node instanceof Element && node.hasAttribute(NO_SHOT)),
-    })
-    return new File([blob], 'screenshot.png', { type: 'image/png' })
-  } catch (err) {
-    console.warn('report screenshot failed', err)
-    return null
-  }
-}
+export { screenshot } from '../lib/screenshot'
 
 async function base64Of(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer())

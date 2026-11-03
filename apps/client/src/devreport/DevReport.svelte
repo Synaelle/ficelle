@@ -52,6 +52,13 @@
     if (open) return onBack(close)
   })
 
+  // an error's Report it opens this report in dev and preview builds
+  $effect(() => {
+    const fromError = () => void show()
+    window.addEventListener('app-dev-report', fromError)
+    return () => window.removeEventListener('app-dev-report', fromError)
+  })
+
   async function show() {
     if (capturing) return
     saved = failed = ''

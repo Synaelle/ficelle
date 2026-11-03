@@ -10,6 +10,7 @@ back = "Back"
 close = "Close"
 cancel = "Cancel"
 ok = "OK"
+optional = "(optional)"
 
 [errors]
 wrongPassword = "Wrong password."
@@ -805,6 +806,21 @@ state_open = "Being looked at"
 state_done = "Dealt with"
 state_gone = "No longer kept"
 state_unknown = "Server not reached"
+
+[errorReport]
+notice = "Something went wrong."
+report = "Report it"
+title = "Report a problem"
+lead = "{appName} ran into an error. Sending it helps fix it."
+doing = "What were you doing?"
+contact = "Contact, if you'd like an answer"
+screenshot = "Add a screenshot of the app"
+screenshotHelp = "It may show the note you had open."
+whatIsSent = "What is sent"
+sentTo = "Sent to {host}."
+sent = "Thanks, the report is sent."
+off = "Reports are turned off on your sync server. You can write to {address} instead."
+copyAddress = "Copy address"
 
 [feedback.imageCount]
 one = "{count} image"

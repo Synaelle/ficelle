@@ -36,6 +36,7 @@ class MainActivity : TauriActivity() {
     webView.addJavascriptInterface(WidgetBridge(applicationContext), "AppWidget")
     webView.addJavascriptInterface(SystemInfo(this), "AppSystem")
     webView.addJavascriptInterface(Installer(this), "AppInstaller")
+    webView.addJavascriptInterface(Screenshot(this, webView), "AppShot")
     if (BuildConfig.DEV_REPORTS) {
       val reports = DevReports(this, webView) { reportFolderPicker.launch(null) }
       devReports = reports

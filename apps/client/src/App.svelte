@@ -6,6 +6,8 @@
   import { autoLock } from './lib/autolock.svelte'
   import { backend, type VaultStatus } from './lib/backend'
   import { applyDyslexicFont } from './lib/dyslexicFont'
+  import { catchErrors, errorCatch } from './lib/errorCatch.svelte'
+  import ErrorReport from './lib/ErrorReport.svelte'
   import { captureLogs } from './lib/feedback'
   import { setLocale, systemLocale } from './lib/i18n.svelte'
   import { persistPrefs, prefs } from './lib/prefs.svelte'
@@ -31,6 +33,7 @@
 
   if (__APP_DEV_REPORTS__) captureErrors()
   captureLogs()
+  catchErrors()
   persistPrefs()
   applyTheme()
   $effect(() => setLocale(prefs.language ?? systemLocale()))
@@ -108,6 +111,7 @@
 <Overlays />
 <Toasts />
 <CriticalUpdate />
+{#if errorCatch.open}<ErrorReport />{/if}
 
 {#if __APP_DEV_REPORTS__}<DevReport />{/if}
 

@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The messages of lib/toast, read out by screen readers as they come, and
-     the app update card on top of them. -->
+     the app update and error cards on top of them. -->
 <script lang="ts">
+  import ErrorNotice from './ErrorNotice.svelte'
   import Icon from './icons/Icon.svelte'
   import UpdateNotice from './UpdateNotice.svelte'
   import { t } from './i18n.svelte'
@@ -10,6 +11,7 @@
 
 <div class="toasts" role="status" aria-live="polite">
   <UpdateNotice />
+  <ErrorNotice />
   {#each toasts.list as toast (toast.id)}
     <div class="toast">
       <span class="text"><b>{toast.from}</b> {toast.text}</span>
@@ -33,6 +35,12 @@
     gap: var(--space-2);
     width: min(340px, calc(100vw - 2 * var(--space-4)));
     pointer-events: none;
+  }
+  /* on touch screens an open note has its toolbar at the bottom: above it */
+  @media (pointer: coarse) {
+    :global(body:has(.editor .toolbar)) .toasts {
+      bottom: calc(var(--space-4) + 64px);
+    }
   }
   .toast {
     display: flex;
