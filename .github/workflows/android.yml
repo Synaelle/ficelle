@@ -148,7 +148,9 @@ jobs:
               echo "::error::the TAURI_SIGNING_PRIVATE_KEY secret is missing"
               exit 1
             fi
-            pnpm --filter @app/client tauri signer sign "$PWD/out/$name"
+            # the version in the signature, as the desktop bundles have it:
+            # apps check it there, a file name cannot hold a beta's dash
+            pnpm --filter @app/client tauri signer sign --app-version "$version" "$PWD/out/$name"
             test -f "out/$name.sig"
           fi
 

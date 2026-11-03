@@ -281,7 +281,20 @@ mod list {
         if let Some(signed) = field("version:") {
             return clean(signed) == version;
         }
-        field("file:").is_some_and(|name| name.split(['_', '-']).any(|part| part == version))
+        field("file:").is_some_and(|name| names_version(name, version))
+    }
+
+    /// `name` holds `version` whole, between the name's separators: a beta's
+    /// own dash included (`ficelle-0.5.0-beta.1-android.apk`), and never the
+    /// stable `0.5.0` read out of that beta's name.
+    fn names_version(name: &str, version: &str) -> bool {
+        name.match_indices(version).any(|(at, _)| {
+            let before = name[..at].chars().next_back();
+            let after = &name[at + version.len()..];
+            matches!(before, Some('_' | '-'))
+                && (after.starts_with(['_', '.'])
+                    || (after.starts_with('-') && !after.starts_with("-beta.")))
+        })
     }
 
     /// This device's file from the list, downloaded and checked: signed by
@@ -808,6 +821,18 @@ mod tests {
             "0.2.2"
         ));
         assert!(!signed_for("timestamp:1\tfile:update-file.bin", "0.2.2"));
+        // a beta's version has a dash of its own
+        let beta = "timestamp:1\tfile:ficelle-0.5.0-beta.1-android.apk";
+        assert!(signed_for(beta, "0.5.0-beta.1"));
+        assert!(
+            !signed_for(beta, "0.5.0"),
+            "a beta's file passed off as the release"
+        );
+        assert!(!signed_for(beta, "0.5.0-beta.2"));
+        assert!(signed_for(
+            "timestamp:1\tfile:Ficelle_0.5.0-beta.1_x64-setup.exe",
+            "0.5.0-beta.1"
+        ));
         assert!(!signed_for("", "0.2.2"));
         // the test file's own signature carries its comment back
         let comment = verify(FILE, SIGNATURE, KEY).unwrap();
