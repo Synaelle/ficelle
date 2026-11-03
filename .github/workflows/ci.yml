@@ -126,9 +126,9 @@ jobs:
         with:
           tool: wasm-bindgen@0.2.129
       - run: pnpm install --frozen-lockfile
-      # on Windows NSIS only, as the release: MSI takes no beta version
-      # (0.5.0-beta.1); the other systems build their usual set
-      - run: pnpm --filter @app/client tauri build ${{ matrix.os == 'windows-latest' && '--bundles nsis' || '' }}
+      # the bundles the release ships: MSI and rpm take no beta version
+      # (0.5.0-beta.1), NSIS and the AppImage do
+      - run: pnpm --filter @app/client tauri build ${{ matrix.os == 'windows-latest' && '--bundles nsis' || matrix.os == 'ubuntu-latest' && '--bundles appimage' || '' }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop-${{ matrix.os }}
