@@ -42,7 +42,11 @@
   import { dyslexicStatus } from '../../lib/dyslexicStatus.svelte'
   import { LOCK_CHOICES, lockLabel, SettingsState, ways } from '../settingsState.svelte'
 
-  let { close, onlock, start }: { close: () => void; onlock: () => void; start?: 'sync' } = $props()
+  let {
+    close,
+    onlock,
+    start,
+  }: { close: () => void; onlock: () => void; start?: 'sync' | 'experimental' } = $props()
 
   type Section =
     | 'appearance'
@@ -169,7 +173,7 @@
     {settings}
     {close}
     {onlock}
-    {start}
+    start={start === 'sync' ? start : undefined}
     onimport={(ficelle) => (importing = ficelle ? 'ficelle' : 'other')}
     onbackup={(mode) => (backingUp = mode)}
     onreset={() => (resetting = true)}

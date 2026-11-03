@@ -32,11 +32,20 @@
   let width = $state(window.innerWidth)
   let sidebarOpen = $state(true)
   let settingsOpen = $state(false)
-  let settingsSection: 'sync' | undefined = $state()
+  let settingsSection: 'sync' | 'experimental' | undefined = $state()
   function openSettings(section?: 'sync') {
     settingsSection = section
     settingsOpen = true
   }
+  // switching the settings look (Experimental) swaps the whole settings:
+  // the new one opens where the switch is, before it is drawn
+  let lookShown = prefs.settingsLook
+  $effect.pre(() => {
+    const look = prefs.settingsLook
+    if (look === lookShown) return
+    lookShown = look
+    if (settingsOpen) settingsSection = 'experimental'
+  })
   let searchFocus = $state(0)
 
   const NARROW = 720

@@ -45,7 +45,11 @@
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'
 
-  let { close, onlock, start }: { close: () => void; onlock: () => void; start?: 'sync' } = $props()
+  let {
+    close,
+    onlock,
+    start,
+  }: { close: () => void; onlock: () => void; start?: 'sync' | 'experimental' } = $props()
 
   type Section =
     | 'appearance'
@@ -179,7 +183,7 @@
     {settings}
     {close}
     {onlock}
-    {start}
+    start={start === 'sync' ? start : undefined}
     onimport={(ficelle) => (importing = ficelle ? 'ficelle' : 'other')}
     onbackup={(mode) => (backingUp = mode)}
     onreset={() => (resetting = true)}
