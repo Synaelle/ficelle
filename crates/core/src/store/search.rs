@@ -160,4 +160,21 @@ mod tests {
         store.set_note_tags(n.id, &["workshop".into()]).unwrap();
         assert_eq!(store.search("workshop", 10).unwrap().len(), 1);
     }
+
+    #[test]
+    fn snippet_reads_as_text_not_markdown() {
+        let (mut store, _) = store();
+        store
+            .create_note(&note(
+                "x",
+                "Ask about the [[Tomato trellis plan]].
+> Prune *weekly*",
+                &[],
+            ))
+            .unwrap();
+        let hit = &store.search("tomato", 10).unwrap()[0];
+        assert!(!hit.snippet.contains("[["), "{}", hit.snippet);
+        assert_eq!(store.search("weekly", 10).unwrap().len(), 1);
+        assert!(!store.search("weekly", 10).unwrap()[0].snippet.contains('*'));
+    }
 }

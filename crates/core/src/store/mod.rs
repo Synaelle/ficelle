@@ -246,6 +246,19 @@ pub(crate) fn load_note(conn: &Connection, id: NoteId) -> Result<Note> {
     Ok(note)
 }
 
+/// Indexes every note again, after the search entries changed shape.
+pub(crate) fn rebuild_search_index(conn: &Connection) -> Result<()> {
+    let ids = {
+        let mut stmt = conn.prepare("SELECT id FROM notes")?;
+        stmt.query_map([], |row| row.get::<_, NoteId>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+    };
+    for id in ids {
+        reindex(conn, id)?;
+    }
+    Ok(())
+}
+
 /// Rewrites the search entry, title key and outgoing links of one note from
 /// its current row. Called after every change to a title, body or tags.
 pub(crate) fn reindex(conn: &Connection, id: NoteId) -> Result<()> {
@@ -258,7 +271,7 @@ pub(crate) fn reindex(conn: &Connection, id: NoteId) -> Result<()> {
     conn.execute("DELETE FROM notes_fts WHERE rowid = ?1", [rowid])?;
     conn.execute(
         "INSERT INTO notes_fts (rowid, title, body, tags) VALUES (?1, ?2, ?3, ?4)",
-        params![rowid, title, body, tags],
+        params![rowid, title, crate::preview::search_text(&body), tags],
     )?;
     links::index_note(conn, id, &title, &body)
 }

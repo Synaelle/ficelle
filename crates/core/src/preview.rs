@@ -244,9 +244,47 @@ pub fn preview(title: &str, body: &str, max: usize) -> String {
     }
 }
 
+/// A body as plain words for the search index, so a match reads as text in
+/// its snippet: markers, link targets, images, rules and fences go, while
+/// code and the text of every link stay searchable.
+pub fn search_text(body: &str) -> String {
+    body.lines()
+        .filter(|line| {
+            let start = line.trim_start();
+            !(start.starts_with("```") || start.starts_with("~~~") || is_rule(line))
+        })
+        .map(|line| strip_inline(strip_line_start(line)).replace('|', " "))
+        .map(|text| text.split_whitespace().collect::<Vec<_>>().join(" "))
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<_>>()
+        .join(
+            "
+",
+        )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::preview;
+    use super::{preview, search_text};
+
+    #[test]
+    fn search_text_keeps_words_and_drops_syntax() {
+        let body = "Ask about the [[Tomato trellis plan]].
+
+> Prune *weekly*
+```
+spacing = 45
+```
+---
+[[Garden log]]";
+        assert_eq!(
+            search_text(body),
+            "Ask about the Tomato trellis plan.
+Prune weekly
+spacing = 45
+Garden log"
+        );
+    }
 
     #[test]
     fn removes_markdown_people_would_notice() {

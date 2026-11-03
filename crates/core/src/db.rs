@@ -94,6 +94,10 @@ const MIGRATIONS: &[Migration] = &[
         sql: include_str!("db/017_conflict_merged.sql"),
         then: None,
     },
+    Migration {
+        sql: include_str!("db/018_plain_search.sql"),
+        then: Some(crate::store::rebuild_search_index),
+    },
 ];
 
 /// Opens or creates the database at `path`. With a key the file is encrypted
