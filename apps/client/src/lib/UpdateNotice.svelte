@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- A newer version is downloaded: a card above the toasts, the knot tying
      itself beside the version, the button that installs it, what changed
-     behind "What's changed". "Later" waits for the next start. -->
+     behind "What's changed". "Later" waits for the next start, "Skip this
+     version" for the next version (never offered for a security fix). -->
 <script lang="ts">
   import { appUpdates, isFix } from './appUpdate.svelte'
   import Icon from './icons/Icon.svelte'
@@ -22,7 +23,7 @@
   })
 </script>
 
-{#if appUpdates.ready && appUpdates.shown && !appUpdates.dismissed && !appUpdates.critical}
+{#if appUpdates.ready && appUpdates.shown && !appUpdates.dismissed && !appUpdates.critical && appUpdates.skipped !== appUpdates.ready.version}
   <section
     class="update"
     aria-label={t('appUpdate.cardTitle', { version: appUpdates.ready.version })}
@@ -52,6 +53,9 @@
     {/if}
     {#if appUpdates.error}<p class="error">{t(`errors.${appUpdates.error}`)}</p>{/if}
     <div class="actions">
+      {#if !appUpdates.ready.critical}
+        <button class="skip" onclick={() => appUpdates.skip()}>{t('appUpdate.skip')}</button>
+      {/if}
       <button class="btn later" onclick={() => (appUpdates.dismissed = true)}
         >{t('appUpdate.later')}</button
       >
@@ -162,8 +166,25 @@
   }
   .actions {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: var(--space-2);
     justify-content: flex-end;
+  }
+  .skip {
+    margin-right: auto;
+    min-height: 28px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+  }
+  .skip:hover {
+    color: var(--color-text);
+    text-decoration: underline;
   }
   .btn {
     justify-content: center;

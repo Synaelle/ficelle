@@ -3,6 +3,9 @@
      out through onchange, serialized after a short pause so typing in long
      notes stays light. -->
 <script lang="ts">
+  import { Image as TauriImage } from '@tauri-apps/api/image'
+  import { writeImage } from '@tauri-apps/plugin-clipboard-manager'
+  import { toasts } from '../lib/toast.svelte'
   import { headingSlug } from './headingSlug'
   import { Editor } from '@tiptap/core'
   import type { Node as PMNode } from '@tiptap/pm/model'
@@ -127,6 +130,9 @@
     const items: MenuItem[] = [
       { label: t('files.saveCopy'), icon: 'export', run: () => void saveCopy(file) },
     ]
+    // the picture itself on the clipboard; Android's clipboard takes text only
+    if (file.mimeType.startsWith('image/') && backend.native && !PHONE)
+      items.unshift({ label: t('files.copyImage'), icon: 'copy', run: () => void copyImage(file) })
     if (!readonly)
       items.push({
         label: t('files.remove'),
@@ -135,6 +141,26 @@
         run: () => void removeFile(file),
       })
     return items
+  }
+
+  /** Puts a picture of the note on the clipboard, as an image other apps paste. */
+  async function copyImage(file: AttachmentFile) {
+    try {
+      if (!file.here) await backend.fetchAttachment(file.sha256)
+      const bytes = await backend.readAttachment(file.sha256)
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: file.mimeType }))
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error('no canvas')
+      context.drawImage(bitmap, 0, 0)
+      const pixels = context.getImageData(0, 0, bitmap.width, bitmap.height).data
+      const image = await TauriImage.new(new Uint8Array(pixels.buffer), bitmap.width, bitmap.height)
+      await writeImage(image)
+      toasts.push(t('files.title'), t('files.imageCopied'))
+    } catch (err) {
+      console.warn('copy image failed', err)
+      toasts.push(t('files.title'), t('files.imageNotCopied'))
+    }
   }
 
   /** The menu of a file linked in the text. */

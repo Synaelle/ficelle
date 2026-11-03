@@ -122,6 +122,22 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     kinds: ['folder', 's3', 'webdav'],
   }
   const backupSnapshots: import('./types').BackupSnapshot[] = []
+  /** Backups already in a folder, by path: a path holding "old-backups"
+   * has two with the password "old password", "open-backups" two made
+   * without one (to see the restore steps in the browser). */
+  const repos = new Map<string, string>()
+  const seeded = (path: string): string | null =>
+    repos.get(path) ??
+    (path.includes('old-backups') ? 'old password' : path.includes('open-backups') ? '' : null)
+  const oldSnapshots = (host: string): import('./types').BackupSnapshot[] =>
+    [3, 30].map((days) => ({
+      id: id(),
+      time: now() - days * 86_400_000,
+      host,
+      appVersion: 'test',
+      counts: { notes: notes.size + days, folders: folders.size, versions: 0, files: 2 },
+      size: 0,
+    }))
   const backend: MemoryBackend = {
     native: false,
     vaultStatus: async () => ({
@@ -445,6 +461,9 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
         .map((a) => ({ ...a, here: true, refused: null })),
     fetchAttachment: async () => {},
     saveAttachment: async () => {},
+    readAttachment: async () => {
+      throw { kind: 'notFound', message: 'no files in the browser test backend' }
+    },
     setAttachmentThumb: async () => {},
     filesInfo: async () => null,
     setAutoFetch: async () => {},
@@ -580,9 +599,26 @@ ${input.key}`,
       host: '',
     }),
     backupsGet: async () => structuredClone(backups),
-    backupsFound: async () => backups.config !== null,
+    backupsFound: async (target) => {
+      const there = target.kind === 'folder' ? seeded(target.path) : null
+      return { found: there !== null, needsPassword: !!there }
+    },
     backupsConnect: async (target, password, create, host) => {
-      if (!password) throw { kind: 'invalid', message: 'a backup needs a password' }
+      if (target.kind === 'folder') {
+        const there = seeded(target.path)
+        if (create && there !== null)
+          throw { kind: 'invalid', message: 'backups are already there' }
+        if (!create && there === null) throw { kind: 'notFound', message: 'no backups there' }
+        if (!create && there !== password)
+          throw { kind: 'wrongPassword', message: 'wrong password' }
+        if (!create && !repos.has(target.path)) {
+          // backups made elsewhere: theirs to restore from
+          repos.set(target.path, password)
+          backupSnapshots.length = 0
+          backupSnapshots.push(...oldSnapshots('old laptop'))
+        }
+        if (create) repos.set(target.path, password)
+      }
       backups.config = {
         target,
         schedule: backups.config?.schedule ?? 'daily',

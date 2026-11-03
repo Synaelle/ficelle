@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Scheduled backups of this device's notes, in two tabs. Basic: a first
-     setup with a folder and a password (or the backups already in that
-     folder), then how the last runs went, Back up now, the list to restore
+<!-- Scheduled backups of this device's notes, in two tabs. Basic: before
+     any, two ways in, start backing up or restore from backups made before,
+     each a folder first, then what that folder holds decides the next step;
+     once on, how the last runs went, Back up now, the list to restore
      from, and a backup in one file made or restored by hand (`onbackup`
      opens its dialog). Advanced: S3 and WebDAV, a backup already there,
      when they run and what they keep, checks, changing where, stopping.
@@ -90,17 +91,27 @@
   })
   let webdav = $state({ url: '', username: '', password: '' })
   let existing = $state(false)
+  /** The simple setup's way in: starting backups, or restoring from some
+   * made before. None yet: the two are offered. */
+  let mode: 'start' | 'restore' | null = $state(null)
   /** The simple setup's folder already holds backups: it opens them, to
-   * restore from, instead of starting new ones there. */
+   * restore from, never a second set over them. */
   let found = $state(false)
+  /** Those backups have a password of their own. */
+  let needsPassword = $state(true)
+  /** The folder that was looked into, null while looking or before. */
+  let looked: string | null = $state(null)
+  let looking = $state(false)
+  /** Starting, with backups already in the folder: they are used. */
+  let using = $state(false)
   let password = $state('')
   let again = $state('')
   /** On a device whose notes are not encrypted, the backup password is
-   * optional: left empty, a fixed one stands in, so the backups are as open
-   * as the notes they copy, and restoring works with the field empty too. */
+   * optional: left empty, a fixed one stands in (NO_PASSWORD on the native
+   * side), so the backups are as open as the notes they copy. */
   let openDevice = $state(false)
-  const NO_PASSWORD = 'ficelle-backup-without-password'
   let host = $state('')
+  let listElement: HTMLElement | undefined = $state()
 
   let busy = $state(false)
   let message: string | null = $state(null)
@@ -183,10 +194,44 @@
     return null
   })
 
-  /** Whether the simple setup's folder already holds backups. */
+  /** What blocks the simple setup's button. */
+  const simpleProblem = $derived(
+    found ? (needsPassword && !password ? t('backups.passwordNeeded') : null) : passwordProblem,
+  )
+
+  /** What the simple setup's folder holds: backups or not, with a password
+   * or not. Looked at as soon as the folder is chosen. */
   async function look() {
     const path = folder.trim()
-    found = path ? await backend.backupsFound({ kind: 'folder', path }).catch(() => false) : false
+    // the same folder again (its field left after a change): already known
+    if (path && path === looked) return
+    using = false
+    looked = null
+    if (!path) {
+      found = false
+      return
+    }
+    looking = true
+    try {
+      const there = await backend.backupsFound({ kind: 'folder', path })
+      found = there.found
+      needsPassword = there.needsPassword
+    } catch {
+      found = false
+      needsPassword = true
+    } finally {
+      looking = false
+      looked = path
+    }
+  }
+
+  function choose(next: 'start' | 'restore' | null) {
+    mode = next
+    using = false
+    password = ''
+    again = ''
+    failure = null
+    message = null
   }
 
   function connectFolder() {
@@ -197,24 +242,28 @@
       void (async () => {
         failure = null
         const ok = await backend.vaultCheckPassword(password).catch(() => false)
-        if (ok) connect()
+        if (ok) void connect()
         else failure = t('backups.notesPasswordWrong')
       })()
       return
     }
-    connect()
+    const restoring = mode === 'restore'
+    void connect().then(() => {
+      if (restoring && !failure && snapshots && snapshots.length > 0) void offerLatest()
+    })
   }
 
-  function connect() {
+  function connect(): Promise<void> {
     const opening = existing
-    void act(
+    return act(
       async () => {
-        const used = password || (openDevice ? NO_PASSWORD : password)
-        backups.view = await backend.backupsConnect(target(), used, !existing, host)
+        // empty: backups without a password, see openDevice
+        backups.view = await backend.backupsConnect(target(), password, !existing, host)
         password = ''
         again = ''
         editing = false
         found = false
+        mode = null
         // the status and the list are on the first tab
         select('basic')
         if (opening) {
@@ -277,11 +326,31 @@
     })
   }
 
+  /** Right after backups made before are opened: the newest is likely the
+   * one wanted, offered at once, the list stays for another. */
+  async function offerLatest() {
+    const latest = snapshots?.reduce((a, b) => (b.time > a.time ? b : a))
+    if (!latest) return
+    const answer = await overlay.askOr(
+      t('backups.latestAsk', {
+        when: dateTime(latest.time),
+        notes: t('backups.notes', { count: latest.counts.notes ?? 0 }),
+      }),
+      { confirmLabel: t('backups.latestRestore'), altLabel: t('backups.latestOther') },
+    )
+    if (answer === 'confirm') restoreNow(latest)
+    else if (answer === 'alt') listElement?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }
+
   async function restore(snapshot: BackupSnapshot) {
     const yes = await overlay.ask(t('backups.restoreConfirm', { when: dateTime(snapshot.time) }), {
       confirmLabel: t('backups.restore'),
     })
-    if (!yes) return
+    if (yes) restoreNow(snapshot)
+  }
+
+  /** Restores without asking: asked already. */
+  function restoreNow(snapshot: BackupSnapshot) {
     void act(async () => {
       const report = await backend.backupsRestore(snapshot.id)
       await workspace.load()
@@ -327,6 +396,14 @@
         icon: 'success',
         tone: 'good',
         text: t('backups.backedUp', { when: relative(status.lastSuccessAt) }),
+      }
+    // backups opened from before: none made here yet, but they are there
+    const newest = snapshots?.reduce((t0, sn) => Math.max(t0, sn.time), 0) ?? 0
+    if (newest)
+      return {
+        icon: 'success',
+        tone: 'good',
+        text: t('backups.newestFound', { when: relative(newest) }),
       }
     return { icon: 'info', tone: 'quiet', text: t('backups.never') }
   })
@@ -452,7 +529,7 @@
           {@render notices()}
 
           {#if snapshots}
-            <div class="settings-group wide" data-backups-list>
+            <div class="settings-group wide" data-backups-list bind:this={listElement}>
               <h3>{t('backups.backups')}</h3>
               {#if snapshots.length === 0}
                 <p class="settings-help">{t('backups.none')}</p>
@@ -488,107 +565,184 @@
             </div>
           {/if}
         {:else if !config && view.kinds.includes('folder')}
-          <form
-            class="card"
-            data-backups-simple
-            onsubmit={(e) => {
-              e.preventDefault()
-              if (!passwordProblem && folder.trim()) connectFolder()
-            }}
-          >
-            <div class="headline">
-              <span class="state-icon {found ? 'good' : 'quiet'}"
-                ><Icon name={found ? 'backup' : 'folder'} size={22} /></span
-              >
-              <div class="headline-text">
-                <h3>{found ? t('backups.foundTitle') : t('backups.setUp')}</h3>
-                <p class="muted">{found ? t('backups.foundHelp') : t('backups.simpleWhen')}</p>
-              </div>
-            </div>
-            {#if phoneFolder}
-              <p class="settings-help">{t('backups.phoneFolder')}</p>
-              <code class="phone-folder">{phoneFolder}</code>
-            {:else}
-              <label class="settings-field">
-                {t('backups.folder')}
-                <span class="row">
-                  <input
-                    class="field"
-                    bind:value={folder}
-                    autocomplete="off"
-                    onchange={() => void look()}
-                  />
-                  <button type="button" class="btn" onclick={() => void chooseFolder()}
-                    >{t('backups.chooseFolder')}</button
-                  >
+          {#if !mode}
+            <div class="choices" data-backups-choice>
+              <button type="button" class="choice" onclick={() => choose('start')}>
+                <span class="state-icon quiet"><Icon name="backup" size={22} /></span>
+                <span class="choice-text">
+                  <strong>{t('backups.startTitle')}</strong>
+                  <span class="muted">{t('backups.simpleWhen')}</span>
                 </span>
-              </label>
-            {/if}
-            {#if found}
-              <label class="settings-field">
-                {t('backups.password')}
-                <PasswordField
-                  class="field"
-                  bind:value={password}
-                  autocomplete="current-password"
-                />
-              </label>
-            {:else if sameAsNotes}
-              <label class="settings-check">
-                <input type="checkbox" bind:checked={sameAsNotes} />
-                {t('backups.sameAsNotes')}
-              </label>
-              <label class="settings-field">
-                {t('backups.notesPassword')}
-                <PasswordField
-                  class="field"
-                  bind:value={password}
-                  autocomplete="current-password"
-                />
-              </label>
-              <p class="settings-help warn">{t('backups.sameAsNotesHelp')}</p>
-            {:else}
-              {#if !openDevice}
-                <label class="settings-check">
-                  <input type="checkbox" bind:checked={sameAsNotes} />
-                  {t('backups.sameAsNotes')}
+                <Icon name="right" size={18} />
+              </button>
+              <button type="button" class="choice" onclick={() => choose('restore')}>
+                <span class="state-icon quiet"><Icon name="restore" size={22} /></span>
+                <span class="choice-text">
+                  <strong>{t('backups.restoreFrom')}</strong>
+                  <span class="muted">{t('backups.restoreFromHelp')}</span>
+                </span>
+                <Icon name="right" size={18} />
+              </button>
+            </div>
+          {:else}
+            <form
+              class="card"
+              data-backups-simple
+              data-mode={mode}
+              onsubmit={(e) => {
+                e.preventDefault()
+                if (looking || looked !== folder.trim() || simpleProblem) return
+                if (found ? mode === 'restore' || using : mode === 'start') connectFolder()
+              }}
+            >
+              <button type="button" class="back" onclick={() => choose(null)}
+                ><Icon name="back" size={16} />{t('common.back')}</button
+              >
+              <div class="headline">
+                <span class="state-icon quiet"
+                  ><Icon name={mode === 'restore' ? 'restore' : 'backup'} size={22} /></span
+                >
+                <div class="headline-text">
+                  <h3>{mode === 'restore' ? t('backups.restoreFrom') : t('backups.setUp')}</h3>
+                  {#if mode === 'start' || !phoneFolder}
+                    <p class="muted">
+                      {mode === 'restore'
+                        ? t('backups.restoreFolderHelp')
+                        : t('backups.simpleWhen')}
+                    </p>
+                  {/if}
+                </div>
+              </div>
+
+              {#if phoneFolder}
+                <p class="settings-help">
+                  {mode === 'restore' ? t('backups.phoneFolderRestore') : t('backups.phoneFolder')}
+                </p>
+                <code class="phone-folder">{phoneFolder}</code>
+              {:else}
+                <label class="settings-field">
+                  {t('backups.folder')}
+                  <span class="row">
+                    <input
+                      class="field"
+                      bind:value={folder}
+                      autocomplete="off"
+                      onchange={() => void look()}
+                    />
+                    <button
+                      type="button"
+                      class="btn"
+                      class:primary={!folder.trim()}
+                      onclick={() => void chooseFolder()}>{t('backups.chooseFolder')}</button
+                    >
+                  </span>
                 </label>
               {/if}
-              <div class="pair">
-                <label class="settings-field">
-                  {t('backups.newPassword')}
-                  <PasswordField class="field" bind:value={password} autocomplete="new-password" />
-                </label>
-                <label class="settings-field">
-                  {t('backups.passwordAgain')}
-                  <PasswordField
-                    eye={false}
-                    class="field"
-                    bind:value={again}
-                    autocomplete="new-password"
-                  />
-                </label>
-              </div>
-              <p class="settings-help warn">
-                {openDevice ? t('backups.passwordOptional') : t('backups.passwordWarning')}
-              </p>
-            {/if}
-            {#if passwordProblem && password && (again || password.length < MIN_PASSWORD)}
-              <p class="settings-help bad">{passwordProblem}</p>
-            {/if}
-            <div class="settings-actions fill">
-              <button
-                class="btn primary"
-                type="submit"
-                disabled={busy || !!passwordProblem || !folder.trim()}
-                >{busy
-                  ? t('backups.connecting')
-                  : found
-                    ? t('backups.foundOpen')
-                    : t('backups.turnOn')}</button
-              >
-            </div>
-          </form>
+
+              {#if looking}
+                <p class="notice quiet" role="status">
+                  <Icon name="syncing" size={16} />{t('backups.looking')}
+                </p>
+              {:else if looked !== null && looked === folder.trim()}
+                {#if found}
+                  <p class="notice" role="status">
+                    <Icon name="success" size={16} />{t('backups.foundTitle')}
+                  </p>
+                  {#if mode === 'start' && !using}
+                    <p class="settings-help">{t('backups.foundStartHelp')}</p>
+                    <div class="settings-actions fill">
+                      <button type="button" class="btn primary" onclick={() => (using = true)}
+                        >{t('backups.useThem')}</button
+                      >
+                      {#if !phoneFolder}
+                        <button type="button" class="btn" onclick={() => void chooseFolder()}
+                          >{t('backups.chooseAnother')}</button
+                        >
+                      {/if}
+                    </div>
+                  {:else}
+                    {#if needsPassword}
+                      <label class="settings-field">
+                        {t('backups.password')}
+                        <PasswordField
+                          class="field"
+                          bind:value={password}
+                          autocomplete="current-password"
+                        />
+                      </label>
+                    {:else}
+                      <p class="settings-help">{t('backups.noPasswordNeeded')}</p>
+                    {/if}
+                    <div class="settings-actions fill">
+                      <button class="btn primary" type="submit" disabled={busy || !!simpleProblem}
+                        >{busy ? t('backups.connecting') : t('backups.foundOpen')}</button
+                      >
+                    </div>
+                  {/if}
+                {:else if mode === 'restore'}
+                  <p class="notice bad" role="status">
+                    <Icon name="warning" size={16} />{t('backups.noneHere')}
+                  </p>
+                  {#if !phoneFolder}
+                    <p class="settings-help">{t('backups.noneHereHelp')}</p>
+                  {/if}
+                {:else}
+                  {#if sameAsNotes}
+                    <label class="settings-check">
+                      <input type="checkbox" bind:checked={sameAsNotes} />
+                      {t('backups.sameAsNotes')}
+                    </label>
+                    <label class="settings-field">
+                      {t('backups.notesPassword')}
+                      <PasswordField
+                        class="field"
+                        bind:value={password}
+                        autocomplete="current-password"
+                      />
+                    </label>
+                    <p class="settings-help warn">{t('backups.sameAsNotesHelp')}</p>
+                  {:else}
+                    {#if !openDevice}
+                      <label class="settings-check">
+                        <input type="checkbox" bind:checked={sameAsNotes} />
+                        {t('backups.sameAsNotes')}
+                      </label>
+                    {/if}
+                    <div class="pair">
+                      <label class="settings-field">
+                        {t('backups.newPassword')}
+                        <PasswordField
+                          class="field"
+                          bind:value={password}
+                          autocomplete="new-password"
+                        />
+                      </label>
+                      <label class="settings-field">
+                        {t('backups.passwordAgain')}
+                        <PasswordField
+                          eye={false}
+                          class="field"
+                          bind:value={again}
+                          autocomplete="new-password"
+                        />
+                      </label>
+                    </div>
+                    <p class="settings-help warn">
+                      {openDevice ? t('backups.passwordOptional') : t('backups.passwordWarning')}
+                    </p>
+                  {/if}
+                  {#if passwordProblem && password && (again || password.length < MIN_PASSWORD)}
+                    <p class="settings-help bad">{passwordProblem}</p>
+                  {/if}
+                  <div class="settings-actions fill">
+                    <button class="btn primary" type="submit" disabled={busy || !!passwordProblem}
+                      >{busy ? t('backups.connecting') : t('backups.turnOn')}</button
+                    >
+                  </div>
+                {/if}
+              {/if}
+            </form>
+          {/if}
           {@render notices()}
         {:else if !config}
           <!-- no folder on this device: S3 and WebDAV are set up under Advanced -->
@@ -678,7 +832,7 @@
           data-backups-form
           onsubmit={(e) => {
             e.preventDefault()
-            if (!passwordProblem) connect()
+            if (!passwordProblem) void connect()
           }}
         >
           <h3>{config ? t('backups.change') : t('backups.setUp')}</h3>
@@ -1018,6 +1172,70 @@
   .notice.bad :global(.icon) {
     color: var(--color-danger);
   }
+  .notice.quiet,
+  .notice.quiet :global(.icon) {
+    color: var(--color-text-muted);
+  }
+
+  /* the two ways in, before any backup */
+  .choices {
+    display: grid;
+    gap: var(--space-3);
+  }
+  .choice {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-popover);
+    background: var(--color-surface);
+    color: var(--color-text);
+    text-align: left;
+    transition: border-color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .choice:hover {
+      border-color: var(--color-border-strong);
+      background: var(--color-surface-2);
+    }
+  }
+  .choice > :global(.icon) {
+    color: var(--color-text-muted);
+  }
+  .choice-text {
+    display: grid;
+    flex: 1;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+  .choice-text strong {
+    font-size: 15px;
+  }
+  .choice-text .muted {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .back {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    gap: var(--space-1);
+    margin: calc(-1 * var(--space-2)) 0 0 calc(-1 * var(--space-2));
+    padding: var(--space-1) var(--space-2);
+    border: 0;
+    border-radius: var(--radius-control);
+    background: none;
+    color: var(--color-text-muted);
+    font-size: 13px;
+  }
+  @media (hover: hover) {
+    .back:hover {
+      color: var(--color-text);
+      background: var(--color-surface-2);
+    }
+  }
   .bad {
     color: var(--color-danger);
   }
@@ -1142,8 +1360,13 @@
       min-width: max-content;
     }
     .card .field,
+    .card .settings-field,
+    .card :global(.password),
     .row {
       width: 100%;
+    }
+    .card .settings-field {
+      justify-items: stretch;
     }
     .keep {
       grid-template-columns: repeat(2, 1fr);

@@ -9,6 +9,11 @@ use serde::{Deserialize, Serialize};
 use super::RunReport;
 use crate::error::Result;
 
+/// The password of backups made without one, on a device whose notes are
+/// not encrypted: they are as open as the notes they copy, and restoring
+/// them asks for nothing.
+pub const NO_PASSWORD: &str = "ficelle-backup-without-password";
+
 /// The folder backups get inside the chosen one. A folder the app named
 /// itself (Android's, "Ficelle Preview backups" in a preview build) is
 /// already that folder.

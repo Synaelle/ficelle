@@ -287,6 +287,14 @@ export interface BackupStatus {
 }
 
 /** This device's backups, see commands/backups.rs. */
+/** What a place holds before backups are set up there. */
+export interface BackupsFound {
+  found: boolean
+  /** The backups there have a password of their own; made without one,
+   * they open with the field left empty. */
+  needsPassword: boolean
+}
+
 export interface BackupsView {
   config: {
     target: BackupTarget

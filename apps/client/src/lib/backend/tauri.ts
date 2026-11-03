@@ -93,6 +93,7 @@ export function createTauriBackend(): Backend {
     attachmentFiles: (note) => invoke('attachment_files', { note }),
     fetchAttachment: (sha256) => invoke('fetch_attachment', { sha256 }),
     saveAttachment: (sha256, path) => invoke('save_attachment', { sha256, path }),
+    readAttachment: (sha256) => invoke('read_attachment', { sha256 }),
     // raw body as for add_attachment
     setAttachmentThumb: async (id, thumb) =>
       invoke('set_attachment_thumb', new Uint8Array(await thumb.arrayBuffer()), {

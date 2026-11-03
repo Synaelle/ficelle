@@ -10,8 +10,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use app_core::clock::{Clock, SystemClock};
 use app_core::repo::{
-    BackupConfig, BackupStatus, CheckReport, KdfParams, Policy, Repo, Schedule, TargetConfig,
-    TestRestore,
+    BackupConfig, BackupStatus, CheckReport, KdfParams, NO_PASSWORD, Policy, Repo, Schedule,
+    TargetConfig, TestRestore,
 };
 use app_core::store::RestoreReport;
 use serde::Serialize;
@@ -107,21 +107,38 @@ pub async fn backups_get(state: State<'_, AppState>) -> CommandResult<BackupsVie
     view(&state)
 }
 
+/// What a place holds, before backups are set up there.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Found {
+    /// Backups are there already.
+    found: bool,
+    /// They have a password of their own (made without one, they open with
+    /// `NO_PASSWORD`).
+    needs_password: bool,
+}
+
 /// Whether the target already holds a backup, so the setup opens it instead
 /// of starting a new one: a new or reset device finds its old backups.
 /// Nothing is written.
 #[tauri::command]
-pub async fn backups_found(app: AppHandle, target: TargetConfig) -> CommandResult<bool> {
+pub async fn backups_found(app: AppHandle, target: TargetConfig) -> CommandResult<Found> {
     blocking(app, move |_| {
         let opened = target.open()?;
-        Ok(opened.get("config").is_ok())
+        let found = opened.get("config").is_ok();
+        let needs_password = found && Repo::open(opened, NO_PASSWORD).is_err();
+        Ok(Found {
+            found,
+            needs_password,
+        })
     })
     .await
 }
 
 /// Sets backups up: a new repository at the target (`create`), or one
-/// there already, opened with its password. A secret left blank keeps the
-/// one set before. Daily, 7 daily, 4 weekly, 12 monthly unless set before.
+/// there already, opened with its password. An empty password is
+/// `NO_PASSWORD`, the page allows it only where the notes have none. A
+/// secret left blank keeps the one set before. Daily, 7 daily, 4 weekly, 12 monthly unless set before.
 #[tauri::command]
 pub async fn backups_connect(
     app: AppHandle,
@@ -131,6 +148,11 @@ pub async fn backups_connect(
     host: String,
 ) -> CommandResult<BackupsView> {
     blocking(app, move |state| {
+        let password = if password.is_empty() {
+            NO_PASSWORD.to_owned()
+        } else {
+            password
+        };
         let old = state.quietly(|s| s.store.backup_config())?;
         let target = match &old {
             Some(old) => target.keeping_secrets_of(&old.target),

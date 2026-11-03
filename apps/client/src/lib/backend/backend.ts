@@ -152,6 +152,8 @@ export interface Backend {
   fetchAttachment(sha256: string): Promise<void>
   /** Writes a copy of a file where the person chose. */
   saveAttachment(sha256: string, path: string): Promise<void>
+  /** A file kept on this device, as bytes: an image to copy. */
+  readAttachment(sha256: string): Promise<ArrayBuffer>
   /** Gives an image attachment its small preview. */
   setAttachmentThumb(id: Id, thumb: Blob): Promise<void>
   /** The server's rules and usage for this account, null without one. */
@@ -215,9 +217,10 @@ export interface Backend {
   ): Promise<{ reports: import('./types').FeedbackAnswer[] }>
   /** This device's scheduled backups. */
   backupsGet(): Promise<import('./types').BackupsView>
-  /** Whether `target` already holds a backup, nothing written. */
-  backupsFound(target: import('./types').BackupTarget): Promise<boolean>
-  /** Sets backups up: a new repository at `target`, or one there opened with its password. */
+  /** Whether `target` already holds a backup and needs its password, nothing written. */
+  backupsFound(target: import('./types').BackupTarget): Promise<import('./types').BackupsFound>
+  /** Sets backups up: a new repository at `target`, or one there opened with
+   * its password. An empty password stands for backups without one. */
   backupsConnect(
     target: import('./types').BackupTarget,
     password: string,

@@ -32,7 +32,9 @@ interface AskDialog {
   danger: boolean
   /** Seconds before the confirm button can be pressed, so the choice is read. */
   wait: number
-  resolve: (yes: boolean) => void
+  /** A third answer, between Cancel and the confirm button. */
+  altLabel?: string
+  resolve: (answer: boolean | 'alt') => void
 }
 
 interface TextDialog {
@@ -97,7 +99,27 @@ class Overlay {
         confirmLabel: options.confirmLabel,
         danger: options.danger ?? false,
         wait: options.wait ?? 0,
-        resolve,
+        resolve: (answer) => resolve(answer === true),
+      }
+    })
+  }
+
+  /** Asks with a third way out: resolves 'confirm', 'alt', or null when
+   * dismissed. */
+  askOr(
+    message: string,
+    options: { confirmLabel: string; altLabel: string },
+  ): Promise<'confirm' | 'alt' | null> {
+    this.answer(null)
+    return new Promise((resolve) => {
+      this.dialog = {
+        kind: 'ask',
+        message,
+        confirmLabel: options.confirmLabel,
+        altLabel: options.altLabel,
+        danger: false,
+        wait: 0,
+        resolve: (answer) => resolve(answer === 'alt' ? 'alt' : answer ? 'confirm' : null),
       }
     })
   }
@@ -130,7 +152,7 @@ class Overlay {
   answer(value: boolean | string | null) {
     const dialog = this.dialog
     this.dialog = null
-    if (dialog?.kind === 'ask') dialog.resolve(value === true)
+    if (dialog?.kind === 'ask') dialog.resolve(value === 'alt' ? 'alt' : value === true)
     else if (dialog?.kind === 'text') dialog.resolve(typeof value === 'string' ? value : null)
   }
 

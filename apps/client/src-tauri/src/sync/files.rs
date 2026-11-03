@@ -227,6 +227,36 @@ pub async fn fetch_attachment(app: AppHandle, sha256: String) -> CommandResult<(
 
 /// Writes a copy of an attachment's file where the person chose, read and
 /// written a piece at a time.
+/// The bytes of a file kept on this device, for the page to use: an image
+/// copied to the clipboard. The page itself cannot read the attachment
+/// address (its content security policy), this hands the file over.
+#[tauri::command]
+pub async fn read_attachment(
+    state: State<'_, AppState>,
+    sha256: String,
+) -> CommandResult<tauri::ipc::Response> {
+    /// Larger than any picture worth copying.
+    const MAX: u64 = 64 * 1024 * 1024;
+    let reader = state.quietly(|s| s.blobs.open(&sha256))?;
+    let reader = reader
+        .ok_or_else(|| CommandError::new("notFound", "the file is not on this device yet"))?;
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
+        let mut bytes = Vec::new();
+        std::io::Read::read_to_end(&mut std::io::Read::take(reader, MAX + 1), &mut bytes)
+            .map(|_| bytes)
+    })
+    .await
+    .map_err(|e| CommandError::new("internal", e.to_string()))?
+    .map_err(|e| CommandError::new("file", e.to_string()))?;
+    if bytes.len() as u64 > MAX {
+        return Err(CommandError::new(
+            "tooLarge",
+            "the file is too large to copy",
+        ));
+    }
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 #[tauri::command]
 pub async fn save_attachment(
     app: tauri::AppHandle,

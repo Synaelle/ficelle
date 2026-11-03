@@ -208,6 +208,11 @@
             data-autofocus={overlay.dialog.kind === 'ask' && overlay.dialog.danger ? '' : undefined}
             onclick={() => overlay.answer(null)}>{t('common.cancel')}</button
           >
+          {#if overlay.dialog.kind === 'ask' && overlay.dialog.altLabel}
+            <button class="btn" type="button" onclick={() => overlay.answer('alt')}
+              >{overlay.dialog.altLabel}</button
+            >
+          {/if}
           <button
             class="btn primary"
             class:danger={overlay.dialog.kind === 'ask' && overlay.dialog.danger}
@@ -337,6 +342,7 @@
   }
   .actions {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: var(--space-2);
   }

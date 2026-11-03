@@ -40,6 +40,16 @@ const EVERY_MS = 6 * HOUR_MS
 const AWAY_MS = HOUR_MS
 /** The critical version the person chose not to install, asked no more. */
 const REFUSED_KEY = 'criticalRefused'
+/** The version whose card the person skipped, shown again for the next. */
+const SKIPPED_KEY = 'updateSkipped'
+
+function skippedVersion(): string | null {
+  try {
+    return localStorage.getItem(SKIPPED_KEY)
+  } catch {
+    return null
+  }
+}
 
 function refused(version: string): boolean {
   try {
@@ -103,6 +113,8 @@ class AppUpdates {
   shown = $state(false)
   /** The card was closed: it comes back on the next start. */
   dismissed = $state(false)
+  /** The version whose card was skipped: no card until a newer one. */
+  skipped = $state(skippedVersion())
   checking = $state(false)
   /** The last check found nothing newer. */
   upToDate = $state(false)
@@ -198,6 +210,18 @@ class AppUpdates {
   async updateCritical() {
     if (!this.ready) await this.check()
     await this.install()
+  }
+
+  /** "Skip this version": its card comes back no more, the next version's
+   * does. Never for a critical fix, and Settings still offers it. */
+  skip() {
+    if (!this.ready || this.ready.critical) return
+    this.skipped = this.ready.version
+    try {
+      localStorage.setItem(SKIPPED_KEY, this.ready.version)
+    } catch {
+      // only this run forgets it
+    }
   }
 
   /** "Don't update", confirmed: not asked again for this version. */
