@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Light or dark, accent, corners and layout pickers of the settings, every choice
-     applies at once. Each is a settings group (see app.css). The theme
-     choice comes back with the themes page. -->
+<!-- Light or dark, accent, corners and fonts in the desktop settings, every
+     choice applies at once. Groups of rows like the phone's (ui/). The
+     theme choice comes back with the themes page. -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte'
   import { prefs } from '../lib/prefs.svelte'
@@ -9,68 +9,62 @@
   import AccentPicker from './AccentPicker.svelte'
   import CornersPicker from './CornersPicker.svelte'
   import LayoutPicker from './LayoutPicker.svelte'
+  import Group from './ui/Group.svelte'
+  import Row from './ui/Row.svelte'
+  import Switch from './ui/Switch.svelte'
 
-  /** The setup shows its own layout step with pictures. */
+  /** Experimental keeps the layout choice apart. */
   let { layout = true }: { layout?: boolean } = $props()
 </script>
 
-<fieldset class="settings-group">
-  <legend>{t('settings.mode')}</legend>
-  <div class="segmented">
-    {#each ['system', 'dark', 'light'] as const as mode (mode)}
-      <label class:checked={prefs.mode === mode}>
-        <input type="radio" name="mode" value={mode} bind:group={prefs.mode} />{t(
-          `settings.mode_${mode}`,
-        )}
-      </label>
-    {/each}
+<Group>
+  <Row label={t('settings.mode')}>
+    <div class="segmented" role="radiogroup" aria-label={t('settings.mode')}>
+      {#each ['system', 'dark', 'light'] as const as mode (mode)}
+        <label class:checked={prefs.mode === mode}>
+          <input type="radio" name="mode" value={mode} bind:group={prefs.mode} />{t(
+            `settings.mode_${mode}`,
+          )}
+        </label>
+      {/each}
+    </div>
+  </Row>
+  <Row label={t('settings.pureBlack')}>
+    <Switch label={t('settings.pureBlack')} bind:checked={prefs.pureBlack} />
+  </Row>
+  <Row label={t('settings.warmLight')}>
+    <Switch label={t('settings.warmLight')} bind:checked={prefs.warmLight} />
+  </Row>
+</Group>
+
+<Group title={t('settings.accent')}>
+  <div class="inside"><AccentPicker /></div>
+</Group>
+
+<Group title={t('settings.corners')} note={t('settings.cornersHelp')}>
+  <div class="inside"><CornersPicker /></div>
+</Group>
+
+<!-- open, as on the phone; side by side when there is room -->
+<Group title={t('fonts.title')}>
+  <div class="inside fonts">
+    <FontPicker role="notes" />
+    <FontPicker role="code" />
   </div>
-  <label class="settings-check">
-    <input type="checkbox" bind:checked={prefs.pureBlack} />
-    {t('settings.pureBlack')}
-  </label>
-  <label class="settings-check">
-    <input type="checkbox" bind:checked={prefs.warmLight} />
-    {t('settings.warmLight')}
-  </label>
-</fieldset>
-
-<!-- open, as on the phone -->
-<fieldset class="settings-group fonts">
-  <legend>{t('fonts.title')}</legend>
-  <FontPicker role="notes" />
-  <FontPicker role="code" />
-</fieldset>
-
-<fieldset class="settings-group">
-  <legend>{t('settings.accent')}</legend>
-  <AccentPicker />
-</fieldset>
-
-<fieldset class="settings-group">
-  <legend>{t('settings.corners')}</legend>
-  <CornersPicker />
-  <p class="settings-help">{t('settings.cornersHelp')}</p>
-</fieldset>
+</Group>
 
 {#if layout}<LayoutPicker />{/if}
 
 <style>
-  input[type='radio'] {
-    position: absolute;
-    opacity: 0;
+  .inside {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-2);
+    padding: var(--space-3);
   }
-  .segmented .checked {
-    border-color: var(--color-accent);
-  }
-  .segmented {
-    display: inline-flex;
-    gap: var(--space-1);
-  }
-  .segmented label {
-    padding: var(--space-1) var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-control);
-    cursor: pointer;
+  .fonts {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    align-items: start;
+    justify-items: stretch;
   }
 </style>

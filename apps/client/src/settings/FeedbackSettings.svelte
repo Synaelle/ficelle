@@ -7,6 +7,10 @@
      from here and how they stand (SentFeedback). Settings groups, see
      app.css. -->
 <script lang="ts">
+  import Group from './ui/Group.svelte'
+  import Row from './ui/Row.svelte'
+  import Switch from './ui/Switch.svelte'
+  import Icon from '../lib/icons/Icon.svelte'
   import { onDestroy, onMount } from 'svelte'
   import { backend, type FeedbackWhere } from '../lib/backend'
   import {
@@ -181,92 +185,95 @@
       <button class="btn" onclick={() => (sent = false)}>{t('feedback.another')}</button>
     </div>
   {:else}
-    <div
-      class="settings-group wide"
-      data-feedback-form
-      onpaste={paste}
-      role="group"
-      aria-busy={busy}
-    >
+    <div class="form" data-feedback-form onpaste={paste} role="group" aria-busy={busy}>
       <p class="settings-help">
         {place.via === 'server'
           ? t('feedback.toServer', { host: place.host })
           : t('feedback.toMain', { host: place.host })}
       </p>
-      <label class="settings-field">
-        {t('feedback.about')}
-        <input
-          class="field wide-field"
-          maxlength={MAX_ABOUT}
-          placeholder={t('feedback.aboutHint')}
-          bind:value={draft.about}
-          data-feedback-about
-        />
-      </label>
-      <label class="settings-field">
-        <span>{t('feedback.info')} <span class="optional">{t('common.optional')}</span></span>
-        <textarea
-          class="field wide-field message"
-          rows="5"
-          maxlength={MAX_MESSAGE}
-          placeholder={t('feedback.infoHint')}
-          bind:value={draft.message}
-          data-feedback-info></textarea>
-        {#if draft.message.length > MAX_MESSAGE * 0.8}
-          <span class="count">{draft.message.length} / {MAX_MESSAGE}</span>
-        {/if}
-      </label>
-      <label class="settings-field">
-        <span>{t('feedback.contact')} <span class="optional">{t('common.optional')}</span></span>
-        <input
-          class="field wide-field"
-          autocomplete="email"
-          maxlength={MAX_CONTACT}
-          aria-invalid={contactBad}
-          bind:value={draft.contact}
-          data-feedback-contact
-        />
-        <span class={contactBad ? 'problem small' : 'settings-help'}
-          >{contactBad ? t('feedback.contactBad') : t('feedback.contactHelp')}</span
-        >
-      </label>
-      <label class="settings-check">
-        <input type="checkbox" bind:checked={draft.logs} data-feedback-logs />
-        {errorCount
-          ? t('feedback.attachLogsCount', { count: errorCount })
-          : t('feedback.attachLogs')}
-      </label>
-      <button
-        type="button"
-        class="drop"
-        class:dragging
-        disabled={images.length >= MAX_IMAGES}
-        onclick={() => picker?.click()}
-        ondragenter={dragOver}
-        ondragover={dragOver}
-        ondragleave={() => (dragging = false)}
-        ondrop={drop}
-        data-feedback-drop
-      >
-        {images.length >= MAX_IMAGES
-          ? t('feedback.tooManyImages', { count: MAX_IMAGES })
-          : touch
-            ? t('feedback.tapImages', { count: MAX_IMAGES })
-            : t('feedback.dropImages', { count: MAX_IMAGES })}
-      </button>
-      {#if images.length}
-        <div class="images">
-          {#each images as image, n (image.url)}
-            <figure>
-              <img src={image.url} alt={t('feedback.image', { n: n + 1 })} />
-              <figcaption>
-                {bytes(image.size)}
-                <button class="btn" onclick={() => remove(n)}>{t('feedback.removeImage')}</button>
-              </figcaption>
-            </figure>
-          {/each}
+      <Group>
+        <div class="field-row">
+          <input
+            class="field"
+            maxlength={MAX_ABOUT}
+            placeholder={t('feedback.aboutHint')}
+            aria-label={t('feedback.about')}
+            bind:value={draft.about}
+            data-feedback-about
+          />
         </div>
+        <div class="field-row">
+          <textarea
+            class="field"
+            rows="4"
+            maxlength={MAX_MESSAGE}
+            placeholder={t('feedback.infoHint')}
+            aria-label={`${t('feedback.info')} ${t('common.optional')}`}
+            bind:value={draft.message}
+            data-feedback-info></textarea>
+        </div>
+      </Group>
+      {#if draft.message.length > MAX_MESSAGE * 0.8}
+        <span class="count">{draft.message.length} / {MAX_MESSAGE}</span>
       {/if}
+      <Group note={contactBad ? undefined : t('feedback.contactHelp')}>
+        <div class="field-row">
+          <input
+            class="field"
+            autocomplete="email"
+            maxlength={MAX_CONTACT}
+            placeholder={`${t('feedback.contact')} ${t('common.optional')}`}
+            aria-label={`${t('feedback.contact')} ${t('common.optional')}`}
+            aria-invalid={contactBad}
+            bind:value={draft.contact}
+            data-feedback-contact
+          />
+        </div>
+      </Group>
+      {#if contactBad}<p class="problem small">{t('feedback.contactBad')}</p>{/if}
+      <Group>
+        <Row
+          label={errorCount
+            ? t('feedback.attachLogsCount', { count: errorCount })
+            : t('feedback.attachLogs')}
+        >
+          <Switch label={t('feedback.attachLogs')} bind:checked={draft.logs} />
+        </Row>
+        <div class="settings-row drop-row">
+          <button
+            type="button"
+            class="drop"
+            class:dragging
+            disabled={images.length >= MAX_IMAGES}
+            onclick={() => picker?.click()}
+            ondragenter={dragOver}
+            ondragover={dragOver}
+            ondragleave={() => (dragging = false)}
+            ondrop={drop}
+            data-feedback-drop
+          >
+            <Icon name="image" size={16} />
+            {images.length >= MAX_IMAGES
+              ? t('feedback.tooManyImages', { count: MAX_IMAGES })
+              : touch
+                ? t('feedback.tapImages', { count: MAX_IMAGES })
+                : t('feedback.dropImages', { count: MAX_IMAGES })}
+          </button>
+        </div>
+        {#if images.length}
+          <div class="settings-row images">
+            {#each images as image, n (image.url)}
+              <figure>
+                <img src={image.url} alt={t('feedback.image', { n: n + 1 })} />
+                <figcaption>
+                  {bytes(image.size)}
+                  <button class="btn" onclick={() => remove(n)}>{t('feedback.removeImage')}</button>
+                </figcaption>
+              </figure>
+            {/each}
+          </div>
+        {/if}
+      </Group>
       <input
         bind:this={picker}
         type="file"
@@ -280,7 +287,7 @@
       />
 
       {#if previewing}
-        <div class="preview" data-feedback-preview>
+        <div class="preview settings-panel" data-feedback-preview>
           <h3>{t('feedback.previewTitle', { host: place.host })}</h3>
           <dl>
             <dt>{t('feedback.about')}</dt>
@@ -311,7 +318,7 @@
       {/if}
 
       {#if busy}<p role="status">{t('feedback.sending')}</p>{/if}
-      <div class="settings-actions">
+      <div class="settings-buttons">
         <button class="btn" disabled={busy} onclick={togglePreview} data-feedback-preview-button
           >{previewing ? t('feedback.hidePreview') : t('feedback.preview')}</button
         >
@@ -329,26 +336,26 @@
 {#key sentCount}<SentFeedback />{/key}
 
 <style>
-  /* wider than the settings' usual fields, as wide as the drop zone */
-  .settings-group .wide-field {
-    width: min(560px, 100%);
-  }
-  .message {
-    height: auto;
-    resize: vertical;
-  }
-  .optional {
-    color: var(--color-text-muted);
-    font-weight: normal;
+  .form {
+    display: grid;
+    gap: var(--space-3);
   }
   .count {
     color: var(--color-text-muted);
     font-size: 12px;
   }
+  .drop-row,
+  .images {
+    padding: var(--space-3);
+  }
   .drop {
-    width: min(560px, 100%);
-    padding: var(--space-5) var(--space-4);
-    border: 1px dashed var(--color-border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    border: 1px dashed var(--color-border-strong);
     border-radius: var(--radius-popover);
     background: transparent;
     color: var(--color-text-muted);

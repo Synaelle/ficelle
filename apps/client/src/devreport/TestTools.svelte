@@ -2,6 +2,9 @@
 <!-- The test tools section of dev and preview builds: where issue reports go
      and whether they start with a screenshot. -->
 <script lang="ts">
+  import Group from '../settings/ui/Group.svelte'
+  import Row from '../settings/ui/Row.svelte'
+  import Switch from '../settings/ui/Switch.svelte'
   import { backend } from '../lib/backend'
   import { t } from '../lib/i18n.svelte'
   import { pickToOpen } from '../lib/pick'
@@ -38,45 +41,39 @@
 </script>
 
 <p class="settings-help">{t('testTools.help')}</p>
-<div class="settings-group">
-  <h3>{t('testTools.folder')}</h3>
-  {#if folder}
-    <code data-report-folder>{folder}</code>
-  {:else if problem}
-    <p class="problem small">{problem}</p>
-  {:else if phone}
-    <p class="problem small">{t('testTools.noFolder')}</p>
-  {/if}
-  <p class="settings-help">
-    {!phone
-      ? t('testTools.folderHelp')
-      : folder
-        ? t('testTools.folderHelpChosen')
-        : t('testTools.folderHelpPhone')}
-  </p>
-  <div class="settings-actions">
-    <button class="btn" onclick={choose}>{t('testTools.choose')}</button>
+<Group
+  note={!phone
+    ? t('testTools.folderHelp')
+    : folder
+      ? t('testTools.folderHelpChosen')
+      : t('testTools.folderHelpPhone')}
+>
+  <Row label={t('testTools.folder')}>
     {#if !phone && prefs.reportFolder}
       <button class="btn" onclick={() => (prefs.reportFolder = null)}
         >{t('testTools.default')}</button
       >
     {/if}
-  </div>
-</div>
-<div class="settings-group">
-  <label class="settings-check">
-    <input type="checkbox" bind:checked={prefs.reportScreenshot} />
-    {t('testTools.screenshot')}
-  </label>
-  <p class="settings-help">{t('testTools.screenshotHelp')}</p>
-</div>
-<div class="settings-group">
-  <label class="settings-check">
-    <input
-      type="checkbox"
+    <button class="btn" onclick={choose}>{t('testTools.choose')}</button>
+  </Row>
+  {#if folder}
+    <div class="settings-row where"><code data-report-folder>{folder}</code></div>
+  {:else if problem}
+    <div class="settings-row where"><p class="problem small">{problem}</p></div>
+  {:else if phone}
+    <div class="settings-row where"><p class="problem small">{t('testTools.noFolder')}</p></div>
+  {/if}
+</Group>
+<Group>
+  <Row label={t('testTools.screenshot')} help={t('testTools.screenshotHelp')}>
+    <Switch label={t('testTools.screenshot')} bind:checked={prefs.reportScreenshot} />
+  </Row>
+  <Row label={t('testTools.pretendBeta')} help={t('testTools.pretendBetaHelp')}>
+    <Switch
+      label={t('testTools.pretendBeta')}
       checked={prefs.pretendBeta}
-      onchange={(e) => {
-        prefs.pretendBeta = e.currentTarget.checked
+      onchange={(on) => {
+        prefs.pretendBeta = on
         // read once at start (lib/beta.svelte.ts): saved first, then reloaded
         try {
           localStorage.setItem('prefs', JSON.stringify(prefs))
@@ -86,15 +83,21 @@
         location.reload()
       }}
     />
-    {t('testTools.pretendBeta')}
-  </label>
-  <p class="settings-help">{t('testTools.pretendBetaHelp')}</p>
-</div>
+  </Row>
+</Group>
 
 <style>
+  .where {
+    position: relative;
+    padding: var(--space-2) var(--space-3);
+  }
+  .where p {
+    margin: 0;
+  }
   code {
     overflow-wrap: anywhere;
+    color: var(--color-text-muted);
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: 12px;
   }
 </style>

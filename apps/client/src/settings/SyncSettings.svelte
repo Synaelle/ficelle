@@ -17,6 +17,9 @@
   } from '../lib/sync.svelte'
   import SyncIcon from '../workspace/SyncIcon.svelte'
   import FilesSettings from './FilesSettings.svelte'
+  import Group from './ui/Group.svelte'
+  import Row from './ui/Row.svelte'
+  import Switch from './ui/Switch.svelte'
 
   /** Error codes with their own text, the others read "something went wrong". */
   const KNOWN = [
@@ -165,8 +168,8 @@
 {#if !sync.available}
   <p class="settings-help">{t('errors.unsupported')}</p>
 {:else if linked && status.state !== 'signedOut'}
-  <div class="settings-group wide">
-    <div class="state">
+  <Group>
+    <div class="settings-row state">
       <SyncIcon state={status.state} />
       <div>
         <b>{t(STATE_TEXT[status.state])}</b>
@@ -174,130 +177,140 @@
           <p class="settings-help">{t('sync.pendingCount', { count: status.pending })}</p>
         {/if}
         {#if status.state === 'error' && status.error}
-          <p class="muted detail">{status.error}</p>
+          <p class="settings-help detail">{status.error}</p>
+        {/if}
+        {#if status.rejected > 0}
+          <p role="alert">{t('sync.rejected', { count: status.rejected })}</p>
         {/if}
       </div>
-    </div>
-    <dl>
-      <dt>{t('sync.server')}</dt>
-      <dd>{status.server}</dd>
-      <dt>{t('sync.account')}</dt>
-      <dd>
-        {status.username}
-        <span class="kind">{status.e2ee ? t('sync.kindE2ee') : t('sync.kindStandard')}</span>
-      </dd>
-      <dt>{t('sync.lastSync')}</dt>
-      <dd>{status.lastSyncAt ? when(status.lastSyncAt) : t('sync.never')}</dd>
-      <dt>{t('sync.connection')}</dt>
-      <dd>{status.live ? t('sync.live') : t('sync.everyMinute')}</dd>
-    </dl>
-  </div>
-  <details class="settings-group more">
-    <summary>{t('sync.more')}</summary>
-    <label class="settings-check">
-      <input
-        type="checkbox"
-        checked={prefs.coediting && status.coediting}
-        disabled={!status.coediting}
-        onchange={(e) => (prefs.coediting = e.currentTarget.checked)}
-      />
-      {t('sync.coediting')}
-    </label>
-    <p class="settings-help">
-      {status.coediting ? t('sync.coeditingHelp') : t('sync.coeditingOff')}
-    </p>
-    <FilesSettings />
-  </details>
-  <div class="settings-group">
-    {#if status.rejected > 0}
-      <p role="alert">{t('sync.rejected', { count: status.rejected })}</p>
-    {/if}
-    <div class="settings-actions">
       <button class="btn" disabled={status.state === 'syncing'} onclick={() => void sync.now()}
         ><Icon name="syncing" size={16} />{t('sync.now')}</button
       >
+    </div>
+    <Row label={t('sync.server')}><span class="value">{status.server}</span></Row>
+    <Row label={t('sync.account')}>
+      <span class="value">{status.username}</span>
+      <span class="kind">{status.e2ee ? t('sync.kindE2ee') : t('sync.kindStandard')}</span>
+    </Row>
+    <Row label={t('sync.lastSync')}>
+      <span class="value">{status.lastSyncAt ? when(status.lastSyncAt) : t('sync.never')}</span>
+    </Row>
+    <Row label={t('sync.connection')}>
+      <span class="value">{status.live ? t('sync.live') : t('sync.everyMinute')}</span>
+    </Row>
+  </Group>
+  <Group
+    title={t('sync.more')}
+    note={status.coediting ? t('sync.coeditingHelp') : t('sync.coeditingOff')}
+  >
+    <Row label={t('sync.coediting')}>
+      <Switch
+        label={t('sync.coediting')}
+        checked={prefs.coediting && status.coediting}
+        disabled={!status.coediting}
+        onchange={(on) => (prefs.coediting = on)}
+      />
+    </Row>
+  </Group>
+  <FilesSettings />
+  <Group note={confirming ? t('sync.disconnectHelp') : undefined}>
+    <Row label={t('sync.disconnect')}>
       {#if confirming}
-        <button class="btn danger" onclick={disconnect}>{t('sync.disconnectConfirm')}</button>
         <button class="btn" onclick={() => (confirming = false)}>{t('common.cancel')}</button>
+        <button class="btn danger" onclick={disconnect}>{t('sync.disconnectConfirm')}</button>
       {:else}
         <button class="btn" onclick={() => (confirming = true)}>{t('sync.disconnect')}</button>
       {/if}
-    </div>
-    {#if confirming}<p class="settings-help">{t('sync.disconnectHelp')}</p>{/if}
-  </div>
+    </Row>
+  </Group>
 {:else if methods}
-  <form class="settings-group" onsubmit={giveCode}>
-    <p>{t('sync.secondFactorHelp')}</p>
-    {#if methods.length > 1}
-      <select class="field" bind:value={method} aria-label={t('sync.secondFactorMethod')}>
-        {#each methods as m (m)}
-          <option value={m}>{t(`sync.method.${m}`)}</option>
-        {/each}
-      </select>
-    {/if}
-    {#if method === 'email'}
-      {#if emailSent}
-        <p class="settings-help" role="status">{t('sync.emailCodeSent')}</p>
+  <form class="sync-form" onsubmit={giveCode}>
+    <p class="settings-help">{t('sync.secondFactorHelp')}</p>
+    <Group note={method === 'email' && emailSent ? t('sync.emailCodeSent') : undefined}>
+      {#if methods.length > 1}
+        <Row label={t('sync.secondFactorMethod')}>
+          <select
+            class="field compact"
+            bind:value={method}
+            aria-label={t('sync.secondFactorMethod')}
+          >
+            {#each methods as m (m)}
+              <option value={m}>{t(`sync.method.${m}`)}</option>
+            {/each}
+          </select>
+        </Row>
       {/if}
-      <button class="btn" type="button" disabled={busy} onclick={sendEmailCode}
-        >{emailSent ? t('sync.resendEmailCode') : t('sync.sendEmailCode')}</button
-      >
-    {/if}
-    <!-- svelte-ignore a11y_autofocus -->
-    <input
-      class="field"
-      autocomplete="one-time-code"
-      inputmode={method === 'totp' || method === 'email' ? 'numeric' : 'text'}
-      placeholder={t(`sync.method.${method}`)}
-      autofocus
-      bind:value={code}
-    />
-    <div class="settings-actions">
+      <div class="field-row">
+        <!-- svelte-ignore a11y_autofocus -->
+        <input
+          class="field"
+          autocomplete="one-time-code"
+          inputmode={method === 'totp' || method === 'email' ? 'numeric' : 'text'}
+          placeholder={t(`sync.method.${method}`)}
+          aria-label={t(`sync.method.${method}`)}
+          autofocus
+          bind:value={code}
+        />
+        {#if method === 'email'}
+          <button class="btn" type="button" disabled={busy} onclick={sendEmailCode}
+            >{emailSent ? t('sync.resendEmailCode') : t('sync.sendEmailCode')}</button
+          >
+        {/if}
+      </div>
+    </Group>
+    <div class="settings-buttons">
+      <button class="btn" type="button" onclick={reset}>{t('common.cancel')}</button>
       <button class="btn primary" type="submit" disabled={busy || !code.trim()}
         >{t('sync.signIn')}</button
       >
-      <button class="btn" type="button" onclick={reset}>{t('common.cancel')}</button>
     </div>
   </form>
 {:else if checked?.compatible || status.state === 'signedOut'}
-  <form class="settings-group" onsubmit={signIn}>
+  <form class="sync-form" onsubmit={signIn}>
     {#if status.state === 'signedOut'}
       <p role="alert">{t('sync.signedOutHelp')}</p>
     {/if}
-    <p class="settings-help">
-      {t('sync.signInTo', { server: checked?.address ?? status.server ?? '' })}
-    </p>
     {#if checked}
       <!-- what the check found: it answers, its version, who may sign up -->
-      <dl>
-        <dt>{t('sync.serverState')}</dt>
-        <dd>{t('sync.serverUp')}</dd>
-        <dt>{t('settings.version')}</dt>
-        <dd>{checked.version}</dd>
+      <Group title={t('sync.signInTo', { server: checked.address ?? status.server ?? '' })}>
+        <Row label={t('sync.serverState')}>
+          <span class="value">{t('sync.serverUp')}, {checked.version}</span>
+        </Row>
         {#if checked.options}
-          <dt>{t('sync.signUps')}</dt>
-          <dd>
-            {checked.options.registration === 'open'
-              ? t('sync.signUpsOpen')
-              : checked.options.registration === 'invite'
-                ? t('sync.signUpsInvite')
-                : t('sync.signUpsClosed')}
-          </dd>
+          <Row label={t('sync.signUps')}>
+            <span class="value"
+              >{checked.options.registration === 'open'
+                ? t('sync.signUpsOpen')
+                : checked.options.registration === 'invite'
+                  ? t('sync.signUpsInvite')
+                  : t('sync.signUpsClosed')}</span
+            >
+          </Row>
         {/if}
-      </dl>
+      </Group>
+    {:else}
+      <h3 class="sign-in">{t('sync.signInTo', { server: status.server ?? '' })}</h3>
     {/if}
-    <input
-      class="field"
-      autocomplete="username"
-      placeholder={t('sync.username')}
-      bind:value={username}
-    />
-    <PasswordField
-      class="field"
-      autocomplete="current-password"
-      placeholder={t('sync.password')}
-      bind:value={password}
-    />
+    <Group note={t('sync.passwordHelp')}>
+      <div class="field-row">
+        <input
+          class="field"
+          autocomplete="username"
+          placeholder={t('sync.username')}
+          aria-label={t('sync.username')}
+          bind:value={username}
+        />
+      </div>
+      <div class="field-row">
+        <PasswordField
+          class="field"
+          autocomplete="current-password"
+          placeholder={t('sync.password')}
+          aria-label={t('sync.password')}
+          bind:value={password}
+        />
+      </div>
+    </Group>
     {#if plain}
       <p role="alert">{t('sync.plainWarning')}</p>
       <label class="settings-check">
@@ -305,13 +318,7 @@
         {t('sync.plainConfirm')}
       </label>
     {/if}
-    <div class="settings-actions">
-      <button
-        class="btn primary"
-        type="submit"
-        disabled={busy || !username.trim() || !password || (plain && !plainOk)}
-        >{busy ? t('sync.signingIn') : t('sync.signIn')}</button
-      >
+    <div class="settings-buttons">
       {#if status.state === 'signedOut'}
         <button class="btn" type="button" onclick={() => (confirming = true)}
           >{t('sync.disconnect')}</button
@@ -319,31 +326,41 @@
       {:else}
         <button class="btn" type="button" onclick={reset}>{t('common.back')}</button>
       {/if}
+      <button
+        class="btn primary"
+        type="submit"
+        disabled={busy || !username.trim() || !password || (plain && !plainOk)}
+        >{busy ? t('sync.signingIn') : t('sync.signIn')}</button
+      >
     </div>
     {#if confirming}
       <p class="settings-help">{t('sync.disconnectHelp')}</p>
-      <div class="settings-actions">
-        <button class="btn danger" type="button" onclick={disconnect}
-          >{t('sync.disconnectConfirm')}</button
-        >
+      <div class="settings-buttons">
         <button class="btn" type="button" onclick={() => (confirming = false)}
           >{t('common.cancel')}</button
         >
+        <button class="btn danger" type="button" onclick={disconnect}
+          >{t('sync.disconnectConfirm')}</button
+        >
       </div>
     {/if}
-    <p class="settings-help">{t('sync.passwordHelp')}</p>
   </form>
 {:else}
-  <form class="settings-group" onsubmit={check}>
+  <form class="sync-form" onsubmit={check}>
     <p class="settings-help">{t('sync.intro')}</p>
-    <input
-      class="field"
-      inputmode="url"
-      autocomplete="url"
-      placeholder={t('sync.address')}
-      bind:value={address}
-    />
-    <div class="settings-actions">
+    <Group>
+      <div class="field-row">
+        <input
+          class="field"
+          inputmode="url"
+          autocomplete="url"
+          placeholder={t('sync.address')}
+          aria-label={t('sync.address')}
+          bind:value={address}
+        />
+      </div>
+    </Group>
+    <div class="settings-buttons">
       <button class="btn primary" type="submit" disabled={busy || !address.trim()}
         >{busy ? t('sync.checking') : t('sync.continue')}</button
       >
@@ -354,36 +371,41 @@
 {#if error}<p class="error" role="alert">{error}</p>{/if}
 
 <style>
+  .sync-form {
+    display: grid;
+    gap: var(--space-3);
+  }
+  .sign-in {
+    margin: 0;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
   .state {
     display: flex;
     gap: var(--space-3);
-    align-items: flex-start;
+    align-items: center;
+    padding: var(--space-3);
+  }
+  .state > div {
+    flex: 1;
+    min-width: 0;
   }
   .state p {
-    margin: var(--space-1) 0 0;
+    margin: 2px 0 0;
   }
   .detail {
     overflow-wrap: anywhere;
-    font-size: 12px;
   }
-  dl {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: var(--space-2) var(--space-4);
-    margin: 0;
-  }
-  dt {
+  .value {
     color: var(--color-text-muted);
-  }
-  dd {
-    margin: 0;
     overflow-wrap: anywhere;
+    text-align: right;
   }
   .kind {
-    margin-left: var(--space-2);
     padding: 1px var(--space-2);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-control);
+    border-radius: var(--radius-chip);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
     font-size: 12px;
   }
   .error {

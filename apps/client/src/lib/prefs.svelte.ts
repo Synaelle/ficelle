@@ -54,6 +54,9 @@ export interface Prefs {
   arrow: string
   /** The browser's spell check in notes, desktop only. */
   spellcheck: boolean
+  /** The desktop settings: grouped rows like the phone's, or the earlier
+   * look (settings/classic, kept while the grouped one is tried). */
+  settingsLook: 'grouped' | 'classic'
   /** How times read: as the system shows them, or always 24 or 12 hours. */
   clock: 'system' | '24' | '12'
   /** The open note stays first in the note list, whatever the sort. */
@@ -114,6 +117,7 @@ export const DEFAULT_PREFS: Prefs = {
   emojiShortcodes: true,
   arrow: '➔',
   spellcheck: false,
+  settingsLook: 'grouped',
   clock: 'system',
   openNoteFirst: false,
   autoUpdates: true,

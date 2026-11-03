@@ -3,6 +3,8 @@
      which files come with each sync, and files the server refused. Shown
      under the sync settings once connected. -->
 <script lang="ts">
+  import Group from './ui/Group.svelte'
+  import Row from './ui/Row.svelte'
   import { invoke } from '@tauri-apps/api/core'
   import { backend, type FilesInfo } from '../lib/backend'
   import { currentLocale, t } from '../lib/i18n.svelte'
@@ -57,61 +59,61 @@
 </script>
 
 {#if info}
-  <div class="settings-group">
-    <h3>{t('files.title')}</h3>
-    <p class="settings-help">
-      {info.policy.quotaBytes > 0
+  <Group title={t('files.title')} note={t('files.autoFetchHelp')}>
+    <Row
+      label={info.policy.quotaBytes > 0
         ? t('files.usedOf', {
             used: bytes(info.usage.usedBytes),
             quota: bytes(info.policy.quotaBytes),
           })
         : t('files.used', { used: bytes(info.usage.usedBytes) })}
-    </p>
-    {#if share !== null}
-      <span
-        class="meter"
-        class:full={share >= 90}
-        role="meter"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={share}
-        aria-label={t('files.title')}><span style:width="{share}%"></span></span
+    >
+      {#if share !== null}
+        <span
+          class="meter"
+          class:full={share >= 90}
+          role="meter"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={share}
+          aria-label={t('files.title')}><span style:width="{share}%"></span></span
+        >
+      {/if}
+    </Row>
+    <Row label={t('files.autoFetch')}>
+      <select
+        class="field compact"
+        aria-label={t('files.autoFetch')}
+        bind:value={prefs.autoFetchMb}
       >
-    {/if}
-  </div>
-  <div class="settings-group">
-    <label class="settings-field">
-      <span>{t('files.autoFetch')}</span>
-      <select class="field" bind:value={prefs.autoFetchMb}>
         {#each SIZES as mb (mb)}
           <option value={mb}>{mb >= 100_000 ? t('files.always') : bytes(mb * 1024 * 1024)}</option>
         {/each}
       </select>
-    </label>
-    <p class="settings-help">{t('files.autoFetchHelp')}</p>
-    {#if refused.length > 0}
-      <p role="alert">{t('files.refused', { count: refused.length })}</p>
-      <ul class="refused">
-        {#each refused as file (file.note + file.name)}
-          <li>
-            <b>{file.name}</b>
-            <span class="muted"
-              >{file.note || t('note.untitled')}, {t(`files.reason.${file.reason}`)}</span
-            >
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </div>
+    </Row>
+  </Group>
+  {#if refused.length > 0}
+    <p role="alert">{t('files.refused', { count: refused.length })}</p>
+    <ul class="refused">
+      {#each refused as file (file.note + file.name)}
+        <li>
+          <b>{file.name}</b>
+          <span class="muted"
+            >{file.note || t('note.untitled')}, {t(`files.reason.${file.reason}`)}</span
+          >
+        </li>
+      {/each}
+    </ul>
+  {/if}
 {/if}
 
 <style>
   .meter {
     display: block;
     height: 6px;
-    width: min(320px, 100%);
+    width: 140px;
     border-radius: 999px;
-    background: var(--color-surface-2);
+    background: var(--color-border);
     overflow: hidden;
   }
   .meter span {

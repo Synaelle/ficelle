@@ -19,6 +19,7 @@
   import { backups } from '../lib/backups.svelte'
   import { onMount } from 'svelte'
   import Settings from '../settings/Settings.svelte'
+  import ClassicSettings from '../settings/classic/Settings.svelte'
   import AttachmentList from './AttachmentList.svelte'
   import NoteList from './NoteList.svelte'
   import NoteView from './NoteView.svelte'
@@ -204,7 +205,11 @@
 {/if}
 
 {#if settingsOpen}
-  <Settings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />
+  {#if prefs.settingsLook === 'classic'}
+    <ClassicSettings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />
+  {:else}
+    <Settings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />
+  {/if}
 {/if}
 
 {#if workspace.error}

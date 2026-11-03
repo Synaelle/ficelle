@@ -62,8 +62,13 @@
 </script>
 
 {#if list.length}
-  <div class="settings-group wide" data-feedback-list aria-busy={busy}>
-    <h3>{t('feedback.sentTitle')}</h3>
+  <div class="settings-group wide settings-panel" data-feedback-list aria-busy={busy}>
+    <div class="line head">
+      <h3>{t('feedback.sentTitle')}</h3>
+      <button class="btn small" disabled={busy} onclick={() => void refresh()}
+        >{t('feedback.refresh')}</button
+      >
+    </div>
     <p class="settings-help">{t('feedback.sentHelp')}</p>
     <ul>
       {#each list as r (r.secret)}
@@ -73,22 +78,21 @@
             <span class="about">{r.about}</span>
             <span class="state" data-state={answer?.state ?? ''}>{standing(r)}</span>
           </div>
-          <span class="settings-help">{when(r.sentAt)} · {r.host}</span>
+          <div class="line">
+            <span class="settings-help">{when(r.sentAt)} · {r.host}</span>
+            <button class="btn small" onclick={() => forget(r.secret)}
+              >{t('feedback.forget')}</button
+            >
+          </div>
           {#if answer?.answer}
             <blockquote data-feedback-answer>
               <span class="settings-help">{t('feedback.answer')}</span>
               {answer.answer}
             </blockquote>
           {/if}
-          <button class="btn small" onclick={() => forget(r.secret)}>{t('feedback.forget')}</button>
         </li>
       {/each}
     </ul>
-    <div class="settings-actions">
-      <button class="btn" disabled={busy} onclick={() => void refresh()}
-        >{t('feedback.refresh')}</button
-      >
-    </div>
   </div>
 {/if}
 
@@ -111,6 +115,14 @@
     justify-items: start;
     padding-bottom: var(--space-3);
     border-bottom: 1px solid var(--color-border);
+  }
+  li:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+  .head {
+    align-items: center;
+    width: min(560px, 100%);
   }
   .line {
     display: flex;

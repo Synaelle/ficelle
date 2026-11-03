@@ -214,7 +214,65 @@ button {
 .settings-body {
   display: grid;
   align-content: start;
-  gap: var(--space-6);
+  gap: var(--space-5);
+}
+/* a text field filling a settings group row (settings/ui/): no box of its
+   own, the group is the box; placeholders name it */
+.field-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+}
+.field-row + .field-row::before,
+.settings-row + .field-row::before,
+.field-row + .settings-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--space-3);
+  right: 0;
+  border-top: 1px solid var(--color-border);
+}
+.field-row > .field,
+.field-row > * > .field {
+  width: 100%;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  outline: none;
+}
+.field-row:has(.field:focus-visible) {
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+.field-row textarea.field {
+  height: auto;
+  padding: var(--space-2) 0;
+  resize: vertical;
+}
+.field-row > :not(.field):not(button):first-child:has(> .field) {
+  flex: 1;
+}
+/* the buttons under a settings group, on its right */
+.settings-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  max-width: 640px;
+}
+/* a form or a block in the settings drawn like a group of rows
+   (settings/ui/Group.svelte): the same panel around it */
+.settings-panel {
+  max-width: 640px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius-window) + 2px);
+  background: var(--color-surface-2);
 }
 .settings-group {
   display: grid;
@@ -267,6 +325,30 @@ details.settings-group:not([open]) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+/* a row of choices, one picked (light or dark, size, layout): the radios
+   hidden, the picked one outlined, keyboard focus shown */
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.segmented input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+}
+.segmented label {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.segmented label.checked {
+  border-color: var(--color-accent);
+}
+.segmented label:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 /* text that shows what is typed: no font joins -> into an arrow */
 .as-typed {

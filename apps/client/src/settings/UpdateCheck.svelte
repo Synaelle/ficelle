@@ -50,7 +50,7 @@
             </label>
           {/each}
         </div>
-        <p class="muted">
+        <p class="settings-help">
           {prefs.channel === 'stable'
             ? t('appUpdate.channelStableHelp')
             : t('appUpdate.channelBetaHelp')}
@@ -58,7 +58,7 @@
       </fieldset>
     {/if}
     {#if waitingForStable() && !appUpdates.ready}
-      <p class="muted">{t('appUpdate.channelWaiting')}</p>
+      <p class="settings-help">{t('appUpdate.channelWaiting')}</p>
     {/if}
     <label class="settings-check">
       <input type="checkbox" bind:checked={prefs.autoUpdates} />
@@ -75,7 +75,7 @@
       </label>
     {/if}
     <!-- one line: how updates come while on, what is still looked for when off -->
-    <p class="muted">
+    <p class="settings-help">
       {!prefs.autoUpdates
         ? prefs.securityChecks
           ? t('appUpdate.autoOffHelp')
@@ -97,10 +97,15 @@
         >{phone ? t('appUpdate.install') : t('appUpdate.restart')}</button
       >
     {:else}
-      <button class="btn" disabled={appUpdates.checking} onclick={() => void appUpdates.check()}
-        >{appUpdates.checking ? t('appUpdate.checking') : t('appUpdate.check')}</button
-      >
-      {#if appUpdates.upToDate}<p class="muted" role="status">{t('appUpdate.upToDate')}</p>{/if}
+      <!-- the answer beside the button -->
+      <div class="settings-actions check-row">
+        <button class="btn" disabled={appUpdates.checking} onclick={() => void appUpdates.check()}
+          >{appUpdates.checking ? t('appUpdate.checking') : t('appUpdate.check')}</button
+        >
+        {#if appUpdates.upToDate}<span class="settings-help" role="status"
+            >{t('appUpdate.upToDate')}</span
+          >{/if}
+      </div>
     {/if}
     {#if appUpdates.error}<p class="error" role="alert">{t(`errors.${appUpdates.error}`)}</p>{/if}
   </div>
@@ -119,7 +124,7 @@
     display: grid;
     justify-items: start;
     gap: var(--space-2);
-    margin: 0 0 var(--space-2);
+    margin: 0;
     padding: 0;
     border: 0;
   }
@@ -127,26 +132,9 @@
     margin-bottom: var(--space-2);
     padding: 0;
   }
-  input[type='radio'] {
-    position: absolute;
-    opacity: 0;
-  }
-  .segmented {
-    display: inline-flex;
-    gap: var(--space-1);
-  }
-  .segmented label {
-    padding: var(--space-1) var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-control);
-    cursor: pointer;
-  }
-  .segmented .checked {
-    border-color: var(--color-accent);
-  }
-  .segmented label:has(:focus-visible) {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
+  .check-row {
+    align-items: center;
+    gap: var(--space-3);
   }
   .error {
     color: var(--color-danger);

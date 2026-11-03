@@ -41,6 +41,9 @@
   import { updatesHere } from '../lib/appUpdate.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
   import { LOCK_CHOICES, lockLabel, SettingsState, ways } from './settingsState.svelte'
+  import Group from './ui/Group.svelte'
+  import Row from './ui/Row.svelte'
+  import Switch from './ui/Switch.svelte'
 
   let { close, onlock, start }: { close: () => void; onlock: () => void; start?: 'sync' } = $props()
 
@@ -156,9 +159,16 @@
 
   let oldPassword = $state('')
   let newPassword = $state('')
+  /** The credits, open under their row in About. */
+  let creditsOpen = $state(false)
+  /** The change password form, open under its row. */
+  let changingPassword = $state(false)
   async function changePassword(event: SubmitEvent) {
     event.preventDefault()
-    if (await settings.changePassword(oldPassword, newPassword)) oldPassword = newPassword = ''
+    if (await settings.changePassword(oldPassword, newPassword)) {
+      oldPassword = newPassword = ''
+      changingPassword = false
+    }
   }
 </script>
 
@@ -193,7 +203,9 @@
           <button
             class:active={section === s}
             onclick={() => ((section = s), (settings.message = ''))}
-            ><Icon name={SECTION_ICONS[s]} size={16} />{t(`settings.${s}`)}</button
+            ><span class="tile"><Icon name={SECTION_ICONS[s]} size={14} /></span>{t(
+              `settings.${s}`,
+            )}</button
           >
         {/each}
       </nav>
@@ -210,55 +222,46 @@
           {#if section === 'appearance'}
             <AppearancePickers layout={false} />
           {:else if section === 'accessibility'}
-            <SizePicker />
-            <div class="settings-group">
-              <label class="settings-check">
-                <input type="checkbox" bind:checked={prefs.dyslexicFont} data-dyslexic-switch />
-                {t('settings.dyslexicFont')}
-              </label>
-              {#if prefs.dyslexicFont && dyslexicStatus.loading}
-                <p class="settings-help" role="status">{t('settings.dyslexicFontLoading')}</p>
-              {:else if prefs.dyslexicFont && dyslexicStatus.failed}
-                <p role="alert">{t('settings.dyslexicFontFailed')}</p>
-              {/if}
-            </div>
+            <Group
+              note={prefs.dyslexicFont && dyslexicStatus.loading
+                ? t('settings.dyslexicFontLoading')
+                : undefined}
+            >
+              <Row label={t('settings.uiSize')} help={t('settings.uiSizeHelp')}>
+                <SizePicker />
+              </Row>
+              <Row label={t('settings.dyslexicFont')}>
+                <Switch label={t('settings.dyslexicFont')} bind:checked={prefs.dyslexicFont} />
+              </Row>
+            </Group>
+            {#if prefs.dyslexicFont && dyslexicStatus.failed}
+              <p class="settings-help failed" role="alert">{t('settings.dyslexicFontFailed')}</p>
+            {/if}
           {:else if section === 'editor'}
-            <div class="settings-group">
-              <label class="settings-check">
-                <input type="checkbox" bind:checked={prefs.autoLists} />
-                {t('settings.autoLists')}
-              </label>
-              <label class="settings-check">
-                <input type="checkbox" bind:checked={prefs.emojiShortcodes} />
-                {t('settings.emojiShortcodes')}
-              </label>
-              <label class="settings-check">
-                <input type="checkbox" bind:checked={prefs.spellcheck} />
-                {t('settings.spellcheck')}
-              </label>
-              <label class="settings-check">
-                <input type="checkbox" bind:checked={prefs.openNoteFirst} />
-                {t('settings.openNoteFirst')}
-              </label>
-            </div>
-            <div class="settings-group">
-              <h3 class="as-typed">{t('settings.arrow')}</h3>
-              <ArrowPicker />
-            </div>
-            {#if quickNoteSupported}
-              <div class="settings-group">
-                <h3>{t('settings.quickNote')}</h3>
-                <div class="settings-actions">
-                  <label class="settings-check">
-                    <input
-                      type="checkbox"
-                      aria-label={t('settings.quickNote')}
-                      checked={prefs.quickNoteShortcut !== null}
-                      onchange={(e) =>
-                        void setQuick(e.currentTarget.checked ? DEFAULT_QUICK_SHORTCUT : null)}
-                    />
-                    {prefs.quickNoteShortcut ? '' : t('settings.quickNoteOff')}
-                  </label>
+            <Group>
+              <Row label={t('settings.autoLists')}>
+                <Switch label={t('settings.autoLists')} bind:checked={prefs.autoLists} />
+              </Row>
+              <Row label={t('settings.emojiShortcodes')}>
+                <Switch
+                  label={t('settings.emojiShortcodes')}
+                  bind:checked={prefs.emojiShortcodes}
+                />
+              </Row>
+              <Row label={t('settings.spellcheck')}>
+                <Switch label={t('settings.spellcheck')} bind:checked={prefs.spellcheck} />
+              </Row>
+            </Group>
+            <Group title={t('settings.arrow')} typed>
+              <div class="inside"><ArrowPicker /></div>
+            </Group>
+            <!-- how the app behaves, apart from what typing does -->
+            <Group note={quickTaken ? t('settings.quickNoteTaken') : undefined}>
+              <Row label={t('settings.openNoteFirst')}>
+                <Switch label={t('settings.openNoteFirst')} bind:checked={prefs.openNoteFirst} />
+              </Row>
+              {#if quickNoteSupported}
+                <Row label={t('settings.quickNote')}>
                   {#if prefs.quickNoteShortcut}
                     <button class="btn key" onclick={() => (recordingQuick = true)}>
                       {recordingQuick
@@ -266,16 +269,20 @@
                         : displayBinding(prefs.quickNoteShortcut)}
                     </button>
                   {/if}
-                </div>
-                {#if quickTaken}<p role="alert">{t('settings.quickNoteTaken')}</p>{/if}
-              </div>
-            {/if}
+                  <Switch
+                    label={t('settings.quickNote')}
+                    checked={prefs.quickNoteShortcut !== null}
+                    onchange={(on) => void setQuick(on ? DEFAULT_QUICK_SHORTCUT : null)}
+                  />
+                </Row>
+              {/if}
+            </Group>
           {:else if section === 'language'}
-            <div class="settings-group">
-              <label class="settings-field">
-                {t('settings.language')}
+            <Group>
+              <Row label={t('settings.language')}>
                 <select
-                  class="field"
+                  class="field compact"
+                  aria-label={t('settings.language')}
                   value={prefs.language ?? ''}
                   onchange={(e) =>
                     (prefs.language = (e.currentTarget.value || null) as Locale | null)}
@@ -285,109 +292,113 @@
                     <option value={locale.code}>{locale.name}</option>
                   {/each}
                 </select>
-              </label>
-              <label class="settings-field">
-                {t('settings.clock')}
-                <select class="field" bind:value={prefs.clock}>
+              </Row>
+              <Row label={t('settings.clock')}>
+                <select
+                  class="field compact"
+                  aria-label={t('settings.clock')}
+                  bind:value={prefs.clock}
+                >
                   {#each ['system', '24', '12'] as const as choice (choice)}
                     <option value={choice}>{t(`settings.clock_${choice}`)}</option>
                   {/each}
                 </select>
-              </label>
-            </div>
+              </Row>
+            </Group>
           {:else if section === 'shortcuts'}
-            <div class="settings-group wide">
-              <ul class="shortcuts">
-                {#each ACTIONS as action (action)}
-                  <li>
-                    <span>{t(`shortcuts.${action}`)}</span>
-                    <button class="btn key" onclick={() => (recording = action)}>
-                      {recording === action
-                        ? t('settings.pressKeys')
-                        : displayBinding(shortcutFor(action))}
-                    </button>
-                  </li>
-                {/each}
-              </ul>
+            <Group>
+              {#each ACTIONS as action (action)}
+                <Row label={t(`shortcuts.${action}`)}>
+                  <button
+                    class="btn key"
+                    aria-label={`${t(`shortcuts.${action}`)}, ${displayBinding(shortcutFor(action))}`}
+                    onclick={() => (recording = action)}
+                  >
+                    {recording === action
+                      ? t('settings.pressKeys')
+                      : displayBinding(shortcutFor(action))}
+                  </button>
+                </Row>
+              {/each}
+            </Group>
+            <!-- only once something was changed -->
+            {#if Object.keys(prefs.shortcuts).length}
               <div class="settings-actions">
                 <button class="btn" onclick={() => (prefs.shortcuts = {})}
                   >{t('settings.resetShortcuts')}</button
                 >
               </div>
-            </div>
+            {/if}
           {:else if section === 'security'}
             {@const vault = settings.vault}
             {#if vault && !vault.encrypted}
-              <div class="settings-group">
-                <h3>{t('settings.notEncryptedTitle')}</h3>
-                <div class="settings-actions">
+              <Group title={t('settings.notEncryptedTitle')}>
+                <Row label={t('settings.phone.plain')}>
                   <button class="btn primary" onclick={() => settings.encrypt()}
                     ><Icon name="lock" size={16} />{t('settings.encrypt')}</button
                   >
-                </div>
-              </div>
+                </Row>
+              </Group>
             {/if}
             {#if vault?.encrypted}
-              <div class="settings-group">
-                <h3>{t('settings.wayTitle')}</h3>
-                <div class="ways" role="radiogroup" aria-label={t('settings.wayTitle')}>
+              <div role="radiogroup" aria-label={t('settings.wayTitle')}>
+                <Group title={t('settings.wayTitle')}>
                   {#each ways(vault) as option (option)}
-                    <label class="way" class:current={vault.way === option}>
-                      <input
-                        type="radio"
-                        name="way"
-                        checked={vault.way === option}
-                        onchange={() => settings.setWay(option)}
-                      />
-                      <span>
-                        <strong>{t(`settings.way.${option}`, { method })}</strong>
-                        <span class="settings-help"
-                          >{t(`settings.wayHelp.${option}`, { method })}</span
-                        >
-                      </span>
-                    </label>
+                    <Row
+                      label={t(`settings.way.${option}`, { method })}
+                      help={t(`settings.wayHelp.${option}`, { method })}
+                      checked={vault.way === option}
+                      onclick={() => void settings.setWay(option)}
+                    />
                   {/each}
-                </div>
-                {#if vault.way === 'pin'}
-                  <div class="settings-actions">
-                    <button class="btn" onclick={() => settings.setWay('pin')}
-                      >{t('pin.change')}</button
-                    >
-                  </div>
-                {/if}
+                  {#if vault.way === 'pin'}
+                    <Row label={t('pin.change')}>
+                      <button class="btn" onclick={() => settings.setWay('pin')}
+                        >{t('pin.change')}</button
+                      >
+                    </Row>
+                  {/if}
+                </Group>
               </div>
               {#if vault.way === 'guarded' || vault.way === 'pin' || vault.way === 'password'}
-                <div class="settings-group">
-                  <h3>{t('settings.autoLock')}</h3>
-                  <select
-                    class="field"
-                    aria-label={t('settings.autoLock')}
-                    bind:value={prefs.autoLockMinutes}
-                  >
-                    {#each LOCK_CHOICES as minutes (minutes)}
-                      <option value={minutes}>{lockLabel(minutes)}</option>
-                    {/each}
-                  </select>
-                  <div class="settings-actions">
-                    <button class="btn" onclick={onlock}
-                      ><Icon name="lock" size={16} />{t('settings.lockNow')}</button
+                <Group>
+                  <Row label={t('settings.autoLock')}>
+                    <select
+                      class="field compact"
+                      aria-label={t('settings.autoLock')}
+                      bind:value={prefs.autoLockMinutes}
                     >
-                  </div>
-                </div>
+                      {#each LOCK_CHOICES as minutes (minutes)}
+                        <option value={minutes}>{lockLabel(minutes)}</option>
+                      {/each}
+                    </select>
+                  </Row>
+                  <Row label={t('settings.lockNow')}>
+                    <button class="btn" onclick={onlock}
+                      ><Icon name="lock" size={16} />{t('sidebar.lock')}</button
+                    >
+                  </Row>
+                </Group>
               {/if}
-              <details class="settings-group more" open={!!settings.recoveryCode}>
-                <summary>{t('recovery.heading')}</summary>
+              <Group
+                title={t('settings.phone.groupPassword')}
+                note={vault.recovery ? t('recovery.has') : t('recovery.noneNow')}
+              >
                 {#if settings.recoveryCode}
-                  <RecoveryKey
-                    code={settings.recoveryCode}
-                    done={() => settings.recoveryShown()}
-                    level="h3"
-                  />
+                  <div class="inside">
+                    <RecoveryKey
+                      code={settings.recoveryCode}
+                      done={() => settings.recoveryShown()}
+                      level="h3"
+                    />
+                  </div>
                 {:else}
-                  <p class="settings-help">
-                    {vault.recovery ? t('recovery.has') : t('recovery.noneNow')}
-                  </p>
-                  <div class="settings-actions">
+                  <Row label={t('recovery.heading')}>
+                    <span class="state"
+                      >{vault.recovery
+                        ? t('settings.phone.keyCreated')
+                        : t('settings.phone.keyNone')}</span
+                    >
                     <button class="btn" onclick={() => settings.createRecovery()}
                       >{vault.recovery ? t('recovery.replace') : t('recovery.create')}</button
                     >
@@ -396,143 +407,158 @@
                         >{t('recovery.remove')}</button
                       >
                     {/if}
-                  </div>
+                  </Row>
                 {/if}
-              </details>
-              {#if vault.hasPassword}
-                <details class="settings-group more">
-                  <summary>{t('settings.changePassword')}</summary>
-                  <form class="settings-group" onsubmit={changePassword}>
-                    <input
-                      type="text"
-                      autocomplete="username"
-                      value={brand.displayName}
-                      hidden
-                      readonly
-                    />
-                    <PasswordField
-                      class="field"
-                      autocomplete="current-password"
-                      placeholder={t('settings.oldPassword')}
-                      bind:value={oldPassword}
-                    />
-                    <PasswordField
-                      class="field"
-                      autocomplete="new-password"
-                      placeholder={t('settings.newPassword')}
-                      bind:value={newPassword}
-                    />
-                    <div class="settings-actions">
-                      <button
-                        class="btn"
-                        type="submit"
-                        disabled={!oldPassword || newPassword.length < MIN_PASSWORD}
-                        >{t('settings.changePassword')}</button
-                      >
-                    </div>
-                  </form>
-                </details>
-              {/if}
+                {#if vault.hasPassword}
+                  <Row label={t('settings.changePassword')}>
+                    <button class="btn" onclick={() => (changingPassword = !changingPassword)}
+                      >{changingPassword
+                        ? t('common.cancel')
+                        : t('settings.changePassword')}</button
+                    >
+                  </Row>
+                  {#if changingPassword}
+                    <form class="inside under" onsubmit={changePassword}>
+                      <input
+                        type="text"
+                        autocomplete="username"
+                        value={brand.displayName}
+                        hidden
+                        readonly
+                      />
+                      <PasswordField
+                        class="field"
+                        autocomplete="current-password"
+                        placeholder={t('settings.oldPassword')}
+                        bind:value={oldPassword}
+                      />
+                      <PasswordField
+                        class="field"
+                        autocomplete="new-password"
+                        placeholder={t('settings.newPassword')}
+                        bind:value={newPassword}
+                      />
+                      <div class="settings-actions">
+                        <button
+                          class="btn primary"
+                          type="submit"
+                          disabled={!oldPassword || newPassword.length < MIN_PASSWORD}
+                          >{t('settings.changePassword')}</button
+                        >
+                      </div>
+                    </form>
+                  {/if}
+                {/if}
+              </Group>
             {/if}
           {:else if section === 'sync'}
             <SyncSettings />
           {:else if section === 'backups'}
             <BackupSettings onbackup={(mode) => (backingUp = mode)} />
           {:else if section === 'data'}
-            <div class="settings-group">
-              <h3>{t('settings.importTitle')}</h3>
-              <p class="settings-help">{t('settings.importHelp')}</p>
-              <div class="settings-actions">
-                <button
-                  class="btn"
-                  onclick={() => (importing = 'ficelle')}
-                  disabled={!backend.native}
-                  ><Icon name="import" size={16} />{t('settings.importFicelle', {
-                    app: brand.displayName,
-                  })}</button
-                >
-                <button class="btn" onclick={() => (importing = 'other')} disabled={!backend.native}
-                  >{t('settings.import')}</button
-                >
-                <!-- backups come back from Backups, where they are found and listed -->
-                <button class="btn" onclick={() => (section = 'backups')}
-                  ><Icon name="backup" size={16} />{t('backups.restoreFrom')}</button
-                >
-                <!-- also in the list's header, here with the other ways in -->
-                <button class="btn" onclick={() => markdownInput?.click()}
-                  >{t('list.import')}</button
-                >
-                <input
-                  bind:this={markdownInput}
-                  type="file"
-                  accept=".md,.markdown,.mdown,.mkd,text/markdown"
-                  multiple
-                  hidden
-                  onchange={async (e) => {
-                    const input = e.currentTarget
-                    await workspace.importFiles([...(input.files ?? [])])
-                    input.value = ''
-                  }}
-                />
-              </div>
-            </div>
-            <div class="settings-group">
-              <h3>{t('settings.exportTitle')}</h3>
-              <p class="settings-help">{t('settings.exportHelp')}</p>
-              <div class="settings-actions">
-                <button
-                  class="btn"
-                  onclick={() => settings.exportNotes()}
-                  disabled={!backend.native}
-                  ><Icon name="export" size={16} />{t('settings.export')}</button
-                >
-                <button class="btn" onclick={() => settings.exportZip()} disabled={!backend.native}
-                  >{t('settings.exportZip')}</button
-                >
-              </div>
-            </div>
-            <details class="settings-group more">
-              <summary>{t('reset.title')}</summary>
-              <p class="settings-help">{t('reset.help')}</p>
-              <div class="settings-actions">
+            <Group title={t('settings.importTitle')} note={t('settings.importHelp')}>
+              <!-- also in the list's header, here with the other ways in -->
+              <Row label={t('list.import')} opens onclick={() => markdownInput?.click()} />
+              <Row
+                label={t('settings.import')}
+                opens
+                disabled={!backend.native}
+                onclick={() => (importing = 'other')}
+              />
+              <Row
+                label={t('settings.importFicelle', { app: brand.displayName })}
+                opens
+                disabled={!backend.native}
+                onclick={() => (importing = 'ficelle')}
+              />
+              <!-- backups come back from Backups, where they are found and listed -->
+              <Row label={t('backups.restoreFrom')} opens onclick={() => (section = 'backups')} />
+            </Group>
+            <input
+              bind:this={markdownInput}
+              type="file"
+              accept=".md,.markdown,.mdown,.mkd,text/markdown"
+              multiple
+              hidden
+              onchange={async (e) => {
+                const input = e.currentTarget
+                await workspace.importFiles([...(input.files ?? [])])
+                input.value = ''
+              }}
+            />
+            <Group title={t('settings.exportTitle')} note={t('settings.exportHelp')}>
+              <Row
+                label={t('settings.export')}
+                opens
+                disabled={!backend.native}
+                onclick={() => settings.exportNotes()}
+              />
+              <Row
+                label={t('settings.exportZip')}
+                opens
+                disabled={!backend.native}
+                onclick={() => settings.exportZip()}
+              />
+            </Group>
+            <Group>
+              <Row label={t('reset.title')} help={t('reset.help')}>
                 <button class="btn danger" onclick={() => (resetting = true)}
                   >{t('reset.open')}</button
                 >
-              </div>
-            </details>
+              </Row>
+            </Group>
           {:else if section === 'experimental'}
             <p class="settings-help">{t('settings.experimentalHelp')}</p>
             <LayoutPicker />
+            <Group>
+              <Row label={t('settings.settingsLook')} help={t('settings.settingsLookHelp')}>
+                <div class="segmented" role="radiogroup" aria-label={t('settings.settingsLook')}>
+                  {#each ['grouped', 'classic'] as const as look (look)}
+                    <label class:checked={prefs.settingsLook === look}>
+                      <input
+                        type="radio"
+                        name="settingsLook"
+                        value={look}
+                        bind:group={prefs.settingsLook}
+                      />{t(`settings.settingsLook_${look}`)}
+                    </label>
+                  {/each}
+                </div>
+              </Row>
+            </Group>
           {:else if section === 'testTools'}
             <TestTools />
           {:else if section === 'feedback'}
             <FeedbackSettings />
           {:else if section === 'about'}
-            <div class="settings-group">
-              <dl>
-                <dt>{t('settings.version')}</dt>
-                <dd>{__APP_VERSION__}</dd>
-                <dt>{t('settings.buildDate')}</dt>
-                <dd>{__APP_BUILD_DATE__}</dd>
-                <dt>{t('settings.protocol')}</dt>
-                <dd>{__APP_PROTOCOL__}</dd>
-                {#if serverProtocols}
-                  <dt>{t('settings.serverProtocol')}</dt>
-                  <dd>{serverProtocols}</dd>
-                {/if}
-              </dl>
-            </div>
-            <div class="settings-group"><ContactLine /></div>
-            <details class="settings-group more">
-              <summary>{t('settings.credits')}</summary>
-              <CreditsList />
-            </details>
+            <Group>
+              <Row label={t('settings.version')}
+                ><span class="value mono">{__APP_VERSION__}</span></Row
+              >
+              <Row label={t('settings.buildDate')}
+                ><span class="value mono">{__APP_BUILD_DATE__}</span></Row
+              >
+              <Row label={t('settings.protocol')}
+                ><span class="value mono">{__APP_PROTOCOL__}</span></Row
+              >
+              {#if serverProtocols}
+                <Row label={t('settings.serverProtocol')}
+                  ><span class="value mono">{serverProtocols}</span></Row
+                >
+              {/if}
+            </Group>
             {#if updatesHere}
-              <div class="settings-group">
-                <h3>{t('appUpdate.title')}</h3>
-                <UpdateCheck />
-              </div>
+              <Group title={t('appUpdate.title')}>
+                <div class="inside"><UpdateCheck /></div>
+              </Group>
             {/if}
+            <Group>
+              <div class="inside"><ContactLine /></div>
+              <Row label={t('settings.credits')} onclick={() => (creditsOpen = !creditsOpen)}>
+                <span class="opens" class:open={creditsOpen}><Icon name="down" size={16} /></span>
+              </Row>
+              {#if creditsOpen}<div class="inside"><CreditsList /></div>{/if}
+            </Group>
           {/if}
         </div>
 
@@ -603,6 +629,18 @@
   nav button.active {
     background: var(--color-selection);
   }
+  /* one quiet tile for every section, the icon in the accent, as on the
+     phone: the colour says "a setting", not which kind */
+  .tile {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--color-surface-2);
+    color: var(--color-accent-text);
+  }
   .content {
     overflow-y: auto;
     padding: 0 var(--space-5) var(--space-5);
@@ -622,58 +660,51 @@
     margin: 0;
     font-size: 18px;
   }
-  .shortcuts {
-    margin: 0;
-    padding: 0;
-    list-style: none;
+  .failed {
+    color: var(--color-danger);
   }
-  .shortcuts li {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--space-1) 0;
-    border-bottom: 1px solid var(--color-border);
+  /* a menu in a settings row, as wide as its longest choice */
+  .content :global(.field.compact) {
+    width: auto;
+    min-width: 160px;
+    height: 30px;
+  }
+  /* what opens inside a group, under its row: a form, the new key */
+  .inside {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+  /* opened under its row: the row above gives the space */
+  .inside.under {
+    padding-top: 0;
+  }
+  .value {
+    color: var(--color-text-muted);
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  .opens {
+    display: grid;
+    color: var(--color-text-faint);
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .opens.open {
+    transform: rotate(180deg);
+  }
+  .state {
+    color: var(--color-text-muted);
+    font-size: 13px;
   }
   .key {
     min-width: 110px;
     justify-content: center;
     font-family: var(--font-mono);
   }
-  dl {
-    margin: 0;
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: var(--space-2) var(--space-4);
-  }
   .message {
     margin: var(--space-5) 0 0;
-  }
-  dd {
-    margin: 0;
-    font-family: var(--font-mono);
-  }
-  .ways {
-    display: grid;
-    gap: var(--space-2);
-  }
-  .way {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-3);
-    padding: var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-popover);
-    cursor: pointer;
-  }
-  .way.current {
-    border-color: var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 7%, transparent);
-  }
-  .way input {
-    margin-top: 3px;
-  }
-  .way > span {
-    display: grid;
-    gap: 2px;
   }
 </style>

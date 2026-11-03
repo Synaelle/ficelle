@@ -6,7 +6,7 @@ each arrow looks the same on every device.
 
 Writes apps/client/src/styles/arrows/*.woff2, styles/arrows.css (the faces,
 with their unicode-range) and editor/arrows.json (the arrows the picker
-shows). Run again only to change the fonts or the arrows:
+shows: the ones pointing right). Run again only to change the fonts or the arrows:
 
     pip install fonttools brotli
     python tools/arrows-font.py
@@ -14,6 +14,7 @@ shows). Run again only to change the fonts or the arrows:
 """
 
 import json
+import re
 import subprocess
 import tarfile
 import tempfile
@@ -45,6 +46,15 @@ def arrows() -> list[int]:
             if 'ARROW' in name or 'HARPOON' in name:
                 found.append(code)
     return found
+
+
+def points_right(code: int) -> bool:
+    """A single arrow pointing right, the picker's choices for ->."""
+    name = unicodedata.name(chr(code), '')
+    return bool(re.search(r'RIGHTWARDS|RIGHT-POINTING|RIGHT ARROW|RIGHT', name)) and not re.search(
+        r'LEFT|UP|DOWN|NORTH|SOUTH|AND|OVER |ABOVE|BELOW|PAIRED|TWO |TRIPLE|THREE|BARB|HARPOON',
+        name,
+    )
 
 
 def fetch(package: str, into: Path) -> Path:
@@ -129,7 +139,10 @@ def main() -> None:
                 f"  unicode-range: {ranges(codes)};\n"
                 "}\n"
             )
-    shown = sorted(c for _, _, codes in parts for c in codes)
+    drawn_codes = sorted(c for _, _, codes in parts for c in codes)
+    # the font has every arrow (<- and => are typed too), the picker only
+    # those pointing right
+    shown = [c for c in drawn_codes if points_right(c)]
     header = (
         '/* Made by tools/arrows-font.py: every arrow, from Noto Sans Math and\n'
         '   Noto Sans Symbols 2 (OFL-1.1), behind the chosen font. */\n'
@@ -138,7 +151,7 @@ def main() -> None:
     (CLIENT / 'editor' / 'arrows.json').write_text(
         json.dumps(''.join(chr(c) for c in shown), ensure_ascii=False) + '\n', encoding='utf-8'
     )
-    print(f'{len(shown)} arrows, {len(wanted) - len(shown)} not in the fonts')
+    print(f'{len(drawn_codes)} arrows, {len(wanted) - len(drawn_codes)} not in the fonts, {len(shown)} in the picker')
 
 
 if __name__ == '__main__':
