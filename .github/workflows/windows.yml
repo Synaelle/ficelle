@@ -47,6 +47,8 @@ jobs:
           tool: wasm-bindgen@0.2.129
       - run: pnpm install --frozen-lockfile
 
+      # the NSIS installer only: the MSI one takes no beta version
+      # (0.4.0-beta.1), its pre-release part must be a number
       - name: build, signed
         if: inputs.signed
         env:
@@ -57,10 +59,10 @@ jobs:
             echo "::error::the TAURI_SIGNING_PRIVATE_KEY secret is missing"
             exit 1
           fi
-          node tools/build-release.mjs
+          node tools/build-release.mjs -- --bundles nsis
       - name: build, unsigned
         if: ${{ !inputs.signed }}
-        run: node tools/build-release.mjs --unsigned
+        run: node tools/build-release.mjs --unsigned -- --bundles nsis
       # after the installer: both use target/release/ficelle.exe
       - name: portable exe
         run: node tools/build-release.mjs --portable
