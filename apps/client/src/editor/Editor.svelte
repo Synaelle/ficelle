@@ -22,7 +22,7 @@
   import { isBackendError, workspace } from '../lib/workspace.svelte'
   import { createExtensions } from './extensions'
   import { patchMarkdown, REMOTE } from './patch'
-  import { ATTACHMENTS_CHANGED, WRAPS, type Wrap } from './extensions/image'
+  import { ATTACHMENTS_CHANGED, setImageLayout, WRAPS, type Wrap } from './extensions/image'
   import type { SuggestEvent } from './extensions/wikiLink'
   import Toolbar from './Toolbar.svelte'
   import WikiSuggest from './WikiSuggest.svelte'
@@ -47,6 +47,15 @@
   const SERIALIZE_DELAY_MS = 250
   /** Phones and tablets, where the system spells and selects. */
   const PHONE = /android|iphone|ipad/i.test(navigator.userAgent)
+  /** Touch screens have the toolbar fixed over the bottom of the note: the
+   * caret is kept above it, not just inside the window. */
+  const TOUCH = window.matchMedia('(pointer: coarse)').matches
+  const CLEAR_BELOW = TOUCH ? 96 : 5
+
+  /** The keyboard opening shrinks the window: the caret goes back above it. */
+  function keepCaret() {
+    if (editor?.isFocused) editor.commands.scrollIntoView()
+  }
 
   let element: HTMLDivElement
   let editor: Editor | null = $state(null)
@@ -100,7 +109,9 @@
   function remember(file: AttachmentFile) {
     files.set(file.fileName, file)
     const sha = file.here || !file.thumbSha256 ? file.sha256 : file.thumbSha256
-    urls.set(file.fileName, `${backend.fileUrl(sha)}?v=${version}`)
+    const url = backend.fileUrl(sha)
+    // a blob url (the browser's test backend) takes no query
+    urls.set(file.fileName, url.startsWith('blob:') ? url : `${url}?v=${version}`)
     if (!file.here && file.mimeType.startsWith('image/') && !file.refused)
       void backend.fetchAttachment(file.sha256).catch(() => {})
   }
@@ -343,6 +354,7 @@
   onMount(async () => {
     for (const file of await backend.attachmentFiles(noteId)) remember(file)
     window.addEventListener(FILES_CHANGED, lookAgain)
+    if (TOUCH) window.addEventListener('resize', keepCaret)
     editor = new Editor({
       element,
       extensions: createExtensions({
@@ -372,6 +384,8 @@
           // popup instead of the usual selection: the phone's own handles only
           spellcheck: PHONE ? 'false' : 'true',
         },
+        scrollMargin: { top: 5, bottom: CLEAR_BELOW, left: 5, right: 5 },
+        scrollThreshold: { top: 0, bottom: CLEAR_BELOW, left: 0, right: 0 },
         handlePaste: (_view, event) => {
           const files = [...(event.clipboardData?.files ?? [])]
           if (files.length === 0) return false
@@ -480,6 +494,7 @@
     if (workspace.serializeEditor === save) workspace.serializeEditor = null
     save()
     window.removeEventListener(FILES_CHANGED, lookAgain)
+    window.removeEventListener('resize', keepCaret)
     destroyed = true
     editor?.destroy()
   })
@@ -492,6 +507,7 @@
       : null
   })
 
+  let imageBar: HTMLDivElement | undefined = $state()
   const imageBarStyle = $derived.by(() => {
     void tick
     if (!selectedImage || !editor) return ''
@@ -501,7 +517,10 @@
     if (!box || !host) return ''
     // above the image, or just inside its top edge when the toolbar is in the way
     const top = box.top - host.top - 44
-    return `top:${top < 0 ? box.top - host.top + 8 : top}px;left:${Math.max(0, box.left - host.left)}px`
+    // kept inside the note on its right too
+    const room = host.width - (imageBar?.offsetWidth ?? 0)
+    const left = Math.max(0, Math.min(box.left - host.left, room))
+    return `top:${top < 0 ? box.top - host.top + 8 : top}px;left:${left}px`
   })
 
   const WRAP_ICONS: Record<Wrap, IconName> = {
@@ -521,6 +540,7 @@
     {#if selectedImage && editor}
       <div
         class="image-bar"
+        bind:this={imageBar}
         style={imageBarStyle}
         role="toolbar"
         aria-label={t('editor.imageLayout')}
@@ -531,7 +551,7 @@
             aria-label={t(`editor.wrap_${wrap}`)}
             title={t(`editor.wrap_${wrap}`)}
             aria-pressed={selectedImage.node.attrs.wrap === wrap}
-            onclick={() => editor?.chain().focus().updateAttributes('image', { wrap }).run()}
+            onclick={() => editor && setImageLayout(editor, selectedImage.from, { wrap })}
           >
             <Icon name={WRAP_ICONS[wrap]} size={16} />
           </button>

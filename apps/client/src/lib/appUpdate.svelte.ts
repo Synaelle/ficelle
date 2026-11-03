@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The app updating itself (commands/updates.rs). Release builds look once
-// after opening and then every day; a newer version downloads quietly and a
+// after opening, every few hours, and when the app comes back on screen
+// after a while away (a phone keeps it open for days); a newer version
+// downloads quietly and a
 // card offers to restart into it. On Android the system installer takes over
 // from AppInstaller (MainActivity.kt) and asks the person. With automatic
 // updates off, the app only reads the release list, to tell of a critical
@@ -18,7 +20,11 @@ declare global {
   }
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
+const HOUR_MS = 60 * 60 * 1000
+/** Between two looks while the app stays open. */
+const EVERY_MS = 6 * HOUR_MS
+/** Back on screen after this long away, it looks again. */
+const AWAY_MS = HOUR_MS
 /** The critical version the person chose not to install, asked no more. */
 const REFUSED_KEY = 'criticalRefused'
 
@@ -48,23 +54,30 @@ class AppUpdates {
   /** A critical security fix waiting for the person's answer. */
   critical: AppUpdate | null = $state(null)
   private timer: ReturnType<typeof setInterval> | undefined
+  private lookedAt = 0
 
-  /** Looks now and every day after, once per launch. */
+  /** Looks now, every few hours after, and when the app comes back on screen
+   * after a while, once per launch. */
   start() {
     if (!updatesHere || this.timer) return
     void this.look()
-    this.timer = setInterval(() => void this.look(), DAY_MS)
+    this.timer = setInterval(() => void this.look(), EVERY_MS)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && Date.now() - this.lookedAt > AWAY_MS)
+        void this.look()
+    })
   }
 
-  /** The daily look: the full check with automatic updates on, else the
-   * release list alone, for a critical fix. */
+  /** The full check with automatic updates on, else the release list alone,
+   * for a critical fix. */
   async look() {
+    this.lookedAt = Date.now()
     if (prefs.autoUpdates) return this.check()
     try {
       const latest = await backend.appUpdateLatest()
       if (latest?.critical && !refused(latest.version)) this.critical = latest
     } catch {
-      // the next day's look tries again
+      // the next look tries again
     }
   }
 
