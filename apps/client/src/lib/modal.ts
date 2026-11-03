@@ -36,7 +36,12 @@ export function modal(node: HTMLElement, options: Options = {}) {
   const enter = () => {
     if (stack.at(-1) !== node || !node.isConnected) return
     if (node.contains(document.activeElement)) return
-    const target = node.querySelector<HTMLElement>('[data-autofocus]') ?? focusables()[0]
+    // on a touch screen the dialog itself takes it: a ring on its first
+    // button reads as an error there, and a text field would pull the keyboard up
+    const touch = matchMedia('(pointer: coarse)').matches
+    const target = touch
+      ? null
+      : (node.querySelector<HTMLElement>('[data-autofocus]') ?? focusables()[0])
     if (target) target.focus()
     else {
       node.tabIndex = -1

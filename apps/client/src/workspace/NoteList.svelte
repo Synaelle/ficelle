@@ -2,6 +2,7 @@
 <!-- Note list with search, sort and new note. In lite layout the title is a
      scope picker, since there is no sidebar. -->
 <script lang="ts">
+  import { betaFeedback, isBeta, touchScreen } from '../lib/beta.svelte'
   import { hour12 } from '../lib/clock.svelte'
   import { sharing } from '../lib/sharing.svelte'
   import { sync } from '../lib/sync.svelte'
@@ -235,13 +236,35 @@
           <SyncIcon state={sync.status.state} size={18} />
         </button>
       {/if}
+      {#if isBeta && touchScreen}
+        <button
+          class="icon-btn"
+          aria-label={t('beta.feedback')}
+          title={t('beta.feedback')}
+          onclick={() => (betaFeedback.open = true)}
+        >
+          <Icon name="speech" />
+        </button>
+      {/if}
       {#if prefs.layout === 'lite' || narrow}
         <button class="icon-btn" aria-label={t('sidebar.settings')} onclick={() => onsettings()}>
           <Icon name="settings" />
         </button>
       {/if}
       {#if trash}
-        <button class="btn danger" onclick={emptyTrash}>{t('list.emptyTrash')}</button>
+        <!-- only when there is something to empty, an icon on narrow screens -->
+        {#if workspace.notes.length > 0}
+          {#if narrow}
+            <button
+              class="icon-btn danger"
+              aria-label={t('list.emptyTrash')}
+              title={t('list.emptyTrash')}
+              onclick={emptyTrash}><Icon name="trash" /></button
+            >
+          {:else}
+            <button class="btn danger" onclick={emptyTrash}>{t('list.emptyTrash')}</button>
+          {/if}
+        {/if}
       {:else}
         <button class="icon-btn" aria-label={t('list.import')} onclick={() => fileInput?.click()}>
           <Icon name="import" />
@@ -449,6 +472,9 @@
     background: transparent;
     font-size: 18px;
     font-weight: 650;
+  }
+  .icon-btn.danger {
+    color: var(--color-danger);
   }
   .actions {
     display: flex;

@@ -74,6 +74,13 @@ export const ICON_NAMES = [
   'eye',
   'eyeOff',
   'flask',
+  'emoji',
+  'archive',
+  'markdown',
+  'speech',
+  'bug',
+  'success',
+  'warning',
 ] as const
 
 export type IconName = (typeof ICON_NAMES)[number]
@@ -151,6 +158,13 @@ export const LUCIDE: Record<IconName, string> = {
   backup: 'database-backup',
   feedback: 'message-square-warning',
   flask: 'flask-conical',
+  emoji: 'smile',
+  archive: 'archive',
+  markdown: 'file-text',
+  speech: 'message-square',
+  bug: 'bug',
+  success: 'circle-check',
+  warning: 'triangle-alert',
 }
 
 /** Phosphor regular file names (@phosphor-icons/core/assets/regular/<name>.svg). */
@@ -226,4 +240,11 @@ export const PHOSPHOR: Record<IconName, string> = {
   backup: 'clock-counter-clockwise',
   feedback: 'chat-circle-dots',
   flask: 'flask',
+  emoji: 'smiley',
+  archive: 'archive',
+  markdown: 'file-md',
+  speech: 'chat-circle',
+  bug: 'bug',
+  success: 'check-circle',
+  warning: 'warning',
 }

@@ -70,6 +70,26 @@
   </label>
   <p class="settings-help">{t('testTools.screenshotHelp')}</p>
 </div>
+<div class="settings-group">
+  <label class="settings-check">
+    <input
+      type="checkbox"
+      checked={prefs.pretendBeta}
+      onchange={(e) => {
+        prefs.pretendBeta = e.currentTarget.checked
+        // read once at start (lib/beta.svelte.ts): saved first, then reloaded
+        try {
+          localStorage.setItem('prefs', JSON.stringify(prefs))
+        } catch {
+          // not saved: the reload keeps the build as it was
+        }
+        location.reload()
+      }}
+    />
+    {t('testTools.pretendBeta')}
+  </label>
+  <p class="settings-help">{t('testTools.pretendBetaHelp')}</p>
+</div>
 
 <style>
   code {

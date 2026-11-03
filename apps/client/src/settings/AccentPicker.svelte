@@ -1,8 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The accent: the system's own (Windows, KDE, GNOME, Android 12 and up),
-     the theme's, one of the circles, or any color from the rainbow circle.
+     the theme's, one of the circles, or any color from the last circle.
      The same on the computer and the phone. -->
 <script lang="ts">
+  import Icon from '../lib/icons/Icon.svelte'
   import { t } from '../lib/i18n.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import { systemAccent } from '../lib/systemAccent.svelte'
@@ -13,6 +14,13 @@
   const systemLocked = $derived(prefs.systemAccent && (!systemAccent.read || !!systemAccent.color))
   /** A color of the person's own, not one of the circles. */
   const custom = $derived(prefs.accent !== null && !ACCENTS.some((a) => a.color === prefs.accent))
+  /** The mark on a chosen color stays readable, dark on light colors. */
+  const markDark = $derived.by(() => {
+    const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(custom ? (prefs.accent ?? '') : '')
+    if (!m) return false
+    const [r = 0, g = 0, b = 0] = m.slice(1, 4).map((h = '') => parseInt(h, 16))
+    return 0.299 * r + 0.587 * g + 0.114 * b > 150
+  })
 </script>
 
 <label class="settings-check">
@@ -43,14 +51,17 @@
       onclick={() => (prefs.accent = accent.color)}
     ></button>
   {/each}
-  <!-- a rainbow says any color: the system's picker opens from it, and
-       the chosen color shows in its middle -->
+  <!-- a dashed circle with a plus says any color: the system's picker opens
+       from it, and the chosen color fills it -->
   <label
-    class="accent rainbow"
+    class="accent own"
     class:checked={custom}
+    class:filled={custom}
+    class:dark={markDark}
     title={t('settings.accentCustom')}
-    style:--swatch={custom ? prefs.accent : 'transparent'}
+    style:--swatch={custom ? prefs.accent : 'var(--color-surface)'}
   >
+    <Icon name="plus" size={16} />
     <input
       type="color"
       aria-label={t('settings.accentCustom')}
@@ -91,30 +102,38 @@
     box-shadow: 0 0 0 2px var(--color-text);
   }
   .accent:disabled,
-  .rainbow:has(input:disabled) {
+  .own:has(input:disabled) {
     cursor: not-allowed;
   }
   .accent:focus-visible,
-  .rainbow:has(input:focus-visible) {
+  .own:has(input:focus-visible) {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
-  /* any color: a rainbow ring, the chosen color in its middle */
-  .rainbow {
+  /* any color: a dashed ring and a plus, the chosen color fills it */
+  .own {
     position: relative;
     display: grid;
     place-items: center;
-    background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+    color: var(--color-text-muted);
+    border-style: dashed;
+    border-color: var(--color-text-muted);
+    box-shadow: none;
     cursor: pointer;
   }
-  .rainbow::after {
-    content: '';
-    width: 45%;
-    height: 45%;
-    border-radius: 50%;
-    background: var(--swatch);
+  .own.filled {
+    border-style: solid;
+    border-color: var(--color-surface);
+    box-shadow: 0 0 0 1px var(--color-border);
+    color: #fff;
   }
-  .rainbow input {
+  .own.filled.dark {
+    color: #000;
+  }
+  .own.checked {
+    box-shadow: 0 0 0 2px var(--color-text);
+  }
+  .own input {
     position: absolute;
     inset: 0;
     width: 100%;

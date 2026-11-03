@@ -7,6 +7,7 @@
      opening?". The knot ties itself as the notes lock and lets go as they
      open. -->
 <script lang="ts">
+  import { MIN_PASSWORD } from '../lib/passwords'
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
   import { onMount } from 'svelte'
@@ -119,7 +120,7 @@
   let code = $state('')
   let newPassword = $state('')
   let newConfirm = $state('')
-  const MIN_LENGTH = 8
+  const MIN_LENGTH = MIN_PASSWORD
   const recoverProblem = $derived(
     newPassword.length < MIN_LENGTH
       ? t('setup.tooShort', { count: MIN_LENGTH })

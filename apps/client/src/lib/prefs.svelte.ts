@@ -3,9 +3,9 @@
 // before the vault is unlocked (theme of the unlock screen), so they live in
 // localStorage instead of the encrypted database.
 
-import type { ModePreference } from '@app/ui/theme'
+import type { Corners, ModePreference } from '@app/ui/theme'
 import { DEFAULT_THEME_ID } from '@app/ui/themes'
-import type { NoteSort } from './backend'
+import type { NoteSort, UpdateChannel } from './backend'
 import type { FontChoice } from './fonts'
 import { isLocale, type Locale } from './i18n.svelte'
 import { DEFAULT_SHORTCUTS, type ActionId } from './shortcuts'
@@ -18,6 +18,8 @@ export interface Prefs {
   mode: ModePreference
   /** Dark mode on pure black, for OLED screens. */
   pureBlack: boolean
+  /** Light mode on the theme's warmer, softer paper (colors.warmLight). */
+  warmLight: boolean
   /** Fonts for note text and code over the theme's, null keeps the theme's. */
   notesFont: FontChoice | null
   codeFont: FontChoice | null
@@ -39,6 +41,8 @@ export interface Prefs {
   rememberKey: boolean
   /** Size of text, buttons and spacing everywhere. */
   uiSize: UiSize
+  /** The theme's corners, or rounder ones everywhere. */
+  corners: Corners
   /** OpenDyslexic everywhere, whatever the theme's fonts. */
   dyslexicFont: boolean
   /** Desktop shortcut that opens the quick note window from any app, null is off. */
@@ -54,6 +58,12 @@ export interface Prefs {
   /** Newer versions download by themselves and a card offers them. Off,
    * only a critical security fix is told, in the middle of the screen. */
   autoUpdates: boolean
+  /** With automatic updates off, still look for critical security fixes. */
+  securityChecks: boolean
+  /** Which update list the app follows. A Mac always follows Beta. */
+  channel: UpdateChannel
+  /** The person chose a channel, or was asked once. */
+  channelAsked: boolean
   /** The open note follows other devices' edits as they come in. */
   coediting: boolean
   /** Lock an encrypted vault after this many idle minutes, 0 never. */
@@ -70,6 +80,11 @@ export interface Prefs {
   reportFolder: string | null
   /** Dev and preview builds: a report starts with a screenshot of the app. */
   reportScreenshot: boolean
+  /** Dev and preview builds: act as a beta release, nothing downloaded
+   * (lib/beta.svelte.ts, pretendRelease). */
+  pretendBeta: boolean
+  /** The welcome of a beta build was read, see resetBetaWelcome. */
+  betaWelcomed: boolean
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -77,6 +92,7 @@ export const DEFAULT_PREFS: Prefs = {
   // dark whatever the system says, the look Ficelle is made for; System is a choice
   mode: 'dark',
   pureBlack: false,
+  warmLight: false,
   notesFont: null,
   codeFont: null,
   accent: null,
@@ -89,6 +105,7 @@ export const DEFAULT_PREFS: Prefs = {
   instanceThemes: {},
   rememberKey: true,
   uiSize: 'medium',
+  corners: 'square',
   dyslexicFont: false,
   quickNoteShortcut: null,
   autoLists: true,
@@ -96,6 +113,9 @@ export const DEFAULT_PREFS: Prefs = {
   clock: 'system',
   openNoteFirst: false,
   autoUpdates: true,
+  securityChecks: true,
+  channel: 'stable',
+  channelAsked: false,
   coediting: true,
   autoLockMinutes: 15,
   autoFetchMb: 10,
@@ -104,6 +124,8 @@ export const DEFAULT_PREFS: Prefs = {
   feedbackInstall: '',
   reportFolder: null,
   reportScreenshot: true,
+  pretendBeta: false,
+  betaWelcomed: false,
 }
 
 const STORAGE_KEY = 'prefs'

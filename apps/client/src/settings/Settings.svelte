@@ -2,6 +2,8 @@
 <!-- Settings dialog. A search box filters sections by their translated text.
      Phones get their own full screen layout, PhoneSettings. -->
 <script lang="ts">
+  import { MIN_PASSWORD } from '../lib/passwords'
+  import { workspace } from '../lib/workspace.svelte'
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
   import { modal } from '../lib/modal'
@@ -33,6 +35,7 @@
   import UpdateCheck from './UpdateCheck.svelte'
   import TestTools from '../devreport/TestTools.svelte'
   import ContactLine from './ContactLine.svelte'
+  import CreditsList from './CreditsList.svelte'
   import { serverProtocol } from '../lib/sync.svelte'
   import { updatesHere } from '../lib/appUpdate.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
@@ -111,6 +114,7 @@
   )
 
   const settings = new SettingsState()
+  let markdownInput: HTMLInputElement | undefined = $state()
   onMount(() => void settings.refresh())
   const method = $derived(biometricMethod())
 
@@ -413,7 +417,7 @@
                       <button
                         class="btn"
                         type="submit"
-                        disabled={!oldPassword || newPassword.length < 8}
+                        disabled={!oldPassword || newPassword.length < MIN_PASSWORD}
                         >{t('settings.changePassword')}</button
                       >
                     </div>
@@ -441,6 +445,26 @@
                 <button class="btn" onclick={() => (importing = 'other')} disabled={!backend.native}
                   >{t('settings.import')}</button
                 >
+                <!-- backups come back from Backups, where they are found and listed -->
+                <button class="btn" onclick={() => (section = 'backups')}
+                  ><Icon name="backup" size={16} />{t('backups.restoreFrom')}</button
+                >
+                <!-- also in the list's header, here with the other ways in -->
+                <button class="btn" onclick={() => markdownInput?.click()}
+                  >{t('list.import')}</button
+                >
+                <input
+                  bind:this={markdownInput}
+                  type="file"
+                  accept=".md,.markdown,.mdown,.mkd,text/markdown"
+                  multiple
+                  hidden
+                  onchange={async (e) => {
+                    const input = e.currentTarget
+                    await workspace.importFiles([...(input.files ?? [])])
+                    input.value = ''
+                  }}
+                />
               </div>
             </div>
             <div class="settings-group">
@@ -490,6 +514,10 @@
               </dl>
             </div>
             <div class="settings-group"><ContactLine /></div>
+            <details class="settings-group more">
+              <summary>{t('settings.credits')}</summary>
+              <CreditsList />
+            </details>
             {#if updatesHere}
               <div class="settings-group">
                 <h3>{t('appUpdate.title')}</h3>
@@ -531,7 +559,9 @@
   }
   .dialog {
     width: min(820px, 100%);
-    height: min(620px, 100%);
+    /* one size for every section: a percentage of the backdrop resolved to
+       nothing and the window followed each section's length */
+    height: min(620px, calc(100dvh - 2 * var(--space-4)));
     display: grid;
     grid-template-columns: 200px 1fr;
     background: var(--color-surface);

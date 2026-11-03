@@ -2,6 +2,8 @@
 // What the desktop dialog and the phone settings share: the vault status and
 // the actions that change it. Each view only lays them out its own way.
 
+import { MIN_PASSWORD } from '../lib/passwords'
+import { encryptFlow } from '../lib/encryptFlow.svelte'
 import { backend, PIN_LENGTH, type VaultStatus, type VaultWay } from '../lib/backend'
 import { t } from '../lib/i18n.svelte'
 import { pickToOpen, pickToSave } from '../lib/pick'
@@ -26,8 +28,6 @@ export function ways(vault: VaultStatus): VaultWay[] {
   out.push('password')
   return out
 }
-
-const MIN_PASSWORD = 8
 
 const errorText = (err: unknown) => t(`errors.${isBackendError(err) ? err.kind : 'unknown'}`)
 
@@ -106,19 +106,15 @@ export class SettingsState {
     await this.refresh()
   }
 
-  /** An old unencrypted vault: encrypted, with a new password. */
-  async encrypt() {
+  /** Unencrypted notes being encrypted: the setup's password step shows
+   * over everything (App.svelte), with its explanation, a second field,
+   * the recovery key and the quicker ways in. */
+  encrypt() {
     this.message = ''
-    const password = await this.newPassword()
-    if (!password) return
-    try {
-      await backend.vaultEncrypt()
-      await backend.vaultSetWay('password', null, password)
-      this.message = t('settings.encrypted')
-    } catch (err) {
-      this.message = errorText(err)
-    }
-    await this.refresh()
+    encryptFlow.start((done) => {
+      if (done) this.message = t('settings.encrypted')
+      void this.refresh()
+    })
   }
 
   async createRecovery() {

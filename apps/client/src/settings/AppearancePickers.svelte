@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Light or dark, accent and layout pickers of the settings, every choice
+<!-- Light or dark, accent, corners and layout pickers of the settings, every choice
      applies at once. Each is a settings group (see app.css). The theme
      choice comes back with the themes page. -->
 <script lang="ts">
@@ -7,6 +7,7 @@
   import { prefs } from '../lib/prefs.svelte'
   import FontPicker from './FontPicker.svelte'
   import AccentPicker from './AccentPicker.svelte'
+  import CornersPicker from './CornersPicker.svelte'
   import LayoutPicker from './LayoutPicker.svelte'
 
   /** The setup shows its own layout step with pictures. */
@@ -28,17 +29,28 @@
     <input type="checkbox" bind:checked={prefs.pureBlack} />
     {t('settings.pureBlack')}
   </label>
+  <label class="settings-check">
+    <input type="checkbox" bind:checked={prefs.warmLight} />
+    {t('settings.warmLight')}
+  </label>
 </fieldset>
 
-<details class="settings-group fonts more">
-  <summary>{t('fonts.title')}</summary>
+<!-- open, as on the phone -->
+<fieldset class="settings-group fonts">
+  <legend>{t('fonts.title')}</legend>
   <FontPicker role="notes" />
   <FontPicker role="code" />
-</details>
+</fieldset>
 
 <fieldset class="settings-group">
   <legend>{t('settings.accent')}</legend>
   <AccentPicker />
+</fieldset>
+
+<fieldset class="settings-group">
+  <legend>{t('settings.corners')}</legend>
+  <CornersPicker />
+  <p class="settings-help">{t('settings.cornersHelp')}</p>
 </fieldset>
 
 {#if layout}<LayoutPicker />{/if}

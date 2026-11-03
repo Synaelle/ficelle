@@ -31,14 +31,15 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-1) var(--space-2);
+    gap: var(--space-2) var(--space-3);
   }
   .address {
     user-select: all;
     overflow-wrap: anywhere;
   }
   .small {
-    padding: 2px var(--space-2);
+    height: auto;
+    padding: var(--space-1) var(--space-3);
     font-size: 12px;
   }
 </style>

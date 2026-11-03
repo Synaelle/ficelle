@@ -12,7 +12,9 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { moveToItems } from '../lib/noteMenu'
   import { overlay, SEPARATOR } from '../lib/overlay.svelte'
-  import { prefs } from '../lib/prefs.svelte'
+  import Knot from '../lib/Knot.svelte'
+  import { prefs, shortcutFor } from '../lib/prefs.svelte'
+  import { displayBinding } from '../lib/shortcuts'
   import { sharing } from '../lib/sharing.svelte'
   import { sync } from '../lib/sync.svelte'
   import type { MenuItem } from '../lib/overlay.svelte'
@@ -21,6 +23,16 @@
   let { narrow }: { narrow: boolean } = $props()
 
   const note = $derived(workspace.current)
+  /** "Saved" shows for a moment after a save, then fades: it is the usual state. */
+  let justSaved = $state(false)
+  $effect(() => {
+    if (workspace.dirty) {
+      justSaved = true
+      return
+    }
+    const timer = setTimeout(() => (justSaved = false), 2000)
+    return () => clearTimeout(timer)
+  })
   const readonly = $derived(sharing.readOnly(note?.spaceId))
   const others = $derived(note ? sync.others(note.spaceId, note.id) : [])
   const initials = (name: string) =>
@@ -162,7 +174,7 @@
           {/each}
         </ul>
       {/if}
-      <span class="saved muted" aria-live="polite"
+      <span class="saved muted" class:quiet={!workspace.dirty && !justSaved} aria-live="polite"
         >{workspace.dirty ? t('note.saving') : t('note.saved')}</span
       >
       {#if !readonly}
@@ -305,7 +317,15 @@
       </div>
     {/if}
   {:else}
-    <div class="placeholder muted">{t('note.none')}</div>
+    <div class="placeholder">
+      <Knot size={56} />
+      <p class="muted">{t('note.none')}</p>
+      <button class="btn" onclick={() => void workspace.create()}>
+        <Icon name="newNote" size={16} />
+        {t('list.newNote')}
+        <kbd>{displayBinding(shortcutFor('newNote'))}</kbd>
+      </button>
+    </div>
   {/if}
 </section>
 
@@ -334,6 +354,10 @@
   }
   .saved {
     font-size: 12px;
+    transition: opacity 400ms ease;
+  }
+  .saved.quiet {
+    opacity: 0;
   }
   .scroll {
     flex: 1;
@@ -369,7 +393,7 @@
     align-items: center;
     gap: 2px;
     padding: 1px var(--space-2);
-    border-radius: var(--radius-control);
+    border-radius: var(--radius-chip);
     background: var(--color-surface-2);
     color: var(--color-text-muted);
     font-size: 13px;
@@ -437,8 +461,22 @@
   }
   .placeholder {
     flex: 1;
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    opacity: 0.9;
+  }
+  .placeholder p {
+    margin: 0;
+  }
+  .placeholder .btn {
+    width: auto;
+  }
+  .placeholder kbd {
+    color: var(--color-text-muted);
+    font-size: 11px;
   }
   .viewers {
     display: flex;

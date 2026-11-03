@@ -2,12 +2,16 @@
 <!-- Root: applies display preferences, then shows first launch, unlock or the notes. -->
 <script lang="ts">
   import DevReport from './devreport/DevReport.svelte'
+  import BetaFeedback from './lib/BetaFeedback.svelte'
   import { captureErrors } from './devreport/report'
   import { autoLock } from './lib/autolock.svelte'
   import { backend, type VaultStatus } from './lib/backend'
   import { applyDyslexicFont } from './lib/dyslexicFont'
   import { catchErrors, errorCatch } from './lib/errorCatch.svelte'
   import ErrorReport from './lib/ErrorReport.svelte'
+  import { encryptFlow } from './lib/encryptFlow.svelte'
+  import ChannelSwitch from './lib/ChannelSwitch.svelte'
+  import { channelSwitch } from './lib/channelChange.svelte'
   import { captureLogs } from './lib/feedback'
   import { setLocale, systemLocale } from './lib/i18n.svelte'
   import { persistPrefs, prefs } from './lib/prefs.svelte'
@@ -15,7 +19,8 @@
   import Overlays from './lib/Overlays.svelte'
   import CriticalUpdate from './lib/CriticalUpdate.svelte'
   import Toasts from './lib/Toasts.svelte'
-  import { appUpdates } from './lib/appUpdate.svelte'
+  import { appUpdates, channelAskDue } from './lib/appUpdate.svelte'
+  import ChannelAsk from './lib/ChannelAsk.svelte'
   import { applyTheme } from './lib/theme.svelte'
   import { applyUiSize } from './lib/uiSize'
   import { workspace } from './lib/workspace.svelte'
@@ -106,18 +111,35 @@
   <div class="notes" class:closing>
     <Workspace onlock={lock} {lockable} />
   </div>
+  <BetaFeedback />
 {/if}
 
 <Overlays />
 <Toasts />
 <CriticalUpdate />
+<!-- once the notes are open, never over the lock screen -->
+{#if stage === 'ready' && channelAskDue()}<ChannelAsk />{/if}
 {#if errorCatch.open}<ErrorReport />{/if}
+{#if channelSwitch.open}<ChannelSwitch />{/if}
+{#if encryptFlow.open}
+  <div class="encrypting">
+    <Setup encrypt done={() => encryptFlow.finish(true)} cancel={() => encryptFlow.finish(false)} />
+  </div>
+{/if}
 
 {#if __APP_DEV_REPORTS__}<DevReport />{/if}
 
 <style>
   .notes {
     height: 100%;
+  }
+  /* the setup's password step over everything, the settings included */
+  .encrypting {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    overflow-y: auto;
+    background: var(--color-bg);
   }
   /* locking: the notes blur and fade away before the lock screen */
   .notes.closing {

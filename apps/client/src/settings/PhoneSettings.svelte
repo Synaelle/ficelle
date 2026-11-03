@@ -3,6 +3,7 @@
      icon tiles, the current value on the right, a short note under groups.
      Every row is one tap from the first screen, details open a page. -->
 <script lang="ts">
+  import { channelSwitch } from '../lib/channelChange.svelte'
   import { serverProtocol, sync } from '../lib/sync.svelte'
   import SyncSettings from './SyncSettings.svelte'
   import { brand } from '@app/brand'
@@ -16,10 +17,12 @@
   import { overlay, type MenuItem } from '../lib/overlay.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import AccentPicker from './AccentPicker.svelte'
+  import CornersPicker from './CornersPicker.svelte'
   import BackupSettings from './BackupSettings.svelte'
   import FeedbackSettings from './FeedbackSettings.svelte'
   import TestTools from '../devreport/TestTools.svelte'
   import ContactLine from './ContactLine.svelte'
+  import CreditsList from './CreditsList.svelte'
   import { backups } from '../lib/backups.svelte'
   import { UI_SIZES } from '../lib/uiSize'
   import { workspace } from '../lib/workspace.svelte'
@@ -27,7 +30,7 @@
   import logo from '../../../../packages/ui/brand/app-icon.svg?url'
   import UpdateCheck from './UpdateCheck.svelte'
   import FontPicker from './FontPicker.svelte'
-  import { updatesHere } from '../lib/appUpdate.svelte'
+  import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
   import { LOCK_CHOICES, lockLabel, ways, type SettingsState } from './settingsState.svelte'
 
@@ -67,6 +70,7 @@
     | 'feedback'
     | 'testTools'
     | 'about'
+    | 'credits'
   // svelte-ignore state_referenced_locally
   let page: Page = $state(start ?? 'home')
   /** The linked server's protocol versions, asked when About opens. */
@@ -89,6 +93,8 @@
     icon: IconName
     label: string
     value?: string
+    /** More words the search finds the row by. */
+    keywords?: string
     /** A switch instead of a value. */
     on?: boolean
     danger?: boolean
@@ -122,6 +128,7 @@
     {
       icon: 'palette',
       label: t('settings.appearance'),
+      keywords: t('settings.appearanceKeywords'),
       value: t(`settings.mode_${prefs.mode}`),
       run: () => (page = 'appearance'),
     },
@@ -231,12 +238,12 @@
       run: () => (page = 'backups'),
     },
     {
-      icon: 'import',
+      icon: 'archive',
       label: t('settings.importFicelle', { app: brand.displayName }),
       run: () => onimport(true),
     },
     { icon: 'import', label: t('settings.import'), run: () => onimport(false) },
-    { icon: 'import', label: t('list.import'), run: () => fileInput?.click() },
+    { icon: 'markdown', label: t('list.import'), run: () => fileInput?.click() },
     {
       icon: 'export',
       // Android's folder picker gives no path to write files under: one zip
@@ -272,7 +279,9 @@
 
   const matches = $derived(
     [...lookRows, ...privacyRows, ...passwordRows, ...syncRows, ...noteRows, ...aboutRows].filter(
-      (r) => r.label.toLowerCase().includes(query.trim().toLowerCase()),
+      (r) =>
+        r.label.toLowerCase().includes(query.trim().toLowerCase()) ||
+        !!r.keywords?.toLowerCase().includes(query.trim().toLowerCase()),
     ),
   )
 
@@ -289,10 +298,12 @@
     feedback: 'settings.feedback',
     testTools: 'settings.testTools',
     about: 'settings.about',
+    credits: 'settings.credits',
   }
 
   /** Backups opens from the data page, and goes back to it. */
-  const parentOf = (p: Page): Page => (p === 'backups' ? 'notes' : 'home')
+  const parentOf = (p: Page): Page =>
+    p === 'backups' ? 'notes' : p === 'credits' ? 'about' : 'home'
   const parent = $derived(parentOf(page))
 
   function back() {
@@ -439,6 +450,12 @@
             on: prefs.pureBlack,
             run: () => (prefs.pureBlack = !prefs.pureBlack),
           })}
+          {@render row({
+            icon: 'palette',
+            label: t('settings.warmLight'),
+            on: prefs.warmLight,
+            run: () => (prefs.warmLight = !prefs.warmLight),
+          })}
         </div>
         <p class="caption">{t('fonts.title')}</p>
         <div class="group pad fonts">
@@ -447,6 +464,9 @@
         </div>
         <p class="caption">{t('settings.accent')}</p>
         <div class="group pad accent-group"><AccentPicker /></div>
+        <p class="caption">{t('settings.corners')}</p>
+        <div class="group pad"><CornersPicker /></div>
+        <p class="note">{t('settings.cornersHelp')}</p>
       {:else if page === 'accessibility'}
         <p class="caption">{t('settings.uiSize')}</p>
         <div class="group">
@@ -479,13 +499,14 @@
             run: () => (prefs.autoLists = !prefs.autoLists),
           })}
           {@render row({
-            icon: 'list',
+            icon: 'emoji',
             label: t('settings.emojiShortcodes'),
             on: prefs.emojiShortcodes,
             run: () => (prefs.emojiShortcodes = !prefs.emojiShortcodes),
           })}
         </div>
       {:else if page === 'language'}
+        <p class="caption">{t('settings.language')}</p>
         <div class="group">
           <button class="row" onclick={() => (prefs.language = null)}>
             <span class="label">{t('settings.languageSystem')}</span>
@@ -498,7 +519,7 @@
             </button>
           {/each}
         </div>
-        <p class="note">{t('settings.clock')}</p>
+        <p class="caption">{t('settings.clock')}</p>
         <div class="group">
           {#each ['system', '24', '12'] as const as choice (choice)}
             <button class="row" onclick={() => (prefs.clock = choice)}>
@@ -543,6 +564,16 @@
         <div class="group">
           {#each noteRows as r (r.label)}{@render row(r)}{/each}
         </div>
+        <!-- with the data, as on desktop -->
+        <div class="group spaced">
+          {@render row({
+            icon: 'restore',
+            label: t('reset.title'),
+            danger: true,
+            run: onreset,
+          })}
+        </div>
+        <p class="note">{t('reset.help')}</p>
       {:else if page === 'backups'}
         <div class="settings-body padded">
           <BackupSettings {onbackup} />
@@ -577,20 +608,40 @@
           {/if}
         </div>
         <div class="group spaced pad"><ContactLine /></div>
+        <div class="group spaced">
+          <button class="row" onclick={() => (page = 'credits')}>
+            <span class="tile"><Icon name="info" size={17} /></span>
+            <span class="label">{t('settings.credits')}</span>
+            <Icon name="right" size={16} />
+          </button>
+        </div>
         {#if updatesHere}
+          {#if channelChoice}
+            <p class="caption">{t('appUpdate.channel')}</p>
+            <div class="group">
+              {#each ['stable', 'beta'] as const as choice (choice)}
+                <button class="row tall" onclick={() => void channelSwitch.choose(choice)}>
+                  <span class="label">
+                    {choice === 'stable'
+                      ? t('appUpdate.channelStable')
+                      : t('appUpdate.channelBeta')}
+                    <span class="sub"
+                      >{choice === 'stable'
+                        ? t('appUpdate.channelStableHelp')
+                        : t('appUpdate.channelBetaHelp')}</span
+                    >
+                  </span>
+                  {@render check(prefs.channel === choice)}
+                </button>
+              {/each}
+            </div>
+          {/if}
           <div class="group spaced pad">
-            <UpdateCheck />
+            <UpdateCheck channel={false} />
           </div>
         {/if}
-        <div class="group spaced">
-          {@render row({
-            icon: 'restore',
-            label: t('reset.title'),
-            danger: true,
-            run: onreset,
-          })}
-        </div>
-        <p class="note">{t('reset.help')}</p>
+      {:else if page === 'credits'}
+        <CreditsList phone />
       {/if}
     </div>
   {/if}
@@ -699,9 +750,8 @@
     display: grid;
     gap: var(--space-3);
   }
-  /* a group after another, or after a note under one, starts a new section */
-  .group + .group,
-  .note + .group {
+  /* a group after another starts a new section */
+  .group + .group {
     margin-top: var(--space-5);
   }
   .row {
@@ -785,6 +835,10 @@
     border-radius: 50%;
     background: var(--color-text);
     transition: transform var(--dur-fast) var(--ease-out);
+  }
+  /* on the light paper a black knob weighed more than the label it sits by */
+  :global(:root[data-mode='light']) .switch:not(.on) i {
+    background: var(--color-surface);
   }
   .switch.on {
     background: var(--color-accent);

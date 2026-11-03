@@ -178,16 +178,27 @@ export type VaultWay = 'plain' | 'device' | 'guarded' | 'pin' | 'password'
 /** Digits in a PIN, as the core wants them. */
 export const PIN_LENGTH = 6
 
+/** Which update list the app follows. Stable: tested versions and their
+ * fixes. Beta: early versions of the next release too. */
+export type UpdateChannel = 'stable' | 'beta'
+
 /** A newer version of the app, downloaded and waiting to be installed. */
 export interface AppUpdate {
   version: string
   /** What changed, from the release. */
   notes: string
-  /** The portable exe: not downloaded, this page has it. */
+  /** The portable exe and the Mac app: not downloaded, this page has it. */
   page?: string
   /** It fixes a critical security problem: asked in the middle of the
    * screen. Never installed without the person's yes. */
   critical?: boolean
+  /** Older than this version, only found when asked for. */
+  older?: boolean
+  /** It reads this version's database: the same schema steps. */
+  sameSchema?: boolean
+  /** This build can install another version over itself (the installer,
+   * the AppImage, Android through an uninstall). */
+  goBack?: boolean
 }
 
 export interface ExportSummary {

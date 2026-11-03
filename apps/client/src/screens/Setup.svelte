@@ -1,12 +1,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- First launch. First the kind of notes: encrypted (recommended), or
-     standard, open to anyone using the device, which ends the setup there.
-     Encrypted, a password next: it always opens the notes, and it is the
+     standard, open to anyone using the device. Then how the app looks,
+     which shows at once, so the rest of the setup is in it; standard notes
+     start there. Encrypted, a password next: it always opens the notes, and it is the
      way back when the quicker way is gone. Then how they open day to day:
      Windows Hello or a fingerprint, a PIN typed here, or the password each
      time. An old vault that opened without asking goes through the password
-     steps once open, `upgrade` set. -->
+     steps once open, `upgrade` set, and notes being encrypted from the
+     settings, `encrypt`; neither asks for the look again. -->
 <script lang="ts">
+  import { MIN_PASSWORD } from '../lib/passwords'
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
   import { onMount } from 'svelte'
@@ -19,24 +22,34 @@
   import type { IconName } from '../lib/icons/sets'
   import PinPad from '../lib/PinPad.svelte'
   import { isBackendError } from '../lib/workspace.svelte'
+  import LookPicker from './LookPicker.svelte'
   import RecoveryKey from './RecoveryKey.svelte'
 
   let {
     done,
     upgrade,
+    encrypt,
+    cancel,
   }: {
     done: () => void
     /** An old vault that opened without asking, open already. */
     upgrade?: boolean
+    /** Unencrypted notes being encrypted from the settings: they are
+     * encrypted first, then given the password and the way in. */
+    encrypt?: boolean
+    /** Leaves without changing anything, from the settings. */
+    cancel?: () => void
   } = $props()
 
-  type Step = 'kind' | 'password' | 'quick' | 'pin' | 'recovery'
+  type Step = 'kind' | 'look' | 'password' | 'quick' | 'pin' | 'recovery'
   // svelte-ignore state_referenced_locally
-  let step: Step = $state(upgrade ? 'password' : 'kind')
+  let step: Step = $state(upgrade || encrypt ? 'password' : 'kind')
   /** Encrypted notes, or standard ones open to anyone using the device. */
   let encrypted = $state(true)
   $effect(() => {
-    if (step === 'password' && !upgrade) return onBack(() => (step = 'kind'))
+    if (step === 'password' && cancel) return onBack(cancel)
+    if (step === 'look') return onBack(() => (step = 'kind'))
+    if (step === 'password' && !upgrade && !encrypt) return onBack(() => (step = 'look'))
     if (step === 'quick') return onBack(() => (step = 'password'))
     if (step === 'pin') return onBack(() => ((step = 'quick'), (firstPin = '')))
   })
@@ -63,7 +76,7 @@
     way = biometricAvailable ? 'guarded' : deviceAvailable ? 'pin' : 'password'
   })
 
-  const MIN_LENGTH = 8
+  const MIN_LENGTH = MIN_PASSWORD
   /** Next stays off while this says something; it shows only once there is
    * something to say about what was typed, the second field included. */
   const problem = $derived(
@@ -85,6 +98,12 @@
   )
 
   function submitKind(event: SubmitEvent) {
+    event.preventDefault()
+    error = ''
+    step = 'look'
+  }
+
+  function submitLook(event: SubmitEvent) {
     event.preventDefault()
     error = ''
     if (encrypted) step = 'password'
@@ -124,7 +143,10 @@
     busy = true
     error = ''
     try {
-      if (upgrade) await backend.vaultSetWay(way, null, password, pin)
+      if (encrypt) {
+        await backend.vaultEncrypt()
+        await backend.vaultSetWay(way, null, password, pin)
+      } else if (upgrade) await backend.vaultSetWay(way, null, password, pin)
       else await backend.vaultCreate(way, password, pin)
       if (wantRecovery) {
         recoveryCode = await backend.vaultCreateRecovery(password)
@@ -213,14 +235,30 @@
             </span>
           </label>
         </div>
+        <button class="btn primary big" type="submit">{t('setup.next')}</button>
+      </form>
+    {:else if step === 'look'}
+      <form onsubmit={submitLook}>
+        <h1>{t('setup.lookTitle')}</h1>
+        <p class="muted center">{t('setup.lookHelp')}</p>
+        <LookPicker />
         {#if error}<p class="error" role="alert">{error}</p>{/if}
-        <button class="btn primary big" type="submit" disabled={busy}
-          >{busy ? t('setup.working') : encrypted ? t('setup.next') : t('setup.start')}</button
-        >
+        <div class="actions">
+          <button class="btn" type="button" onclick={() => (step = 'kind')}
+            >{t('common.back')}</button
+          >
+          <button class="btn primary" type="submit" disabled={busy}
+            >{busy ? t('setup.working') : encrypted ? t('setup.next') : t('setup.start')}</button
+          >
+        </div>
       </form>
     {:else if step === 'password'}
       <form onsubmit={submitPassword}>
-        {#if upgrade}
+        {#if encrypt}
+          <img class="logo" src={logo} alt="" />
+          <h1>{t('setup.encryptTitle')}</h1>
+          <p class="muted center">{t('setup.encryptHelp')}</p>
+        {:else if upgrade}
           <img class="logo" src={logo} alt="" />
           <h1>{t('setup.upgradeTitle')}</h1>
           <p class="muted center">{t('setup.upgradeHelp')}</p>
@@ -254,13 +292,13 @@
         <p class="small" class:warning={!wantRecovery} class:muted={wantRecovery}>
           {wantRecovery ? t('recovery.createHelp') : t('setup.noRecovery')}
         </p>
-        {#if upgrade}
+        {#if upgrade && !cancel}
           <button class="btn primary big" type="submit" disabled={!!problem}
             >{t('setup.next')}</button
           >
         {:else}
           <div class="actions">
-            <button class="btn" type="button" onclick={() => (step = 'kind')}
+            <button class="btn" type="button" onclick={() => (cancel ? cancel() : (step = 'look'))}
               >{t('common.back')}</button
             >
             <button class="btn primary" type="submit" disabled={!!problem}>{t('setup.next')}</button
@@ -294,7 +332,9 @@
               ? t('setup.working')
               : way === 'pin'
                 ? t('setup.next')
-                : t('setup.start')}</button
+                : encrypt
+                  ? t('settings.encrypt')
+                  : t('setup.start')}</button
           >
         </div>
       </form>

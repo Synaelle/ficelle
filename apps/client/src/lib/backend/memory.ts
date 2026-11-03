@@ -178,6 +178,7 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       throw { kind: 'unsupported', message: 'the quick note needs the desktop app' }
     },
     quickWindowReady: async () => {},
+    vaultCheckPassword: async (password) => password.length > 0,
     vaultCreateRecovery: async () => {
       throw { kind: 'unsupported', message: 'recovery keys need the app' }
     },
@@ -579,6 +580,7 @@ ${input.key}`,
       host: '',
     }),
     backupsGet: async () => structuredClone(backups),
+    backupsFound: async () => backups.config !== null,
     backupsConnect: async (target, password, create, host) => {
       if (!password) throw { kind: 'invalid', message: 'a backup needs a password' }
       backups.config = {

@@ -29,6 +29,7 @@ import type {
   ImportOpened,
   ImportWritten,
   RestoreReport,
+  UpdateChannel,
 } from './types'
 
 export interface Backend {
@@ -60,13 +61,15 @@ export interface Backend {
   vaultEncrypt(): Promise<void>
   /** A newer version of the app, downloaded and ready, or only found with
    * its download page for the portable exe. `null`: up to date, or this
-   * build does not update itself (dev, preview, the browser). */
-  appUpdateCheck(): Promise<AppUpdate | null>
+   * build does not update itself (dev, preview, the browser). `channel`
+   * picks the Stable or the Beta list. `allowOlder`: a beta going back to
+   * Stable, an older version with the same database schema comes too. */
+  appUpdateCheck(channel: UpdateChannel, allowOlder?: boolean): Promise<AppUpdate | null>
   /** The newest version on the release list, downloading nothing: with
    * automatic updates off, looked at only for a critical security fix. */
-  appUpdateLatest(): Promise<AppUpdate | null>
+  appUpdateLatest(channel: UpdateChannel, allowOlder?: boolean): Promise<AppUpdate | null>
   /** Desktop: installs the downloaded update and starts the app again. The
-   * portable exe opens the download page instead. */
+   * portable exe and the Mac app open the version's release page instead. */
   appUpdateInstall(): Promise<void>
   /** Desktop: opens the quick note window (commands/quick.rs). */
   quickWindowOpen(title: string): Promise<void>
@@ -85,6 +88,8 @@ export interface Backend {
   /** The system shows a 24-hour clock, `null` when it does not say. */
   systemClock24h(): Promise<boolean | null>
   /** Returns the new key to show once, any earlier key stops working. */
+  /** Whether `password` opens these notes, nothing else done. */
+  vaultCheckPassword(password: string): Promise<boolean>
   vaultCreateRecovery(password: string | null): Promise<string>
   vaultRemoveRecovery(password: string | null): Promise<void>
   /** Opens with the recovery key and sets a new password. */
@@ -210,6 +215,8 @@ export interface Backend {
   ): Promise<{ reports: import('./types').FeedbackAnswer[] }>
   /** This device's scheduled backups. */
   backupsGet(): Promise<import('./types').BackupsView>
+  /** Whether `target` already holds a backup, nothing written. */
+  backupsFound(target: import('./types').BackupTarget): Promise<boolean>
   /** Sets backups up: a new repository at `target`, or one there opened with its password. */
   backupsConnect(
     target: import('./types').BackupTarget,

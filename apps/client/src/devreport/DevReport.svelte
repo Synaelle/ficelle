@@ -5,6 +5,7 @@
   import { tick } from 'svelte'
   import { SvelteMap } from 'svelte/reactivity'
   import { onBack } from '../lib/back'
+  import Icon from '../lib/icons/Icon.svelte'
   import { modal } from '../lib/modal'
   import { t } from '../lib/i18n.svelte'
   import { prefs } from '../lib/prefs.svelte'
@@ -28,7 +29,7 @@
   let fileInput: HTMLInputElement | undefined = $state()
   /** The screenshot taken as the window opened, first among the images. */
   let shot: File | null = null
-  /** Hides the ! button while the phone takes its picture of the screen. */
+  /** Hides the bug button while the phone takes its picture of the screen. */
   let capturing = $state(false)
   /** Phones save only into a folder the person picked (DevReports.kt). */
   const phone = phoneReports() !== undefined
@@ -66,7 +67,7 @@
     if (phone) folder = phoneFolder()
     if (prefs.reportScreenshot && (!phone || folder)) {
       // before the window opens, so it is not in the picture, and without
-      // the ! button, which the phone's own picture would show
+      // the bug button, which the phone's own picture would show
       capturing = true
       await tick()
       await frame()
@@ -158,7 +159,7 @@
   title={t('devReport.button')}
   aria-label={t('devReport.button')}
   data-no-shot
-  onclick={() => void show()}>!</button
+  onclick={() => void show()}><Icon name="bug" size={16} /></button
 >
 
 {#if open}
@@ -253,13 +254,14 @@
     right: var(--space-3);
     bottom: var(--space-3);
     z-index: 40;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
+    display: grid;
+    place-items: center;
     border: 1px solid var(--color-border-strong);
     background: var(--color-surface-2);
     color: var(--color-text-muted);
-    font-weight: 700;
     opacity: 0.6;
     cursor: pointer;
   }

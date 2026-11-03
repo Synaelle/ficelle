@@ -14,6 +14,21 @@
   let position = $state({ left: 0, top: 0 })
   let textInput: HTMLInputElement | undefined = $state()
   let draft = $state('')
+  /** The seconds left before a question that asks for a pause can be confirmed. */
+  let waitLeft = $state(0)
+  $effect(() => {
+    const dialog = overlay.dialog
+    // counted here, not read back from the state: the effect would rerun
+    let left = dialog?.kind === 'ask' ? dialog.wait : 0
+    waitLeft = left
+    if (left <= 0) return
+    const timer = setInterval(() => {
+      left = Math.max(0, left - 1)
+      waitLeft = left
+      if (left === 0) clearInterval(timer)
+    }, 1000)
+    return () => clearInterval(timer)
+  })
 
   const editable = (target: EventTarget | null): HTMLElement | null =>
     target instanceof HTMLElement
@@ -37,9 +52,12 @@
     const menu = overlay.menu
     if (!menu) return
     if (menu.sheet) {
-      void tick().then(() =>
-        menuElement?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus(),
-      )
+      // opened by a finger, the first row would look already pressed: the
+      // sheet holds the focus itself, keys still reach its rows with Tab
+      void tick().then(() => {
+        if (overlay.byTouch) menuElement?.focus()
+        else menuElement?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
+      })
       return
     }
     position = { left: menu.x, top: menu.y }
@@ -162,6 +180,7 @@
         class="dialog"
         onsubmit={(e) => {
           e.preventDefault()
+          if (waitLeft > 0) return
           overlay.answer(overlay.dialog?.kind === 'text' ? draft : true)
         }}
       >
@@ -193,10 +212,13 @@
             class="btn primary"
             class:danger={overlay.dialog.kind === 'ask' && overlay.dialog.danger}
             type="submit"
+            disabled={waitLeft > 0}
             data-autofocus={overlay.dialog.kind === 'ask' && !overlay.dialog.danger
               ? ''
               : undefined}
-            >{overlay.dialog.kind === 'ask' ? overlay.dialog.confirmLabel : t('common.ok')}</button
+            >{overlay.dialog.kind === 'ask'
+              ? overlay.dialog.confirmLabel
+              : t('common.ok')}{waitLeft > 0 ? ` (${waitLeft})` : ''}</button
           >
         </div>
       </form>

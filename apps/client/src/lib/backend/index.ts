@@ -11,4 +11,12 @@ export * from './types'
 
 const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
-export const backend: Backend = inTauri ? createTauriBackend() : createMemoryBackend({ seed: true })
+// dev only: ?fresh starts with no notes, on the first-run setup
+const fresh =
+  import.meta.env.DEV &&
+  typeof location !== 'undefined' &&
+  new URLSearchParams(location.search).has('fresh')
+
+export const backend: Backend = inTauri
+  ? createTauriBackend()
+  : createMemoryBackend({ seed: !fresh })

@@ -30,6 +30,8 @@ interface AskDialog {
   message: string
   confirmLabel: string
   danger: boolean
+  /** Seconds before the confirm button can be pressed, so the choice is read. */
+  wait: number
   resolve: (yes: boolean) => void
 }
 
@@ -83,7 +85,10 @@ class Overlay {
   }
 
   /** Asks a yes or no question, resolves false when dismissed. */
-  ask(message: string, options: { confirmLabel: string; danger?: boolean }): Promise<boolean> {
+  ask(
+    message: string,
+    options: { confirmLabel: string; danger?: boolean; wait?: number },
+  ): Promise<boolean> {
     this.answer(null)
     return new Promise((resolve) => {
       this.dialog = {
@@ -91,6 +96,7 @@ class Overlay {
         message,
         confirmLabel: options.confirmLabel,
         danger: options.danger ?? false,
+        wait: options.wait ?? 0,
         resolve,
       }
     })

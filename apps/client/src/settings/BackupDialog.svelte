@@ -4,6 +4,7 @@
      vault's can be. Restoring shows what the backup holds and how much of
      it is here already before anything is written. -->
 <script lang="ts">
+  import { MIN_PASSWORD } from '../lib/passwords'
   import { hour12 } from '../lib/clock.svelte'
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
@@ -15,9 +16,17 @@
   import { pickToOpen, pickToSave } from '../lib/pick'
   import { isBackendError, workspace } from '../lib/workspace.svelte'
 
-  let { mode, close }: { mode: 'make' | 'restore'; close: () => void } = $props()
+  let {
+    mode,
+    close,
+    onmade,
+  }: {
+    mode: 'make' | 'restore'
+    close: () => void
+    /** Told once the backup file is written (joining Beta waits for it). */
+    onmade?: () => void
+  } = $props()
 
-  const MIN_PASSWORD = 8
   const filters = [{ name: brand.displayName, extensions: [brand.backupExtension] }]
 
   let vaultEncrypted = $state(false)
@@ -62,6 +71,7 @@
     busy = true
     try {
       made = await backend.backupWrite(target, sealed ? password : null)
+      onmade?.()
     } catch (err) {
       error = errorText(err)
     } finally {

@@ -22,8 +22,8 @@ export function createTauriBackend(): Backend {
     vaultSetWay: (way, password, newPassword, pin) =>
       invoke('vault_set_way', { way, password, newPassword, pin }),
     vaultEncrypt: () => invoke('vault_encrypt'),
-    appUpdateCheck: () => invoke('app_update_check'),
-    appUpdateLatest: () => invoke('app_update_latest'),
+    appUpdateCheck: (channel, allowOlder) => invoke('app_update_check', { channel, allowOlder }),
+    appUpdateLatest: (channel, allowOlder) => invoke('app_update_latest', { channel, allowOlder }),
     appUpdateInstall: () => invoke('app_update_install'),
     quickWindowOpen: (title) => invoke('quick_window_open', { title }),
     quickWindowReady: (title) => invoke('quick_window_ready', { title }),
@@ -33,6 +33,7 @@ export function createTauriBackend(): Backend {
     systemFonts: () => invoke('system_fonts'),
     systemAccent: () => invoke('system_accent'),
     systemClock24h: () => invoke('system_clock_24h'),
+    vaultCheckPassword: (password) => invoke('vault_check_password', { password }),
     vaultCreateRecovery: (password) => invoke('vault_create_recovery', { password }),
     vaultRemoveRecovery: (password) => invoke('vault_remove_recovery', { password }),
     vaultRecover: (code, newPassword) => invoke('vault_recover', { code, newPassword }),
@@ -126,6 +127,7 @@ export function createTauriBackend(): Backend {
 
     instanceExtensions: () => invoke('instance_extensions'),
     backupsGet: () => invoke('backups_get'),
+    backupsFound: (target) => invoke('backups_found', { target }),
     backupsConnect: (target, password, create, host) =>
       invoke('backups_connect', { target, password, create, host }),
     backupsSettings: (schedule, policy) => invoke('backups_settings', { schedule, policy }),
