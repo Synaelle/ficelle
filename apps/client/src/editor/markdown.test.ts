@@ -292,6 +292,21 @@ describe('typing GitHub extras', () => {
     expect(typedWith('Text[^1] more\n[^1]: The note', {})).toBe('Text[^1] more\n\n[^1]: The note')
   })
 
+  it('turns typed arrows into the real ones unless turned off', () => {
+    expect(typedWith('a -> b <- c => d', {})).toBe('a → b ← c ⇒ d')
+    expect(typedWith('a <-> b <=> c', {})).toBe('a ↔ b ⇔ c')
+    expect(typedWith('a -> b', { arrow: '' })).toBe('a -> b')
+  })
+
+  it('makes -> the chosen arrow', () => {
+    expect(typedWith('a -> b', { arrow: '➞' })).toBe('a ➞ b')
+    expect(typedWith('a -> b => c', { arrow: '⟶' })).toBe('a ⟶ b ⇒ c')
+  })
+
+  it('leaves arrows in code as typed', () => {
+    expect(typedWith('`a -> b`', {})).toBe('`a -> b`')
+  })
+
   it('turns shortcodes into emoji unless turned off', () => {
     expect(typedWith('Yes :tada:', {})).toBe('Yes 🎉')
     expect(typedWith('Yes :tada:', { emojiShortcodes: false })).toBe('Yes :tada:')

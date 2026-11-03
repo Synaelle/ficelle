@@ -15,7 +15,7 @@ import {
   type Theme,
 } from '@app/ui/theme'
 import { builtInThemes, DEFAULT_THEME_ID } from '@app/ui/themes'
-import { familyOf, loadFontPack, loadListedFont, quoted, themeFontPack } from './fonts'
+import { ARROWS_FONT, familyOf, loadFontPack, loadListedFont, quoted, themeFontPack } from './fonts'
 import { prefs } from './prefs.svelte'
 import { readSystemAccent, systemAccent } from './systemAccent.svelte'
 import { clock, readSystemClock } from './clock.svelte'
@@ -245,6 +245,12 @@ export function applyTheme({
     const code = prefs.codeFont && familyOf(prefs.codeFont)
     if (notes) vars['--font-editor'] = `${quoted(notes)}, ${vars['--font-editor']}`
     if (code) vars['--font-mono'] = `${quoted(code)}, ${vars['--font-mono']}`
+    // the app's fonts have no arrows: ours come right after the first font,
+    // so an arrow it lacks looks the same everywhere (styles/arrows.css)
+    for (const name of ['--font-editor', '--font-ui']) {
+      const stack = vars[name]
+      if (stack) vars[name] = stack.replace(/^([^,]+)/, `$1, ${ARROWS_FONT}`)
+    }
     for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value)
     root.dataset.mode = mode
     root.dataset.theme = theme.id

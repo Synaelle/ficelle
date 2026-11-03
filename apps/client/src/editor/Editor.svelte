@@ -9,7 +9,7 @@
   import { headingSlug } from './headingSlug'
   import { Editor } from '@tiptap/core'
   import type { Node as PMNode } from '@tiptap/pm/model'
-  import { NodeSelection } from '@tiptap/pm/state'
+  import { NodeSelection, TextSelection } from '@tiptap/pm/state'
   import { onDestroy, onMount } from 'svelte'
   import { save as pickSavePath } from '@tauri-apps/plugin-dialog'
   import { ATTACHMENT_PREFIX } from '../lib/attachments'
@@ -388,6 +388,7 @@
         keys: keyBindings(),
         autoLists: prefs.autoLists,
         emojiShortcodes: prefs.emojiShortcodes,
+        arrow: prefs.arrow,
         placeholder: () => t('note.bodyPlaceholder'),
         codeLabels: { picker: () => t('editor.codeLanguage'), plain: () => t('editor.plainText') },
         wiki: {
@@ -406,9 +407,9 @@
         attributes: {
           class: 'prose',
           'aria-label': t('editor.label'),
-          // on a phone a tap on an unknown word opens the system's spelling
-          // popup instead of the usual selection: the phone's own handles only
-          spellcheck: PHONE ? 'false' : 'true',
+          // off unless chosen. On a phone, never: a tap on an unknown word
+          // opens the system's spelling popup instead of the usual selection
+          spellcheck: prefs.spellcheck && !PHONE ? 'true' : 'false',
         },
         scrollMargin: { top: 5, bottom: CLEAR_BELOW, left: 5, right: 5 },
         scrollThreshold: { top: 0, bottom: CLEAR_BELOW, left: 0, right: 0 },
@@ -495,6 +496,30 @@
     if (!readonly) workspace.serializeEditor = save
   })
 
+  /** A right click outside the selection takes the word under the pointer,
+   * so bold, copy and the rest act on it; between words, the caret goes
+   * there. */
+  function selectWordAt(current: Editor, event: MouseEvent) {
+    const at = current.view.posAtCoords({ left: event.clientX, top: event.clientY })
+    if (!at) return
+    const { from, to } = current.state.selection
+    if (from !== to && at.pos >= from && at.pos <= to) return
+    const spot = current.state.doc.resolve(at.pos)
+    const text = spot.parent.textBetween(0, spot.parent.content.size, undefined, ' ')
+    const offset = spot.parentOffset
+    const word = /[\p{L}\p{N}_'’-]/u
+    let start = offset
+    let end = offset
+    while (start > 0 && word.test(text[start - 1] ?? '')) start -= 1
+    while (end < text.length && word.test(text[end] ?? '')) end += 1
+    const base = spot.start()
+    current.view.dispatch(
+      current.state.tr.setSelection(
+        TextSelection.create(current.state.doc, base + start, base + end),
+      ),
+    )
+  }
+
   /** Text editing items plus formatting, in place of the webview menu. */
   function editorMenu(event: MouseEvent) {
     const field = (event.target as HTMLElement).closest<HTMLElement>('[contenteditable=true]')
@@ -504,6 +529,7 @@
     const image = event.target instanceof HTMLImageElement ? fileOfImage(event.target) : undefined
     // a long touch on text is the phone's: selection handles, copy and paste
     if (!image && overlay.byTouch) return
+    if (!image) selectWordAt(current, event)
     const chain = () => current.chain().focus()
     overlay.openMenu(event, [
       ...(image ? [...fileItems(image), SEPARATOR] : []),

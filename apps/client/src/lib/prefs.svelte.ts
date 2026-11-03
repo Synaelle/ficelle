@@ -49,6 +49,11 @@ export interface Prefs {
   autoLists: boolean
   /** GitHub's `:name:` shortcodes become their emoji, typed or read. */
   emojiShortcodes: boolean
+  /** What a typed -> becomes, the other typed arrows following (<- is ←,
+   * => is ⇒); empty leaves them as typed. */
+  arrow: string
+  /** The browser's spell check in notes, desktop only. */
+  spellcheck: boolean
   /** How times read: as the system shows them, or always 24 or 12 hours. */
   clock: 'system' | '24' | '12'
   /** The open note stays first in the note list, whatever the sort. */
@@ -107,6 +112,8 @@ export const DEFAULT_PREFS: Prefs = {
   quickNoteShortcut: null,
   autoLists: true,
   emojiShortcodes: true,
+  arrow: '➔',
+  spellcheck: false,
   clock: 'system',
   openNoteFirst: false,
   autoUpdates: true,

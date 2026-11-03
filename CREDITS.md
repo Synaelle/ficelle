@@ -82,6 +82,8 @@ Ficelle stands on the work of the projects below, with thanks. Each is listed wi
 
 - [Hanken Grotesk](https://fontsource.org/fonts/hanken-grotesk), the default font. OFL-1.1.
 - [Atkinson Hyperlegible Next](https://fontsource.org/fonts/atkinson-hyperlegible-next), an easy to read font. OFL-1.1.
+- [Noto Sans Math](https://fontsource.org/fonts/noto-sans-math), the arrows. OFL-1.1.
+- [Noto Sans Symbols 2](https://fontsource.org/fonts/noto-sans-symbols-2), more arrows. OFL-1.1.
 - [Schibsted Grotesk](https://fontsource.org/fonts/schibsted-grotesk), the Carbon theme. OFL-1.1.
 - [Literata](https://fontsource.org/fonts/literata), the Classic theme. OFL-1.1.
 - [IBM Plex Mono](https://fontsource.org/fonts/ibm-plex-mono), the code font. OFL-1.1.

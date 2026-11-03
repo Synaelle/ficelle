@@ -16,7 +16,7 @@
 
 import mono from '../styles/opendyslexic/opendyslexic-mono-400-normal.woff2?url'
 import { dyslexicStatus } from './dyslexicStatus.svelte'
-import { type FontPack, loadFontPack } from './fonts'
+import { ARROWS_FONT, type FontPack, loadFontPack } from './fonts'
 
 /** OpenDyslexic from Fontsource, regular, bold and their italics. */
 export const OPENDYSLEXIC: FontPack = {
@@ -60,7 +60,7 @@ export function dyslexicCss(monoUrl: string, id: string): string {
   const face = (name: string, url: string, weight: number, style: string) =>
     `@font-face { font-family: '${name}'; src: url('${url}') format('woff2'); ` +
     `font-weight: ${weight}; font-style: ${style}; font-display: block; }`
-  const stack = `'${family}', system-ui, sans-serif`
+  const stack = `'${family}', ${ARROWS_FONT}, system-ui, sans-serif`
   const monoStack = `'${monoFamily}', ui-monospace, monospace`
   // pseudo-elements do not match *, and ::first-line can set its own font.
   // One rule each: a selector a webview does not know drops its whole rule.

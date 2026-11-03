@@ -5,7 +5,10 @@ import { dyslexicStatus } from './dyslexicStatus.svelte'
 import { loadFontPack } from './fonts'
 
 // nothing is downloaded in tests
-vi.mock('./fonts', () => ({ loadFontPack: vi.fn(async () => true) }))
+vi.mock('./fonts', () => ({
+  ARROWS_FONT: "'Ficelle Arrows'",
+  loadFontPack: vi.fn(async () => true),
+}))
 
 afterEach(() => {
   applyDyslexicFont(false)

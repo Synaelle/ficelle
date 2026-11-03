@@ -3,6 +3,7 @@
    src/lib/theme.svelte.ts, so a theme file restyles everything. */
 
 @import './fonts.css';
+@import './arrows.css';
 
 *,
 *::before,
@@ -266,6 +267,10 @@ details.settings-group:not([open]) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+/* text that shows what is typed: no font joins -> into an arrow */
+.as-typed {
+  font-variant-ligatures: none;
 }
 .settings-check {
   display: flex;

@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The open note: title, tags, editor, backlinks. -->
 <script lang="ts">
+  import { untrack } from 'svelte'
   import NoteFiles from './NoteFiles.svelte'
   import { hour12 } from '../lib/clock.svelte'
   import Editor from '../editor/Editor.svelte'
@@ -23,6 +24,7 @@
   let { narrow }: { narrow: boolean } = $props()
 
   const note = $derived(workspace.current)
+
   /** "Saved" shows for a moment after a save, then fades: it is the usual state. */
   let justSaved = $state(false)
   $effect(() => {
@@ -34,6 +36,40 @@
     return () => clearTimeout(timer)
   })
   const readonly = $derived(sharing.readOnly(note?.spaceId))
+
+  /** The editor is made again when one of its settings changes or the note
+   * syncs: the same note keeps its place, another one starts at the top. */
+  const editorKey = $derived(
+    note
+      ? `${note.id}:${prefs.autoLists}:${prefs.emojiShortcodes}:${prefs.arrow}:${prefs.spellcheck}:${workspace.revision}:${readonly}`
+      : '',
+  )
+  let scroller: HTMLDivElement | undefined = $state()
+  /** The article's height while the new editor fills in, so the page does not
+   * shrink under the place. */
+  let hold = $state(0)
+  let keyed = untrack(() => editorKey)
+  $effect.pre(() => {
+    const next = editorKey
+    const box = scroller
+    if (next === keyed) return
+    const same = !!box && next.split(':')[0] === keyed.split(':')[0]
+    keyed = next
+    if (!same || !box) return
+    const top = box.scrollTop
+    const height = box.scrollHeight
+    hold = box.querySelector('article')?.offsetHeight ?? 0
+    const until = performance.now() + 2000
+    // the editor makes itself after its files are read: wait for its height
+    const keep = () => {
+      box.scrollTop = top
+      const filled = box.querySelector('.ProseMirror') && box.scrollHeight >= height - 1
+      if (!filled && performance.now() < until) return void requestAnimationFrame(keep)
+      hold = 0
+      box.scrollTop = top
+    }
+    requestAnimationFrame(keep)
+  })
   const others = $derived(note ? sync.others(note.spaceId, note.id) : [])
   const initials = (name: string) =>
     name
@@ -197,8 +233,8 @@
       </button>
     </header>
 
-    <div class="scroll">
-      <article>
+    <div class="scroll" bind:this={scroller} style:overflow-anchor={hold ? 'none' : null}>
+      <article style:min-height={hold ? `${hold}px` : null}>
         <ConflictBanner {narrow} />
         {#if readonly}
           <p class="readonly-banner" role="note">
@@ -210,7 +246,7 @@
         <input
           bind:this={titleInput}
           class="title"
-          spellcheck={!PHONE}
+          spellcheck={prefs.spellcheck && !PHONE}
           placeholder={t('note.untitled')}
           aria-label={t('note.title')}
           {readonly}
@@ -246,7 +282,7 @@
             value={note.body}
             oninput={(e) => workspace.edit({ body: e.currentTarget.value })}></textarea>
         {:else}
-          {#key `${note.id}:${prefs.autoLists}:${prefs.emojiShortcodes}:${workspace.revision}:${readonly}`}
+          {#key editorKey}
             <Editor
               bind:this={editorRef}
               noteId={note.id}

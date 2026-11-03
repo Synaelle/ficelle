@@ -8,6 +8,7 @@ import { BulletList, OrderedList, TaskItem, TaskList } from '@tiptap/extension-l
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import StarterKit from '@tiptap/starter-kit'
 import { Marked, type marked } from 'marked'
+import { TypedArrows } from './arrows'
 import { Callout } from './callout'
 import { Details, DetailsSummary } from './details'
 import { EmojiShortcode, EmojiTyping } from './emoji'
@@ -34,6 +35,9 @@ export interface EditorSetup {
   /** Turn GitHub's `:name:` shortcodes into their emoji, typed or read.
    * Default on; off, they stay as written. */
   emojiShortcodes?: boolean
+  /** What a typed -> becomes (→ by default), the other typed arrows
+   * following; empty leaves them as typed. */
+  arrow?: string
   /** Shown in an empty note, so a new one says where to write. Read each
    * time it shows, so it follows the language. */
   placeholder?: () => string
@@ -80,6 +84,7 @@ export function createExtensions(setup: EditorSetup = {}): AnyExtension[] {
     withBoundedStart(FootnoteDef),
     FootnoteRef,
     ...(setup.emojiShortcodes === false ? [] : [EmojiShortcode, EmojiTyping]),
+    ...(setup.arrow === '' ? [] : [TypedArrows.configure({ arrow: setup.arrow ?? '→' })]),
     // a private marked instance, the shared one would collect every editor's tokenizers
     // the option is typed as the global instance but any Marked instance works
     ReadableMarkdown.configure({ marked: new Marked() as unknown as typeof marked }),

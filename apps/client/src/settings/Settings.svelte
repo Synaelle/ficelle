@@ -24,6 +24,7 @@
   import RecoveryKey from '../screens/RecoveryKey.svelte'
   import AppearancePickers from './AppearancePickers.svelte'
   import LayoutPicker from './LayoutPicker.svelte'
+  import ArrowPicker from './ArrowPicker.svelte'
   import BackupDialog from './BackupDialog.svelte'
   import ResetDialog from './ResetDialog.svelte'
   import BackupSettings from './BackupSettings.svelte'
@@ -232,9 +233,17 @@
                 {t('settings.emojiShortcodes')}
               </label>
               <label class="settings-check">
+                <input type="checkbox" bind:checked={prefs.spellcheck} />
+                {t('settings.spellcheck')}
+              </label>
+              <label class="settings-check">
                 <input type="checkbox" bind:checked={prefs.openNoteFirst} />
                 {t('settings.openNoteFirst')}
               </label>
+            </div>
+            <div class="settings-group">
+              <h3 class="as-typed">{t('settings.arrow')}</h3>
+              <ArrowPicker />
             </div>
             {#if quickNoteSupported}
               <div class="settings-group">

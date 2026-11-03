@@ -1,0 +1,24 @@
+/* Made by tools/arrows-font.py: every arrow, from Noto Sans Math and
+   Noto Sans Symbols 2 (OFL-1.1), behind the chosen font. */
+@font-face {
+  font-family: 'Ficelle Arrows';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('./arrows/arrows-math.woff2') format('woff2');
+  unicode-range:
+    U+2190-21FF, U+279B, U+27F0-27FF, U+2900-292A, U+292D-297B, U+2B00-2B04, U+2B0E-2B11,
+    U+2B30-2B4C;
+}
+
+@font-face {
+  font-family: 'Ficelle Arrows';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('./arrows/arrows-symbols.woff2') format('woff2');
+  unicode-range:
+    U+2794, U+2798-279A, U+279C-27AF, U+27B1-27BE, U+2B05-2B0D, U+2B4D-2B4F, U+2B5A-2B73,
+    U+2B76-2B7D, U+2B80-2B8F, U+2B94-2B95, U+2B98-2BB9, U+2BEC-2BEF, U+1F800-1F80B, U+1F810-1F847,
+    U+1F850-1F859, U+1F860-1F887, U+1F890-1F8AD, U+1F8B0-1F8B1;
+}

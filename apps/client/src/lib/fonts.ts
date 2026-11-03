@@ -23,6 +23,10 @@ export interface ListedFont {
 }
 
 /** Free fonts offered for download, all with regular and bold files. */
+/** Every arrow, which the app's fonts lack (styles/arrows.css, made by
+ * tools/arrows-font.py): right behind the first font of a stack. */
+export const ARROWS_FONT = "'Ficelle Arrows'"
+
 export const FONT_LIST: ListedFont[] = [
   { id: 'inter', family: 'Inter', kind: 'sans' },
   { id: 'source-sans-3', family: 'Source Sans 3', kind: 'sans' },

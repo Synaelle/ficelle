@@ -18,6 +18,7 @@
   import { prefs } from '../lib/prefs.svelte'
   import AccentPicker from './AccentPicker.svelte'
   import CornersPicker from './CornersPicker.svelte'
+  import ArrowPicker from './ArrowPicker.svelte'
   import BackupSettings from './BackupSettings.svelte'
   import FeedbackSettings from './FeedbackSettings.svelte'
   import TestTools from '../devreport/TestTools.svelte'
@@ -333,6 +334,7 @@
     ['textStyle', 'settings.dyslexicFont', 'accessibility'],
     ['list', 'settings.autoLists', 'editor'],
     ['emoji', 'settings.emojiShortcodes', 'editor'],
+    ['right', 'settings.arrow', 'editor'],
     ['timer', 'settings.clock', 'language'],
     ['info', 'settings.credits', 'credits'],
   ]
@@ -597,6 +599,8 @@
             run: () => (prefs.emojiShortcodes = !prefs.emojiShortcodes),
           })}
         </div>
+        <p class="caption as-typed">{t('settings.arrow')}</p>
+        <div class="group pad"><ArrowPicker /></div>
       {:else if page === 'language'}
         <p class="caption">{t('settings.language')}</p>
         <div class="group">

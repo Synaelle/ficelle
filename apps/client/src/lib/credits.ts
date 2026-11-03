@@ -363,6 +363,18 @@ export const CREDIT_GROUPS: CreditGroup[] = [
         license: 'OFL-1.1',
       },
       {
+        name: 'Noto Sans Math',
+        url: 'https://fontsource.org/fonts/noto-sans-math',
+        use: 'the arrows',
+        license: 'OFL-1.1',
+      },
+      {
+        name: 'Noto Sans Symbols 2',
+        url: 'https://fontsource.org/fonts/noto-sans-symbols-2',
+        use: 'more arrows',
+        license: 'OFL-1.1',
+      },
+      {
         name: 'Schibsted Grotesk',
         url: 'https://fontsource.org/fonts/schibsted-grotesk',
         use: 'the Carbon theme',
