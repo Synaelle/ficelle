@@ -3,16 +3,21 @@
 import { describe, expect, it } from 'vitest'
 import { builtInThemes, DEFAULT_THEME_ID } from '../themes'
 import darkroomJson from '../themes/darkroom.json' with { type: 'json' }
-import { contrastRatio } from './color'
+import { contrastRatio, luminance } from './color'
 import {
+  cornerRadius,
   MAX_THEME_CSS,
   MIN_TEXT_CONTRAST,
+  modePalette,
   pureBlack,
+  ROUND_RADIUS,
   resolveMode,
   themeCssProblems,
   themeToCssVars,
   validateTheme,
   withAccent,
+  type Palette,
+  type PaletteKey,
   type Theme,
 } from './theme'
 
@@ -205,6 +210,34 @@ describe('themeToCssVars', () => {
   })
 })
 
+describe('corners', () => {
+  it('keeps the theme radius when square', () => {
+    const vars = themeToCssVars(darkroom, 'dark')
+    expect(vars['--radius-control']).toBe(`${darkroom.radius.control}px`)
+    expect(themeToCssVars(darkroom, 'dark', undefined, false, 'square')).toEqual(vars)
+  })
+
+  it('rounds a square theme', () => {
+    const vars = themeToCssVars(darkroom, 'dark', undefined, false, 'round')
+    expect(vars['--radius-control']).toBe(`${ROUND_RADIUS.control}px`)
+    expect(vars['--radius-popover']).toBe(`${ROUND_RADIUS.popover}px`)
+    expect(vars['--radius-window']).toBe(`${ROUND_RADIUS.window}px`)
+  })
+
+  it('leaves a rounder theme its own corners', () => {
+    expect(cornerRadius({ control: 16, popover: 8, window: 30 }, 'round')).toEqual({
+      control: 16,
+      popover: ROUND_RADIUS.popover,
+      window: 30,
+    })
+  })
+
+  it('nests round corners inside each other', () => {
+    expect(ROUND_RADIUS.control).toBeLessThan(ROUND_RADIUS.popover)
+    expect(ROUND_RADIUS.popover).toBeLessThan(ROUND_RADIUS.window)
+  })
+})
+
 describe('pure black', () => {
   it.each(builtInThemes.map((t) => [t.id, t] as const))(
     '%s stays readable on black',
@@ -228,5 +261,88 @@ describe('pure black', () => {
     const lift = (color: string) => contrastRatio(color, '#000000')
     expect(lift(black.surface)).toBeGreaterThan(1)
     expect(lift(black.surface2)).toBeGreaterThan(lift(black.surface))
+  })
+})
+
+describe('the default light palettes', () => {
+  const light = darkroom.colors.light
+  // checked to be there below, as a palette for the other checks
+  const warmLight = darkroom.colors.warmLight as Palette
+  // the note sits on surface, the sidebar and list on bg, hover, tags and
+  // quotes on surface2, the open note's row on selection
+  const surfaces: PaletteKey[] = ['bg', 'surface', 'surface2', 'selection']
+
+  it.each([
+    ['light', light],
+    ['warm paper', warmLight],
+  ] as const)('%s keeps text and buttons readable', (_, palette) => {
+    const ratio = (fg: PaletteKey, bg: PaletteKey) => contrastRatio(palette[fg], palette[bg])
+    for (const surface of surfaces) {
+      expect(ratio('text', surface)).toBeGreaterThanOrEqual(12)
+      expect(ratio('textMuted', surface)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+    }
+    expect(ratio('accentText', 'surface')).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+    expect(ratio('accentText', 'surface2')).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+    for (const color of ['danger', 'success', 'warning'] as const) {
+      expect(ratio(color, 'bg')).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+      expect(ratio(color, 'surface')).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+    }
+    expect(ratio('accentOn', 'accent')).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+    expect(ratio('accentOn', 'accentPressed')).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+    expect(ratio('selection', 'bg')).toBeGreaterThan(1.05)
+  })
+
+  describe('warm paper', () => {
+    const palette = warmLight
+    const ratio = (fg: PaletteKey, bg: PaletteKey) => contrastRatio(palette[fg], palette[bg])
+
+    it('is offered by the default theme and readable as a theme palette', () => {
+      expect(warmLight).toBeDefined()
+      expect(validateTheme(darkroom)).toEqual([])
+    })
+
+    it.each(surfaces)('reads links on %s too', (surface) => {
+      expect(ratio('accentText', surface)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
+    })
+
+    it('keeps hints and field edges visible', () => {
+      expect(ratio('textFaint', 'bg')).toBeGreaterThanOrEqual(3)
+      expect(ratio('textFaint', 'surface')).toBeGreaterThanOrEqual(3)
+      expect(ratio('borderStrong', 'surface')).toBeGreaterThanOrEqual(2.5)
+      expect(ratio('border', 'surface')).toBeGreaterThan(1.3)
+    })
+
+    it('has no glaring white surface, the note page the lightest', () => {
+      for (const surface of surfaces) expect(luminance(palette[surface])).toBeLessThan(0.9)
+      expect(luminance(palette.surface)).toBeGreaterThan(luminance(palette.bg))
+      expect(luminance(palette.bg)).toBeGreaterThan(luminance(palette.surface2))
+    })
+  })
+
+  it('is used only when chosen, and only in light mode', () => {
+    expect(modePalette(darkroom, 'light')).toBe(light)
+    expect(modePalette(darkroom, 'light', false, true)).toBe(warmLight)
+    expect(modePalette(darkroom, 'dark', false, true)).toBe(darkroom.colors.dark)
+    expect(themeToCssVars(darkroom, 'dark', undefined, false, 'square', true)).toEqual(
+      themeToCssVars(darkroom, 'dark'),
+    )
+    expect(themeToCssVars(darkroom, 'light', undefined, false, 'square', true)['--color-bg']).toBe(
+      warmLight.bg,
+    )
+  })
+
+  it('falls back to light in a theme without warm paper', () => {
+    const plain = structuredClone(darkroom)
+    delete plain.colors.warmLight
+    expect(validateTheme(plain)).toEqual([])
+    expect(modePalette(plain, 'light', false, true)).toEqual(plain.colors.light)
+  })
+
+  it('checks a warm palette like the others', () => {
+    const broken = structuredClone(darkroom)
+    broken.colors.warmLight = { ...warmLight, text: warmLight.bg }
+    expect(validateTheme(broken).some((p) => p.startsWith('colors.warmLight: text on bg'))).toBe(
+      true,
+    )
   })
 })

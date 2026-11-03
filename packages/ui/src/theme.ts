@@ -35,7 +35,9 @@ export interface Theme {
   description: string
   fonts: { ui: string; editor: string; mono: string }
   icons: 'lucide' | 'phosphor-regular' | 'stitch'
-  colors: Record<Mode, Palette>
+  /** warmLight: a softer light palette the person may choose instead of
+   * light (prefs.warmLight), like pure black for the dark one. */
+  colors: Record<Mode, Palette> & { warmLight?: Palette }
   radius: { control: number; popover: number; window: number }
   space: number[]
   motion: { fast: number; base: number; slow: number; easeOut: string; easeInOut: string }
@@ -93,8 +95,9 @@ export function validateTheme(input: unknown): string[] {
   }
 
   const colors = input.colors
-  for (const mode of ['dark', 'light'] as const) {
+  for (const mode of ['dark', 'light', 'warmLight'] as const) {
     const palette = isObject(colors) ? colors[mode] : undefined
+    if (mode === 'warmLight' && palette === undefined) continue
     if (!isObject(palette)) {
       problems.push(`colors.${mode} is missing`)
       continue
@@ -183,7 +186,7 @@ const READ_PAIRS: [PaletteKey, PaletteKey][] = [
   ['textMuted', 'selection'],
 ]
 
-function readabilityProblems(palette: Palette, mode: Mode): string[] {
+function readabilityProblems(palette: Palette, mode: string): string[] {
   return READ_PAIRS.flatMap(([fg, bg]) => {
     const ratio = contrastRatio(palette[fg], palette[bg])
     return ratio < MIN_TEXT_CONTRAST
@@ -248,25 +251,54 @@ function readableSelection(palette: Palette, accent: string): string {
   return palette.bg
 }
 
+/** The corners the person chose: the theme's own, or rounder ones. */
+export type Corners = 'square' | 'round'
+
+/** Rounded corners, each smaller than its container's minus the padding
+ * between them (a menu item 10 in a 14 menu with 4 around it). */
+export const ROUND_RADIUS: Theme['radius'] = { control: 10, popover: 14, window: 20 }
+
+/** The radius to draw with: the theme's, or with round corners at least
+ * ROUND_RADIUS, a theme rounder than that keeps its own. */
+export function cornerRadius(radius: Theme['radius'], corners: Corners): Theme['radius'] {
+  if (corners !== 'round') return radius
+  return {
+    control: Math.max(radius.control, ROUND_RADIUS.control),
+    popover: Math.max(radius.popover, ROUND_RADIUS.popover),
+    window: Math.max(radius.window, ROUND_RADIUS.window),
+  }
+}
+
 const kebab = (key: string) => key.replace(/[A-Z0-9]/g, (c) => `-${c.toLowerCase()}`)
 
+/** The palette a mode starts from: pure black or warm paper when chosen,
+ * a theme without a warm palette keeps its light one. */
+export function modePalette(theme: Theme, mode: Mode, black = false, warm = false): Palette {
+  if (mode === 'dark') return black ? pureBlack(theme.colors.dark) : theme.colors.dark
+  return (warm && theme.colors.warmLight) || theme.colors.light
+}
+
 /** Css custom properties for one theme and mode, ready to set on the root
- * element. `black` turns the dark mode pure black, the light one stays. */
+ * element. `black` turns the dark mode pure black, `warm` the light one to
+ * the theme's warm paper (each leaves the other mode as it is), `corners`
+ * rounds the theme's radius (see cornerRadius). */
 export function themeToCssVars(
   theme: Theme,
   mode: Mode,
   accent?: string,
   black = false,
+  corners: Corners = 'square',
+  warm = false,
 ): Record<string, string> {
-  const base = theme.colors[mode]
-  const palette = withAccent(mode === 'dark' && black ? pureBlack(base) : base, accent)
+  const palette = withAccent(modePalette(theme, mode, black, warm), accent)
+  const radius = cornerRadius(theme.radius, corners)
   const vars: Record<string, string> = {
     '--font-ui': `"${theme.fonts.ui}", system-ui, sans-serif`,
     '--font-editor': `"${theme.fonts.editor}", system-ui, sans-serif`,
     '--font-mono': `"${theme.fonts.mono}", ui-monospace, monospace`,
-    '--radius-control': `${theme.radius.control}px`,
-    '--radius-popover': `${theme.radius.popover}px`,
-    '--radius-window': `${theme.radius.window}px`,
+    '--radius-control': `${radius.control}px`,
+    '--radius-popover': `${radius.popover}px`,
+    '--radius-window': `${radius.window}px`,
     '--dur-fast': `${theme.motion.fast}ms`,
     '--dur-base': `${theme.motion.base}ms`,
     '--dur-slow': `${theme.motion.slow}ms`,

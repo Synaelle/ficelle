@@ -76,6 +76,10 @@
         },
         "light": {
           "$ref": "#/$defs/palette"
+        },
+        "warmLight": {
+          "description": "Optional softer light palette, chosen with Warm paper in the settings. Without it the option keeps light.",
+          "$ref": "#/$defs/palette"
         }
       }
     },
