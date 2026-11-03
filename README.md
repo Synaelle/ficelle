@@ -27,7 +27,7 @@
 
 Ficelle runs on Windows, Linux and Android. Get it from the [latest release](../../releases/latest). ARM builds for Windows and Linux are coming soon.
 
-macOS is coming soon with the Beta releases. iOS needs testers with an iPhone or iPad, see [Ficelle on a Mac or an iPhone](docs/apple.md).
+The Mac app is in 0.4.0 and then comes with the Beta releases. It is untested, keep backups of your notes. iOS needs testers with an iPhone or iPad. See [Ficelle on a Mac or an iPhone](docs/apple.md).
 
 ## Your own server
 
