@@ -6,7 +6,9 @@
 // only when the aspect ratio was unlocked with Shift while resizing.
 
 import Image from '@tiptap/extension-image'
-import type { Node as PMNode } from '@tiptap/pm/model'
+import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model'
+import { NodeSelection } from '@tiptap/pm/state'
+import { dropPoint } from '@tiptap/pm/transform'
 import type { Editor } from '@tiptap/core'
 
 export const WRAPS = ['inline', 'left', 'right', 'center', 'full'] as const
@@ -42,14 +44,42 @@ export interface LayoutImageOptions {
 
 const HANDLES = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'] as const
 
+/** A finger moves this far before a press on an image becomes a move. */
+const MOVE_SLOP = 8
+/** This close to the top or bottom of the note, a move scrolls it. */
+const EDGE = 56
+
+/** Runs `run` at most once per frame, however often it is asked. */
+function perFrame(run: () => void): () => void {
+  let queued = false
+  return () => {
+    if (queued) return
+    queued = true
+    requestAnimationFrame(() => {
+      queued = false
+      run()
+    })
+  }
+}
+
+/** The layout bar steps aside while an image is resized or moved. */
+const busy = (on: boolean) => document.body.classList.toggle('image-busy', on)
+
 /**
- * Node view with eight resize handles. The aspect ratio is kept unless Shift
- * is held, then the height is stored too. Pointer events cover mouse, pen and
- * touch, pinch to resize arrives with the mobile phase.
+ * Node view with resize handles, only those that follow the pointer for the
+ * image's layout (editor.css): an image held on its left grows to the right,
+ * a centred one grows on both sides, so its handles move twice as far. The
+ * aspect ratio is kept unless Shift is held, then the height is stored too.
+ * The size changes once per frame and is written to the note at the end.
+ *
+ * On touch screens a selected image moves with the finger: the browser's
+ * drag and drop is for mice, Android's webview has none. With a mouse the
+ * editor's own drag and drop moves it.
  */
 class ImageView {
   dom: HTMLElement
   private img: HTMLImageElement
+  private moving = false
 
   constructor(
     private node: PMNode,
@@ -61,6 +91,7 @@ class ImageView {
     this.dom.className = 'image-view'
     this.img = document.createElement('img')
     this.img.draggable = false
+    this.img.addEventListener('pointerdown', (event) => this.startMove(event))
     this.dom.append(this.img)
     for (const dir of HANDLES) {
       const handle = document.createElement('span')
@@ -105,38 +136,173 @@ class ImageView {
       h: this.img.offsetHeight,
     }
     const ratio = start.w / Math.max(1, start.h)
+    // a centred image grows on both sides: its handle moves half the width
+    const across = this.node.attrs.wrap === 'center' ? 2 : 1
     // dragging a left handle to the left grows the image, so x is mirrored
-    const sx = dir.includes('w') ? -1 : dir.includes('e') ? 1 : 0
+    const sx = (dir.includes('w') ? -1 : dir.includes('e') ? 1 : 0) * across
     const sy = dir.includes('n') ? -1 : dir.includes('s') ? 1 : 0
+    // no wider than the column it sits in
+    const room = this.dom.parentElement?.clientWidth || Infinity
     let size = { w: start.w, h: start.h, free: false }
+    let last = event
 
-    const move = (e: PointerEvent) => {
-      const free = e.shiftKey
-      let w = start.w + sx * (e.clientX - start.x)
-      let h = start.h + sy * (e.clientY - start.y)
+    const apply = perFrame(() => {
+      const free = last.shiftKey
+      let w = start.w + sx * (last.clientX - start.x)
+      let h = start.h + sy * (last.clientY - start.y)
       if (!free) {
         // follow whichever axis moved more, the other one keeps the ratio
         if (sx === 0 || (sy !== 0 && Math.abs(h - start.h) * ratio > Math.abs(w - start.w)))
           w = h * ratio
+        w = Math.min(w, room)
         h = w / ratio
       }
-      size = { w: Math.max(48, Math.round(w)), h: Math.max(32, Math.round(h)), free }
+      size = {
+        w: Math.max(48, Math.round(Math.min(w, room))),
+        h: Math.max(32, Math.round(h)),
+        free,
+      }
       this.img.style.width = `${size.w}px`
       this.img.style.height = free ? `${size.h}px` : ''
+    })
+    const move = (e: PointerEvent) => {
+      last = e
+      apply()
     }
-    const end = () => {
+    const end = (e: PointerEvent) => {
       handle.removeEventListener('pointermove', move)
       handle.removeEventListener('pointerup', end)
+      handle.removeEventListener('pointercancel', end)
+      this.dom.classList.remove('resizing')
+      busy(false)
+      // a cancelled touch leaves the image as it was
+      if (e.type === 'pointercancel') return this.render()
       const pos = this.getPos()
       if (pos === undefined) return
-      this.editor
-        .chain()
-        .setNodeSelection(pos)
-        .updateAttributes('image', { width: size.w, height: size.free ? size.h : null })
-        .run()
+      setImageLayout(this.editor, pos, { width: size.w, height: size.free ? size.h : null })
     }
+    this.dom.classList.add('resizing')
+    busy(true)
     handle.addEventListener('pointermove', move)
     handle.addEventListener('pointerup', end)
+    handle.addEventListener('pointercancel', end)
+  }
+
+  /** A finger on a selected image: past a few pixels it carries the image. */
+  private startMove(event: PointerEvent) {
+    if (event.pointerType !== 'touch' || !this.editor.isEditable) return
+    // a tap selects the image without focusing the text: no keyboard opening
+    // and pushing the note around under the finger
+    event.preventDefault()
+    if (!this.dom.classList.contains('selected')) {
+      this.img.addEventListener('pointerup', () => this.select(), { once: true })
+      return
+    }
+    const view = this.editor.view
+    const scroller = scrollParent(this.dom)
+    const from = { x: event.clientX, y: event.clientY }
+    this.img.setPointerCapture(event.pointerId)
+    let ghost: HTMLElement | null = null
+    let marker: HTMLElement | null = null
+    let target: number | null = null
+    let last = event
+    let scrolling = 0
+
+    const place = perFrame(() => {
+      if (!ghost || !marker) return
+      ghost.style.transform = `translate(${last.clientX}px, ${last.clientY}px) translate(-50%, -50%)`
+      target = this.dropAt(last.clientX, last.clientY)
+      marker.hidden = target === null
+      if (target === null) return
+      const at = view.coordsAtPos(target)
+      marker.style.transform = `translate(${at.left}px, ${at.top}px)`
+      marker.style.height = `${Math.max(16, at.bottom - at.top)}px`
+    })
+    // near the top or bottom edge the note scrolls, a little every frame
+    const edgeScroll = () => {
+      if (!this.moving) return
+      if (scroller) {
+        const box = scroller.getBoundingClientRect()
+        const y = last.clientY
+        const step = y < box.top + EDGE ? -12 : y > box.bottom - EDGE ? 12 : 0
+        if (step) {
+          scroller.scrollTop += step
+          place()
+        }
+      }
+      scrolling = requestAnimationFrame(edgeScroll)
+    }
+
+    const begin = () => {
+      this.moving = true
+      busy(true)
+      this.dom.classList.add('moving')
+      const box = this.img.getBoundingClientRect()
+      ghost = document.createElement('img')
+      ghost.className = 'image-ghost'
+      ghost.setAttribute('src', this.img.src)
+      ghost.style.width = `${Math.min(box.width, 160)}px`
+      marker = document.createElement('span')
+      marker.className = 'image-drop'
+      marker.hidden = true
+      document.body.append(ghost, marker)
+      scrolling = requestAnimationFrame(edgeScroll)
+    }
+
+    const move = (e: PointerEvent) => {
+      last = e
+      if (!this.moving) {
+        if (Math.hypot(e.clientX - from.x, e.clientY - from.y) < MOVE_SLOP) return
+        begin()
+      }
+      place()
+    }
+    const end = (e: PointerEvent) => {
+      this.img.removeEventListener('pointermove', move)
+      this.img.removeEventListener('pointerup', end)
+      this.img.removeEventListener('pointercancel', end)
+      if (!this.moving) return
+      cancelAnimationFrame(scrolling)
+      ghost?.remove()
+      marker?.remove()
+      this.moving = false
+      this.dom.classList.remove('moving')
+      busy(false)
+      if (e.type === 'pointerup' && target !== null) this.moveTo(target)
+    }
+    this.img.addEventListener('pointermove', move)
+    this.img.addEventListener('pointerup', end)
+    this.img.addEventListener('pointercancel', end)
+  }
+
+  private select() {
+    const pos = this.getPos()
+    if (pos === undefined) return
+    const { tr } = this.editor.state
+    this.editor.view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, pos)))
+  }
+
+  /** Where the image would land under a point, never inside itself. */
+  private dropAt(x: number, y: number): number | null {
+    const pos = this.getPos()
+    const found = this.editor.view.posAtCoords({ left: x, top: y })
+    if (pos === undefined || !found) return null
+    const slice = new Slice(Fragment.from(this.node), 0, 0)
+    const doc = this.editor.state.doc
+    const point = dropPoint(doc, found.pos, slice)
+    const at = point === null ? null : wordEdge(doc, point)
+    if (at === null || (at >= pos && at <= pos + this.node.nodeSize)) return null
+    return at
+  }
+
+  private moveTo(target: number) {
+    const pos = this.getPos()
+    if (pos === undefined) return
+    const tr = this.editor.state.tr.delete(pos, pos + this.node.nodeSize)
+    const at = tr.mapping.map(target)
+    tr.insert(at, this.node)
+    tr.setSelection(NodeSelection.create(tr.doc, at))
+    this.editor.view.dispatch(tr.scrollIntoView())
   }
 
   update(node: PMNode) {
@@ -154,14 +320,59 @@ class ImageView {
     this.dom.classList.remove('selected')
   }
 
-  /** Handles own their pointer events, the editor must not see them. */
+  /** Handles own their pointer events, the editor must not see them, nor
+   * the touches carrying the image. */
   stopEvent(event: Event) {
+    if (this.moving) return true
     return event.target instanceof HTMLElement && event.target.classList.contains('handle')
   }
 
   ignoreMutation() {
     return true
   }
+}
+
+/**
+ * Changes an image's layout in place and keeps it selected. The editor's
+ * updateAttributes replaces the node, which drops the selection to a caret
+ * beside it, and the handles and layout bar with it.
+ */
+export function setImageLayout(editor: Editor, pos: number, attrs: Record<string, unknown>) {
+  const tr = editor.state.tr
+  for (const [key, value] of Object.entries(attrs)) tr.setNodeAttribute(pos, key, value)
+  tr.setSelection(NodeSelection.create(tr.doc, pos))
+  editor.view.dispatch(tr)
+  // the keys go back to the note, but on a touch screen that is the keyboard
+  // sliding up over the image
+  if (!matchMedia('(pointer: coarse)').matches) editor.view.focus()
+}
+
+/** A position inside a word moved to the nearer end of it: an image dropped
+ * in text never splits a word. */
+export function wordEdge(doc: PMNode, at: number): number {
+  const $at = doc.resolve(at)
+  if (!$at.parent.isTextblock) return at
+  const text = $at.parent.textBetween(0, $at.parent.content.size, undefined, '\ufffc')
+  // every inline leaf (an image, a line break) counts one, as in positions
+  let i = $at.parentOffset
+  const inWord = (n: number) => /[\p{L}\p{N}_'-]/u.test(text[n] ?? '')
+  if (!inWord(i - 1) || !inWord(i)) return at
+  let left = i
+  let right = i
+  while (inWord(left - 1)) left--
+  while (inWord(right)) right++
+  i = i - left <= right - i ? left : right
+  return $at.start() + i
+}
+
+/** The element that scrolls the note. */
+function scrollParent(node: HTMLElement): HTMLElement | null {
+  for (let el = node.parentElement; el; el = el.parentElement) {
+    const { overflowY } = getComputedStyle(el)
+    if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight)
+      return el
+  }
+  return null
 }
 
 export const LayoutImage = Image.extend<LayoutImageOptions>({

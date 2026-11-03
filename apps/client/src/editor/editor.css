@@ -277,9 +277,10 @@
 }
 .prose .image-view .handle {
   display: none;
+  --size: 10px;
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: var(--size);
+  height: var(--size);
   background: var(--color-accent);
   border: 2px solid var(--color-surface);
   border-radius: 2px;
@@ -288,27 +289,74 @@
 .prose .image-view.selected .handle {
   display: block;
 }
+/* only the handles that follow the pointer: an image keeps its top edge, an
+   inline or left one its left edge, a right one its right edge, a centred one
+   its middle, and a full width one has no size to change */
+.prose .image-view.selected .handle[data-dir^='n'],
+.prose .image-view.selected:is([data-wrap='inline'], [data-wrap='left']) .handle[data-dir$='w'],
+.prose .image-view.selected[data-wrap='right'] .handle[data-dir$='e'],
+.prose .image-view.selected[data-wrap='full'] .handle {
+  display: none;
+}
+.prose .image-view.resizing img {
+  will-change: width;
+}
+/* a selected image moves with the finger instead of scrolling the note */
+@media (pointer: coarse) {
+  .prose .image-view.selected img {
+    touch-action: none;
+  }
+  .prose .image-view .handle {
+    --size: 22px;
+  }
+}
+.prose .image-view.moving img {
+  opacity: 0.35;
+}
+.image-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  opacity: 0.8;
+  border-radius: var(--radius-control);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
+  pointer-events: none;
+}
+.image-drop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--color-accent);
+  pointer-events: none;
+}
+body.image-busy .image-bar {
+  visibility: hidden;
+}
 .prose .handle[data-dir='n'],
 .prose .handle[data-dir='s'] {
-  left: calc(50% - 5px);
+  left: calc(50% - var(--size) / 2);
   cursor: ns-resize;
 }
 .prose .handle[data-dir='e'],
 .prose .handle[data-dir='w'] {
-  top: calc(50% - 5px);
+  top: calc(50% - var(--size) / 2);
   cursor: ew-resize;
 }
 .prose .handle[data-dir^='n'] {
-  top: -5px;
+  top: calc(var(--size) / -2);
 }
 .prose .handle[data-dir^='s'] {
-  bottom: -5px;
+  bottom: calc(var(--size) / -2);
 }
 .prose .handle[data-dir$='w'] {
-  left: -5px;
+  left: calc(var(--size) / -2);
 }
 .prose .handle[data-dir$='e'] {
-  right: -5px;
+  right: calc(var(--size) / -2);
 }
 .prose .handle[data-dir='nw'],
 .prose .handle[data-dir='se'] {
