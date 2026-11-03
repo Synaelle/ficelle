@@ -5,6 +5,7 @@
      version" for the next version (never offered for a security fix). -->
 <script lang="ts">
   import { appUpdates, isFix } from './appUpdate.svelte'
+  import { channelSwitch } from './channelChange.svelte'
   import Icon from './icons/Icon.svelte'
   import Knot from './Knot.svelte'
   import { t } from './i18n.svelte'
@@ -62,7 +63,7 @@
       <button
         class="btn primary"
         disabled={appUpdates.installing}
-        onclick={() => void appUpdates.install()}
+        onclick={() => void channelSwitch.update()}
         >{appUpdates.ready.page
           ? t('appUpdate.download')
           : appUpdates.installing

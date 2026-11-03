@@ -1966,6 +1966,11 @@ failedTryAgain = "The backup did not work, so nothing changed. Try again." # DRA
 synced = "Your notes are also on your sync server." # DRAFT
 uploading = "Some changes are still uploading to your sync server, so make a backup to be safe." # DRAFT
 
+[bigJump]
+message = "Version {version} is several versions ahead of {current}, a lot changes at once. Make a backup of your notes before updating?"
+backUp = "Back up and update"
+skip = "Update without a backup"
+
 [backToStable]
 warning = "Going back installs an older version. Notes changed by this beta stay, but anything that needs the beta stops working." # DRAFT
 switch = "Switch anyway" # DRAFT

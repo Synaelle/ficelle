@@ -9,6 +9,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { brand } from '@app/brand'
+  import { appUpdates, thisVersion } from './appUpdate.svelte'
   import { backups } from './backups.svelte'
   import { pretendRelease } from './beta.svelte'
   import { channelSwitch, notesSynced } from './channelChange.svelte'
@@ -28,6 +29,7 @@
   const safety = $derived(notesSynced())
   const step = $derived(channelSwitch.step)
   const back = $derived(step === 'backup')
+  const jump = $derived(step === 'bigJump')
   const version = $derived(channelSwitch.target?.version ?? '')
   const file = $derived(channelSwitch.saved.split('/').pop() ?? '')
   /** Android: where backups go, which may stay after an uninstall. */
@@ -101,9 +103,16 @@
       aria-busy={busyNow}
       use:modal={{ onclose: cancel }}
     >
-      {#if step === 'join' || step === 'backup'}
+      {#if step === 'join' || step === 'backup' || step === 'bigJump'}
         <p id="channel-switch-text">
-          {back ? t('backToStable.backupMessage') : t('betaSwitch.message')}
+          {jump
+            ? t('bigJump.message', {
+                version: appUpdates.ready?.version ?? '',
+                current: thisVersion,
+              })
+            : back
+              ? t('backToStable.backupMessage')
+              : t('betaSwitch.message')}
         </p>
         {#if safety === 'synced'}
           <p class="muted">{t('betaSwitch.synced')}</p>
@@ -122,11 +131,15 @@
           <button class="btn" disabled={busy} onclick={cancel}>{t('common.cancel')}</button>
           {#if safety === 'synced'}
             <button class="btn" disabled={busy} onclick={() => void channelSwitch.proceed(false)}
-              >{t('betaSwitch.skip')}</button
+              >{jump ? t('bigJump.skip') : t('betaSwitch.skip')}</button
             >
           {/if}
           <button class="btn primary" disabled={busy} onclick={() => void backUp()}
-            >{busy ? t('betaSwitch.backingUp') : t('betaSwitch.backUp')}</button
+            >{busy
+              ? t('betaSwitch.backingUp')
+              : jump
+                ? t('bigJump.backUp')
+                : t('betaSwitch.backUp')}</button
           >
         </div>
       {:else if step === 'warn'}

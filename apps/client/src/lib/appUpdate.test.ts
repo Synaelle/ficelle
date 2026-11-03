@@ -1,12 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import { channel, channelAskDue, isFix, waitingForStable } from './appUpdate.svelte'
+import { channel, channelAskDue, isBigJump, isFix, waitingForStable } from './appUpdate.svelte'
 import { prefs } from './prefs.svelte'
 
 beforeEach(() => {
   prefs.channel = 'stable'
   prefs.channelAsked = false
+})
+
+describe('isBigJump', () => {
+  it('two middle numbers or another first number is a big jump', () => {
+    expect(isBigJump('0.6.0', '0.4.0')).toBe(true)
+    expect(isBigJump('0.7.0', '0.4.2')).toBe(true)
+    expect(isBigJump('0.6.0-beta.1', '0.4.0')).toBe(true)
+    expect(isBigJump('1.0.0', '0.9.0')).toBe(true)
+  })
+
+  it('the next version or a fix is not', () => {
+    expect(isBigJump('0.5.0', '0.4.3')).toBe(false)
+    expect(isBigJump('0.5.0', '0.4.0-beta.2')).toBe(false)
+    expect(isBigJump('0.4.1', '0.4.0')).toBe(false)
+    expect(isBigJump('0.6.0', 'dev-abc')).toBe(false)
+  })
 })
 
 describe('isFix', () => {

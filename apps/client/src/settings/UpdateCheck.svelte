@@ -87,12 +87,12 @@
     </p>
     {#if appUpdates.ready?.page}
       <p>{t('appUpdate.out', { version: appUpdates.ready.version })}</p>
-      <button class="btn primary" onclick={() => void appUpdates.install()}
+      <button class="btn primary" onclick={() => void channelSwitch.update()}
         >{t('appUpdate.download')}</button
       >
     {:else if appUpdates.ready}
       <p>{t('appUpdate.ready', { version: appUpdates.ready.version })}</p>
-      <button class="btn primary" onclick={() => void appUpdates.install()}
+      <button class="btn primary" onclick={() => void channelSwitch.update()}
         >{phone ? t('appUpdate.install') : t('appUpdate.restart')}</button
       >
     {:else}

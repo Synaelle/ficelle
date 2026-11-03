@@ -14,6 +14,9 @@
 // app is uninstalled, the stable one installed, and the notes come back from
 // the sync server or the backup. The Mac follows Beta only.
 //
+// Updating over two versions or more (0.4 to 0.6) asks the same backup
+// question first, as so much changes at once.
+//
 // "Switch without a backup" is offered only when the notes are on a sync
 // server and nothing waits to upload.
 //
@@ -22,7 +25,7 @@
 // where something would be checked, downloaded, copied or installed.
 
 import { brand } from '@app/brand'
-import { appUpdates, thisVersion } from './appUpdate.svelte'
+import { appUpdates, isBigJump, thisVersion } from './appUpdate.svelte'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
 import { isMacApp, pretendRelease } from './beta.svelte'
 import { prefs } from './prefs.svelte'
@@ -81,6 +84,8 @@ export type Step =
   | 'warn'
   | 'schema'
   | 'backup'
+  /** An update over two versions or more: the backup question first. */
+  | 'bigJump'
   | 'going'
   | 'android'
   | 'failed'
@@ -142,10 +147,23 @@ class ChannelSwitch {
     this.step = 'backup'
   }
 
-  /** The backup is made, or skipped: on to the chosen channel. */
+  /** The update found, installed: over two versions or more, the backup
+   * question comes first. */
+  async update() {
+    const ready = appUpdates.ready
+    if (ready && isBigJump(ready.version)) return this.show('bigJump')
+    await appUpdates.install()
+  }
+
+  /** The backup is made, or skipped: on to the chosen channel, or the
+   * update. */
   async proceed(backedUp: boolean) {
     this.backedUp = backedUp
     if (this.step === 'join') return this.join()
+    if (this.step === 'bigJump') {
+      this.step = null
+      return appUpdates.install()
+    }
     return this.goBack()
   }
 

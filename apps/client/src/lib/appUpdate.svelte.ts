@@ -94,6 +94,15 @@ export function isFix(next: string, current: string = thisVersion): boolean {
   return !!n && !!c && n[0] === c[0] && n[1] === c[1] && n[3] === null && c[3] === null
 }
 
+/** `next` skips versions: two middle numbers or more ahead (0.4 to 0.6),
+ * or another first number. Much has changed in between, a backup is asked
+ * for first. */
+export function isBigJump(next: string, current: string = thisVersion): boolean {
+  const n = parts(next)
+  const c = parts(current)
+  return !!n && !!c && (n[0] !== c[0] || n[1] - c[1] >= 2)
+}
+
 /** This version is a beta and Stable is chosen: nothing comes until a
  * stable version is newer, never a step back. */
 export const waitingForStable = (current: string = thisVersion) =>
