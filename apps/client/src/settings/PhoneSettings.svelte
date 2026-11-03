@@ -23,6 +23,7 @@
   import TestTools from '../devreport/TestTools.svelte'
   import ContactLine from './ContactLine.svelte'
   import CreditsList from './CreditsList.svelte'
+  import { backend } from '../lib/backend'
   import { backups } from '../lib/backups.svelte'
   import { UI_SIZES } from '../lib/uiSize'
   import { workspace } from '../lib/workspace.svelte'
@@ -98,6 +99,8 @@
     /** A switch instead of a value. */
     on?: boolean
     danger?: boolean
+    /** Shown, but nothing to do here (the browser has no files). */
+    disabled?: boolean
     run: (event: MouseEvent) => void
   }
 
@@ -135,18 +138,21 @@
     {
       icon: 'textSize',
       label: t('settings.accessibility'),
+      keywords: t('settings.accessibilityKeywords'),
       value: t(`settings.uiSize_${prefs.uiSize}`),
       run: () => (page = 'accessibility'),
     },
     {
       icon: 'textStyle',
       label: t('settings.editor'),
+      keywords: t('settings.editorKeywords'),
       value: prefs.autoLists ? t('settings.phone.listsOn') : t('settings.phone.listsOff'),
       run: () => (page = 'editor'),
     },
     {
       icon: 'language',
       label: t('settings.language'),
+      keywords: t('settings.languageKeywords'),
       value: languageName,
       run: () => (page = 'language'),
     },
@@ -191,7 +197,7 @@
                     value: lockLabel(prefs.autoLockMinutes),
                     run: () => (page = 'lock'),
                   },
-                  { icon: 'lock' as const, label: t('settings.phone.lockNow'), run: onlock },
+                  { icon: 'lock' as const, label: t('settings.lockNow'), run: onlock },
                 ]
               : []),
           ],
@@ -224,38 +230,67 @@
     {
       icon: sync.status.state === 'off' ? 'offline' : 'synced',
       label: t('settings.sync'),
+      keywords: t('settings.syncKeywords'),
       value: t(`sync.state.${sync.status.state}`),
       run: () => (page = 'sync'),
     },
   ])
 
-  const android = /android/i.test(navigator.userAgent)
+  // the Android app, not a narrow window: only it has the system bridge
+  const android = !!window.AppSystem
   const noteRows = $derived<Row[]>([
     {
       icon: 'backup',
       label: t('settings.backups'),
+      keywords: t('settings.backupsKeywords'),
       value: backups.view?.config ? t(`backups.schedule_${backups.view.config.schedule}`) : '',
       run: () => (page = 'backups'),
     },
+  ])
+
+  // the browser has no files to reach: shown, but not tapped
+  const importRows = $derived<Row[]>([
     {
       icon: 'archive',
       label: t('settings.importFicelle', { app: brand.displayName }),
+      disabled: !backend.native,
       run: () => onimport(true),
     },
-    { icon: 'import', label: t('settings.import'), run: () => onimport(false) },
+    {
+      icon: 'import',
+      label: t('settings.import'),
+      disabled: !backend.native,
+      run: () => onimport(false),
+    },
     { icon: 'markdown', label: t('list.import'), run: () => fileInput?.click() },
+  ])
+  const exportRows = $derived<Row[]>([
     {
       icon: 'export',
       // Android's folder picker gives no path to write files under: one zip
       label: android ? t('settings.exportZip') : t('settings.export'),
+      keywords: t('settings.dataKeywords'),
+      disabled: !backend.native,
       run: () => void (android ? settings.exportZip() : settings.exportNotes()),
     },
+    ...(android
+      ? []
+      : [
+          {
+            icon: 'archive' as const,
+            label: t('settings.exportZip'),
+            keywords: t('settings.dataKeywords'),
+            disabled: !backend.native,
+            run: () => void settings.exportZip(),
+          },
+        ]),
   ])
 
   // one row on the first screen opens the import, export and backup rows
   const dataRow = $derived<Row>({
     icon: 'backup',
     label: t('settings.phone.dataBackups'),
+    keywords: t('settings.dataKeywords'),
     run: () => (page = 'notes'),
   })
 
@@ -263,27 +298,80 @@
     {
       icon: 'feedback',
       label: t('settings.feedback'),
+      keywords: t('settings.feedbackKeywords'),
       run: () => (page = 'feedback'),
     },
     // dev and preview builds only
     ...(__APP_DEV_REPORTS__
-      ? [{ icon: 'log' as const, label: t('settings.testTools'), run: () => (page = 'testTools') }]
+      ? [
+          {
+            icon: 'log' as const,
+            label: t('settings.testTools'),
+            keywords: t('settings.testToolsKeywords'),
+            run: () => (page = 'testTools'),
+          },
+        ]
       : []),
     {
       icon: 'info',
       label: t('settings.about'),
+      keywords: t('settings.aboutKeywords'),
       value: __APP_VERSION__,
       run: () => (page = 'about'),
     },
   ])
 
-  const matches = $derived(
-    [...lookRows, ...privacyRows, ...passwordRows, ...syncRows, ...noteRows, ...aboutRows].filter(
-      (r) =>
-        r.label.toLowerCase().includes(query.trim().toLowerCase()) ||
-        !!r.keywords?.toLowerCase().includes(query.trim().toLowerCase()),
-    ),
+  /** Settings inside the pages, found by their own name: the page they sit
+   * on shows as the value, a tap opens it. */
+  const inner: [IconName, string, Exclude<Page, 'home'>][] = [
+    ['palette', 'settings.pureBlack', 'appearance'],
+    ['palette', 'settings.warmLight', 'appearance'],
+    ['textStyle', 'fonts.title', 'appearance'],
+    ['palette', 'settings.accent', 'appearance'],
+    ['palette', 'settings.corners', 'appearance'],
+    ['textSize', 'settings.uiSize', 'accessibility'],
+    ['textStyle', 'settings.dyslexicFont', 'accessibility'],
+    ['list', 'settings.autoLists', 'editor'],
+    ['emoji', 'settings.emojiShortcodes', 'editor'],
+    ['timer', 'settings.clock', 'language'],
+    ['info', 'settings.credits', 'credits'],
+  ]
+  if (updatesHere) inner.push(['info', 'appUpdate.check', 'about'])
+  if (updatesHere && channelChoice) inner.push(['info', 'appUpdate.channel', 'about'])
+  const innerRows = $derived<Row[]>(
+    inner.map(([icon, label, to]) => ({
+      icon,
+      label: t(label),
+      value: t(titles[to]),
+      run: () => (page = to),
+    })),
   )
+
+  const matches = $derived.by(() => {
+    const q = query.trim().toLowerCase()
+    const found = (r: Row) =>
+      r.label.toLowerCase().includes(q) || !!r.keywords?.toLowerCase().includes(q)
+    // the PC's Security section is the phone's Privacy and Password groups,
+    // both found by its words
+    const security = [...lockRows, ...passwordRows].map((r) => ({
+      ...r,
+      keywords: t('settings.securityKeywords'),
+    }))
+    const rows = [
+      ...lookRows,
+      ...security,
+      ...hideRows,
+      ...syncRows,
+      dataRow,
+      ...noteRows,
+      ...importRows,
+      ...exportRows,
+      ...aboutRows,
+      ...innerRows,
+    ].filter(found)
+    // a row reached two ways shows once
+    return rows.filter((r, i) => rows.findIndex((o) => o.label === r.label) === i)
+  })
 
   const titles: Record<Exclude<Page, 'home'>, string> = {
     appearance: 'settings.appearance',
@@ -338,6 +426,7 @@
     class:danger={r.danger}
     role={r.on === undefined ? undefined : 'switch'}
     aria-checked={r.on}
+    disabled={r.disabled}
     onclick={(e) => r.run(e)}
   >
     <span class="tile"><Icon name={r.icon} size={17} /></span>
@@ -397,7 +486,9 @@
         {#each lookRows as r (r.label)}{@render row(r)}{/each}
       </div>
       {#if privacyRows.length}
-        <p class="caption">{t('settings.phone.groupPrivacy')}</p>
+        <p class="caption">
+          {vault && !encrypted ? t('settings.notEncryptedTitle') : t('settings.phone.groupPrivacy')}
+        </p>
         <div class="group">
           {#each privacyRows as r (r.label)}{@render row(r)}{/each}
         </div>
@@ -407,7 +498,7 @@
           <div class="group">
             {#each passwordRows as r (r.label)}{@render row(r)}{/each}
           </div>
-          <p class="note">{vault?.recovery ? t('recovery.has') : t('recovery.none')}</p>
+          <p class="note">{vault?.recovery ? t('recovery.has') : t('recovery.noneNow')}</p>
         {/if}
       {/if}
       <p class="caption">{t('settings.sync')}</p>
@@ -477,6 +568,7 @@
             </button>
           {/each}
         </div>
+        <p class="note">{t('settings.uiSizeHelp')}</p>
         <div class="group">
           {@render row({
             icon: 'textStyle',
@@ -564,6 +656,16 @@
         <div class="group">
           {#each noteRows as r (r.label)}{@render row(r)}{/each}
         </div>
+        <p class="caption">{t('settings.importTitle')}</p>
+        <div class="group">
+          {#each importRows as r (r.label)}{@render row(r)}{/each}
+        </div>
+        <p class="note">{t('settings.importHelp')}</p>
+        <p class="caption">{t('settings.exportTitle')}</p>
+        <div class="group">
+          {#each exportRows as r (r.label)}{@render row(r)}{/each}
+        </div>
+        <p class="note">{t('settings.exportHelp')}</p>
         <!-- with the data, as on desktop -->
         <div class="group spaced">
           {@render row({
@@ -636,7 +738,8 @@
               {/each}
             </div>
           {/if}
-          <div class="group spaced pad">
+          <p class="caption">{t('appUpdate.title')}</p>
+          <div class="group pad">
             <UpdateCheck channel={false} />
           </div>
         {/if}
@@ -769,8 +872,12 @@
     font-size: 16px;
     text-align: left;
   }
-  .row:active:not(.static) {
+  .row:active:not(.static, :disabled) {
     background: var(--color-surface-2);
+  }
+  .row:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
   /* hairlines between rows start after the icon, like a phone's own lists */
   .row + .row::before,

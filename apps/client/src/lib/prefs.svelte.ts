@@ -37,8 +37,6 @@ export interface Prefs {
   catalogLocal: boolean
   /** Themes added from the instance: id to the file's hash. */
   instanceThemes: Record<string, string>
-  /** Remember the vault key in the OS keychain. */
-  rememberKey: boolean
   /** Size of text, buttons and spacing everywhere. */
   uiSize: UiSize
   /** The theme's corners, or rounder ones everywhere. */
@@ -103,7 +101,6 @@ export const DEFAULT_PREFS: Prefs = {
   shortcuts: {},
   catalogLocal: false,
   instanceThemes: {},
-  rememberKey: true,
   uiSize: 'medium',
   corners: 'square',
   dyslexicFont: false,

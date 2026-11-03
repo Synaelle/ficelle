@@ -361,7 +361,7 @@
                   </select>
                   <div class="settings-actions">
                     <button class="btn" onclick={onlock}
-                      ><Icon name="lock" size={16} />{t('sidebar.lock')}</button
+                      ><Icon name="lock" size={16} />{t('settings.lockNow')}</button
                     >
                   </div>
                 </div>
