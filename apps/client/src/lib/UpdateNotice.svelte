@@ -4,13 +4,14 @@
      behind "What's changed". "Later" waits for the next start, "Skip this
      version" for the next version (never offered for a security fix). -->
 <script lang="ts">
+  import { ANDROID } from './platform'
   import { appUpdates, isFix } from './appUpdate.svelte'
   import { channelSwitch } from './channelChange.svelte'
   import Icon from './icons/Icon.svelte'
   import Knot from './Knot.svelte'
   import { t } from './i18n.svelte'
 
-  const phone = !!window.AppInstaller
+  const phone = ANDROID
   let changes = $state(false)
 
   /** A new version (another middle number, or a beta) or a fix for this one,

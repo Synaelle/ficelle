@@ -29,6 +29,7 @@
   import type { SuggestEvent } from './extensions/wikiLink'
   import Toolbar from './Toolbar.svelte'
   import WikiSuggest from './WikiSuggest.svelte'
+  import { MOBILE } from '../lib/platform'
   import './editor.css'
 
   let {
@@ -49,7 +50,7 @@
   /** Idle time before the document is turned back into markdown. */
   const SERIALIZE_DELAY_MS = 250
   /** Phones and tablets, where the system spells and selects. */
-  const PHONE = /android|iphone|ipad/i.test(navigator.userAgent)
+  const PHONE = MOBILE
   /** Touch screens have the toolbar fixed over the bottom of the note: the
    * caret is kept above it, not just inside the window. */
   const TOUCH = window.matchMedia('(pointer: coarse)').matches

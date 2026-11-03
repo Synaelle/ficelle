@@ -7,6 +7,7 @@
      Switching without a backup is offered only when the notes are on the
      sync server and nothing waits to upload. -->
 <script lang="ts">
+  import { ANDROID } from './platform'
   import { onMount } from 'svelte'
   import { brand } from '@app/brand'
   import { appUpdates, thisVersion } from './appUpdate.svelte'
@@ -25,7 +26,7 @@
   let oneFile = $state(false)
   let left = $state(WAIT_SECONDS)
 
-  const android = !!window.AppInstaller
+  const android = ANDROID
   const safety = $derived(notesSynced())
   const step = $derived(channelSwitch.step)
   const back = $derived(step === 'backup')

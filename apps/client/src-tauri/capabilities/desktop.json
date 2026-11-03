@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop",
-  "description": "Desktop only: the global shortcut and the quick note window it opens.",
+  "description": "Desktop only: the global shortcut and the quick note window it opens, and Copy image.",
   "platforms": ["windows", "macOS", "linux"],
   "windows": ["main", "quick"],
   "permissions": [
@@ -10,6 +10,7 @@
     "core:window:allow-show",
     "core:window:allow-unminimize",
     "core:window:allow-set-focus",
-    "core:window:allow-close"
+    "core:window:allow-close",
+    "clipboard-manager:allow-write-image"
   ]
 }

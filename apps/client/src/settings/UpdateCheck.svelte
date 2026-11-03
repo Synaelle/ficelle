@@ -4,6 +4,7 @@
      others show nothing. The phone settings show the channel as rows of
      their own and leave it out here (channel={false}). -->
 <script lang="ts">
+  import { ANDROID } from '../lib/platform'
   import { channelSwitch } from '../lib/channelChange.svelte'
   import { overlay } from '../lib/overlay.svelte'
   import { appUpdates, channelChoice, updatesHere, waitingForStable } from '../lib/appUpdate.svelte'
@@ -12,7 +13,7 @@
 
   let { channel = true }: { channel?: boolean } = $props()
 
-  const phone = !!window.AppInstaller
+  const phone = ANDROID
   const CHANNELS = ['stable', 'beta'] as const
 
   /** Turning the security checks off waits a few seconds on a warning. */

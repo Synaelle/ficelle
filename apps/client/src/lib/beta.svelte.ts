@@ -3,6 +3,7 @@
 // once. Beta versions look like 0.4.0-beta.2. The browser dev server can
 // pretend with ?beta (and ?mac for the Mac text), builds for people cannot.
 
+import { MAC } from './platform'
 import { prefs } from './prefs.svelte'
 
 const pretend = import.meta.env.DEV ? new URLSearchParams(location.search) : null
@@ -17,11 +18,7 @@ export const isBeta =
   /-beta\.\d+$/.test(__APP_VERSION__) || !!pretend?.has('beta') || pretendRelease
 
 /** The Mac app, which is always a beta: macOS in the desktop shell, not an iPad. */
-export const isMacApp =
-  !!pretend?.has('mac') ||
-  ('__TAURI_INTERNALS__' in window &&
-    /Mac/.test(navigator.userAgent) &&
-    !/iPhone|iPad/.test(navigator.userAgent))
+export const isMacApp = MAC || !!pretend?.has('mac')
 
 /** Phones keep the feedback button in the notes list, not floating over it. */
 export const touchScreen = window.matchMedia('(pointer: coarse)').matches

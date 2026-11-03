@@ -3,12 +3,13 @@
      or without automatic updates. Nothing installs without "Update now";
      "Don't update" asks once more, then this version is not asked again. -->
 <script lang="ts">
+  import { ANDROID } from './platform'
   import { appUpdates } from './appUpdate.svelte'
   import { t } from './i18n.svelte'
   import { modal } from './modal'
   import { overlay } from './overlay.svelte'
 
-  const phone = !!window.AppInstaller
+  const phone = ANDROID
   let busy = $state(false)
 
   async function update() {

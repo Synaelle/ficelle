@@ -13,9 +13,6 @@
     "dialog:allow-save",
     "fs:allow-write-text-file",
     "clipboard-manager:allow-read-text",
-    "clipboard-manager:allow-write-text",
-    "clipboard-manager:allow-write-image",
-    "haptics:allow-impact-feedback",
-    "haptics:allow-selection-feedback"
+    "clipboard-manager:allow-write-text"
   ]
 }

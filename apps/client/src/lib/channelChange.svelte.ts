@@ -28,6 +28,7 @@ import { brand } from '@app/brand'
 import { appUpdates, isBigJump, thisVersion } from './appUpdate.svelte'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
 import { isMacApp, pretendRelease } from './beta.svelte'
+import { ANDROID } from './platform'
 import { prefs } from './prefs.svelte'
 import { sync, type SyncState } from './sync.svelte'
 import { isBackendError } from './workspace.svelte'
@@ -123,7 +124,7 @@ class ChannelSwitch {
         // not read: it waits, as without a way back
       }
     }
-    const way = leaveBeta({ installedBeta, mac: isMacApp, android: !!window.AppInstaller, found })
+    const way = leaveBeta({ installedBeta, mac: isMacApp, android: ANDROID, found })
     if (way === 'stable' || way === 'wait') return appUpdates.setChannel('stable')
     this.target = found
     this.show(way === 'schema' ? 'schema' : 'warn')
@@ -184,7 +185,7 @@ class ChannelSwitch {
   private async goBack() {
     if (pretendRelease) {
       appUpdates.setChannel('stable', false)
-      if (!window.AppInstaller) return void (this.step = 'testBuild')
+      if (!ANDROID) return void (this.step = 'testBuild')
       this.saved = `Download/${brand.displayName.replace(/ /g, '-')}-${PRETEND_STABLE.version}.apk`
       this.step = 'android'
       return
@@ -196,7 +197,7 @@ class ChannelSwitch {
       this.target = update
       // set without a look: a regular look would drop the older version
       appUpdates.setChannel('stable', false)
-      if (window.AppInstaller) {
+      if (ANDROID && window.AppInstaller) {
         this.saved = window.AppInstaller.saveToDownloads?.(update.version) ?? ''
         this.step = 'android'
         return

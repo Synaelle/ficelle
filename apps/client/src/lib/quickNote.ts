@@ -8,14 +8,14 @@ import { emitTo, listen } from '@tauri-apps/api/event'
 import { register, unregister } from '@tauri-apps/plugin-global-shortcut'
 import { backend } from './backend'
 import { t } from './i18n.svelte'
+import { DESKTOP } from './platform'
 
 /** Suggested when the shortcut is turned on. */
 export const DEFAULT_QUICK_SHORTCUT = 'Mod+Alt+N'
 /** Sent to the main window after a quick note is saved. */
 const SAVED_EVENT = 'quick-note-saved'
 
-export const quickNoteSupported =
-  backend.native && !/android|iphone|ipad/i.test(navigator.userAgent)
+export const quickNoteSupported = DESKTOP && backend.native
 
 /** The binding of a key press for a global shortcut, from the physical key. */
 export function globalBindingOf(event: KeyboardEvent): string | null {

@@ -10,6 +10,8 @@ declare const __APP_PROTOCOL__: number
 declare const __APP_PORTABLE__: boolean
 /** Temporary issue reports outside releases. */
 declare const __APP_DEV_REPORTS__: boolean
+/** The system the build is for, see lib/platform.ts. */
+declare const __APP_PLATFORM__: 'windows' | 'darwin' | 'linux' | 'android' | 'ios' | 'web'
 
 declare module '*.toml' {
   /** Flat "section.key" strings, see vite/plugins.ts. */

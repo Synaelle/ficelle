@@ -15,6 +15,7 @@
 
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
 import { isMacApp, pretendRelease, resetBetaWelcome } from './beta.svelte'
+import { ANDROID } from './platform'
 import { prefs } from './prefs.svelte'
 import { isBackendError } from './workspace.svelte'
 
@@ -185,7 +186,7 @@ class AppUpdates {
 
   async install() {
     if (!this.ready) return
-    if (window.AppInstaller) {
+    if (ANDROID && window.AppInstaller) {
       if (!window.AppInstaller.install()) this.error = 'notFound'
       return
     }

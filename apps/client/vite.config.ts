@@ -32,6 +32,8 @@ export default defineConfig({
     __APP_PORTABLE__: JSON.stringify(!!process.env.APP_PORTABLE),
     // temporary issue reports outside releases
     __APP_DEV_REPORTS__: JSON.stringify(!isRelease()),
+    // the system the tauri cli builds for, "web" in the browser and tests
+    __APP_PLATFORM__: JSON.stringify(process.env.TAURI_ENV_PLATFORM ?? 'web'),
   },
   clearScreen: false,
   server: {

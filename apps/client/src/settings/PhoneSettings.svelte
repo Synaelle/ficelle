@@ -25,6 +25,7 @@
   import ContactLine from './ContactLine.svelte'
   import CreditsList from './CreditsList.svelte'
   import { backend } from '../lib/backend'
+  import { ANDROID } from '../lib/platform'
   import { backups } from '../lib/backups.svelte'
   import { UI_SIZES } from '../lib/uiSize'
   import { workspace } from '../lib/workspace.svelte'
@@ -237,8 +238,8 @@
     },
   ])
 
-  // the Android app, not a narrow window: only it has the system bridge
-  const android = !!window.AppSystem
+  // the Android app, not a narrow window
+  const android = ANDROID
   const noteRows = $derived<Row[]>([
     {
       icon: 'backup',

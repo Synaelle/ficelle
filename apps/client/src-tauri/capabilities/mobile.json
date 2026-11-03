@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Phones only: a short vibration under touch gestures.",
+  "platforms": ["android", "iOS"],
+  "windows": ["main"],
+  "permissions": ["haptics:allow-impact-feedback", "haptics:allow-selection-feedback"]
+}

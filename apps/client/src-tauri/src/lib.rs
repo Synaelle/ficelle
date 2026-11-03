@@ -36,6 +36,8 @@ pub fn run() {
     let builder = builder
         .plugin(tauri_plugin_biometric::init())
         .plugin(android_keystore::pin_key_plugin());
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_haptics::init());
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
     #[cfg(desktop)]
@@ -44,7 +46,6 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_haptics::init())
         .setup(|app| {
             #[cfg(target_os = "android")]
             android_keystore::init(app.handle(), app.path().app_data_dir()?.join("keys"));
