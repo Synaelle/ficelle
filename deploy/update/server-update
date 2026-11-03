@@ -55,14 +55,15 @@ if grep -qx "$new" updates/refused 2>/dev/null; then
 fi
 
 # an image the project's workflow did not build and sign is not run, even
-# from the right registry
+# from the right registry. It is not added to the refused ones: a signature
+# can come a little after the image, or the check fail on the network, and
+# the next night tries again
 digest=$(docker image inspect -f '{{index .RepoDigests 0}}' "$image" 2>/dev/null || true)
 if command -v cosign > /dev/null; then
   if ! cosign verify --certificate-identity-regexp "^${signer}@" \
     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
     "$digest" > /dev/null 2>&1; then
-    log "$(version "$new") is not signed by $signer, not updating"
-    echo "$new" >> updates/refused
+    log "$(version "$new") is not signed by $signer, not updating tonight"
     exit 1
   fi
 else
