@@ -177,12 +177,15 @@ const toJson = (value) => JSON.stringify(value, null, 2) + '\n'
 const tauriConf = 'apps/client/src-tauri/tauri.conf.json'
 
 /** The image tag compose files follow: the major version, or before 1.0 the
- * minor one, which is where breaking changes go until then. */
+ * minor one, which is where breaking changes go until then. A beta before
+ * 1.0 keeps the stable series it leads away from: its own (0.5) has no image
+ * until the stable 0.5.0, and people copy these files from main. */
 function followedTag() {
   const cargo = readFileSync(join(root, 'Cargo.toml'), 'utf8')
-  const version = cargo.match(/\[workspace\.package\][^[]*?\nversion = "(\d+)\.(\d+)\./)
+  const version = cargo.match(/\[workspace\.package\][^[]*?\nversion = "(\d+)\.(\d+)\.\d+(-beta)?/)
   if (!version) throw new Error('workspace version not found in Cargo.toml')
-  return version[1] === '0' ? `0.${version[2]}` : version[1]
+  if (version[1] !== '0') return version[1]
+  return `0.${Number(version[2]) - (version[3] ? 1 : 0)}`
 }
 
 /**
