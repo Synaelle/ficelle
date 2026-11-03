@@ -9,6 +9,13 @@ use tauri::AppHandle;
 
 use crate::error::{CommandError, CommandResult};
 
+/// A window's title with the version after the name, "Ficelle 0.5.0-beta.2",
+/// so a screenshot says which build it was.
+#[cfg(desktop)]
+pub fn titled(name: &str) -> String {
+    format!("{name} {}", app_brand::VERSION)
+}
+
 /// Opens the quick note window, or brings it back when it is already open,
 /// in front and ready to type. A new window starts hidden and shows once its
 /// page is drawn ([`quick_window_ready`]), not as an empty frame first.
@@ -18,6 +25,7 @@ use crate::error::{CommandError, CommandResult};
 pub async fn quick_window_open(app: AppHandle, title: String) -> CommandResult<()> {
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
+    let title = titled(&title);
     let failed = |e: tauri::Error| CommandError::new("unknown", e.to_string());
     if let Some(open) = app.get_webview_window("quick") {
         open.unminimize().map_err(failed)?;
@@ -46,6 +54,7 @@ pub async fn quick_window_open(app: AppHandle, title: String) -> CommandResult<(
 pub async fn quick_window_ready(app: AppHandle, title: String) -> CommandResult<()> {
     use tauri::Manager;
 
+    let title = titled(&title);
     match app.get_webview_window("quick") {
         Some(window) => show(&window, &title),
         None => Ok(()),

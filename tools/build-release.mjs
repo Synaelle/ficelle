@@ -43,6 +43,13 @@ const overlays = ['src-tauri/tauri.release.conf.json']
 if (portable) overlays.push('src-tauri/tauri.portable.conf.json')
 // a preview's yellow knot, so it is never taken for the release
 if (preview) overlays.push('src-tauri/tauri.preview.conf.json')
+// a beta's knot carries its ribbon (tools/beta-icons.mjs), so a beta is
+// never taken for a stable release either
+const workspaceVersion = readFileSync(join(root, 'Cargo.toml'), 'utf8').match(
+  /\[workspace\.package\][^[]*?\nversion = "([^"]+)"/,
+)?.[1]
+if (!preview && /-beta\.\d+$/.test(workspaceVersion ?? ''))
+  overlays.push('src-tauri/tauri.beta.conf.json')
 if (unsigned) {
   // a file, not the JSON inline: the Windows shell drops its quotes
   const file = join(root, 'target', 'unsigned.conf.json')

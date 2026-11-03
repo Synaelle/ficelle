@@ -72,6 +72,13 @@ pub fn run() {
             // after manage: the thread reads the state from the handle
             app.state::<AppState>().sync.start(app.handle().clone());
             portable::open_main(app.handle())?;
+            // the version after the name in the title bar
+            #[cfg(desktop)]
+            if let Some(main) = app.get_webview_window("main")
+                && let Ok(name) = main.title()
+            {
+                let _ = main.set_title(&commands::quick::titled(&name));
+            }
             Ok(())
         })
         .register_uri_scheme_protocol(protocol::SCHEME, protocol::handle)
