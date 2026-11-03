@@ -4,17 +4,17 @@ Ficelle has no analytics, no tracking and no crash reporting. Your notes stay on
 
 ## What the apps send
 
-| What             | Where                                                           | When                                                             |
-| ---------------- | --------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Update check     | GitHub, the latest release's `latest.json`                      | Release builds, when the notes are unlocked and once a day after |
-| Update download  | GitHub, the release files                                       | When a newer version is installed                                |
-| Fonts            | ficelle.synaelle.com, or jsDelivr if it fails                   | Once per font, when you choose one the app does not carry        |
-| Feedback         | ficelle.synaelle.com, or your sync server if its admin chose so | Only when you press Send                                         |
-| Feedback answers | The server that received your feedback                          | When you open Settings, Feedback, after sending one              |
+| What             | Where                                                           | When                                                                                                    |
+| ---------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Update check     | GitHub, the latest release's `latest.json`                      | Release builds, when the notes are unlocked, every few hours, and when the app comes back after a while |
+| Update download  | GitHub, the release files                                       | When a newer version is installed                                                                       |
+| Fonts            | ficelle.synaelle.com, or jsDelivr if it fails                   | Once per font, when you choose one the app does not carry                                               |
+| Feedback         | ficelle.synaelle.com, or your sync server if its admin chose so | Only when you press Send                                                                                |
+| Feedback answers | The server that received your feedback                          | When you open Settings, Feedback, after sending one                                                     |
 
 These requests carry no account, no note and no device details. The app names itself as `ficelle`, without a version, except feedback which carries the version. The sites still see your network address, like any visit.
 
-With automatic updates off, the app still reads `latest.json` once a day, only to tell you about a security fix. It downloads nothing without your yes.
+With automatic updates off, the app still reads `latest.json`, only to tell you about a security fix, unless you turn that off too. It downloads nothing without your yes.
 
 ## Feedback
 
