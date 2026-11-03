@@ -107,6 +107,18 @@ pub async fn backups_get(state: State<'_, AppState>) -> CommandResult<BackupsVie
     view(&state)
 }
 
+/// Whether the target already holds a backup, so the setup opens it instead
+/// of starting a new one: a new or reset device finds its old backups.
+/// Nothing is written.
+#[tauri::command]
+pub async fn backups_found(app: AppHandle, target: TargetConfig) -> CommandResult<bool> {
+    blocking(app, move |_| {
+        let opened = target.open()?;
+        Ok(opened.get("config").is_ok())
+    })
+    .await
+}
+
 /// Sets backups up: a new repository at the target (`create`), or one
 /// there already, opened with its password. A secret left blank keeps the
 /// one set before. Daily, 7 daily, 4 weekly, 12 monthly unless set before.

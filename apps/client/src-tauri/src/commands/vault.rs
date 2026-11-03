@@ -401,6 +401,21 @@ pub async fn vault_change_password(
 
 /// Makes a new recovery key for the vault, replacing any earlier one, and
 /// returns it to show once. `password` when the vault has one.
+/// Whether `password` opens these notes, nothing else done: a backup can
+/// then use the same password, typed once and checked here.
+#[tauri::command]
+pub async fn vault_check_password(
+    state: State<'_, AppState>,
+    password: String,
+) -> CommandResult<bool> {
+    let dir = state.dir.clone();
+    blocking(move || {
+        let vault = Vault::open(&dir)?;
+        Ok(!password.is_empty() && vault.key_with_password(&password).is_ok())
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn vault_create_recovery(
     app: AppHandle,

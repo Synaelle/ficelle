@@ -23,8 +23,23 @@ pub fn is_document(path: &str) -> bool {
 /// further than what the person chose.
 pub fn picked_path<R: Runtime>(app: &AppHandle<R>, path: &str) -> CommandResult<PathBuf> {
     let scope = app.try_fs_scope();
-    checked(path, |p| scope.as_ref().is_some_and(|s| s.is_allowed(p)))
-        .ok_or_else(|| CommandError::new("invalid", "not a picked file or folder"))
+    checked(path, |p| {
+        scope.as_ref().is_some_and(|s| s.is_allowed(p)) || test_files(p)
+    })
+    .ok_or_else(|| CommandError::new("invalid", "not a picked file or folder"))
+}
+
+/// End to end tests answer the pickers through the page (lib/pick.ts), so no
+/// dialog adds their files to the scope: in debug builds only, a folder the
+/// test names in `APP_TEST_FILES_DIR` counts as picked. Release builds have
+/// no such door.
+fn test_files(path: &Path) -> bool {
+    #[cfg(debug_assertions)]
+    if let Some(dir) = std::env::var_os("APP_TEST_FILES_DIR") {
+        return !dir.is_empty() && path.starts_with(dir);
+    }
+    let _ = path;
+    false
 }
 
 /// [`picked_path`]'s rules, `picked` saying whether the dialogs allowed it.

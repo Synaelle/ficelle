@@ -11,16 +11,30 @@
 //! in `cache/updates/` for `AppInstaller` (MainActivity.kt) to hand to the
 //! system installer, which asks the person.
 //!
-//! The portable Windows exe (`crate::portable`) only reads the list's
-//! version and offers the release page, where the new exe is.
+//! The portable Windows exe (`crate::portable`) and the Mac app only read
+//! the list's version and offer that version's release page, where the new
+//! file is.
+//!
+//! Two lists: Stable's (`appUpdatesUrl`, GitHub's newest release, never a
+//! pre-release) and Beta's (`appBetaUpdatesUrl`, on the release tagged
+//! `beta`, which holds the newest of the betas and the stable versions). An
+//! older version is only offered when asked for (`allow_older`): a beta
+//! going back to Stable on purpose, never on a regular look. Going back also
+//! needs the stable version to read the same database: the list's `schema`
+//! (the number of database steps it knows, `devtool schema`) must equal this
+//! build's, a list without one counts as different.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::{CommandError, CommandResult};
 
 /// A newer version, downloaded and ready to install.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "separate facts the ui reads, not a state"
+)]
 pub struct AppUpdate {
     version: String,
     notes: String,
@@ -30,6 +44,82 @@ pub struct AppUpdate {
     /// It fixes a critical security problem: the app asks in the middle of
     /// the screen instead of a card in the corner. It never installs alone.
     critical: bool,
+    /// Older than this version: only found when asked for.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    older: bool,
+    /// The version reads this build's database: the same schema steps.
+    same_schema: bool,
+    /// This build can install another version over itself: the installer,
+    /// the AppImage, the APK (through an uninstall on Android).
+    go_back: bool,
+}
+
+impl AppUpdate {
+    fn new(latest: &list::Latest, page: Option<String>) -> Self {
+        Self {
+            version: list::clean(&latest.version).to_owned(),
+            notes: latest.notes.clone(),
+            page,
+            critical: latest.critical,
+            older: list::older(&latest.version, app_brand::VERSION),
+            same_schema: list::same_schema(latest.schema),
+            go_back: can_go_back(),
+        }
+    }
+}
+
+/// See [`AppUpdate::go_back`].
+fn can_go_back() -> bool {
+    if page_only() {
+        return false;
+    }
+    cfg!(any(windows, target_os = "android"))
+        || (cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_some())
+}
+
+/// Which list the app follows, chosen in About.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Channel {
+    /// Tested versions, and small fixes in between.
+    #[default]
+    Stable,
+    /// Early versions of the next release too.
+    Beta,
+}
+
+impl Channel {
+    /// The channel's `latest.json`.
+    fn url(self) -> &'static str {
+        match self {
+            Self::Stable => app_brand::APP_UPDATES_URL,
+            Self::Beta => app_brand::APP_BETA_UPDATES_URL,
+        }
+    }
+}
+
+/// This build offers a release page instead of installing: the portable
+/// exe, and the Mac app, which has no installer of its own.
+fn page_only() -> bool {
+    crate::portable::PORTABLE || cfg!(target_os = "macos")
+}
+
+/// The repository's releases, `https://github.com/<owner>/<repo>/releases`,
+/// from the address of an update list.
+fn releases_in(url: &str) -> &str {
+    url.find("/releases/")
+        .map_or(url, |at| &url[..at + "/releases".len()])
+}
+
+/// The GitHub page of `version`'s release, in the repository the update
+/// lists are in. `version` is one `newer` accepted: digits, dots and a
+/// beta's number, nothing that could change the address.
+fn release_page(version: &str) -> String {
+    format!(
+        "{}/tag/v{}",
+        releases_in(app_brand::APP_UPDATES_URL),
+        list::clean(version)
+    )
 }
 
 /// This build updates itself: a numbered version and an update key.
@@ -53,7 +143,7 @@ mod list {
     use minisign_verify::{PublicKey, Signature};
     use serde::Deserialize;
 
-    use super::failed;
+    use super::{Channel, failed};
     use crate::error::CommandResult;
 
     const MAX_LIST: u64 = 1024 * 1024;
@@ -72,6 +162,10 @@ mod list {
         /// The portable exe only reads the version.
         #[serde(default)]
         pub platforms: HashMap<String, Platform>,
+        /// How many database schema steps the version knows, `None` in
+        /// lists made before it was written.
+        #[serde(default)]
+        pub schema: Option<usize>,
     }
 
     /// One platform's file.
@@ -82,14 +176,32 @@ mod list {
         pub url: String,
     }
 
-    /// `major.minor.micro`, a leading `v` allowed.
-    fn parts(version: &str) -> Option<(u64, u64, u64)> {
+    /// `major.minor.micro` and a beta's number, a leading `v` allowed.
+    fn parts(version: &str) -> Option<(u64, u64, u64, u64)> {
         app_protocol::releases::version_parts(version.trim().trim_start_matches('v'))
     }
 
     /// The list's version is newer than `current`.
     pub fn newer(latest: &str, current: &str) -> bool {
         matches!((parts(latest), parts(current)), (Some(l), Some(c)) if l > c)
+    }
+
+    /// The list's version is older than `current`.
+    pub fn older(latest: &str, current: &str) -> bool {
+        matches!((parts(latest), parts(current)), (Some(l), Some(c)) if l < c)
+    }
+
+    /// A version that reads this build's database: the same schema steps.
+    /// An older app refuses a database a newer schema wrote.
+    pub fn same_schema(schema: Option<usize>) -> bool {
+        schema == Some(app_core::db::schema_version())
+    }
+
+    /// The list's version is offered: newer, or, asked for, older with the
+    /// same schema. The same version never is.
+    pub fn offered(latest: &Latest, current: &str, allow_older: bool) -> bool {
+        newer(&latest.version, current)
+            || (allow_older && older(&latest.version, current) && same_schema(latest.schema))
     }
 
     /// `latest.json`'s key for this device: `windows-x86_64`,
@@ -126,9 +238,9 @@ mod list {
         Ok(bytes)
     }
 
-    /// The list at this build's own address.
-    pub fn latest() -> CommandResult<Latest> {
-        serde_json::from_slice(&get(app_brand::APP_UPDATES_URL, MAX_LIST)?)
+    /// The channel's list, at this build's own address.
+    pub fn latest(channel: Channel) -> CommandResult<Latest> {
+        serde_json::from_slice(&get(channel.url(), MAX_LIST)?)
             .map_err(|e| failed("update", format!("latest.json: {e}")))
     }
 
@@ -194,15 +306,15 @@ mod platform {
 
     use tauri::{AppHandle, Manager};
 
-    use super::list::{clean, download, latest, newer, platform_key};
-    use super::{AppUpdate, failed};
+    use super::list::{Latest, download, latest, offered, platform_key};
+    use super::{AppUpdate, Channel, failed};
     use crate::error::CommandResult;
 
     /// A checked update.
     struct Ready {
-        version: String,
-        notes: String,
-        critical: bool,
+        /// The list it came from: another channel chosen since looks again.
+        channel: Channel,
+        info: AppUpdate,
         bytes: Vec<u8>,
     }
 
@@ -210,34 +322,37 @@ mod platform {
     #[derive(Default)]
     pub struct Pending(Mutex<Option<Ready>>);
 
-    fn info(ready: &Ready) -> AppUpdate {
-        AppUpdate {
-            version: ready.version.clone(),
-            notes: ready.notes.clone(),
-            page: None,
-            critical: ready.critical,
-        }
-    }
-
-    pub fn check(app: &AppHandle) -> CommandResult<Option<AppUpdate>> {
+    pub fn check(
+        app: &AppHandle,
+        channel: Channel,
+        allow_older: bool,
+    ) -> CommandResult<Option<AppUpdate>> {
         let pending = app.state::<Pending>();
-        if let Some(ready) = pending.0.lock().map_err(|e| failed("unknown", e))?.as_ref() {
-            return Ok(Some(info(ready)));
+        {
+            let mut waiting = pending.0.lock().map_err(|e| failed("unknown", e))?;
+            match waiting.as_ref() {
+                // an older one waits only for the look that asked for it
+                Some(ready) if ready.channel == channel && (allow_older || !ready.info.older) => {
+                    return Ok(Some(ready.info.clone()));
+                }
+                // a beta waiting when Stable is chosen is never installed
+                Some(_) => *waiting = None,
+                None => {}
+            }
         }
-        let list = latest()?;
-        if !newer(&list.version, app_brand::VERSION) {
+        let list: Latest = latest(channel)?;
+        if !offered(&list, app_brand::VERSION, allow_older) {
             return Ok(None);
         }
         let Some(file) = list.platforms.get(&platform_key()) else {
             return Ok(None);
         };
         let ready = Ready {
-            version: clean(&list.version).to_owned(),
-            notes: list.notes.clone(),
-            critical: list.critical,
+            channel,
+            info: AppUpdate::new(&list, None),
             bytes: download(file, &list.version)?,
         };
-        let found = info(&ready);
+        let found = ready.info.clone();
         *pending.0.lock().map_err(|e| failed("unknown", e))? = Some(ready);
         Ok(Some(found))
     }
@@ -264,7 +379,11 @@ mod platform {
 
         let dir = std::env::temp_dir().join(format!("{}-update", app_brand::SLUG));
         std::fs::create_dir_all(&dir).map_err(|e| failed("file", e))?;
-        let setup = dir.join(format!("{}_{}_setup.exe", app_brand::SLUG, ready.version));
+        let setup = dir.join(format!(
+            "{}_{}_setup.exe",
+            app_brand::SLUG,
+            ready.info.version
+        ));
         std::fs::write(&setup, &ready.bytes).map_err(|e| failed("file", e))?;
         // read back right before it starts: the file checked is the one run
         let written = std::fs::read(&setup).map_err(|e| failed("file", e))?;
@@ -347,8 +466,8 @@ mod platform {
 
     use tauri::{AppHandle, Manager};
 
-    use super::list::{clean, download, latest, newer, platform_key};
-    use super::{AppUpdate, failed};
+    use super::list::{clean, download, latest, offered, platform_key};
+    use super::{AppUpdate, Channel, failed};
     use crate::error::CommandResult;
 
     /// `cache/updates`, which `AppInstaller` reads.
@@ -362,10 +481,16 @@ mod platform {
         Ok(dir)
     }
 
-    pub fn check(app: &AppHandle) -> CommandResult<Option<AppUpdate>> {
+    /// With `allow_older`, an older APK is kept too, for `Installer` to copy
+    /// to Downloads: Android installs it only after an uninstall.
+    pub fn check(
+        app: &AppHandle,
+        channel: Channel,
+        allow_older: bool,
+    ) -> CommandResult<Option<AppUpdate>> {
         let dir = folder(app)?;
-        let latest = latest()?;
-        let current = newer(&latest.version, app_brand::VERSION);
+        let latest = latest(channel)?;
+        let current = offered(&latest, app_brand::VERSION, allow_older);
         let name = format!("{}-{}.apk", app_brand::SLUG, clean(&latest.version));
         // only the newest file stays, an installed or older one goes
         for entry in fs::read_dir(&dir).map_err(|e| failed("file", e))?.flatten() {
@@ -376,12 +501,7 @@ mod platform {
         if !current {
             return Ok(None);
         }
-        let found = AppUpdate {
-            version: clean(&latest.version).to_owned(),
-            notes: latest.notes.clone(),
-            page: None,
-            critical: latest.critical,
-        };
+        let found = AppUpdate::new(&latest, None);
         if dir.join(&name).is_file() {
             return Ok(Some(found));
         }
@@ -398,106 +518,107 @@ mod platform {
     }
 }
 
-#[cfg(windows)]
-mod portable {
-    //! The portable exe: `latest.json` read for its version only, nothing
-    //! downloaded, the release page has the new exe.
+#[cfg(any(windows, target_os = "macos"))]
+mod page {
+    //! The portable exe and the Mac app: `latest.json` read for its version
+    //! only, nothing downloaded, the version's release page has the file.
 
-    use super::list::{clean, latest, newer};
-    use super::{AppUpdate, failed};
+    use std::sync::Mutex;
+
+    use super::list::{latest, newer};
+    use super::{AppUpdate, Channel, failed, release_page, releases_in};
     use crate::error::CommandResult;
 
-    /// The release page the list belongs to, `.../releases/latest`.
-    fn page() -> String {
-        let url = app_brand::APP_UPDATES_URL;
-        url.find("/download/")
-            .map_or(url, |end| &url[..end])
-            .to_owned()
+    /// The version the last look found, whose page opens.
+    static FOUND: Mutex<Option<String>> = Mutex::new(None);
+
+    pub fn check(channel: Channel) -> CommandResult<Option<AppUpdate>> {
+        let latest = latest(channel)?;
+        let found = newer(&latest.version, app_brand::VERSION)
+            .then(|| AppUpdate::new(&latest, Some(release_page(&latest.version))));
+        *FOUND.lock().map_err(|e| failed("unknown", e))? =
+            found.as_ref().map(|update| update.version.clone());
+        Ok(found)
     }
 
-    pub fn check() -> CommandResult<Option<AppUpdate>> {
-        let latest = latest()?;
-        Ok(
-            newer(&latest.version, app_brand::VERSION).then(|| AppUpdate {
-                version: clean(&latest.version).to_owned(),
-                notes: latest.notes,
-                page: Some(page()),
-                critical: latest.critical,
-            }),
-        )
-    }
-
-    /// Opens the release page in the browser. The address is this build's
-    /// own, never one read from the list.
+    /// Opens the found version's release page in the browser, or the list
+    /// of releases when none was found. The address is this build's own,
+    /// only the checked version comes from the list.
     pub fn open() -> CommandResult<()> {
-        std::process::Command::new("explorer")
-            .arg(page())
+        let found = FOUND.lock().map_err(|e| failed("unknown", e))?.clone();
+        let page = found.map_or_else(
+            || releases_in(app_brand::APP_UPDATES_URL).to_owned(),
+            |version| release_page(&version),
+        );
+        let opener = if cfg!(windows) { "explorer" } else { "open" };
+        std::process::Command::new(opener)
+            .arg(page)
             .spawn()
             .map(drop)
             .map_err(|e| failed("unknown", e))
     }
-
-    #[cfg(test)]
-    mod tests {
-        #[test]
-        fn the_page_is_the_release_the_list_belongs_to() {
-            assert!(
-                super::page().ends_with("/releases/latest"),
-                "{}",
-                super::page()
-            );
-        }
-    }
 }
 
 /// Looks for a newer version and downloads it. `None`: up to date, or this
-/// build does not update itself.
+/// build does not update itself. `allow_older`: a beta going back to Stable,
+/// an older version with the same schema downloads too (never on the
+/// portable exe or the Mac, which only read the version).
 #[tauri::command]
-pub async fn app_update_check(app: tauri::AppHandle) -> CommandResult<Option<AppUpdate>> {
+pub async fn app_update_check(
+    app: tauri::AppHandle,
+    channel: Channel,
+    allow_older: Option<bool>,
+) -> CommandResult<Option<AppUpdate>> {
     if !enabled() {
         return Ok(None);
     }
-    #[cfg(windows)]
-    if crate::portable::PORTABLE {
-        return tauri::async_runtime::spawn_blocking(portable::check)
+    let allow_older = allow_older.unwrap_or(false);
+    #[cfg(any(windows, target_os = "macos"))]
+    if page_only() {
+        return tauri::async_runtime::spawn_blocking(move || page::check(channel))
             .await
             .map_err(|e| failed("unknown", e))?;
     }
     #[cfg(any(desktop, target_os = "android"))]
-    return tauri::async_runtime::spawn_blocking(move || platform::check(&app))
-        .await
-        .map_err(|e| failed("unknown", e))?;
+    return tauri::async_runtime::spawn_blocking(move || {
+        platform::check(&app, channel, allow_older)
+    })
+    .await
+    .map_err(|e| failed("unknown", e))?;
     #[cfg(target_os = "ios")]
     {
-        let _ = app;
+        let _ = (app, channel, allow_older);
         Ok(None)
     }
 }
 
 /// The newest version on the release list, downloading nothing. With
 /// automatic updates off, the app looks only to tell of a critical security
-/// fix; the person chooses whether to update.
+/// fix; the person chooses whether to update. `allow_older`: an older
+/// version is returned too, schema or not, for a beta to tell whether it can
+/// go back to Stable (`older`, `sameSchema`, `goBack`).
 #[tauri::command]
-pub async fn app_update_latest() -> CommandResult<Option<AppUpdate>> {
+pub async fn app_update_latest(
+    channel: Channel,
+    allow_older: Option<bool>,
+) -> CommandResult<Option<AppUpdate>> {
     if !enabled() {
         return Ok(None);
     }
-    tauri::async_runtime::spawn_blocking(|| {
-        let latest = list::latest()?;
-        Ok(
-            list::newer(&latest.version, app_brand::VERSION).then(|| AppUpdate {
-                version: list::clean(&latest.version).to_owned(),
-                notes: latest.notes,
-                page: None,
-                critical: latest.critical,
-            }),
-        )
+    let allow_older = allow_older.unwrap_or(false);
+    tauri::async_runtime::spawn_blocking(move || {
+        let latest = list::latest(channel)?;
+        let shown = list::newer(&latest.version, app_brand::VERSION)
+            || (allow_older && list::older(&latest.version, app_brand::VERSION));
+        Ok(shown
+            .then(|| AppUpdate::new(&latest, page_only().then(|| release_page(&latest.version)))))
     })
     .await
     .map_err(|e| failed("unknown", e))?
 }
 
-/// Desktop: installs the downloaded update and starts the app again.
+/// Desktop: installs the downloaded update and starts the app again. The
+/// portable exe and the Mac app open the release page instead.
 #[tauri::command]
 #[cfg_attr(
     desktop,
@@ -507,9 +628,9 @@ pub async fn app_update_latest() -> CommandResult<Option<AppUpdate>> {
     )
 )]
 pub fn app_update_install(app: tauri::AppHandle) -> CommandResult<()> {
-    #[cfg(windows)]
-    if crate::portable::PORTABLE {
-        return portable::open();
+    #[cfg(any(windows, target_os = "macos"))]
+    if page_only() {
+        return page::open();
     }
     #[cfg(desktop)]
     return platform::install(&app);
@@ -528,7 +649,97 @@ pub use platform::Pending;
 
 #[cfg(test)]
 mod tests {
-    use super::list::{Latest, clean, newer, signed_for, verify};
+    use super::list::{Latest, clean, newer, offered, older, same_schema, signed_for, verify};
+    use super::{Channel, release_page, releases_in};
+
+    fn list(version: &str, schema: Option<usize>) -> Latest {
+        Latest {
+            version: version.to_owned(),
+            notes: String::new(),
+            critical: false,
+            platforms: std::collections::HashMap::new(),
+            schema,
+        }
+    }
+
+    #[test]
+    fn reads_the_schema() {
+        let with: Latest =
+            serde_json::from_str(r#"{"version":"0.4.1","schema":18,"platforms":{}}"#).unwrap();
+        assert_eq!(with.schema, Some(18));
+        let without: Latest = serde_json::from_str(r#"{"version":"0.3.2"}"#).unwrap();
+        assert_eq!(without.schema, None);
+    }
+
+    #[test]
+    fn same_schema_needs_the_same_steps() {
+        let here = app_core::db::schema_version();
+        assert!(same_schema(Some(here)));
+        assert!(!same_schema(Some(here - 1)));
+        assert!(!same_schema(Some(here + 1)));
+        // a list made before the field was written
+        assert!(!same_schema(None));
+    }
+
+    #[test]
+    fn an_older_version_only_when_asked() {
+        let here = Some(app_core::db::schema_version());
+        assert!(older("0.4.1", "0.5.0-beta.2"));
+        assert!(!older("0.5.0", "0.5.0-beta.2"));
+        assert!(!older("0.4.1", "0.4.1"));
+        assert!(!older("latest", "0.4.1"));
+        // newer is always offered, asked or not
+        assert!(offered(&list("0.5.0", None), "0.5.0-beta.2", false));
+        assert!(offered(&list("0.5.0", None), "0.5.0-beta.2", true));
+        // older only when asked, and only with the same schema
+        assert!(!offered(&list("0.4.1", here), "0.5.0-beta.2", false));
+        assert!(offered(&list("0.4.1", here), "0.5.0-beta.2", true));
+        assert!(!offered(&list("0.4.1", Some(1)), "0.5.0-beta.2", true));
+        assert!(!offered(&list("0.4.1", None), "0.5.0-beta.2", true));
+        // the same version never
+        assert!(!offered(&list("0.4.1", here), "0.4.1", true));
+    }
+
+    #[test]
+    fn the_channel_comes_from_the_ui() {
+        let read = |text: &str| serde_json::from_str::<Channel>(text).ok();
+        assert_eq!(read(r#""stable""#), Some(Channel::Stable));
+        assert_eq!(read(r#""beta""#), Some(Channel::Beta));
+        assert_eq!(read(r#""nightly""#), None);
+        assert_eq!(Channel::default(), Channel::Stable);
+    }
+
+    #[test]
+    fn each_channel_has_its_list() {
+        assert_eq!(Channel::Stable.url(), app_brand::APP_UPDATES_URL);
+        assert_eq!(Channel::Beta.url(), app_brand::APP_BETA_UPDATES_URL);
+        assert_ne!(Channel::Stable.url(), Channel::Beta.url());
+        // both lists live in the same repository, whose pages the app opens
+        assert_eq!(
+            releases_in(Channel::Stable.url()),
+            releases_in(Channel::Beta.url())
+        );
+    }
+
+    #[test]
+    fn the_page_is_the_versions_release() {
+        assert_eq!(
+            releases_in("https://github.com/owner/repo/releases/latest/download/latest.json"),
+            "https://github.com/owner/repo/releases"
+        );
+        assert_eq!(
+            releases_in("https://github.com/owner/repo/releases/download/beta/latest.json"),
+            "https://github.com/owner/repo/releases"
+        );
+        let releases = releases_in(app_brand::APP_UPDATES_URL);
+        assert!(releases.starts_with("https://github.com/"), "{releases}");
+        assert!(releases.ends_with("/releases"), "{releases}");
+        assert_eq!(release_page("0.4.1"), format!("{releases}/tag/v0.4.1"));
+        assert_eq!(
+            release_page("v0.5.0-beta.2"),
+            format!("{releases}/tag/v0.5.0-beta.2")
+        );
+    }
 
     #[test]
     fn reads_tauris_list() {
@@ -559,6 +770,11 @@ mod tests {
         assert!(!newer("0.1.0", "0.1.1"));
         assert!(!newer("0.1.1", "preview-abc"));
         assert!(!newer("latest", "0.1.0"));
+        // a beta reaches its release, and a release never goes back to a beta
+        assert!(newer("0.4.0-beta.2", "0.4.0-beta.1"));
+        assert!(newer("0.4.0", "0.4.0-beta.3"));
+        assert!(newer("0.4.0-beta.1", "0.3.3"));
+        assert!(!newer("0.4.0-beta.3", "0.4.0"));
     }
 
     // signed with a throwaway key by `tauri signer sign`
@@ -610,7 +826,7 @@ mod tests {
     #[test]
     #[ignore = "downloads the public release"]
     fn the_public_release_checks_out() {
-        let latest = super::list::latest().unwrap();
+        let latest = super::list::latest(super::Channel::Stable).unwrap();
         let file = &latest.platforms[&super::list::platform_key()];
         let bytes = super::list::download(file, &latest.version).unwrap();
         assert!(bytes.starts_with(b"MZ"), "a Windows program");

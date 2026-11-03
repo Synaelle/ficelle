@@ -190,4 +190,82 @@ class Installer(private val activity: Activity) {
     activity.runOnUiThread { activity.startActivity(intent) }
     return true
   }
+
+  /**
+   * Going back from a beta to Stable: Android installs no older version over
+   * a newer one, so the checked stable APK (`version`, kept in cache/updates
+   * by commands/updates.rs) is copied to the shared Downloads, where it stays
+   * once this app is uninstalled. Returns where it went (`Download/Ficelle-0.4.1.apk`),
+   * empty when it could not: before Android 10 the shared Downloads needs a
+   * permission the app does not ask for.
+   */
+  @JavascriptInterface
+  fun saveToDownloads(version: String): String {
+    if (Build.VERSION.SDK_INT < 29) return ""
+    if (!Regex("""^[0-9]+\.[0-9]+\.[0-9]+$""").matches(version)) return ""
+    val apk = File(activity.cacheDir, "updates")
+      .listFiles { file -> file.name.endsWith("-$version.apk") }
+      ?.firstOrNull()
+      ?: return ""
+    val name = "${activity.getString(R.string.app_name).replace(' ', '-')}-$version.apk"
+    return try {
+      val resolver = activity.contentResolver
+      val values = android.content.ContentValues().apply {
+        put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name)
+        put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/vnd.android.package-archive")
+        put(android.provider.MediaStore.Downloads.IS_PENDING, 1)
+      }
+      val uri =
+        resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+          ?: return ""
+      val copied = resolver.openOutputStream(uri)?.use { out ->
+        apk.inputStream().use { it.copyTo(out) }
+      }
+      if (copied == null) {
+        resolver.delete(uri, null, null)
+        return ""
+      }
+      values.clear()
+      values.put(android.provider.MediaStore.Downloads.IS_PENDING, 0)
+      resolver.update(uri, values, null, null)
+      // the name Android gave it, "(1)" added when one was there already
+      val saved = resolver.query(
+        uri,
+        arrayOf(android.provider.MediaStore.Downloads.DISPLAY_NAME),
+        null,
+        null,
+        null,
+      )?.use { if (it.moveToFirst()) it.getString(0) else null } ?: name
+      "${android.os.Environment.DIRECTORY_DOWNLOADS}/$saved"
+    } catch (e: Exception) {
+      ""
+    }
+  }
+
+  /**
+   * The system's screen to uninstall this app, which asks the person. App
+   * info, which has an Uninstall button, if that screen does not open.
+   */
+  @JavascriptInterface
+  fun uninstall(): Boolean {
+    val uri = android.net.Uri.parse("package:${activity.packageName}")
+    activity.runOnUiThread {
+      try {
+        activity.startActivity(
+          Intent(Intent.ACTION_DELETE, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+      } catch (e: Exception) {
+        activity.startActivity(
+          Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+      }
+    }
+    return true
+  }
+
+  /** Backups stay when the app is uninstalled: they go to the shared
+   * Documents from Android 11 (SystemInfo.backupFolder). */
+  @JavascriptInterface
+  fun backupsKept(): Boolean = Build.VERSION.SDK_INT >= 30
 }
