@@ -150,7 +150,7 @@
     <div class="mark">
       <Knot
         motion={opening ? 'untie' : 'tie'}
-        size={pin && !typing && !recovering ? 64 : 92}
+        size={pin && !typing && !recovering ? 74 : 102}
         onend={() => opening && done()}
       />
     </div>
