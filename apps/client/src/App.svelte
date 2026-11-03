@@ -10,10 +10,11 @@
   import { catchErrors, errorCatch } from './lib/errorCatch.svelte'
   import ErrorReport from './lib/ErrorReport.svelte'
   import { encryptFlow } from './lib/encryptFlow.svelte'
+  import { modal } from './lib/modal'
   import ChannelSwitch from './lib/ChannelSwitch.svelte'
   import { channelSwitch } from './lib/channelChange.svelte'
   import { captureLogs } from './lib/feedback'
-  import { setLocale, systemLocale } from './lib/i18n.svelte'
+  import { setLocale, systemLocale, t } from './lib/i18n.svelte'
   import { persistPrefs, prefs } from './lib/prefs.svelte'
   import { applyQuickShortcut } from './lib/quickNote'
   import Overlays from './lib/Overlays.svelte'
@@ -122,7 +123,14 @@
 {#if errorCatch.open}<ErrorReport />{/if}
 {#if channelSwitch.open}<ChannelSwitch />{/if}
 {#if encryptFlow.open}
-  <div class="encrypting">
+  <!-- a dialog of its own, over the settings: the keys and the focus are its -->
+  <div
+    class="encrypting"
+    role="dialog"
+    aria-modal="true"
+    aria-label={t('setup.encryptTitle')}
+    use:modal={{ onclose: () => encryptFlow.finish(false) }}
+  >
     <Setup encrypt done={() => encryptFlow.finish(true)} cancel={() => encryptFlow.finish(false)} />
   </div>
 {/if}
