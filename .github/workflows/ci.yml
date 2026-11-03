@@ -101,8 +101,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Windows on every push; Linux and macOS for release tags only
-        os: ${{ fromJSON(startsWith(github.ref, 'refs/tags/v') && '["ubuntu-latest", "windows-latest", "macos-latest"]' || '["windows-latest"]') }}
+        # Windows on every push, Linux too for release tags; the Mac apps are
+        # built and checked by release.yml (mac.yml), where macOS runners
+        # are worth their wait
+        os: ${{ fromJSON(startsWith(github.ref, 'refs/tags/v') && '["ubuntu-latest", "windows-latest"]' || '["windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -128,7 +130,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # the bundles the release ships: MSI and rpm take no beta version
       # (0.5.0-beta.1), NSIS and the AppImage do
-      - run: pnpm --filter @app/client tauri build ${{ matrix.os == 'windows-latest' && '--bundles nsis' || matrix.os == 'ubuntu-latest' && '--bundles appimage' || '' }}
+      - run: pnpm --filter @app/client tauri build ${{ matrix.os == 'windows-latest' && '--bundles nsis' || '--bundles appimage' }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop-${{ matrix.os }}
