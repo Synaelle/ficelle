@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use app_protocol::catalog::hex_bytes;
 use app_protocol::releases::{
-    FORMAT, Release, ReleaseList, UpdatesView, signed_message, version_parts,
+    FORMAT, Release, ReleaseList, UpdatesView, is_beta, signed_message, version_parts,
 };
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use rusqlite::{Connection, OptionalExtension};
@@ -69,8 +69,14 @@ pub fn release_signed(release: &Release, public_key: &str) -> bool {
 }
 
 /// What a list says about this version: the newest release, whether it is
-/// newer, whether a newer one fixes a security problem.
+/// newer, whether a newer one fixes a security problem. A stable server
+/// hears of stable releases only, a beta server of both.
 pub fn compare(releases: &[Release], current: &str) -> (Option<Release>, bool, bool) {
+    let releases: Vec<Release> = releases
+        .iter()
+        .filter(|r| !is_beta(&r.version) || is_beta(current))
+        .cloned()
+        .collect();
     let latest = releases
         .iter()
         .max_by_key(|r| version_parts(&r.version))
@@ -288,5 +294,25 @@ mod tests {
         let (latest, newer, security) = compare(&list, "dev-abc");
         assert!(latest.is_some() && !newer && !security);
         assert_eq!(compare(&[], "0.1.0"), (None, false, false));
+    }
+
+    #[test]
+    fn betas_reach_beta_servers_only() {
+        let key = SigningKey::from_bytes(&[7; 32]);
+        let list = vec![
+            release("0.3.3", false, &key),
+            release("0.4.0-beta.1", false, &key),
+        ];
+        let (latest, newer, _) = compare(&list, "0.3.3");
+        assert_eq!(latest.unwrap().version, "0.3.3");
+        assert!(!newer, "a stable server never hears of a beta");
+        let (latest, newer, _) = compare(&list, "0.4.0-beta.0");
+        assert_eq!(latest.unwrap().version, "0.4.0-beta.1");
+        assert!(newer);
+        // the release itself reaches a beta server too
+        let list = [list, vec![release("0.4.0", false, &key)]].concat();
+        let (latest, newer, _) = compare(&list, "0.4.0-beta.1");
+        assert_eq!(latest.unwrap().version, "0.4.0");
+        assert!(newer);
     }
 }

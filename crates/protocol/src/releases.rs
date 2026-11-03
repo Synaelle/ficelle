@@ -61,16 +61,33 @@ pub fn signed_message(release: &Release) -> Vec<u8> {
     .into_bytes()
 }
 
-/// `major.minor.micro` as numbers. `None` for anything else: a dev or
-/// preview build compares with nothing.
-pub fn version_parts(version: &str) -> Option<(u64, u64, u64)> {
-    let mut parts = version.trim().split('.').map(|p| {
-        (!p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
-            .then(|| p.parse::<u64>().ok())
-            .flatten()
-    });
+/// A version as numbers that order the way releases come out:
+/// `major.minor.micro`, and a beta's number last, a stable release above
+/// all its betas (`0.4.0-beta.2` < `0.4.0`). `None` for anything else: a
+/// dev or preview build compares with nothing.
+pub fn version_parts(version: &str) -> Option<(u64, u64, u64, u64)> {
+    let (base, beta) = match version.trim().split_once("-beta.") {
+        Some((base, n)) => (base, Some(number(n)?)),
+        None => (version.trim(), None),
+    };
+    let mut parts = base.split('.').map(number);
     let found = (parts.next()??, parts.next()??, parts.next()??);
-    parts.next().is_none().then_some(found)
+    parts
+        .next()
+        .is_none()
+        .then_some((found.0, found.1, found.2, beta.unwrap_or(u64::MAX)))
+}
+
+/// A run of digits as a number, nothing else.
+fn number(part: &str) -> Option<u64> {
+    (!part.is_empty() && part.chars().all(|c| c.is_ascii_digit()))
+        .then(|| part.parse().ok())
+        .flatten()
+}
+
+/// The version is a beta, `0.4.0-beta.2`.
+pub fn is_beta(version: &str) -> bool {
+    version_parts(version).is_some_and(|parts| parts.3 != u64::MAX)
 }
 
 /// `GET /api/v1/admin/updates`: the update check as the admin sees it.
@@ -116,8 +133,14 @@ mod tests {
 
     #[test]
     fn versions_compare_as_numbers_and_builds_not_at_all() {
-        assert_eq!(version_parts("0.1.0"), Some((0, 1, 0)));
+        assert_eq!(version_parts("0.1.0"), Some((0, 1, 0, u64::MAX)));
         assert!(version_parts("0.10.0") > version_parts("0.9.9"));
+        // betas come before their release and after the one before
+        assert!(version_parts("0.4.0-beta.1") < version_parts("0.4.0-beta.2"));
+        assert!(version_parts("0.4.0-beta.10") > version_parts("0.4.0-beta.9"));
+        assert!(version_parts("0.4.0-beta.9") < version_parts("0.4.0"));
+        assert!(version_parts("0.4.0-beta.1") > version_parts("0.3.9"));
+        assert!(is_beta("0.4.0-beta.1") && !is_beta("0.4.0") && !is_beta("dev"));
         for odd in [
             "dev-064ce22d6-dirty",
             "preview-abc",
@@ -126,6 +149,10 @@ mod tests {
             "1.x.3",
             "",
             "1..3",
+            "0.4.0-beta",
+            "0.4.0-beta.",
+            "0.4.0-rc.1",
+            "0.4.0-beta.x",
         ] {
             assert_eq!(version_parts(odd), None, "{odd}");
         }

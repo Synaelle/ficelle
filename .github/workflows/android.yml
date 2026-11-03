@@ -101,13 +101,13 @@ jobs:
       - name: version
         run: |
           set -eu
-          # Android only updates to a higher version code: 0.2.1 is 2001,
-          # 0.3.0 is 3000. The tauri cli writes this file only when
-          # tauri.conf.json names a version, which ours does not, and
-          # without it gradle falls back to 1 (0.2.2 went out that way)
+          # Android only updates to a higher version code, a beta before its
+          # release (tools/version.mjs androidVersionCode). The tauri cli
+          # writes this file only when tauri.conf.json names a version, which
+          # ours does not, and without it gradle falls back to 1 (0.2.2 went
+          # out that way)
           version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
-          IFS=. read -r major minor patch <<< "$version"
-          code=$((major * 1000000 + minor * 1000 + patch))
+          code=$(node tools/version.mjs android-code)
           {
             echo "tauri.android.versionName=$version"
             echo "tauri.android.versionCode=$code"

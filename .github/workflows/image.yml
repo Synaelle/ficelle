@@ -1,7 +1,10 @@
 name: image
 
 # The server image on ghcr.io. A tag vX.Y.Z publishes X.Y.Z, X.Y, X and
-# latest. A tag server-vX.Y.Z does the same for a release of the server
+# latest. A beta tag vX.Y.Z-beta.N publishes that version and beta, never
+# the others. beta always names the newest image of either kind: a stable
+# release moves it too when it is newer than the image it names, so a
+# server following beta follows every release. A tag server-vX.Y.Z does the same for a release of the server
 # alone: release.yml only takes vX.Y.Z, so the apps are not built and their
 # latest.json stays where it is. Each image carries its SBOM and build
 # provenance, and is signed with cosign by this workflow's own GitHub
@@ -9,7 +12,10 @@ name: image
 
 on:
   push:
-    tags: ['v[0-9]+.[0-9]+.[0-9]+', 'server-v[0-9]+.[0-9]+.[0-9]+']
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+'
+      - 'server-v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
 
 permissions:
@@ -56,14 +62,34 @@ jobs:
           major=${version%%.*}
           minor=${version#*.}
           minor=${minor%%.*}
+          # the version the beta tag names now: none when there is no such
+          # image, unknown when its label cannot be read (with its SBOM and
+          # provenance the image is an index, the label under its platform)
+          moveBeta=no
+          if ! docker buildx imagetools inspect "$image:beta" > /dev/null 2>&1; then
+            moveBeta=yes
+          else
+            held=$(docker buildx imagetools inspect "$image:beta" --format '{{ json .Image }}' | jq -r '
+              (if has("config") then . else [.[]][0] end).config.Labels["org.opencontainers.image.version"] // ""')
+            if [ -z "$held" ]; then
+              echo "::warning::the beta image's version cannot be read, beta stays where it is"
+            elif node tools/version.mjs newer "$version" "$held"; then
+              moveBeta=yes
+            fi
+          fi
           {
             echo "channel=release"
             echo "version=$version"
             echo "tags<<EOF"
             echo "$image:$version"
-            echo "$image:$major.$minor"
-            echo "$image:$major"
-            echo "$image:latest"
+            case "$version" in
+              *-beta.*) echo "$image:beta" ;;
+              *)
+                echo "$image:$major.$minor"
+                echo "$image:$major"
+                echo "$image:latest"
+                if [ "$moveBeta" = yes ]; then echo "$image:beta"; fi ;;
+            esac
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1

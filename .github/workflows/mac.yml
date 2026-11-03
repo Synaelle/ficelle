@@ -1,0 +1,53 @@
+name: mac
+
+# The macOS apps, Apple Silicon and Intel, as unsigned .dmg files.
+# release.yml calls it for beta tags (and the one stable release that
+# splits the channels): the Mac app follows Beta only. Without an Apple
+# signing account the apps are not notarised, and they update by opening
+# the release page, so no updater signature is made. A manual run builds
+# the chosen branch, kept as an artifact for a week.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dmg:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      # rust-toolchain.toml selects the version and components; the Intel
+      # app is cross-built on the Apple Silicon runner
+      - run: |
+          rustup show
+          rustup target add ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: ${{ matrix.target }}
+          # only main saves: caches made on tags and other branches are
+          # unreadable from main and push its own out of the 10 GB limit
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # the client carries the e2ee code as WebAssembly, see tools/wasm.mjs
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: wasm-bindgen@0.2.129
+      - run: pnpm install --frozen-lockfile
+      - name: build
+        run: node tools/build-release.mjs --unsigned -- --target ${{ matrix.target }} --bundles dmg
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mac-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          retention-days: 7

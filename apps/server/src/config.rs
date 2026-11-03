@@ -59,7 +59,13 @@ impl Default for UpdatesConfig {
     fn default() -> Self {
         Self {
             check: true,
-            url: app_brand::RELEASES_URL.to_owned(),
+            // a beta server reads the list that holds betas too
+            url: if app_protocol::releases::is_beta(app_brand::VERSION) {
+                app_brand::RELEASES_BETA_URL
+            } else {
+                app_brand::RELEASES_URL
+            }
+            .to_owned(),
             public_key: app_brand::RELEASES_KEY.to_owned(),
         }
     }

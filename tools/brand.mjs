@@ -29,8 +29,10 @@ const unfrozen = new Set([
   'fontsUrl',
   'catalogKey',
   'releasesUrl',
+  'releasesBetaUrl',
   'releasesKey',
   'appUpdatesUrl',
+  'appBetaUpdatesUrl',
   'appUpdatesKey',
   'dev',
 ])
@@ -117,12 +119,18 @@ pub const FONTS_URL: &str = ${JSON.stringify(brand.fontsUrl)};
 pub const CATALOG_KEY: &str = ${JSON.stringify(brand.catalogKey)};
 /// The signed list of releases servers check for update notices.
 pub const RELEASES_URL: &str = ${JSON.stringify(brand.releasesUrl)};
+/// The same list for servers running a beta, on the GitHub release tagged
+/// \`beta\`.
+pub const RELEASES_BETA_URL: &str = ${JSON.stringify(brand.releasesBetaUrl)};
 /// The hex Ed25519 public key its entries are signed with (the catalog's
 /// may serve, the messages differ). Empty: no update check in this build.
 pub const RELEASES_KEY: &str = ${JSON.stringify(brand.releasesKey)};
 /// Where release apps look for a newer version of themselves: tauri's
 /// \`latest.json\`, attached to the newest GitHub release.
 pub const APP_UPDATES_URL: &str = ${JSON.stringify(brand.appUpdatesUrl)};
+/// The Beta channel's \`latest.json\`, on the GitHub release tagged \`beta\`:
+/// the newest of the betas and the stable versions.
+pub const APP_BETA_UPDATES_URL: &str = ${JSON.stringify(brand.appBetaUpdatesUrl)};
 /// The minisign public key (base64, as tauri writes it) the app files in it
 /// are signed with. Empty: no app updates in this build.
 pub const APP_UPDATES_KEY: &str = ${JSON.stringify(brand.appUpdatesKey)};

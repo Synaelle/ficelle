@@ -55,6 +55,10 @@ pub const FONTS_URL: &str = "https://ficelle.synaelle.com/fonts";
 pub const CATALOG_KEY: &str = "";
 /// The signed list of releases servers check for update notices.
 pub const RELEASES_URL: &str = "https://ficelle.synaelle.com/releases.json";
+/// The same list for servers running a beta, on the GitHub release tagged
+/// `beta`.
+pub const RELEASES_BETA_URL: &str =
+    "https://github.com/Synaelle/ficelle/releases/download/beta/releases.json";
 /// The hex Ed25519 public key its entries are signed with (the catalog's
 /// may serve, the messages differ). Empty: no update check in this build.
 pub const RELEASES_KEY: &str = "b87ba069a2e5ab6807cd59bd3f5c06186e62f3519a5d2bc16edbe0f458dcc0cc";
@@ -62,6 +66,10 @@ pub const RELEASES_KEY: &str = "b87ba069a2e5ab6807cd59bd3f5c06186e62f3519a5d2bc1
 /// `latest.json`, attached to the newest GitHub release.
 pub const APP_UPDATES_URL: &str =
     "https://github.com/Synaelle/ficelle/releases/latest/download/latest.json";
+/// The Beta channel's `latest.json`, on the GitHub release tagged `beta`:
+/// the newest of the betas and the stable versions.
+pub const APP_BETA_UPDATES_URL: &str =
+    "https://github.com/Synaelle/ficelle/releases/download/beta/latest.json";
 /// The minisign public key (base64, as tauri writes it) the app files in it
 /// are signed with. Empty: no app updates in this build.
 pub const APP_UPDATES_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENEOTEzOUVENDdFMzYyMjcKUldRbll1Tkg3VG1SelhSalBqMlF3KzA5WkU5SmJRZENHWjFkM2NvVE5hZGxQWWNXM2pRSGo4NlMK";

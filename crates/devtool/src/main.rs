@@ -31,6 +31,8 @@ commands:
                        server would (FROM keeps them, relaying twice changes nothing)
   reset                delete the profile data
   profiles             list profiles
+  schema               print the number of database schema steps this build knows,
+                       the `schema` of the release's latest.json
   catalog keygen KEYFILE
                        make the official catalog's key: the private key goes to KEYFILE
                        (keep it off the repository, back it up), the public one is printed
@@ -243,6 +245,7 @@ fn run(args: &Args) -> Result<(), String> {
             println!("removed {}", dir.display());
         }
         ["profiles"] => profiles(&args.data),
+        ["schema"] => println!("{}", app_core::db::schema_version()),
         _ => {
             return Err(format!(
                 "unknown command, see --help
