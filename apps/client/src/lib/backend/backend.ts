@@ -60,7 +60,7 @@ export interface Backend {
    * it is given a password. */
   vaultEncrypt(): Promise<void>
   /** A newer version of the app, downloaded and ready, or only found with
-   * its download page for the portable exe. `null`: up to date, or this
+   * its download page (`page`). `null`: up to date, or this
    * build does not update itself (dev, preview, the browser). `channel`
    * picks the Stable or the Beta list. `allowOlder`: a beta going back to
    * Stable, an older version with the same database schema comes too. */
@@ -69,7 +69,8 @@ export interface Backend {
    * automatic updates off, looked at only for a critical security fix. */
   appUpdateLatest(channel: UpdateChannel, allowOlder?: boolean): Promise<AppUpdate | null>
   /** Desktop: installs the downloaded update and starts the app again. The
-   * portable exe and the Mac app open the version's release page instead. */
+   * portable exe, and a Mac app with nothing downloaded, open the version's
+   * release page instead. */
   appUpdateInstall(): Promise<void>
   /** Desktop: opens the quick note window (commands/quick.rs). */
   quickWindowOpen(title: string): Promise<void>

@@ -1,25 +1,31 @@
 name: mac
 
-# The macOS apps, Apple Silicon and Intel, as unsigned .dmg files.
-# release.yml calls it for beta tags (and the one stable release that
-# splits the channels): the Mac app follows Beta only. Without an Apple
-# signing account the apps are not notarised, and they update by opening
-# the release page, so no updater signature is made. A manual run builds
-# the chosen branch, kept as an artifact for a week.
+# One macOS app for Apple Silicon and Intel, as an unsigned .dmg, and the same
+# app as an archive signed for the app updater. release.yml calls it for beta
+# tags (and the one stable release that splits the channels): the Mac app
+# follows Beta only. Without an Apple signing account the app is signed ad hoc
+# and not notarised. A manual run builds the chosen branch, kept as an artifact
+# for a week, signed for the updater if asked. No Mac is at hand to try the
+# update on, so the steps here run what can be checked on the runner.
 
 on:
   workflow_call:
+    inputs:
+      signed:
+        type: boolean
+        default: false
   workflow_dispatch:
+    inputs:
+      signed:
+        description: Signed for the app updater too
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   dmg:
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [aarch64-apple-darwin, x86_64-apple-darwin]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -28,14 +34,14 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      # rust-toolchain.toml selects the version and components; the Intel
-      # app is cross-built on the Apple Silicon runner
+      # rust-toolchain.toml selects the version and components; the Intel half
+      # is cross-built on the Apple Silicon runner
       - run: |
           rustup show
-          rustup target add ${{ matrix.target }}
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          key: ${{ matrix.target }}
+          key: universal-apple-darwin
           # only main saves: caches made on tags and other branches are
           # unreadable from main and push its own out of the 10 GB limit
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -45,9 +51,45 @@ jobs:
           tool: wasm-bindgen@0.2.129
       - run: pnpm install --frozen-lockfile
       - name: build
-        run: node tools/build-release.mjs --unsigned -- --target ${{ matrix.target }} --bundles dmg
+        run: node tools/build-release.mjs --unsigned -- --target universal-apple-darwin --bundles app,dmg
+      - name: the app holds both kinds of Mac, and its signature holds
+        run: |
+          set -eu
+          app=target/universal-apple-darwin/release/bundle/macos/Ficelle.app
+          slug=$(jq -r .slug packages/brand/brand.json)
+          archs=$(lipo -archs "$app/Contents/MacOS/$slug")
+          echo "$archs"
+          echo "$archs" | grep -q x86_64
+          echo "$archs" | grep -q arm64
+          codesign --verify --deep --strict --verbose=2 "$app"
+      # the running app replaced by a new one, only a Mac can run this
+      - name: the update's swap
+        run: cargo test -p client --lib mac_app
+      - name: the archive the app updates itself from
+        if: inputs.signed
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -eu
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::the TAURI_SIGNING_PRIVATE_KEY secret is missing"
+            exit 1
+          fi
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          mkdir -p out
+          name="Ficelle_${version}_universal.app.tar.gz"
+          # no ._ files beside the app's own
+          COPYFILE_DISABLE=1 tar -czf "out/$name" \
+            -C target/universal-apple-darwin/release/bundle/macos Ficelle.app
+          # the version in the signature, which the app checks
+          pnpm --filter @app/client tauri signer sign --app-version "$version" "$PWD/out/$name"
+          test -f "out/$name.sig"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mac-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          name: mac-universal
+          path: |
+            target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            out/*
+          if-no-files-found: error
           retention-days: 7

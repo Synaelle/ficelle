@@ -455,6 +455,8 @@ const targets = [
       // the release's own icon: the base config has the dev one
       conf.bundle = {
         createUpdaterArtifacts: true,
+        // no Apple account: signed ad hoc, which Apple Silicon needs to run it
+        macOS: { signingIdentity: '-' },
         icon: ['32x32.png', '128x128.png', '128x128@2x.png', 'icon.icns', 'icon.ico'].map(
           (file) => `icons/${file}`,
         ),

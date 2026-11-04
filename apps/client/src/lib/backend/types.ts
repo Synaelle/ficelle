@@ -187,7 +187,8 @@ export interface AppUpdate {
   version: string
   /** What changed, from the release. */
   notes: string
-  /** The portable exe and the Mac app: not downloaded, this page has it. */
+  /** Not downloaded, this page has it: the portable exe, a Mac app that
+   * cannot replace itself or a release with no Mac file. */
   page?: string
   /** It fixes a critical security problem: asked in the middle of the
    * screen. Never installed without the person's yes. */

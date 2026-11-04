@@ -80,6 +80,9 @@ jobs:
     needs: draft
     if: contains(github.ref_name, '-beta.') || github.ref_name == 'v0.4.0'
     uses: ./.github/workflows/mac.yml
+    with:
+      signed: true
+    secrets: inherit
 
   publish:
     needs: [windows, linux, android, mac]
@@ -108,8 +111,15 @@ jobs:
           appimage=$(find out -name '*.AppImage' | head -1)
           apk=$(find out -name '*.apk' | head -1)
           for file in "$setup" "$portable" "$appimage" "$apk"; do test -f "$file"; done
-          # the Mac apps, when built: downloads only, they update by the page
+          # the Mac app, when built: the .dmg to download, the archive it updates from
           mapfile -t dmgs < <(find out -name '*.dmg')
+          macapp=$(find out -name '*.app.tar.gz' | head -1)
+          mac=null
+          macfiles=()
+          if [ -n "$macapp" ]; then
+            mac=$(jq -n --arg sig "$(cat "$macapp.sig")" --arg url "$base/$(basename "$macapp")" '{signature: $sig, url: $url}')
+            macfiles=("$macapp")
+          fi
           # the line servers show, from the signed releases.json on the draft
           # and whether it fixes a security problem: apps then ask in the
           # middle of the screen, a critical update
@@ -130,13 +140,15 @@ jobs:
             --argjson windows "$(entry "$setup")" \
             --argjson linux "$(entry "$appimage")" \
             --argjson android "$(entry "$apk")" \
-            '{version: $version, notes: $notes, critical: $critical, schema: $schema, pub_date: $date, platforms: {
+            --argjson mac "$mac" \
+            '{version: $version, notes: $notes, critical: $critical, schema: $schema, pub_date: $date, platforms: ({
               "windows-x86_64": $windows, "linux-x86_64": $linux,
-              "android-aarch64": $android, "android-arm": $android, "android-x86_64": $android }}' \
+              "android-aarch64": $android, "android-arm": $android, "android-x86_64": $android }
+              + (if $mac then {"macos-aarch64": $mac, "macos-x86_64": $mac} else {} end))}' \
             > latest.json
           cat latest.json
           # the signatures travel in latest.json, not on the release page
-          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$apk" "${dmgs[@]}" latest.json --clobber
+          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$apk" "${dmgs[@]}" "${macfiles[@]}" latest.json --clobber
           case "$TAG" in
             *-beta.*) gh release edit "$TAG" --draft=false --prerelease --latest=false ;;
             *) gh release edit "$TAG" --draft=false --latest ;;

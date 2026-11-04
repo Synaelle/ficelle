@@ -7,13 +7,15 @@
 //! The file is downloaded here and checked against that key.
 //!
 //! On Windows the checked installer then runs and the app leaves; on Linux
-//! the AppImage replaces itself and starts again. On Android the APK is kept
-//! in `cache/updates/` for `AppInstaller` (MainActivity.kt) to hand to the
-//! system installer, which asks the person.
+//! the AppImage replaces itself and starts again; on a Mac the new `.app`
+//! takes the running one's place and starts (`mac_app`). On Android the APK
+//! is kept in `cache/updates/` for `AppInstaller` (MainActivity.kt) to hand to
+//! the system installer, which asks the person.
 //!
-//! The portable Windows exe (`crate::portable`) and the Mac app only read
-//! the list's version and offer that version's release page, where the new
-//! file is.
+//! The portable Windows exe (`crate::portable`) only reads the list's version
+//! and offers that version's release page, where the new file is. So does a
+//! Mac app that cannot replace itself: still on its disk image, or moved
+//! aside by macOS because it was opened where it was downloaded.
 //!
 //! Two lists: Stable's (`appUpdatesUrl`, GitHub's newest release, never a
 //! pre-release) and Beta's (`appBetaUpdatesUrl`, on the release tagged
@@ -38,7 +40,8 @@ use crate::error::{CommandError, CommandResult};
 pub struct AppUpdate {
     version: String,
     notes: String,
-    /// The portable exe: not downloaded, this page has it.
+    /// Not downloaded, this page has it: the portable exe, a Mac app that
+    /// cannot replace itself or a release with no Mac file.
     #[serde(skip_serializing_if = "Option::is_none")]
     page: Option<String>,
     /// It fixes a critical security problem: the app asks in the middle of
@@ -99,9 +102,16 @@ impl Channel {
 }
 
 /// This build offers a release page instead of installing: the portable
-/// exe, and the Mac app, which has no installer of its own.
+/// exe, and a Mac app that cannot replace itself where it is.
+#[cfg(target_os = "macos")]
 fn page_only() -> bool {
-    crate::portable::PORTABLE || cfg!(target_os = "macos")
+    !mac_app::replaceable()
+}
+
+/// See the Mac's [`page_only`].
+#[cfg(not(target_os = "macos"))]
+fn page_only() -> bool {
+    crate::portable::PORTABLE
 }
 
 /// The repository's releases, `https://github.com/<owner>/<repo>/releases`,
@@ -310,10 +320,261 @@ mod list {
     }
 }
 
+#[cfg(target_os = "macos")]
+mod mac_app {
+    //! The Mac app replaced in place, the way tauri's own updater does it: the
+    //! checked archive unpacked beside the app, then two renames, which the
+    //! running program does not mind. Everything happens on the app's own disk.
+
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+
+    /// `Ficelle.app` from `Ficelle.app/Contents/MacOS/ficelle`.
+    fn bundle_of(program: &Path) -> Option<PathBuf> {
+        let app = program.parent()?.parent()?.parent()?;
+        (app.extension()? == "app").then(|| app.to_path_buf())
+    }
+
+    /// The `.app` this program runs from, `None` when run outside of one.
+    pub fn running() -> Option<PathBuf> {
+        bundle_of(&std::env::current_exe().ok()?)
+    }
+
+    /// A hidden folder next to the app, on the same disk.
+    fn beside(app: &Path, what: &str) -> PathBuf {
+        app.with_file_name(format!(".{}-{what}", app_brand::SLUG))
+    }
+
+    /// Something can be written next to `app`, and macOS has not moved it to
+    /// its read-only copy of an app opened where it was downloaded.
+    fn can_replace(app: &Path) -> bool {
+        if app.to_string_lossy().contains("/AppTranslocation/") {
+            return false;
+        }
+        let probe = beside(app, "probe");
+        let made = fs::create_dir(&probe).is_ok();
+        if made {
+            let _ = fs::remove_dir(&probe);
+        }
+        made
+    }
+
+    /// The running app can be replaced where it is.
+    pub fn replaceable() -> bool {
+        running().is_some_and(|app| can_replace(&app))
+    }
+
+    /// `app` replaced by the `.app` in `archive`, a checked `.tar.gz`. On any
+    /// failure the app stays as it was.
+    pub fn replace(app: &Path, archive: &[u8]) -> Result<(), String> {
+        let program = std::env::current_exe()
+            .ok()
+            .and_then(|path| path.file_name().map(ToOwned::to_owned))
+            .ok_or("the program's name cannot be read")?;
+        replace_holding(app, archive, Path::new(&program))
+    }
+
+    /// `program`: the new app must hold it, or it could not start again.
+    fn replace_holding(app: &Path, archive: &[u8], program: &Path) -> Result<(), String> {
+        let work = beside(app, "update");
+        let old = beside(app, "old");
+        // what an update cut short left behind
+        let _ = fs::remove_dir_all(&work);
+        let _ = fs::remove_dir_all(&old);
+        fs::create_dir(&work).map_err(|e| format!("the update folder: {e}"))?;
+        let done = unpack(&work, archive, program).and_then(|new| swap(app, &new, &old));
+        let _ = fs::remove_dir_all(&work);
+        let _ = fs::remove_dir_all(&old);
+        done
+    }
+
+    /// The archive's one `.app`, unpacked in `work` by the system's own tar.
+    fn unpack(work: &Path, archive: &[u8], program: &Path) -> Result<PathBuf, String> {
+        let file = work.join("update.tar.gz");
+        fs::write(&file, archive).map_err(|e| format!("the archive: {e}"))?;
+        let unpacked = Command::new("/usr/bin/tar")
+            .arg("-xzf")
+            .arg(&file)
+            .arg("-C")
+            .arg(work)
+            .output()
+            .map_err(|e| format!("tar: {e}"))?;
+        if !unpacked.status.success() {
+            return Err(format!(
+                "tar: {}",
+                String::from_utf8_lossy(&unpacked.stderr).trim()
+            ));
+        }
+        let mut apps = fs::read_dir(work)
+            .map_err(|e| format!("the update folder: {e}"))?
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().is_some_and(|e| e == "app"));
+        let (Some(new), None) = (apps.next(), apps.next()) else {
+            return Err("the archive does not hold one app".to_owned());
+        };
+        if !new.join("Contents/MacOS").join(program).is_file() {
+            return Err("the app in the archive has no program".to_owned());
+        }
+        Ok(new)
+    }
+
+    /// Two renames: if the second fails the first is undone.
+    fn swap(app: &Path, new: &Path, old: &Path) -> Result<(), String> {
+        fs::rename(app, old).map_err(|e| format!("moving the app aside: {e}"))?;
+        if let Err(e) = fs::rename(new, app) {
+            let _ = fs::rename(old, app);
+            return Err(format!("putting the new app in place: {e}"));
+        }
+        Ok(())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::{bundle_of, can_replace, replace_holding};
+        use std::fs;
+        use std::path::{Path, PathBuf};
+        use std::process::Command;
+
+        /// An empty folder of its own for each test.
+        fn folder(name: &str) -> PathBuf {
+            let dir =
+                std::env::temp_dir().join(format!("ficelle-mac-app-{}-{name}", std::process::id()));
+            let _ = fs::remove_dir_all(&dir);
+            fs::create_dir_all(&dir).unwrap();
+            dir
+        }
+
+        fn app_in(dir: &Path, name: &str, says: &str) -> PathBuf {
+            let app = dir.join(name);
+            fs::create_dir_all(app.join("Contents/MacOS")).unwrap();
+            fs::write(app.join("Contents/MacOS/ficelle"), says).unwrap();
+            app
+        }
+
+        /// A `.tar.gz` of `dir`'s `what`.
+        fn archive(dir: &Path, what: &str) -> Vec<u8> {
+            let file = dir.join("made.tar.gz");
+            let made = Command::new("/usr/bin/tar")
+                .arg("-czf")
+                .arg(&file)
+                .arg("-C")
+                .arg(dir)
+                .arg(what)
+                .status()
+                .unwrap();
+            assert!(made.success());
+            fs::read(file).unwrap()
+        }
+
+        fn says(app: &Path) -> String {
+            fs::read_to_string(app.join("Contents/MacOS/ficelle")).unwrap()
+        }
+
+        /// Nothing but the app stays next to it.
+        fn alone(dir: &Path) {
+            let names: Vec<_> = fs::read_dir(dir)
+                .unwrap()
+                .flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect();
+            assert_eq!(names, ["Ficelle.app"], "{names:?}");
+        }
+
+        #[test]
+        fn finds_the_app_around_the_program() {
+            assert_eq!(
+                bundle_of(Path::new(
+                    "/Applications/Ficelle.app/Contents/MacOS/ficelle"
+                )),
+                Some(PathBuf::from("/Applications/Ficelle.app"))
+            );
+            assert_eq!(bundle_of(Path::new("/usr/local/bin/ficelle")), None);
+        }
+
+        #[test]
+        fn the_new_app_takes_the_place_of_the_old() {
+            let made = folder("swap-made");
+            app_in(&made, "Ficelle.app", "new");
+            let bytes = archive(&made, "Ficelle.app");
+            let place = folder("swap-place");
+            let app = app_in(&place, "Ficelle.app", "old");
+            replace_holding(&app, &bytes, Path::new("ficelle")).unwrap();
+            assert_eq!(says(&app), "new");
+            alone(&place);
+        }
+
+        #[test]
+        fn a_renamed_app_keeps_its_name() {
+            let made = folder("renamed-made");
+            app_in(&made, "Ficelle.app", "new");
+            let bytes = archive(&made, "Ficelle.app");
+            let place = folder("renamed-place");
+            let app = app_in(&place, "Notes.app", "old");
+            replace_holding(&app, &bytes, Path::new("ficelle")).unwrap();
+            assert_eq!(says(&app), "new");
+            assert!(!place.join("Ficelle.app").exists());
+        }
+
+        #[test]
+        fn a_bad_archive_leaves_the_app_as_it_was() {
+            let place = folder("bad-place");
+            let app = app_in(&place, "Ficelle.app", "old");
+            assert!(replace_holding(&app, b"not an archive", Path::new("ficelle")).is_err());
+            assert_eq!(says(&app), "old");
+            alone(&place);
+        }
+
+        #[test]
+        fn an_archive_without_the_program_is_refused() {
+            let made = folder("empty-made");
+            fs::create_dir_all(made.join("Ficelle.app/Contents/MacOS")).unwrap();
+            let no_program = archive(&made, "Ficelle.app");
+            let other = folder("empty-other");
+            fs::write(other.join("readme.txt"), "x").unwrap();
+            let no_app = archive(&other, "readme.txt");
+            let place = folder("empty-place");
+            let app = app_in(&place, "Ficelle.app", "old");
+            for bytes in [no_program, no_app] {
+                assert!(replace_holding(&app, &bytes, Path::new("ficelle")).is_err());
+                assert_eq!(says(&app), "old");
+            }
+            alone(&place);
+        }
+
+        #[test]
+        fn what_a_cut_update_left_is_cleared() {
+            let made = folder("left-made");
+            app_in(&made, "Ficelle.app", "new");
+            let bytes = archive(&made, "Ficelle.app");
+            let place = folder("left-place");
+            let app = app_in(&place, "Ficelle.app", "old");
+            fs::create_dir_all(super::beside(&app, "update").join("junk")).unwrap();
+            fs::create_dir_all(super::beside(&app, "old").join("junk")).unwrap();
+            replace_holding(&app, &bytes, Path::new("ficelle")).unwrap();
+            assert_eq!(says(&app), "new");
+            alone(&place);
+        }
+
+        #[test]
+        fn cannot_replace_a_moved_or_read_only_app() {
+            let place = folder("can");
+            let app = app_in(&place, "Ficelle.app", "old");
+            assert!(can_replace(&app));
+            alone(&place);
+            assert!(!can_replace(Path::new(
+                "/private/var/folders/x/AppTranslocation/y/d/Ficelle.app"
+            )));
+            assert!(!can_replace(Path::new("/no/such/place/Ficelle.app")));
+        }
+    }
+}
+
 #[cfg(desktop)]
 mod platform {
-    //! Downloaded and checked here, then the installer (Windows) or the
-    //! AppImage itself (Linux) takes over.
+    //! Downloaded and checked here, then the installer (Windows), the AppImage
+    //! itself (Linux) or the new app (Mac) takes over.
 
     use std::sync::Mutex;
 
@@ -334,6 +595,14 @@ mod platform {
     /// The update downloaded and waiting for a restart.
     #[derive(Default)]
     pub struct Pending(Mutex<Option<Ready>>);
+
+    #[cfg(target_os = "macos")]
+    impl Pending {
+        /// An update waits. Without one, the last look found only a page.
+        pub fn waiting(&self) -> bool {
+            self.0.lock().is_ok_and(|ready| ready.is_some())
+        }
+    }
 
     pub fn check(
         app: &AppHandle,
@@ -358,6 +627,10 @@ mod platform {
             return Ok(None);
         }
         let Some(file) = list.platforms.get(&platform_key()) else {
+            // the list's version has no Mac file: its page is still offered
+            #[cfg(target_os = "macos")]
+            return super::page::check(channel);
+            #[cfg(not(target_os = "macos"))]
             return Ok(None);
         };
         let ready = Ready {
@@ -464,7 +737,18 @@ mod platform {
         app.restart()
     }
 
-    #[cfg(not(any(windows, target_os = "linux")))]
+    /// The new app in the running one's place, then started. The list's file
+    /// was checked against the update key when it was downloaded.
+    #[cfg(target_os = "macos")]
+    fn replace(app: &AppHandle, ready: &Ready) -> CommandResult<()> {
+        let Some(current) = super::mac_app::running() else {
+            return Err(failed("unsupported", "this program is not in an app"));
+        };
+        super::mac_app::replace(&current, &ready.bytes).map_err(|e| failed("update", e))?;
+        app.restart()
+    }
+
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     fn replace(_app: &AppHandle, _ready: &Ready) -> CommandResult<()> {
         Err(failed("unsupported", "this system does not update itself"))
     }
@@ -533,8 +817,9 @@ mod platform {
 
 #[cfg(any(windows, target_os = "macos"))]
 mod page {
-    //! The portable exe and the Mac app: `latest.json` read for its version
-    //! only, nothing downloaded, the version's release page has the file.
+    //! The portable exe and a Mac app that cannot update itself: `latest.json`
+    //! read for its version only, nothing downloaded, the version's release
+    //! page has the file.
 
     use std::sync::Mutex;
 
@@ -575,7 +860,8 @@ mod page {
 /// Looks for a newer version and downloads it. `None`: up to date, or this
 /// build does not update itself. `allow_older`: a beta going back to Stable,
 /// an older version with the same schema downloads too (never on the
-/// portable exe or the Mac, which only read the version).
+/// portable exe, which only reads the version, nor on the Mac, which only
+/// follows Beta).
 #[tauri::command]
 pub async fn app_update_check(
     app: tauri::AppHandle,
@@ -631,7 +917,8 @@ pub async fn app_update_latest(
 }
 
 /// Desktop: installs the downloaded update and starts the app again. The
-/// portable exe and the Mac app open the release page instead.
+/// portable exe, and a Mac app with nothing downloaded, open the release page
+/// instead.
 #[tauri::command]
 #[cfg_attr(
     desktop,
@@ -644,6 +931,13 @@ pub fn app_update_install(app: tauri::AppHandle) -> CommandResult<()> {
     #[cfg(any(windows, target_os = "macos"))]
     if page_only() {
         return page::open();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Manager;
+        if !app.state::<platform::Pending>().waiting() {
+            return page::open();
+        }
     }
     #[cfg(desktop)]
     return platform::install(&app);

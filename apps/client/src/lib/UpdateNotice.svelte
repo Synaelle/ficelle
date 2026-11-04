@@ -15,7 +15,7 @@
   let changes = $state(false)
 
   /** A new version (another middle number, or a beta) or a fix for this one,
-   * downloaded or only out (the portable exe, the Mac app). */
+   * downloaded or only out (`page`: the portable exe, sometimes the Mac app). */
   const sub = $derived.by(() => {
     const ready = appUpdates.ready
     if (!ready) return ''

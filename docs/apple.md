@@ -4,7 +4,7 @@ The Mac app is in 0.4.0, then it comes with the Beta releases, early versions of
 
 ## Mac
 
-Download the `.dmg` for your Mac from the [releases](https://github.com/Synaelle/ficelle/releases), Apple Silicon for M1 and later or Intel, open it and drag Ficelle to Applications. The Mac app does not update itself, it opens the release page when a new version is out.
+Download the `.dmg` from the [releases](https://github.com/Synaelle/ficelle/releases), the same file for Apple Silicon and Intel, open it and drag Ficelle to Applications. From beta 2 on, the app updates itself when run from there; otherwise it opens the release page when a new version is out. This has not been tried on a real Mac yet.
 
 The app is not signed by Apple, so macOS refuses to open it the first time. Click Done, then open System Settings, Privacy & Security, scroll down and click Open Anyway next to Ficelle. Confirm with your password and open Ficelle again.
 
