@@ -99,6 +99,18 @@
     font-family: var(--font-editor);
     font-size: 20px;
   }
+  /* across the whole group on a phone, each a finger's size */
+  @media (pointer: coarse) {
+    .choices {
+      flex-wrap: nowrap;
+    }
+    .choice {
+      flex: 1;
+      min-width: 0;
+      height: 44px;
+      padding: 0;
+    }
+  }
   .choice.off,
   .choice.more {
     color: var(--color-text-muted);

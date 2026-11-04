@@ -9,6 +9,10 @@
   import { systemAccent } from '../lib/systemAccent.svelte'
   import { currentTheme } from '../lib/theme.svelte'
   import { ACCENTS } from './appearance'
+  import Row from './ui/Row.svelte'
+
+  /** Inside a settings group, on the phone: the system's accent as a row. */
+  let { row = false }: { row?: boolean } = $props()
 
   /** The system's accent is in use: the circles wait, unless it gives none. */
   const systemLocked = $derived(prefs.systemAccent && (!systemAccent.read || !!systemAccent.color))
@@ -23,14 +27,25 @@
   })
 </script>
 
-<label class="settings-check">
-  <input type="checkbox" bind:checked={prefs.systemAccent} />
-  {t('settings.accentSystem')}
-</label>
-{#if prefs.systemAccent && systemAccent.read && !systemAccent.color}
-  <p class="settings-help">{t('settings.accentSystemNone')}</p>
+{#if row}
+  <Row
+    label={t('settings.accentSystem')}
+    help={prefs.systemAccent && systemAccent.read && !systemAccent.color
+      ? t('settings.accentSystemNone')
+      : undefined}
+    on={prefs.systemAccent}
+    onclick={() => (prefs.systemAccent = !prefs.systemAccent)}
+  />
+{:else}
+  <label class="settings-check">
+    <input type="checkbox" bind:checked={prefs.systemAccent} />
+    {t('settings.accentSystem')}
+  </label>
+  {#if prefs.systemAccent && systemAccent.read && !systemAccent.color}
+    <p class="settings-help">{t('settings.accentSystemNone')}</p>
+  {/if}
 {/if}
-<div class="accents" class:off={systemLocked}>
+<div class="accents" class:off={systemLocked} class:inside={row}>
   <button
     class="accent"
     class:checked={prefs.accent === null}
@@ -97,6 +112,20 @@
       width: 44px;
       height: 44px;
     }
+  }
+  /* every circle on one line across the group. A big text size zooms the page,
+     so a narrower circle here is still a finger's size on the screen */
+  .accents.inside {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 2px;
+    padding: var(--space-1) var(--space-3) var(--space-3);
+  }
+  .accents.inside .accent {
+    flex: 0 1 auto;
+    min-width: 0;
+    height: auto;
+    aspect-ratio: 1;
   }
   .accent.checked {
     box-shadow: 0 0 0 2px var(--color-text);

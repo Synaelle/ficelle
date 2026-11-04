@@ -7,12 +7,15 @@
     label,
     disabled = false,
     onchange,
+    drawn = false,
   }: {
     checked?: boolean
-    label: string
+    label?: string
     disabled?: boolean
     /** Instead of binding: the new state, the parent decides. */
     onchange?: (on: boolean) => void
+    /** Only the picture: the row around it is the button (Row's `on`). */
+    drawn?: boolean
   } = $props()
 
   function flip() {
@@ -21,15 +24,19 @@
   }
 </script>
 
-<button
-  class="switch"
-  class:on={checked}
-  role="switch"
-  aria-checked={checked}
-  aria-label={label}
-  {disabled}
-  onclick={flip}><i></i></button
->
+{#if drawn}
+  <span class="switch" class:on={checked} aria-hidden="true"><i></i></span>
+{:else}
+  <button
+    class="switch"
+    class:on={checked}
+    role="switch"
+    aria-checked={checked}
+    aria-label={label}
+    {disabled}
+    onclick={flip}><i></i></button
+  >
+{/if}
 
 <style>
   .switch {
@@ -65,5 +72,25 @@
   .switch:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+  /* a finger's size, and a target bigger than the picture */
+  @media (pointer: coarse) {
+    .switch {
+      width: 44px;
+      height: 26px;
+      border-radius: 13px;
+    }
+    .switch i {
+      width: 22px;
+      height: 22px;
+    }
+    .switch.on i {
+      transform: translateX(18px);
+    }
+    button.switch::after {
+      content: '';
+      position: absolute;
+      inset: -10px -4px;
+    }
   }
 </style>

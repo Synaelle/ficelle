@@ -7,6 +7,9 @@
   import { serverProtocol, sync } from '../lib/sync.svelte'
   import SyncSettings from './SyncSettings.svelte'
   import { brand } from '@app/brand'
+  import Group from './ui/Group.svelte'
+  import Row from './ui/Row.svelte'
+  import Switch from './ui/Switch.svelte'
   import { tick, untrack } from 'svelte'
   import { onBack } from '../lib/back'
   import { modal } from '../lib/modal'
@@ -30,7 +33,6 @@
   import { UI_SIZES } from '../lib/uiSize'
   import { workspace } from '../lib/workspace.svelte'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
-  import logo from '../../../../packages/ui/brand/app-icon.svg?url'
   import UpdateCheck from './UpdateCheck.svelte'
   import FontPicker from './FontPicker.svelte'
   import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
@@ -92,7 +94,7 @@
     vault?.way === 'guarded' || vault?.way === 'pin' || vault?.way === 'password',
   )
 
-  interface Row {
+  interface SettingRow {
     icon: IconName
     label: string
     value?: string
@@ -100,6 +102,8 @@
     keywords?: string
     /** A switch instead of a value. */
     on?: boolean
+    /** Does its thing at once, no page opens: no arrow. */
+    action?: boolean
     danger?: boolean
     /** Shown, but nothing to do here (the browser has no files). */
     disabled?: boolean
@@ -129,7 +133,7 @@
     input.value = ''
   }
 
-  const lookRows = $derived<Row[]>([
+  const lookRows = $derived<SettingRow[]>([
     {
       icon: 'palette',
       label: t('settings.appearance'),
@@ -148,7 +152,6 @@
       icon: 'textStyle',
       label: t('settings.editor'),
       keywords: t('settings.editorKeywords'),
-      value: prefs.autoLists ? t('settings.phone.listsOn') : t('settings.phone.listsOff'),
       run: () => (page = 'editor'),
     },
     {
@@ -163,7 +166,7 @@
   /** Notes out of screenshots and the recent apps, where Android can. */
   const canHide = typeof window.AppSystem?.setHidden === 'function'
   let hidden = $state(window.AppSystem?.hidden?.() ?? false)
-  const hideRows = $derived<Row[]>(
+  const hideRows = $derived<SettingRow[]>(
     canHide
       ? [
           {
@@ -179,7 +182,7 @@
       : [],
   )
 
-  const lockRows = $derived<Row[]>(
+  const lockRows = $derived<SettingRow[]>(
     !vault
       ? []
       : !encrypted
@@ -199,14 +202,19 @@
                     value: lockLabel(prefs.autoLockMinutes),
                     run: () => (page = 'lock'),
                   },
-                  { icon: 'lock' as const, label: t('settings.lockNow'), run: onlock },
+                  {
+                    icon: 'lock' as const,
+                    label: t('settings.lockNow'),
+                    action: true,
+                    run: onlock,
+                  },
                 ]
               : []),
           ],
   )
-  const privacyRows = $derived<Row[]>([...lockRows, ...hideRows])
+  const privacyRows = $derived<SettingRow[]>([...lockRows, ...hideRows])
 
-  const passwordRows = $derived<Row[]>(
+  const passwordRows = $derived<SettingRow[]>(
     encrypted
       ? [
           {
@@ -228,7 +236,7 @@
       : [],
   )
 
-  const syncRows = $derived<Row[]>([
+  const syncRows = $derived<SettingRow[]>([
     {
       icon: sync.status.state === 'off' ? 'offline' : 'synced',
       label: t('settings.sync'),
@@ -240,7 +248,7 @@
 
   // the Android app, not a narrow window
   const android = ANDROID
-  const noteRows = $derived<Row[]>([
+  const noteRows = $derived<SettingRow[]>([
     {
       icon: 'backup',
       label: t('settings.backups'),
@@ -251,7 +259,7 @@
   ])
 
   // the browser has no files to reach: shown, but not tapped
-  const importRows = $derived<Row[]>([
+  const importRows = $derived<SettingRow[]>([
     {
       icon: 'archive',
       label: t('settings.importFicelle', { app: brand.displayName }),
@@ -266,13 +274,14 @@
     },
     { icon: 'markdown', label: t('list.import'), run: () => fileInput?.click() },
   ])
-  const exportRows = $derived<Row[]>([
+  const exportRows = $derived<SettingRow[]>([
     {
       icon: 'export',
       // Android's folder picker gives no path to write files under: one zip
       label: android ? t('settings.exportZip') : t('settings.export'),
       keywords: t('settings.dataKeywords'),
       disabled: !backend.native,
+      action: true,
       run: () => void (android ? settings.exportZip() : settings.exportNotes()),
     },
     ...(android
@@ -283,20 +292,21 @@
             label: t('settings.exportZip'),
             keywords: t('settings.dataKeywords'),
             disabled: !backend.native,
+            action: true,
             run: () => void settings.exportZip(),
           },
         ]),
   ])
 
   // one row on the first screen opens the import, export and backup rows
-  const dataRow = $derived<Row>({
+  const dataRow = $derived<SettingRow>({
     icon: 'backup',
     label: t('settings.phone.dataBackups'),
     keywords: t('settings.dataKeywords'),
     run: () => (page = 'notes'),
   })
 
-  const aboutRows = $derived<Row[]>([
+  const aboutRows = $derived<SettingRow[]>([
     {
       icon: 'feedback',
       label: t('settings.feedback'),
@@ -341,7 +351,7 @@
   ]
   if (updatesHere) inner.push(['info', 'appUpdate.check', 'about'])
   if (updatesHere && channelChoice) inner.push(['info', 'appUpdate.channel', 'about'])
-  const innerRows = $derived<Row[]>(
+  const innerRows = $derived<SettingRow[]>(
     inner.map(([icon, label, to]) => ({
       icon,
       label: t(label),
@@ -352,7 +362,7 @@
 
   const matches = $derived.by(() => {
     const q = query.trim().toLowerCase()
-    const found = (r: Row) =>
+    const found = (r: SettingRow) =>
       r.label.toLowerCase().includes(q) || !!r.keywords?.toLowerCase().includes(q)
     // the PC's Security section is the phone's Privacy and Password groups,
     // both found by its words
@@ -423,7 +433,7 @@
   })
 </script>
 
-{#snippet row(r: Row)}
+{#snippet row(r: SettingRow)}
   <button
     class="row"
     class:danger={r.danger}
@@ -432,19 +442,36 @@
     disabled={r.disabled}
     onclick={(e) => r.run(e)}
   >
-    <span class="tile"><Icon name={r.icon} size={17} /></span>
+    <span class="tile"><Icon name={r.icon} size={16} /></span>
     <span class="label">{r.label}</span>
     {#if r.on !== undefined}
-      <span class="switch" class:on={r.on}><i></i></span>
+      <Switch drawn checked={r.on} />
     {:else}
       {#if r.value}<span class="value">{r.value}</span>{/if}
-      <Icon name="right" size={16} />
+      {#if !r.action}<Icon name="right" size={16} />{/if}
     {/if}
   </button>
 {/snippet}
 
-{#snippet check(on: boolean)}
-  {#if on}<span class="checked"><Icon name="check" size={18} /></span>{/if}
+<!-- a few short choices on one line, the whole width of the group -->
+{#snippet segments<T>(
+  name: string,
+  label: string,
+  choices: readonly T[],
+  current: T,
+  text: (choice: T) => string,
+  pick: (choice: T) => void,
+)}
+  <div class="settings-row segments-row">
+    <div class="segmented segments" role="radiogroup" aria-label={label}>
+      {#each choices as choice, i (i)}
+        <label class:checked={current === choice}>
+          <input type="radio" {name} checked={current === choice} onchange={() => pick(choice)} />
+          {text(choice)}
+        </label>
+      {/each}
+    </div>
+  </div>
 {/snippet}
 
 <div
@@ -471,50 +498,46 @@
       <input type="search" placeholder={t('settings.search')} bind:value={query} />
     </label>
 
-    {#if query.trim()}
-      <div class="group">
-        {#each matches as r (r.label)}{@render row(r)}{/each}
-      </div>
-      {#if matches.length === 0}<p class="note">{t('list.noResults')}</p>{/if}
-    {:else}
-      <div class="hero">
-        <img src={logo} alt="" />
-        <span>
-          <b>{brand.displayName}</b>
-          <span>{encrypted ? t('settings.phone.encrypted') : t('settings.phone.plain')}</span>
-        </span>
-      </div>
-      <p class="caption">{t('settings.phone.groupLook')}</p>
-      <div class="group">
-        {#each lookRows as r (r.label)}{@render row(r)}{/each}
-      </div>
-      {#if privacyRows.length}
-        <p class="caption">
-          {vault && !encrypted ? t('settings.notEncryptedTitle') : t('settings.phone.groupPrivacy')}
-        </p>
-        <div class="group">
-          {#each privacyRows as r (r.label)}{@render row(r)}{/each}
-        </div>
-        <!-- an unencrypted vault has no password, recovery key or way to unlock -->
-        {#if passwordRows.length}
-          <p class="caption">{t('settings.phone.groupPassword')}</p>
-          <div class="group">
-            {#each passwordRows as r (r.label)}{@render row(r)}{/each}
-          </div>
-          <p class="note">{vault?.recovery ? t('recovery.has') : t('recovery.noneNow')}</p>
+    <div class="groups">
+      {#if query.trim()}
+        {#if matches.length === 0}
+          <p class="empty">{t('list.noResults')}</p>
+        {:else}
+          <Group>
+            {#each matches as r (r.label)}{@render row(r)}{/each}
+          </Group>
         {/if}
+      {:else}
+        <Group title={t('settings.phone.groupLook')}>
+          {#each lookRows as r (r.label)}{@render row(r)}{/each}
+        </Group>
+        {#if privacyRows.length}
+          <Group
+            title={vault && !encrypted
+              ? t('settings.notEncryptedTitle')
+              : t('settings.phone.groupPrivacy')}
+          >
+            {#each privacyRows as r (r.label)}{@render row(r)}{/each}
+          </Group>
+          <!-- an unencrypted vault has no password, recovery key or way to unlock -->
+          {#if passwordRows.length}
+            <Group
+              title={t('settings.phone.groupPassword')}
+              note={vault?.recovery ? t('recovery.has') : t('recovery.noneNow')}
+            >
+              {#each passwordRows as r (r.label)}{@render row(r)}{/each}
+            </Group>
+          {/if}
+        {/if}
+        <Group>
+          {#each syncRows as r (r.label)}{@render row(r)}{/each}
+          {@render row(dataRow)}
+        </Group>
+        <Group>
+          {#each aboutRows as r (r.label)}{@render row(r)}{/each}
+        </Group>
       {/if}
-      <p class="caption">{t('settings.sync')}</p>
-      <div class="group">
-        {#each syncRows as r (r.label)}{@render row(r)}{/each}
-      </div>
-      <div class="group spaced">
-        {@render row(dataRow)}
-      </div>
-      <div class="group spaced">
-        {#each aboutRows as r (r.label)}{@render row(r)}{/each}
-      </div>
-    {/if}
+    </div>
   {:else}
     <header class="bar">
       <button class="back" onclick={back}
@@ -526,228 +549,188 @@
       <span></span>
     </header>
 
-    <div class="page">
+    <div class="groups page">
       {#if page === 'appearance'}
-        <p class="caption">{t('settings.mode')}</p>
-        <div class="group">
-          {#each ['system', 'dark', 'light'] as const as mode (mode)}
-            <button class="row" onclick={() => (prefs.mode = mode)}>
-              <span class="label">{t(`settings.mode_${mode}`)}</span>
-              {@render check(prefs.mode === mode)}
-            </button>
-          {/each}
-        </div>
-        <div class="group">
-          {@render row({
-            icon: 'palette',
-            label: t('settings.pureBlack'),
-            on: prefs.pureBlack,
-            run: () => (prefs.pureBlack = !prefs.pureBlack),
-          })}
-          {@render row({
-            icon: 'palette',
-            label: t('settings.warmLight'),
-            on: prefs.warmLight,
-            run: () => (prefs.warmLight = !prefs.warmLight),
-          })}
-        </div>
-        <p class="caption">{t('fonts.title')}</p>
-        <div class="group pad fonts">
-          <FontPicker role="notes" />
-          <FontPicker role="code" />
-        </div>
-        <p class="caption">{t('settings.accent')}</p>
-        <div class="group pad accent-group"><AccentPicker /></div>
-        <p class="caption">{t('settings.corners')}</p>
-        <div class="group pad"><CornersPicker /></div>
-        <p class="note">{t('settings.cornersHelp')}</p>
+        <Group title={t('settings.mode')}>
+          {@render segments(
+            'mode',
+            t('settings.mode'),
+            ['system', 'dark', 'light'] as const,
+            prefs.mode,
+            (mode) => t(`settings.mode_${mode}`),
+            (mode) => (prefs.mode = mode),
+          )}
+          <Row
+            label={t('settings.pureBlack')}
+            on={prefs.pureBlack}
+            onclick={() => (prefs.pureBlack = !prefs.pureBlack)}
+          />
+          <Row
+            label={t('settings.warmLight')}
+            on={prefs.warmLight}
+            onclick={() => (prefs.warmLight = !prefs.warmLight)}
+          />
+        </Group>
+        <Group title={t('settings.accent')}><AccentPicker row /></Group>
+        <Group title={t('fonts.title')}>
+          <FontPicker role="notes" row />
+          <FontPicker role="code" row />
+        </Group>
+        <Group title={t('settings.corners')} note={t('settings.cornersHelp')}>
+          <div class="inside"><CornersPicker /></div>
+        </Group>
       {:else if page === 'accessibility'}
-        <p class="caption">{t('settings.uiSize')}</p>
-        <div class="group">
-          {#each UI_SIZES as size (size)}
-            <button class="row" onclick={() => (prefs.uiSize = size)}>
-              <span class="label">{t(`settings.uiSize_${size}`)}</span>
-              {@render check(prefs.uiSize === size)}
-            </button>
-          {/each}
-        </div>
-        <p class="note">{t('settings.uiSizeHelp')}</p>
-        <div class="group">
-          {@render row({
-            icon: 'textStyle',
-            label: t('settings.dyslexicFont'),
-            on: prefs.dyslexicFont,
-            run: () => (prefs.dyslexicFont = !prefs.dyslexicFont),
-          })}
-        </div>
-        {#if prefs.dyslexicFont && dyslexicStatus.loading}
-          <p class="note" role="status">{t('settings.dyslexicFontLoading')}</p>
-        {:else if prefs.dyslexicFont && dyslexicStatus.failed}
-          <p class="note error" role="alert">{t('settings.dyslexicFontFailed')}</p>
-        {/if}
+        <Group title={t('settings.uiSize')} note={t('settings.uiSizeHelp')}>
+          {@render segments(
+            'size',
+            t('settings.uiSize'),
+            UI_SIZES,
+            prefs.uiSize,
+            (size) => t(`settings.uiSize_${size}`),
+            (size) => (prefs.uiSize = size),
+          )}
+        </Group>
+        <Group>
+          <Row
+            label={t('settings.dyslexicFont')}
+            on={prefs.dyslexicFont}
+            onclick={() => (prefs.dyslexicFont = !prefs.dyslexicFont)}
+          />
+          {#if prefs.dyslexicFont && dyslexicStatus.loading}
+            <p class="under" role="status">{t('settings.dyslexicFontLoading')}</p>
+          {:else if prefs.dyslexicFont && dyslexicStatus.failed}
+            <p class="under error" role="alert">{t('settings.dyslexicFontFailed')}</p>
+          {/if}
+        </Group>
       {:else if page === 'editor'}
-        <div class="group">
-          {@render row({
-            icon: 'list',
-            label: t('settings.autoLists'),
-            on: prefs.autoLists,
-            run: () => (prefs.autoLists = !prefs.autoLists),
-          })}
-          {@render row({
-            icon: 'emoji',
-            label: t('settings.emojiShortcodes'),
-            on: prefs.emojiShortcodes,
-            run: () => (prefs.emojiShortcodes = !prefs.emojiShortcodes),
-          })}
-        </div>
-        <p class="caption as-typed">{t('settings.arrow')}</p>
-        <div class="group pad"><ArrowPicker /></div>
+        <Group>
+          <Row
+            label={t('settings.autoLists')}
+            on={prefs.autoLists}
+            onclick={() => (prefs.autoLists = !prefs.autoLists)}
+          />
+          <Row
+            label={t('settings.emojiShortcodes')}
+            on={prefs.emojiShortcodes}
+            onclick={() => (prefs.emojiShortcodes = !prefs.emojiShortcodes)}
+          />
+        </Group>
+        <Group title={t('settings.arrow')} typed>
+          <div class="inside"><ArrowPicker /></div>
+        </Group>
       {:else if page === 'language'}
-        <p class="caption">{t('settings.language')}</p>
-        <div class="group">
-          <button class="row" onclick={() => (prefs.language = null)}>
-            <span class="label">{t('settings.languageSystem')}</span>
-            {@render check(prefs.language === null)}
-          </button>
+        <Group title={t('settings.language')}>
+          <Row
+            label={t('settings.languageSystem')}
+            checked={prefs.language === null}
+            onclick={() => (prefs.language = null)}
+          />
           {#each LOCALES as locale (locale.code)}
-            <button class="row" onclick={() => (prefs.language = locale.code as Locale)}>
-              <span class="label">{locale.name}</span>
-              {@render check(prefs.language === locale.code)}
-            </button>
+            <Row
+              label={locale.name}
+              checked={prefs.language === locale.code}
+              onclick={() => (prefs.language = locale.code as Locale)}
+            />
           {/each}
-        </div>
-        <p class="caption">{t('settings.clock')}</p>
-        <div class="group">
+        </Group>
+        <Group title={t('settings.clock')}>
           {#each ['system', '24', '12'] as const as choice (choice)}
-            <button class="row" onclick={() => (prefs.clock = choice)}>
-              <span class="label">{t(`settings.clock_${choice}`)}</span>
-              {@render check(prefs.clock === choice)}
-            </button>
+            <Row
+              label={t(`settings.clock_${choice}`)}
+              checked={prefs.clock === choice}
+              onclick={() => (prefs.clock = choice)}
+            />
           {/each}
-        </div>
+        </Group>
       {:else if page === 'lock'}
-        <div class="group">
+        <Group>
           {#each LOCK_CHOICES as minutes (minutes)}
-            <button class="row" onclick={() => (prefs.autoLockMinutes = minutes)}>
-              <span class="label">{lockLabel(minutes)}</span>
-              {@render check(prefs.autoLockMinutes === minutes)}
-            </button>
+            <Row
+              label={lockLabel(minutes)}
+              checked={prefs.autoLockMinutes === minutes}
+              onclick={() => (prefs.autoLockMinutes = minutes)}
+            />
           {/each}
-        </div>
+        </Group>
       {:else if page === 'way' && vault}
-        <div class="group">
+        <Group>
           {#each ways(vault) as option (option)}
-            <button class="row tall" onclick={() => void settings.setWay(option)}>
-              <span class="label">
-                {t(`settings.way.${option}`, { method })}
-                <span class="sub">{t(`settings.wayHelp.${option}`, { method })}</span>
-              </span>
-              {@render check(vault.way === option)}
-            </button>
+            <Row
+              label={t(`settings.way.${option}`, { method })}
+              help={t(`settings.wayHelp.${option}`, { method })}
+              checked={vault.way === option}
+              onclick={() => void settings.setWay(option)}
+            />
           {/each}
-        </div>
-        {#if vault.way === 'pin'}
-          <div class="group spaced">
-            {@render row({
-              icon: 'key',
-              label: t('pin.change'),
-              run: () => settings.setWay('pin'),
-            })}
-          </div>
-        {/if}
+          {#if vault.way === 'pin'}
+            <Row label={t('pin.change')} opens onclick={() => settings.setWay('pin')} />
+          {/if}
+        </Group>
       {:else if page === 'sync'}
-        <div class="sync"><SyncSettings /></div>
+        <SyncSettings />
       {:else if page === 'notes'}
-        <div class="group">
+        <Group>
           {#each noteRows as r (r.label)}{@render row(r)}{/each}
-        </div>
-        <p class="caption">{t('settings.importTitle')}</p>
-        <div class="group">
+        </Group>
+        <Group title={t('settings.importTitle')} note={t('settings.importHelp')}>
           {#each importRows as r (r.label)}{@render row(r)}{/each}
-        </div>
-        <p class="note">{t('settings.importHelp')}</p>
-        <p class="caption">{t('settings.exportTitle')}</p>
-        <div class="group">
+        </Group>
+        <Group title={t('settings.exportTitle')} note={t('settings.exportHelp')}>
           {#each exportRows as r (r.label)}{@render row(r)}{/each}
-        </div>
-        <p class="note">{t('settings.exportHelp')}</p>
+        </Group>
         <!-- with the data, as on desktop -->
-        <div class="group spaced">
+        <Group note={t('reset.help')}>
           {@render row({
             icon: 'restore',
             label: t('reset.title'),
             danger: true,
             run: onreset,
           })}
-        </div>
-        <p class="note">{t('reset.help')}</p>
+        </Group>
       {:else if page === 'backups'}
-        <div class="settings-body padded">
-          <BackupSettings {onbackup} />
-        </div>
+        <BackupSettings {onbackup} />
       {:else if page === 'feedback'}
-        <div class="settings-body padded">
-          <FeedbackSettings />
-        </div>
+        <FeedbackSettings />
       {:else if page === 'testTools'}
-        <div class="settings-body padded">
-          <TestTools />
-        </div>
+        <TestTools />
       {:else if page === 'about'}
-        <div class="group">
-          <div class="row static">
-            <span class="label">{t('settings.version')}</span>
-            <span class="value mono">{__APP_VERSION__}</span>
-          </div>
-          <div class="row static">
-            <span class="label">{t('settings.buildDate')}</span>
-            <span class="value mono">{__APP_BUILD_DATE__}</span>
-          </div>
-          <div class="row static">
-            <span class="label">{t('settings.protocol')}</span>
-            <span class="value mono">{__APP_PROTOCOL__}</span>
-          </div>
+        <Group>
+          <Row label={t('settings.version')}><span class="value mono">{__APP_VERSION__}</span></Row>
+          <Row label={t('settings.buildDate')}
+            ><span class="value mono">{__APP_BUILD_DATE__}</span></Row
+          >
+          <Row label={t('settings.protocol')}
+            ><span class="value mono">{__APP_PROTOCOL__}</span></Row
+          >
           {#if serverProtocols}
-            <div class="row static">
-              <span class="label">{t('settings.serverProtocol')}</span>
-              <span class="value mono">{serverProtocols}</span>
-            </div>
+            <Row label={t('settings.serverProtocol')}
+              ><span class="value mono">{serverProtocols}</span></Row
+            >
           {/if}
-        </div>
-        <div class="group spaced pad"><ContactLine /></div>
-        <div class="group spaced">
-          <button class="row" onclick={() => (page = 'credits')}>
-            <span class="tile"><Icon name="info" size={17} /></span>
-            <span class="label">{t('settings.credits')}</span>
-            <Icon name="right" size={16} />
-          </button>
-        </div>
+        </Group>
         {#if updatesHere}
           {#if channelChoice}
-            <p class="caption">{t('appUpdate.channel')}</p>
-            <div class="group">
+            <Group title={t('appUpdate.channel')}>
               {#each ['stable', 'beta'] as const as choice (choice)}
-                <button class="row tall" onclick={() => void channelSwitch.choose(choice)}>
-                  <span class="label">
-                    {choice === 'stable'
-                      ? t('appUpdate.channelStable')
-                      : t('appUpdate.channelBeta')}
-                    <span class="sub"
-                      >{choice === 'stable'
-                        ? t('appUpdate.channelStableHelp')
-                        : t('appUpdate.channelBetaHelp')}</span
-                    >
-                  </span>
-                  {@render check(prefs.channel === choice)}
-                </button>
+                <Row
+                  label={choice === 'stable'
+                    ? t('appUpdate.channelStable')
+                    : t('appUpdate.channelBeta')}
+                  help={choice === 'stable'
+                    ? t('appUpdate.channelStableHelp')
+                    : t('appUpdate.channelBetaHelp')}
+                  checked={prefs.channel === choice}
+                  onclick={() => void channelSwitch.choose(choice)}
+                />
               {/each}
-            </div>
+            </Group>
           {/if}
-          <p class="caption">{t('appUpdate.title')}</p>
-          <div class="group pad">
-            <UpdateCheck channel={false} />
-          </div>
+          <UpdateCheck rows />
         {/if}
+        <Group>
+          <ContactLine row />
+          <Row label={t('settings.credits')} opens onclick={() => (page = 'credits')} />
+        </Group>
       {:else if page === 'credits'}
         <CreditsList phone />
       {/if}
@@ -780,11 +763,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--space-4) 0 var(--space-3) var(--space-1);
+    padding: var(--space-3) 0 var(--space-2) var(--space-1);
   }
   h1 {
     margin: 0;
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 700;
   }
   .search {
@@ -805,71 +788,106 @@
     background: transparent;
     color: var(--color-text);
   }
-  .hero {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    margin-top: var(--space-4);
-    padding: var(--space-3) var(--space-4);
-    border-radius: 16px;
-    background: var(--color-surface);
-  }
-  .hero img {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-  }
-  .hero > span {
+  /* every page the same: groups one under the other, the same gap between */
+  .groups {
     display: grid;
+    align-content: start;
+    gap: var(--space-5);
+    min-width: 0;
+    margin-top: var(--space-4);
   }
-  .hero b {
-    font-size: 18px;
+  .groups.page {
+    margin-top: var(--space-1);
   }
-  .hero span span {
-    color: var(--color-text-muted);
-    font-size: 14px;
+  .groups > :global(*) {
+    min-width: 0;
   }
-  .caption {
-    margin: var(--space-5) var(--space-4) var(--space-2);
+  .page {
+    padding-top: var(--space-1);
+  }
+  .empty {
+    margin: 0 var(--space-4);
     color: var(--color-text-muted);
     font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
-  .group {
-    overflow: hidden;
+
+  /* the settings groups (settings/ui/), shared with the desktop, on a phone:
+     flat on the page, the captions small capitals, rows a finger's height */
+  .screen :global(section.group > .panel),
+  .screen :global(.settings-panel) {
+    border: 0;
     border-radius: 14px;
     background: var(--color-surface);
   }
-  .group.spaced,
-  .search + .group {
-    margin-top: var(--space-5);
+  .screen :global(section.group > h3) {
+    margin: 0 var(--space-4);
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
-  .note {
-    margin: var(--space-2) var(--space-4) 0;
+  .screen :global(section.group > .note) {
+    margin: 0 var(--space-4);
+    font-size: 13px;
+  }
+  /* a page's opening line lines up with the captions */
+  .groups > :global(.settings-help),
+  .screen :global(.sync-form > .settings-help) {
+    margin: 0 var(--space-4);
+  }
+  .screen :global(.settings-row) {
+    min-height: 48px;
+    font-size: 16px;
+  }
+  .screen :global(.settings-row .help) {
+    font-size: 13px;
+  }
+  .screen :global(.field.compact) {
+    width: 170px;
+    min-height: 36px;
+    height: 36px;
+    padding-block: 0;
+    font-size: 14px;
+  }
+
+  .segments-row {
+    position: relative;
+    padding: var(--space-2) var(--space-3);
+  }
+  .segments {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+  }
+  .segments label {
+    display: grid;
+    place-items: center;
+    min-height: 40px;
+    padding: 0 var(--space-1);
+    text-align: center;
+  }
+  .inside {
+    padding: var(--space-3);
+  }
+  .under {
+    margin: 0;
+    padding: 0 var(--space-3) var(--space-2);
     color: var(--color-text-muted);
     font-size: 13px;
   }
-  /* a group right after another keeps the gap of a new section */
-  .group.pad {
-    padding: var(--space-3);
+  .under.error {
+    color: var(--color-danger);
   }
-  .group.fonts {
-    display: grid;
-    gap: var(--space-3);
-  }
-  /* a group after another starts a new section */
-  .group + .group {
-    margin-top: var(--space-5);
-  }
+
   .row {
     position: relative;
     width: 100%;
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    min-height: 52px;
-    padding: 0 var(--space-3) 0 var(--space-3);
+    min-height: 48px;
+    padding: 0 var(--space-3);
     border: 0;
     background: none;
     color: var(--color-text);
@@ -877,7 +895,7 @@
     font-size: 16px;
     text-align: left;
   }
-  .row:active:not(.static, :disabled) {
+  .row:active:not(:disabled) {
     background: var(--color-surface-2);
   }
   .row:disabled {
@@ -885,7 +903,14 @@
     cursor: default;
   }
   /* hairlines between rows start after the icon, like a phone's own lists */
-  .row + .row::before,
+  .row + .row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: calc(var(--space-3) * 2 + 28px);
+    right: 0;
+    border-top: 1px solid var(--color-border);
+  }
   .row.danger .label {
     color: var(--color-danger);
   }
@@ -896,8 +921,8 @@
     color: var(--color-text-faint);
   }
   .tile {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     flex: none;
     display: grid;
     place-items: center;
@@ -922,52 +947,13 @@
     color: var(--color-text-muted);
     font-size: 15px;
   }
+  /* a value in a shared row (About): nothing else beside it to give way to */
+  :global(.settings-row) .value {
+    max-width: none;
+  }
   .mono {
     font-family: var(--font-mono);
     font-size: 13px;
-  }
-  .checked {
-    color: var(--color-accent-text);
-  }
-  .switch {
-    position: relative;
-    width: 50px;
-    height: 30px;
-    flex: none;
-    border-radius: 15px;
-    background: var(--color-border-strong);
-    transition: background var(--dur-fast) var(--ease-out);
-  }
-  .switch i {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--color-text);
-    transition: transform var(--dur-fast) var(--ease-out);
-  }
-  /* on the light paper a black knob weighed more than the label it sits by */
-  :global(:root[data-mode='light']) .switch:not(.on) i {
-    background: var(--color-surface);
-  }
-  .switch.on {
-    background: var(--color-accent);
-  }
-  .switch.on i {
-    transform: translateX(20px);
-    background: var(--color-accent-on);
-  }
-  .padded {
-    padding: var(--space-2) var(--space-4) 0;
-  }
-  .note.error {
-    color: var(--color-danger);
-  }
-  .accent-group {
-    display: grid;
-    gap: var(--space-3);
   }
   .bar {
     position: sticky;
@@ -1009,29 +995,8 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .sync {
-    padding: 0 var(--space-4);
-  }
-  .page {
-    padding-top: var(--space-2);
-  }
-  .page > .group:first-child {
-    margin-top: var(--space-3);
-  }
   .message {
     margin: var(--space-4) var(--space-4) 0;
     color: var(--color-text-muted);
-  }
-  .row.tall {
-    align-items: center;
-    padding-top: var(--space-2);
-    padding-bottom: var(--space-2);
-  }
-  .sub {
-    display: block;
-    margin-top: 2px;
-    font-size: 13px;
-    color: var(--color-text-muted);
-    white-space: normal;
   }
 </style>

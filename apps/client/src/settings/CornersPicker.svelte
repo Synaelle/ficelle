@@ -43,6 +43,12 @@
     border-radius: var(--radius-popover);
     cursor: pointer;
   }
+  /* side by side across a phone's group */
+  @media (pointer: coarse) {
+    .choice {
+      flex: 1;
+    }
+  }
   .choice.checked {
     border-color: var(--color-accent);
   }

@@ -5,11 +5,13 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import Icon from '../../lib/icons/Icon.svelte'
+  import Switch from './Switch.svelte'
 
   let {
     label,
     help,
     checked,
+    on,
     onclick,
     disabled = false,
     opens = false,
@@ -19,6 +21,8 @@
     help?: string
     /** A row in a list of choices: true marks the picked one. */
     checked?: boolean
+    /** A row that is a switch as a whole, for fingers: its state. */
+    on?: boolean
     onclick?: () => void
     /** A row button that does nothing here (the browser has no files). */
     disabled?: boolean
@@ -35,6 +39,7 @@
     {#if help}<span class="help">{help}</span>{/if}
   </span>
   {#if children}<span class="control">{@render children()}</span>{/if}
+  {#if on !== undefined}<Switch drawn checked={on} />{/if}
   {#if opens}<span class="opens" aria-hidden="true"><Icon name="right" size={16} /></span>{/if}
   {#if checked !== undefined}
     <span class="check" aria-hidden="true"
@@ -46,8 +51,8 @@
 {#if onclick}
   <button
     class="row choice settings-row"
-    role={checked === undefined ? undefined : 'radio'}
-    aria-checked={checked}
+    role={on !== undefined ? 'switch' : checked !== undefined ? 'radio' : undefined}
+    aria-checked={on ?? checked}
     {disabled}
     {onclick}>{@render body()}</button
   >

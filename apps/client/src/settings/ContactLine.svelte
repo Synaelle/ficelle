@@ -4,6 +4,10 @@
 <script lang="ts">
   import { brand } from '@app/brand'
   import { t } from '../lib/i18n.svelte'
+  import Row from './ui/Row.svelte'
+
+  /** As a settings row, on the phone. */
+  let { row = false }: { row?: boolean } = $props()
 
   let copied = $state(false)
 
@@ -18,12 +22,20 @@
   }
 </script>
 
-<p class="contact">
-  {t('settings.contact')} <strong class="address">{brand.contactEmail}</strong>
-  <button class="btn small" type="button" onclick={copy}
-    >{copied ? t('settings.contactCopied') : t('recovery.copy')}</button
-  >
-</p>
+{#if row}
+  <Row label={t('settings.contact')} help={brand.contactEmail}>
+    <button class="btn" type="button" onclick={copy}
+      >{copied ? t('settings.contactCopied') : t('recovery.copy')}</button
+    >
+  </Row>
+{:else}
+  <p class="contact">
+    {t('settings.contact')} <strong class="address">{brand.contactEmail}</strong>
+    <button class="btn small" type="button" onclick={copy}
+      >{copied ? t('settings.contactCopied') : t('recovery.copy')}</button
+    >
+  </p>
+{/if}
 
 <style>
   .contact {

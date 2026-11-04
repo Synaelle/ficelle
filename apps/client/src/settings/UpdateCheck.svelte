@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- About: which versions come (Stable or Beta, not on a Mac), how they
      come, and a check right now. Only release builds update themselves, the
-     others show nothing. The phone settings show the channel as rows of
-     their own and leave it out here (channel={false}). -->
+     others show nothing. The phone settings show it as groups of rows and
+     the channel as rows of their own (rows). -->
 <script lang="ts">
   import { ANDROID } from '../lib/platform'
   import { channelSwitch } from '../lib/channelChange.svelte'
@@ -10,19 +10,16 @@
   import { appUpdates, channelChoice, updatesHere, waitingForStable } from '../lib/appUpdate.svelte'
   import { t } from '../lib/i18n.svelte'
   import { prefs } from '../lib/prefs.svelte'
+  import Group from './ui/Group.svelte'
+  import Row from './ui/Row.svelte'
 
-  let { channel = true }: { channel?: boolean } = $props()
+  let { rows = false }: { rows?: boolean } = $props()
 
   const phone = ANDROID
   const CHANNELS = ['stable', 'beta'] as const
 
   /** Turning the security checks off waits a few seconds on a warning. */
-  async function setSecurityChecks(box: HTMLInputElement) {
-    if (box.checked) {
-      prefs.securityChecks = true
-      return
-    }
-    box.checked = true
+  async function securityOff() {
     const yes = await overlay.ask(t('appUpdate.securityOffWarning'), {
       confirmLabel: t('appUpdate.securityOff'),
       danger: true,
@@ -30,11 +27,80 @@
     })
     if (yes) prefs.securityChecks = false
   }
+
+  async function setSecurityChecks(box: HTMLInputElement) {
+    if (box.checked) {
+      prefs.securityChecks = true
+      return
+    }
+    box.checked = true
+    await securityOff()
+  }
+
+  /** One line: how updates come while on, what is still looked for when off. */
+  const help = $derived(
+    !prefs.autoUpdates
+      ? prefs.securityChecks
+        ? t('appUpdate.autoOffHelp')
+        : t('appUpdate.noChecksHelp')
+      : phone
+        ? t('appUpdate.helpPhone')
+        : __APP_PORTABLE__
+          ? t('appUpdate.helpPortable')
+          : t('appUpdate.help'),
+  )
 </script>
 
-{#if updatesHere}
+{#if updatesHere && rows}
+  <Group title={t('appUpdate.title')} note={help}>
+    <Row
+      label={t('appUpdate.auto')}
+      on={prefs.autoUpdates}
+      onclick={() => (prefs.autoUpdates = !prefs.autoUpdates)}
+    />
+    {#if !prefs.autoUpdates}
+      <Row
+        label={t('appUpdate.securityChecks')}
+        on={prefs.securityChecks}
+        onclick={() => {
+          if (prefs.securityChecks) void securityOff()
+          else prefs.securityChecks = true
+        }}
+      />
+    {/if}
+    {#if appUpdates.ready}
+      <Row
+        label={appUpdates.ready.page
+          ? t('appUpdate.out', { version: appUpdates.ready.version })
+          : t('appUpdate.ready', { version: appUpdates.ready.version })}
+      >
+        <button class="btn primary" onclick={() => void channelSwitch.update()}
+          >{appUpdates.ready.page
+            ? t('appUpdate.download')
+            : phone
+              ? t('appUpdate.install')
+              : t('appUpdate.restart')}</button
+        >
+      </Row>
+    {:else}
+      <Row
+        label={appUpdates.checking ? t('appUpdate.checking') : t('appUpdate.check')}
+        help={appUpdates.upToDate
+          ? t('appUpdate.upToDate')
+          : waitingForStable()
+            ? t('appUpdate.channelWaiting')
+            : undefined}
+        disabled={appUpdates.checking}
+        onclick={() => void appUpdates.check()}
+      />
+    {/if}
+    {#if appUpdates.error}<p class="error inside" role="alert">
+        {t(`errors.${appUpdates.error}`)}
+      </p>{/if}
+  </Group>
+{:else if updatesHere}
   <div class="updates">
-    {#if channel && channelChoice}
+    {#if channelChoice}
       <fieldset class="channel">
         <legend>{t('appUpdate.channel')}</legend>
         <div class="segmented">
@@ -74,18 +140,7 @@
         {t('appUpdate.securityChecks')}
       </label>
     {/if}
-    <!-- one line: how updates come while on, what is still looked for when off -->
-    <p class="settings-help">
-      {!prefs.autoUpdates
-        ? prefs.securityChecks
-          ? t('appUpdate.autoOffHelp')
-          : t('appUpdate.noChecksHelp')
-        : phone
-          ? t('appUpdate.helpPhone')
-          : __APP_PORTABLE__
-            ? t('appUpdate.helpPortable')
-            : t('appUpdate.help')}
-    </p>
+    <p class="settings-help">{help}</p>
     {#if appUpdates.ready?.page}
       <p>{t('appUpdate.out', { version: appUpdates.ready.version })}</p>
       <button class="btn primary" onclick={() => void channelSwitch.update()}
@@ -138,5 +193,8 @@
   }
   .error {
     color: var(--color-danger);
+  }
+  .inside {
+    padding: 0 var(--space-3) var(--space-2);
   }
 </style>
