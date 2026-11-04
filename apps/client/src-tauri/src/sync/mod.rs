@@ -38,6 +38,9 @@ use crate::state::AppState;
 const COMPACT_EVERY: Duration = Duration::from_hours(6);
 /// Pull at least this often while nothing else wakes the thread.
 const PULL_EVERY: Duration = Duration::from_secs(60);
+/// The same while the live socket is up: it tells of changes as they come, this
+/// only catches one it missed.
+const PULL_EVERY_LIVE: Duration = Duration::from_mins(5);
 /// Writes come in bursts while typing: wait for this much quiet first, so
 /// a note being written goes up every few seconds, not at every pause.
 const SETTLE: Duration = Duration::from_secs(3);
@@ -201,9 +204,11 @@ impl Sync {
         self.shared.1.notify_all();
     }
 
-    /// The live socket went up or down.
+    /// The live socket went up or down. Wakes the thread: going down, the next
+    /// pull is nearer than the wait it started.
     fn set_live(&self, up: bool) {
         self.lock().live = up;
+        self.shared.1.notify_all();
     }
 
     /// The note of a shared space open in the ui, none when there is none.
@@ -253,14 +258,15 @@ impl Sync {
                 loop {
                     let now = Instant::now();
                     let waited = shared.not_before.is_none_or(|t| now >= t);
-                    let pull_due = now.duration_since(last_pull) >= PULL_EVERY;
+                    let every = pull_every(shared.live);
+                    let pull_due = now.duration_since(last_pull) >= every;
                     if waited && (shared.kicked || pull_due) {
                         break;
                     }
                     let until = shared
                         .not_before
                         .filter(|t| *t > now)
-                        .unwrap_or(last_pull + PULL_EVERY);
+                        .unwrap_or(last_pull + every);
                     let timeout = until
                         .saturating_duration_since(now)
                         .max(Duration::from_millis(50));
@@ -288,7 +294,8 @@ impl Sync {
                 std::mem::take(&mut shared.force)
             };
             let state = app.state::<AppState>();
-            let due = forced || Instant::now().duration_since(last_pull) >= PULL_EVERY;
+            let every = pull_every(self.lock().live);
+            let due = forced || Instant::now().duration_since(last_pull) >= every;
             let ready = state.quietly(|s| {
                 let link = s.store.sync_link()?;
                 let pending = s.store.sync_counts()?.pending;
@@ -397,6 +404,11 @@ impl Sync {
         shared.not_before = None;
         shared.coediting = None;
     }
+}
+
+/// How long a pull waits while nothing else wakes the thread.
+const fn pull_every(live: bool) -> Duration {
+    if live { PULL_EVERY_LIVE } else { PULL_EVERY }
 }
 
 fn emit_status(app: &AppHandle) {
