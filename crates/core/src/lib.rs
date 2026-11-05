@@ -27,7 +27,6 @@
 
 pub mod backup;
 pub mod blobs;
-pub mod catalog;
 pub mod clock;
 pub mod crypto;
 pub mod db;

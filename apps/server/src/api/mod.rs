@@ -7,7 +7,6 @@ mod admin;
 mod auth;
 mod backups;
 mod e2ee;
-mod extensions;
 pub mod extract;
 mod feedback;
 pub mod files;
@@ -27,7 +26,7 @@ mod updates;
 
 use app_protocol::account::User;
 use axum::Router;
-use axum::routing::{delete, get, patch, post, put};
+use axum::routing::{delete, get, post, put};
 
 use crate::accounts::store::UserRow;
 use crate::routes::AppState;
@@ -134,7 +133,7 @@ pub fn router() -> Router<AppState> {
         .merge(group_routes())
         .merge(
             sync_routes()
-                .merge(extension_routes())
+                .merge(backup_routes())
                 .merge(feedback_routes()),
         )
 }
@@ -217,8 +216,8 @@ fn feedback_routes() -> Router<AppState> {
         )
 }
 
-/// Themes the instance offers, backups and the catalog, relative to `/api/v1`.
-fn extension_routes() -> Router<AppState> {
+/// Backups, relative to `/api/v1`.
+fn backup_routes() -> Router<AppState> {
     Router::new()
         .route(
             "/admin/backups",
@@ -235,21 +234,6 @@ fn extension_routes() -> Router<AppState> {
             "/admin/backups/restore-person",
             post(backups::restore_person),
         )
-        .route("/admin/extensions", get(extensions::list))
-        .route("/admin/extensions/rules", put(extensions::set_rules))
-        .route("/admin/extensions/{kind}", post(extensions::upload))
-        .route(
-            "/admin/extensions/{kind}/{id}",
-            patch(extensions::set_preinstall).delete(extensions::remove),
-        )
-        .route(
-            "/admin/catalog",
-            get(extensions::admin_catalog).put(extensions::set_catalog),
-        )
-        .route("/sync/catalog", get(extensions::catalog_for_apps))
-        .route("/sync/catalog/{kind}/{id}", get(extensions::catalog_file))
-        .route("/sync/extensions", get(extensions::for_apps))
-        .route("/sync/extensions/{kind}/{id}", get(extensions::download))
 }
 
 /// Sync and sharing routes, relative to `/api/v1`.

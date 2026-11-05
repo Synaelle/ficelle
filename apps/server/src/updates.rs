@@ -9,7 +9,7 @@
 
 use std::time::Duration;
 
-use app_protocol::catalog::hex_bytes;
+use app_protocol::releases::hex_bytes;
 use app_protocol::releases::{
     FORMAT, Release, ReleaseList, UpdatesView, is_beta, signed_message, version_parts,
 };

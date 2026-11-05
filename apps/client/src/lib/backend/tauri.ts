@@ -140,7 +140,6 @@ export function createTauriBackend(): Backend {
     themesList: () => invoke('themes_list'),
     themeSave: (json) => invoke('theme_save', { json }),
 
-    instanceExtensions: () => invoke('instance_extensions'),
     backupsGet: () => invoke('backups_get'),
     backupsFound: (target) => invoke('backups_found', { target }),
     backupsConnect: (target, password, create, host) =>
@@ -152,11 +151,8 @@ export function createTauriBackend(): Backend {
     backupsRestore: (snapshot) => invoke('backups_restore', { snapshot }),
     backupsTestRestore: (snapshot) => invoke('backups_test_restore', { snapshot }),
     backupsCheck: (full) => invoke('backups_check', { full }),
-    catalogList: (direct) => invoke('catalog_list', { direct }),
-    catalogTheme: (id, direct) => invoke('catalog_theme', { id, direct }),
     feedbackWhere: () => invoke('feedback_where'),
     feedbackSend: (draft) => invoke('feedback_send', { draft }),
     feedbackAnswers: (url, secrets) => invoke('feedback_answers', { url, secrets }),
-    instanceTheme: (id) => invoke('instance_theme', { id }),
   }
 }

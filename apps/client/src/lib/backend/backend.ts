@@ -198,14 +198,6 @@ export interface Backend {
   /** Keeps a theme the page checked, returns its id. */
   themeSave(json: string): Promise<string>
 
-  /** The instance's rules and offers, null without an account. */
-  instanceExtensions(): Promise<import('./types').Extensions | null>
-  /** A theme the instance offers, as its JSON text. */
-  instanceTheme(id: string): Promise<string>
-  /** The official catalog, `direct` for a device without an account whose person turned it on. */
-  catalogList(direct: boolean): Promise<import('./types').CatalogState>
-  /** A catalog theme, checked, as its JSON text. */
-  catalogTheme(id: string, direct: boolean): Promise<string>
   /** Where a feedback report would go now. */
   feedbackWhere(): Promise<import('./types').FeedbackWhere>
   /** Sends a report there, the proof of work done natively. */

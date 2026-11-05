@@ -49,23 +49,9 @@ const state = $state({
 // loaded when needed: the admin page styles itself without the app's storage
 const store = async () => (await import('./backend')).backend
 
-// which imported themes the rules of the instance allow, set by the app
-// (lib/instance), the admin page has none
-const filter = $state<{ allowed: (id: string) => boolean }>({ allowed: () => true })
-
-/** Sets which imported themes may be used. */
-export function setThemeFilter(allowed: (id: string) => boolean) {
-  filter.allowed = allowed
-}
-
 const builtInIds = new Set(builtInThemes.map((t) => t.id))
 
 export const isBuiltIn = (id: string) => builtInIds.has(id)
-
-/** Built-in themes first, then the imported ones the rules allow, by name. */
-export function allThemes(): Theme[] {
-  return [...builtInThemes, ...state.imported.filter((t) => filter.allowed(t.id))]
-}
 
 // Always the default theme for now: choosing another, imported ones too,
 // comes back with the themes page. A theme saved by an older version is

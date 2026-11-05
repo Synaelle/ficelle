@@ -145,9 +145,7 @@ pub mod error_code {
 
 pub mod account;
 pub mod admin;
-pub mod catalog;
 pub mod e2ee;
-pub mod extensions;
 pub mod feedback;
 pub mod files;
 pub mod profile;

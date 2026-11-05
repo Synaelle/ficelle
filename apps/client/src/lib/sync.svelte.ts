@@ -9,7 +9,6 @@ import { backend } from './backend'
 import { prefs } from './prefs.svelte'
 import { sharing } from './sharing.svelte'
 import { workspace } from './workspace.svelte'
-import { instance } from './instance.svelte'
 
 /** Window event after files arrived from the server. */
 export const FILES_CHANGED = 'files-changed'
@@ -112,10 +111,6 @@ class Sync {
       this.presence[event.payload.space] = event.payload.viewers
     })
     await listen<SyncStatus>('sync-status', (event) => {
-      // signing in or out changes whose rules apply: asked at once
-      const account = event.payload.state === 'off' || event.payload.state === 'signedOut'
-      const before = this.status.state === 'off' || this.status.state === 'signedOut'
-      void instance.refresh(account !== before)
       this.status = event.payload
       // what was heard before the socket went down is stale
       if (!event.payload.live) this.presence = {}

@@ -33,10 +33,6 @@ export interface Prefs {
   sort: NoteSort
   /** Overrides of the default key bindings. */
   shortcuts: Partial<Record<ActionId, string>>
-  /** Without an account: the person turned the official catalog on. */
-  catalogLocal: boolean
-  /** Themes added from the instance: id to the file's hash. */
-  instanceThemes: Record<string, string>
   /** Size of text, buttons and spacing everywhere. */
   uiSize: UiSize
   /** The theme's corners, or rounder ones everywhere. */
@@ -109,8 +105,6 @@ export const DEFAULT_PREFS: Prefs = {
   language: null,
   sort: 'updatedDesc',
   shortcuts: {},
-  catalogLocal: false,
-  instanceThemes: {},
   uiSize: 'medium',
   corners: 'square',
   dyslexicFont: false,

@@ -417,19 +417,3 @@ export interface StorageOverview {
   noteBytes: number
   people: { total: number; items: PersonStorage[] }
 }
-
-export type {
-  ThemeRule,
-  ExtensionRules,
-  OfferedTheme,
-  Extensions,
-  Catalog,
-} from '../lib/backend/types'
-
-/** `GET /admin/catalog`, see crates/protocol/src/catalog.rs. */
-export interface CatalogView {
-  enabled: boolean
-  catalog?: import('../lib/backend/types').Catalog
-  error?: string
-  fetchedAt?: number
-}

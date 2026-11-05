@@ -19,15 +19,13 @@ const brand = JSON.parse(readFileSync(join(root, 'packages/brand/brand.json'), '
 const check = process.argv.includes('--check')
 const lockPath = join(root, 'brand.lock.json')
 
-// the feedback, catalog and release list addresses can move between hosts,
+// the feedback and release list addresses can move between hosts,
 // their keys can be replaced, and the dev identity never ships: changing them
 // breaks no installed app
 const unfrozen = new Set([
   'contactEmail',
   'feedbackUrl',
-  'catalogUrl',
   'fontsUrl',
-  'catalogKey',
   'releasesUrl',
   'releasesBetaUrl',
   'releasesKey',
@@ -108,22 +106,16 @@ pub const CONFIG_FILE: &str = ${JSON.stringify(brand.configFile)};
 pub const BACKUP_EXTENSION: &str = ${JSON.stringify(brand.backupExtension)};
 /// Default instance that receives feedback reports.
 pub const FEEDBACK_URL: &str = ${JSON.stringify(brand.feedbackUrl)};
-/// The official catalog of themes: the folder holding
-/// \`catalog.json\`, ending with a slash.
-pub const CATALOG_URL: &str = ${JSON.stringify(brand.catalogUrl)};
 /// Where the apps download fonts first: the project's own host, which
 /// mirrors them (tools/fonts-mirror.mjs). jsDelivr only when it fails.
 pub const FONTS_URL: &str = ${JSON.stringify(brand.fontsUrl)};
-/// The hex Ed25519 public key the catalog's entries are signed with. Empty:
-/// no catalog in this build.
-pub const CATALOG_KEY: &str = ${JSON.stringify(brand.catalogKey)};
 /// The signed list of releases servers check for update notices.
 pub const RELEASES_URL: &str = ${JSON.stringify(brand.releasesUrl)};
 /// The same list for servers running a beta, on the GitHub release tagged
 /// \`beta\`.
 pub const RELEASES_BETA_URL: &str = ${JSON.stringify(brand.releasesBetaUrl)};
-/// The hex Ed25519 public key its entries are signed with (the catalog's
-/// may serve, the messages differ). Empty: no update check in this build.
+/// The hex Ed25519 public key its entries are signed with. Empty: no update
+/// check in this build.
 pub const RELEASES_KEY: &str = ${JSON.stringify(brand.releasesKey)};
 /// Where release apps look for a newer version of themselves: tauri's
 /// \`latest.json\`, attached to the newest GitHub release.

@@ -5,16 +5,46 @@
 //!
 //! `releases sign FILE KEYFILE` checks every entry of FILE (a version
 //! `major.minor.micro`, a date `YYYY-MM-DD`), signs each with the key
-//! `catalog keygen` made (the same key may serve both, the signed messages
-//! differ) and writes FILE back, newest first. Upload it to `releasesUrl`.
+//! `releases keygen KEYFILE` made and writes FILE back, newest first. Upload
+//! it to `releasesUrl`. The private seed stays off the repository and backed
+//! up, the public key goes in `brand.json` (`releasesKey`).
 
 use std::fs;
 use std::path::Path;
 
-use app_protocol::releases::{FORMAT, ReleaseList, signed_message, version_parts};
-use ed25519_dalek::Signer;
+use app_protocol::releases::{FORMAT, ReleaseList, hex_bytes, signed_message, version_parts};
+use ed25519_dalek::{Signer, SigningKey};
 
-use crate::catalog::{hex, signing_key};
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().fold(String::new(), |mut out, b| {
+        use std::fmt::Write as _;
+        // writing to a String cannot fail
+        let _ = write!(out, "{b:02x}");
+        out
+    })
+}
+
+/// Makes a key: the seed in `keyfile` (refused when it exists), the public
+/// key returned.
+pub fn keygen(keyfile: &Path) -> Result<String, String> {
+    if keyfile.exists() {
+        return Err(format!(
+            "{} exists already, a new key would replace it",
+            keyfile.display()
+        ));
+    }
+    let mut seed = [0u8; 32];
+    getrandom::fill(&mut seed).map_err(|e| e.to_string())?;
+    let key = SigningKey::from_bytes(&seed);
+    fs::write(keyfile, hex(&seed)).map_err(|e| e.to_string())?;
+    Ok(hex(key.verifying_key().as_bytes()))
+}
+
+fn signing_key(keyfile: &Path) -> Result<SigningKey, String> {
+    let text = fs::read_to_string(keyfile).map_err(|e| format!("{}: {e}", keyfile.display()))?;
+    let seed = hex_bytes::<32>(text.trim()).ok_or("the key file does not hold a key")?;
+    Ok(SigningKey::from_bytes(&seed))
+}
 
 fn plausible_date(date: &str) -> bool {
     let bytes = date.as_bytes();
@@ -74,7 +104,8 @@ mod tests {
     fn every_entry_is_checked_signed_and_sorted() {
         let dir = tempfile::tempdir().unwrap();
         let keyfile = dir.path().join("key");
-        let public = crate::catalog::keygen(&keyfile).unwrap();
+        let public = keygen(&keyfile).unwrap();
+        assert!(keygen(&keyfile).is_err(), "never replaces a key");
         let file = dir.path().join("releases.json");
         fs::write(
             &file,
@@ -88,12 +119,10 @@ mod tests {
         let list: ReleaseList = serde_json::from_str(&fs::read_to_string(&file).unwrap()).unwrap();
         assert_eq!(list.format, FORMAT);
         assert_eq!(list.releases[0].version, "0.2.0", "newest first");
-        let key = ed25519_dalek::VerifyingKey::from_bytes(
-            &app_protocol::catalog::hex_bytes::<32>(&public).unwrap(),
-        )
-        .unwrap();
+        let key =
+            ed25519_dalek::VerifyingKey::from_bytes(&hex_bytes::<32>(&public).unwrap()).unwrap();
         for release in &list.releases {
-            let signature = app_protocol::catalog::hex_bytes::<64>(&release.signature).unwrap();
+            let signature = hex_bytes::<64>(&release.signature).unwrap();
             assert!(
                 key.verify(&signed_message(release), &Signature::from_bytes(&signature))
                     .is_ok()

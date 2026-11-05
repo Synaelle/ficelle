@@ -15,7 +15,6 @@
   import { bindingOf, type ActionId } from '../lib/shortcuts'
   import { shortcutFor } from '../lib/prefs.svelte'
   import { workspace } from '../lib/workspace.svelte'
-  import { instance } from '../lib/instance.svelte'
   import { backups } from '../lib/backups.svelte'
   import { onMount } from 'svelte'
   import Settings from '../settings/Settings.svelte'
@@ -57,8 +56,6 @@
 
   void workspace.load()
   onMount(() => {
-    // what the instance offers (its themes), heard again
-    void instance.refresh(true)
     // scheduled backups run while the notes are open
     backups.start()
     return () => backups.stop()

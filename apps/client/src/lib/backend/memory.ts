@@ -581,15 +581,6 @@ ${input.key}`,
     },
 
     sentFeedback,
-    instanceExtensions: async () => null,
-    catalogList: async () => ({
-      available: false,
-      via: 'none',
-      enabled: false,
-      catalog: null,
-      error: null,
-      host: '',
-    }),
     backupsGet: async () => structuredClone(backups),
     backupsFound: async (target) => {
       const there = target.kind === 'folder' ? seeded(target.path) : null
@@ -703,12 +694,6 @@ ${input.key}`,
     feedbackAnswers: async (_url, secrets) => ({
       reports: secrets.map((secret) => ({ secret, state: 'received' as const, answer: '' })),
     }),
-    catalogTheme: async () => {
-      throw { kind: 'unsupported', message: 'the catalog needs the app' }
-    },
-    instanceTheme: async () => {
-      throw { kind: 'unsupported', message: 'servers need the app' }
-    },
   }
   return backend
 }

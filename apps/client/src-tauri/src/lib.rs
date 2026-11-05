@@ -104,13 +104,9 @@ pub fn run() {
         })
         .register_uri_scheme_protocol(protocol::SCHEME, protocol::handle)
         .invoke_handler(tauri::generate_handler![
-            sync::catalog::catalog_list,
             sync::feedback::feedback_where,
             sync::feedback::feedback_send,
             sync::feedback::feedback_answers,
-            sync::catalog::catalog_theme,
-            sync::extensions::instance_extensions,
-            sync::extensions::instance_theme,
             commands::themes::themes_list,
             commands::themes::theme_save,
             commands::vault::vault_status,

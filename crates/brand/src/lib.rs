@@ -44,23 +44,17 @@ pub const CONFIG_FILE: &str = "ficelle.toml";
 pub const BACKUP_EXTENSION: &str = "ficelle";
 /// Default instance that receives feedback reports.
 pub const FEEDBACK_URL: &str = "https://ficelle.synaelle.com";
-/// The official catalog of themes: the folder holding
-/// `catalog.json`, ending with a slash.
-pub const CATALOG_URL: &str = "https://ficelle.synaelle.com/catalog/";
 /// Where the apps download fonts first: the project's own host, which
 /// mirrors them (tools/fonts-mirror.mjs). jsDelivr only when it fails.
 pub const FONTS_URL: &str = "https://ficelle.synaelle.com/fonts";
-/// The hex Ed25519 public key the catalog's entries are signed with. Empty:
-/// no catalog in this build.
-pub const CATALOG_KEY: &str = "";
 /// The signed list of releases servers check for update notices.
 pub const RELEASES_URL: &str = "https://ficelle.synaelle.com/releases.json";
 /// The same list for servers running a beta, on the GitHub release tagged
 /// `beta`.
 pub const RELEASES_BETA_URL: &str =
     "https://github.com/Synaelle/ficelle/releases/download/beta/releases.json";
-/// The hex Ed25519 public key its entries are signed with (the catalog's
-/// may serve, the messages differ). Empty: no update check in this build.
+/// The hex Ed25519 public key its entries are signed with. Empty: no update
+/// check in this build.
 pub const RELEASES_KEY: &str = "b87ba069a2e5ab6807cd59bd3f5c06186e62f3519a5d2bc16edbe0f458dcc0cc";
 /// Where release apps look for a newer version of themselves: tauri's
 /// `latest.json`, attached to the newest GitHub release.

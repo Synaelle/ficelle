@@ -58,8 +58,6 @@ pub struct AppState {
     pub feedback_reading: Arc<tokio::sync::Semaphore>,
     /// Password hashes running at once.
     pub hashing: Arc<tokio::sync::Semaphore>,
-    /// The official catalog as last fetched.
-    pub catalog: Arc<crate::catalog::Cache>,
     /// Feedback reports, a database of their own.
     pub feedback: Db,
     /// Feedback challenges a minute from one address.
@@ -90,10 +88,6 @@ impl AppState {
             )),
             mailer: crate::mail::Mailer::new(&config),
             master: Arc::new(crate::keys::MasterKey::generate()),
-            catalog: Arc::new(crate::catalog::Cache::new(
-                config.catalog.clone(),
-                &config.storage.data_dir,
-            )),
             feedback: Db::feedback_in_memory().expect("the feedback migrations apply"),
             feedback_limit: RateLimit::new(FEEDBACK_CHALLENGES_PER_MINUTE),
             setup: Arc::default(),

@@ -16,7 +16,6 @@
     "build:portable": "node tools/build-release.mjs --portable",
     "brand": "node tools/brand.mjs",
     "devtool": "cargo run -q --release -p devtool --",
-    "catalog": "cargo run -q --release -p devtool -- catalog",
     "releases": "cargo run -q --release -p devtool -- releases",
     "icons": "pnpm --filter @app/client tauri icon ../../packages/ui/brand/app-icon.svg",
     "lint": "eslint . && prettier --check . && pnpm -r check && node tools/brand.mjs --check && node tools/i18n-check.mjs",

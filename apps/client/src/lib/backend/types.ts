@@ -382,51 +382,6 @@ export interface BackendError {
 export const MATCH_START = '\u0002'
 export const MATCH_END = '\u0003'
 
-/** Which themes the apps may use besides the built-in ones, see
- * crates/protocol/src/extensions.rs. */
-export type ThemeRule = 'any' | 'instance'
-
-export interface ExtensionRules {
-  themes: ThemeRule
-}
-
-export interface OfferedTheme {
-  id: string
-  name: string
-  size: number
-  sha256: string
-  preinstall: boolean
-  uploadedAt: number
-}
-
-/** `GET /admin/extensions`, and what the apps read at `/sync/extensions`. */
-export interface Extensions {
-  rules: ExtensionRules
-  themes: OfferedTheme[]
-}
-
-/** One theme of the official catalog, see crates/protocol/src/catalog.rs. */
-export interface CatalogEntry {
-  kind: 'theme'
-  id: string
-  name: string
-  version: string
-  description?: string
-  author?: string
-  file: string
-  size: number
-  fileSha256: string
-  /** What is installed: the theme file's own hash. */
-  contentSha256: string
-  signature: string
-}
-
-export interface Catalog {
-  format: number
-  generatedAt: number
-  entries: CatalogEntry[]
-}
-
 /** Where this device's feedback goes, see src-tauri/src/sync/feedback.rs. */
 export interface FeedbackWhere {
   available: boolean
@@ -467,18 +422,4 @@ export interface FeedbackAnswer {
   state: 'received' | 'open' | 'done'
   /** The one answer from whoever reads the reports, empty until given. */
   answer: string
-}
-
-/** The official catalog as this device may see it, every entry checked. */
-export interface CatalogState {
-  /** This build has a catalog key. */
-  available: boolean
-  /** Through the server signed in to, straight from the catalog, or not at all. */
-  via: 'server' | 'direct' | 'none'
-  /** Through a server: its admin turned the catalog on. */
-  enabled: boolean
-  catalog: Catalog | null
-  error: string | null
-  /** The catalog's host, named before the person turns it on. */
-  host: string
 }

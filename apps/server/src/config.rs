@@ -33,8 +33,10 @@ pub struct Config {
     /// Attachments: the instance's starting policy, before the admin page
     /// changes it.
     pub files: FilesConfig,
-    /// The official catalog of themes, when the admin turns it on.
-    pub catalog: CatalogConfig,
+    /// The old `[catalog]` section, no longer read: a server that still
+    /// has it keeps starting.
+    #[serde(skip_serializing)]
+    pub catalog: Option<toml::Value>,
     /// Feedback and bug reports, received and sent.
     pub feedback: FeedbackConfig,
     /// The first start, before an admin exists.
@@ -168,30 +170,6 @@ impl Default for FeedbackConfig {
             instance_per_day: 500,
             keep_days: 180,
             main_url: app_brand::FEEDBACK_URL.to_owned(),
-        }
-    }
-}
-
-/// `[catalog]`: where the official catalog is and the key it is signed
-/// with. The brand's by default, another catalog for testing or for a
-/// self-hoster who signs their own.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct CatalogConfig {
-    /// The folder holding `catalog.json`, ending with a slash.
-    pub url: String,
-    /// Hex Ed25519 public key. Empty: no catalog.
-    pub public_key: String,
-    /// Hours a fetched catalog is kept before asking again.
-    pub refresh_hours: u32,
-}
-
-impl Default for CatalogConfig {
-    fn default() -> Self {
-        Self {
-            url: app_brand::CATALOG_URL.to_owned(),
-            public_key: app_brand::CATALOG_KEY.to_owned(),
-            refresh_hours: 6,
         }
     }
 }
@@ -884,6 +862,16 @@ fn parse_env_value(raw: &str) -> toml::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_old_catalog_section_still_starts() {
+        let config: Config = toml::from_str(
+            "[catalog]\nurl = \"https://example.test/\"\npublic_key = \"\"\nrefresh_hours = 6\n",
+        )
+        .unwrap();
+        assert!(config.catalog.is_some());
+        assert!(!toml::to_string(&config).unwrap().contains("[catalog]"));
+    }
 
     fn env(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
         pairs

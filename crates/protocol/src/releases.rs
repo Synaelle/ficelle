@@ -2,8 +2,7 @@
 
 //! The signed list of releases servers check for update notices. Each entry
 //! is signed on its own with the owner's Ed25519 key, over a message that
-//! starts with `releases-{FORMAT}`: a catalog signature (which starts with
-//! `catalog-`) never passes for a release, even under the same key.
+//! starts with `releases-{FORMAT}`.
 
 use serde::{Deserialize, Serialize};
 
@@ -127,6 +126,20 @@ pub struct UpdatesRequest {
     pub enabled: bool,
 }
 
+/// Bytes from their lowercase or uppercase hex, the keys and signatures of
+/// the release list.
+#[must_use]
+pub fn hex_bytes<const N: usize>(text: &str) -> Option<[u8; N]> {
+    if text.len() != N * 2 {
+        return None;
+    }
+    let mut out = [0; N];
+    for (i, byte) in out.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(text.get(i * 2..i * 2 + 2)?, 16).ok()?;
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,7 +172,14 @@ mod tests {
     }
 
     #[test]
-    fn a_catalog_signature_message_is_never_a_release_one() {
+    fn hex_must_be_whole_and_valid() {
+        assert_eq!(hex_bytes::<2>("0aff"), Some([10, 255]));
+        assert_eq!(hex_bytes::<2>("0af"), None);
+        assert_eq!(hex_bytes::<2>("0agf"), None);
+    }
+
+    #[test]
+    fn the_signed_message_names_its_format_and_covers_the_flags() {
         let release = Release {
             version: "0.1.0".into(),
             date: "2026-11-01".into(),

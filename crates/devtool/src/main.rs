@@ -3,7 +3,6 @@
 //! Dev helper for testing alone. Each profile is a separate local vault under
 //! `.dev-data/<profile>`, standing in for one device. Run with `--help`.
 
-mod catalog;
 mod releases;
 mod seed;
 
@@ -33,17 +32,14 @@ commands:
   profiles             list profiles
   schema               print the number of database schema steps this build knows,
                        the `schema` of the release's latest.json
-  catalog keygen KEYFILE
-                       make the official catalog's key: the private key goes to KEYFILE
+  releases keygen KEYFILE
+                       make the release list's key: the private key goes to KEYFILE
                        (keep it off the repository, back it up), the public one is printed
-                       for brand.json, catalogKey
-  catalog sign FOLDER KEYFILE
-                       sign FOLDER/themes/*.json into FOLDER/catalog.json,
-                       then upload FOLDER to catalogUrl
+                       for brand.json, releasesKey
   releases sign FILE KEYFILE
                        check and sign every release in FILE (releases.json: version,
                        date, security, notes, url), newest first, then upload it to
-                       releasesUrl. The catalog's key may serve, set releasesKey too
+                       releasesUrl
 
 profiles default to 'laptop'. Use one profile per simulated device.";
 
@@ -169,20 +165,13 @@ fn run(args: &Args) -> Result<(), String> {
     let fail = |err: app_core::Error| err.to_string();
     match words.as_slice() {
         [] | ["help"] => println!("{HELP}"),
-        ["catalog", "keygen", keyfile] => {
-            let public = catalog::keygen(Path::new(keyfile))?;
+        ["releases", "keygen", keyfile] => {
+            let public = releases::keygen(Path::new(keyfile))?;
             println!("private key written to {keyfile}, keep it safe and off the repository");
             println!(
-                "public key for brand.json, catalogKey:
+                "public key for brand.json, releasesKey:
 {public}"
             );
-        }
-        ["catalog", "sign", folder, keyfile] => {
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
-            let themes = catalog::sign_folder(Path::new(folder), Path::new(keyfile), now)?;
-            println!("signed {themes} themes into {folder}/catalog.json");
         }
         ["releases", "sign", file, keyfile] => {
             let count = releases::sign_file(Path::new(file), Path::new(keyfile))?;
