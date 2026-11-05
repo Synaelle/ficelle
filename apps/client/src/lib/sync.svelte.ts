@@ -9,6 +9,7 @@ import { backend } from './backend'
 import { prefs } from './prefs.svelte'
 import { sharing } from './sharing.svelte'
 import { workspace } from './workspace.svelte'
+import { protocolRange } from './serverVersion'
 
 /** Window event after files arrived from the server. */
 export const FILES_CHANGED = 'files-changed'
@@ -201,9 +202,8 @@ export async function serverProtocol(): Promise<string | null> {
   const server = sync.status.server
   if (!server) return null
   try {
-    const { minProtocol: min, maxProtocol: max } = await sync.checkServer(server)
-    if (min === undefined || max === undefined) return null
-    return min === max ? String(min) : `${min}–${max}`
+    const { minProtocol, maxProtocol } = await sync.checkServer(server)
+    return protocolRange(minProtocol, maxProtocol)
   } catch {
     return null
   }

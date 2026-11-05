@@ -7,6 +7,7 @@
   import PasswordField from '../lib/PasswordField.svelte'
   import { currentLocale, t } from '../lib/i18n.svelte'
   import { prefs } from '../lib/prefs.svelte'
+  import { protocolGap, protocolRange, versionGap } from '../lib/serverVersion'
   import Icon from '../lib/icons/Icon.svelte'
   import {
     isSyncError,
@@ -147,6 +148,37 @@
     void run(() => sync.disconnect())
   }
 
+  /** The linked server as last heard, null until it answers. */
+  let linkedServer: ServerCheck | null = $state(null)
+  $effect(() => {
+    const server = linked ? status.server : null
+    linkedServer = null
+    if (!server) return
+    let left = false
+    sync
+      .checkServer(server)
+      .then((answer) => {
+        if (!left) linkedServer = answer
+      })
+      .catch(() => {})
+    return () => {
+      left = true
+    }
+  })
+
+  const protocolProblem = $derived.by(() => {
+    const server = linkedServer as ServerCheck | null
+    return server && protocolGap(__APP_PROTOCOL__, server.minProtocol, server.maxProtocol)
+  })
+
+  /** The advice about versions, none when a protocol problem says more. */
+  function versionNote(server: ServerCheck | null): string | undefined {
+    if (!server) return undefined
+    if (protocolGap(__APP_PROTOCOL__, server.minProtocol, server.maxProtocol)) return undefined
+    const gap = versionGap(__APP_VERSION__, server.version)
+    return gap ? t(`sync.version_${gap}`) : undefined
+  }
+
   const STATE_TEXT: Record<SyncState, string> = {
     off: 'sync.state.off',
     signedOut: 'sync.state.signedOut',
@@ -199,6 +231,24 @@
       <span class="value">{status.live ? t('sync.live') : t('sync.everyMinute')}</span>
     </Row>
   </Group>
+  {#if linkedServer}
+    {#if protocolProblem}<p class="error" role="alert">{t(`sync.error.${protocolProblem}`)}</p>{/if}
+    <Group title={t('sync.versions')} note={versionNote(linkedServer)}>
+      <Row label={t('sync.thisApp')}>
+        <span class="value"
+          >{t('sync.versionLine', { version: __APP_VERSION__, protocol: __APP_PROTOCOL__ })}</span
+        >
+      </Row>
+      <Row label={t('sync.server')}>
+        <span class="value"
+          >{t('sync.versionLine', {
+            version: linkedServer.version,
+            protocol: protocolRange(linkedServer.minProtocol, linkedServer.maxProtocol) ?? '?',
+          })}</span
+        >
+      </Row>
+    </Group>
+  {/if}
   <Group
     title={t('sync.more')}
     note={status.coediting ? t('sync.coeditingHelp') : t('sync.coeditingOff')}
@@ -272,7 +322,10 @@
     {/if}
     {#if checked}
       <!-- what the check found: it answers, its version, who may sign up -->
-      <Group title={t('sync.signInTo', { server: checked.address ?? status.server ?? '' })}>
+      <Group
+        title={t('sync.signInTo', { server: checked.address ?? status.server ?? '' })}
+        note={versionNote(checked)}
+      >
         <Row label={t('sync.serverState')}>
           <span class="value">{t('sync.serverUp')}, {checked.version}</span>
         </Row>
