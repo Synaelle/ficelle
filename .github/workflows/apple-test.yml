@@ -5,7 +5,7 @@ name: apple-test
 # updater), unsigned, and replaces the file of the single pre-release
 # "apple-test". A pre-release is never the latest release, so the apps'
 # update check never sees it. docs/apple.md says how to install it. The Mac
-# app is to come with the Beta releases instead.
+# app comes with the Beta releases instead, see mac.yml.
 
 on:
   workflow_dispatch:

@@ -20,6 +20,24 @@ use tauri::Manager;
 
 use crate::state::AppState;
 
+/// A minimized window's `WebView` gives back the memory it can, and takes it again
+/// when the window comes back. Windows only, the other systems' webviews have no
+/// such setting.
+#[cfg(windows)]
+fn webview_memory(window: &tauri::Window, event: &tauri::WindowEvent) {
+    if !matches!(event, tauri::WindowEvent::Resized(_)) {
+        return;
+    }
+    let low = window.is_minimized().unwrap_or(false);
+    let Some(webview) = window.get_webview_window(window.label()) else {
+        return;
+    };
+    let _ = webview.with_webview(move |platform| {
+        // a WebView2 too old for it stays as it is
+        let _ = app_webview_memory::set_low(&platform.controller(), low);
+    });
+}
+
 /// Starts the app. Shared by the desktop binary and the mobile entry point.
 ///
 /// # Panics
@@ -42,10 +60,13 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
     #[cfg(desktop)]
     let builder = builder.manage(commands::updates::Pending::default());
+    #[cfg(windows)]
+    let builder = builder.on_window_event(webview_memory);
     builder
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             #[cfg(target_os = "android")]
             android_keystore::init(app.handle(), app.path().app_data_dir()?.join("keys"));

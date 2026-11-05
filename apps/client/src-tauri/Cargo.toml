@@ -32,6 +32,7 @@ tauri.workspace = true
 tauri-plugin-clipboard-manager = "2.5.0"
 tauri-plugin-dialog = "2.8.3"
 tauri-plugin-fs = "2.7.1"
+tauri-plugin-notification = "2.8.0"
 tungstenite = { version = "0.30.0", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
 ureq = { version = "3.5.0", features = ["json"] }
 zeroize = "1.9.1"
@@ -57,6 +58,7 @@ tauri-plugin-global-shortcut = "2.4.1"
 # the credential and buffer APIs enabled; winsafe (safe Win32 calls) brings
 # its prompt forward
 [target.'cfg(windows)'.dependencies]
+app-webview-memory = { path = "../../../crates/webview-memory" }
 windows = { version = "0.62.2", features = [
   "Foundation",
   "Globalization",

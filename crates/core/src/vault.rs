@@ -42,7 +42,7 @@ const ENC_BLOBS: &str = "blobs.encrypting";
 /// Choice made at first launch.
 #[derive(Clone, Copy)]
 pub enum Encryption<'a> {
-    /// Plain SQLite file. No longer offered, kept for tests and old vaults.
+    /// Plain SQLite file, chosen under More options at first launch.
     Off,
     /// Encrypted database unlocked with this password.
     On {

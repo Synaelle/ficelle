@@ -7,7 +7,13 @@
   import { ANDROID } from '../lib/platform'
   import { channelSwitch } from '../lib/channelChange.svelte'
   import { overlay } from '../lib/overlay.svelte'
-  import { appUpdates, channelChoice, updatesHere, waitingForStable } from '../lib/appUpdate.svelte'
+  import {
+    appUpdates,
+    channelChoice,
+    notificationsHere,
+    updatesHere,
+    waitingForStable,
+  } from '../lib/appUpdate.svelte'
   import { t } from '../lib/i18n.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import Group from './ui/Group.svelte'
@@ -35,6 +41,15 @@
     }
     box.checked = true
     await securityOff()
+  }
+
+  /** The system refused notifications: says where to allow them. */
+  let notifyDenied = $state(false)
+
+  async function setNotifications(on: boolean, box?: HTMLInputElement) {
+    notifyDenied = !(await appUpdates.setNotifications(on))
+    // refused, the setting stays as it was and so does the box
+    if (box) box.checked = prefs.updateNotifications
   }
 
   /** One line: how updates come while on, what is still looked for when off. */
@@ -66,6 +81,14 @@
           if (prefs.securityChecks) void securityOff()
           else prefs.securityChecks = true
         }}
+      />
+    {/if}
+    {#if notificationsHere}
+      <Row
+        label={t('appUpdate.notify')}
+        help={notifyDenied ? t('appUpdate.notifyDenied') : undefined}
+        on={prefs.updateNotifications}
+        onclick={() => void setNotifications(!prefs.updateNotifications)}
       />
     {/if}
     {#if appUpdates.ready}
@@ -139,6 +162,19 @@
         />
         {t('appUpdate.securityChecks')}
       </label>
+    {/if}
+    {#if notificationsHere}
+      <label class="settings-check">
+        <input
+          type="checkbox"
+          checked={prefs.updateNotifications}
+          onchange={(e) => void setNotifications(e.currentTarget.checked, e.currentTarget)}
+        />
+        {t('appUpdate.notify')}
+      </label>
+      {#if notifyDenied}<p class="settings-help" role="status">
+          {t('appUpdate.notifyDenied')}
+        </p>{/if}
     {/if}
     <p class="settings-help">{help}</p>
     {#if appUpdates.ready?.page}

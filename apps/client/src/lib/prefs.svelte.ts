@@ -66,6 +66,8 @@ export interface Prefs {
   autoUpdates: boolean
   /** With automatic updates off, still look for critical security fixes. */
   securityChecks: boolean
+  /** A system notification when an update is out. */
+  updateNotifications: boolean
   /** Which update list the app follows. A Mac always follows Beta. */
   channel: UpdateChannel
   /** The person chose a channel, or was asked once. */
@@ -122,6 +124,7 @@ export const DEFAULT_PREFS: Prefs = {
   openNoteFirst: false,
   autoUpdates: true,
   securityChecks: true,
+  updateNotifications: false,
   channel: 'stable',
   channelAsked: false,
   coediting: true,

@@ -2,10 +2,19 @@
 // Backend over tauri commands. Names match src-tauri/src/commands.
 
 import { invoke } from '@tauri-apps/api/core'
+import { ANDROID } from '../platform'
 import type { Backend } from './backend'
-import type { Attachment } from './types'
 
 const isWindowsLike = /windows|android/i.test(navigator.userAgent)
+
+/** The knot, not Android's "i", and largeBody because alone in its list a
+ *  notification shows opened, where a plain body is left out. The plugin
+ *  panics at startup on any config, so these go with each notification. */
+const ANDROID_NOTIFICATION = (body: string) => ({
+  largeBody: body,
+  icon: 'ic_notification',
+  iconColor: '#E44C3E',
+})
 
 /** Url of a file by its hash, served decrypted by the native side. */
 const fileUrl = (sha256: string) =>
@@ -25,6 +34,15 @@ export function createTauriBackend(): Backend {
     appUpdateCheck: (channel, allowOlder) => invoke('app_update_check', { channel, allowOlder }),
     appUpdateLatest: (channel, allowOlder) => invoke('app_update_latest', { channel, allowOlder }),
     appUpdateInstall: () => invoke('app_update_install'),
+    notificationsAllowed: async () => {
+      const { isPermissionGranted, requestPermission } =
+        await import('@tauri-apps/plugin-notification')
+      return (await isPermissionGranted()) || (await requestPermission()) === 'granted'
+    },
+    notify: (title, body) =>
+      invoke('plugin:notification|notify', {
+        options: { title, body, ...(ANDROID ? ANDROID_NOTIFICATION(body) : {}) },
+      }),
     quickWindowOpen: (title) => invoke('quick_window_open', { title }),
     quickWindowReady: (title) => invoke('quick_window_ready', { title }),
     fontDownload: (id, files) => invoke('font_download', { id, files }),
@@ -88,7 +106,6 @@ export function createTauriBackend(): Backend {
     listAttachments: (id) => invoke('list_attachments', { id }),
     allAttachments: () => invoke('all_attachments'),
     removeAttachment: (id) => invoke('remove_attachment', { id }),
-    attachmentUrl: (a: Attachment) => fileUrl(a.sha256),
     fileUrl,
     attachmentFiles: (note) => invoke('attachment_files', { note }),
     fetchAttachment: (sha256) => invoke('fetch_attachment', { sha256 }),

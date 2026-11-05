@@ -13,10 +13,13 @@
 // The Mac app follows Beta, with no choice. An older version is never
 // offered, so a beta moved to Stable waits for Stable to catch up.
 
+import { brand } from '@app/brand'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
 import { isMacApp, pretendRelease, resetBetaWelcome } from './beta.svelte'
+import { t } from './i18n.svelte'
 import { ANDROID } from './platform'
 import { prefs } from './prefs.svelte'
+import { lastNotified, rememberNotified, worthNotifying } from './updateNotify'
 import { isBackendError } from './workspace.svelte'
 
 declare global {
@@ -74,6 +77,10 @@ export const updatesHere =
 
 /** Stable or Beta can be chosen: everywhere but the Mac, always on Beta. */
 export const channelChoice = !isMacApp
+
+/** System notifications can be turned on: not on a Mac, not in the portable
+ * exe, which has no installed identity for Windows to show them under. */
+export const notificationsHere = updatesHere && !isMacApp && !__APP_PORTABLE__
 
 /** The list this device follows. */
 export function channel(): UpdateChannel {
@@ -155,14 +162,59 @@ class AppUpdates {
     // a pretend release looks for nothing on its own
     if (pretendRelease) return
     if (prefs.autoUpdates) return this.check()
-    // both turned off: nothing is asked at all
-    if (!prefs.securityChecks) return
+    // all turned off: nothing is asked at all
+    if (!prefs.securityChecks && !this.notifying) return
     try {
       const latest = await backend.appUpdateLatest(channel())
-      if (latest?.critical && !refused(latest.version)) this.critical = latest
+      if (latest?.critical && prefs.securityChecks && !refused(latest.version))
+        this.critical = latest
+      if (latest) void this.notify(latest)
     } catch {
       // the next look tries again
     }
+  }
+
+  private get notifying() {
+    return notificationsHere && prefs.updateNotifications
+  }
+
+  /** A system notification, when turned on and the version is worth one. */
+  private async notify(update: AppUpdate) {
+    const worth = worthNotifying(update, {
+      on: this.notifying,
+      inFront: document.hasFocus(),
+      notified: lastNotified(),
+      skipped: this.skipped,
+    })
+    if (!worth) return
+    rememberNotified(update.version)
+    try {
+      await backend.notify(
+        brand.displayName,
+        update.critical
+          ? t('appUpdate.criticalTitle')
+          : t('appUpdate.out', { version: update.version }),
+      )
+    } catch {
+      // the card in the app still says it
+    }
+  }
+
+  /** Turning the notifications on or off. On asks the system first; false when
+   * it refused, the setting stays off. */
+  async setNotifications(on: boolean): Promise<boolean> {
+    if (!on) {
+      prefs.updateNotifications = false
+      return true
+    }
+    let allowed = false
+    try {
+      allowed = await backend.notificationsAllowed()
+    } catch {
+      // as refused
+    }
+    prefs.updateNotifications = allowed
+    return allowed
   }
 
   async check() {
@@ -177,6 +229,7 @@ class AppUpdates {
       this.ready = await backend.appUpdateCheck(channel())
       this.upToDate = !this.ready
       if (this.ready?.critical && !refused(this.ready.version)) this.critical = this.ready
+      if (this.ready) void this.notify(this.ready)
     } catch (err) {
       this.error = isBackendError(err) ? err.kind : 'unknown'
     } finally {

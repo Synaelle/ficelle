@@ -13,8 +13,7 @@ name: release
 # Two channels. A stable tag vX.Y.Z becomes the latest release, the list
 # stable apps read (releases/latest/download/latest.json). A beta tag
 # vX.Y.Z-beta.N is a pre-release, never "latest", and also builds the Mac
-# apps, which follow Beta only (and the stable 0.4.0 once, the release that
-# splits the channels). Beta apps read the list of the fixed "beta"
+# app, which follows Beta only. Beta apps read the list of the fixed "beta"
 # release, which always holds the newest of either kind: every release
 # newer than what it holds replaces it, so a beta app reaches the stable
 # release too.
@@ -78,7 +77,7 @@ jobs:
 
   mac:
     needs: draft
-    if: contains(github.ref_name, '-beta.') || github.ref_name == 'v0.4.0'
+    if: contains(github.ref_name, '-beta.')
     uses: ./.github/workflows/mac.yml
     with:
       signed: true

@@ -379,24 +379,6 @@ impl Store {
         Ok(())
     }
 
-    /// Leaves a shared space here: everything of it goes from this vault.
-    ///
-    /// # Errors
-    ///
-    /// Database errors.
-    pub fn leave_space(&mut self, space: &str) -> Result<()> {
-        if space.is_empty() {
-            return Err(Error::Invalid("the personal space cannot be left".into()));
-        }
-        let now = self.now();
-        let tx = self.conn.transaction()?;
-        salvage(&tx, &mut self.docs, space)?;
-        drop_space(&tx, space)?;
-        crate::sync::finish(tx, &mut self.docs, now)?;
-        self.docs.forget();
-        Ok(())
-    }
-
     /// The server refused what this device sent to a shared space (made a
     /// reader, removed, the space gone): notes with unsent edits are kept
     /// as personal copies, the space goes from here and, if this account is

@@ -174,6 +174,8 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     },
     appUpdateCheck: async () => null,
     appUpdateLatest: async () => null,
+    notificationsAllowed: async () => false,
+    notify: async () => {},
     // the browser fetches the font itself, nothing is kept
     fontDownload: async (_id, files) => files ?? ['latin-400-normal', 'latin-700-normal'],
     fontFiles: async () => [],
@@ -453,7 +455,6 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     removeAttachment: async (attachmentId) => {
       attachments.delete(attachmentId)
     },
-    attachmentUrl: (a) => attachments.get(a.id)?.url ?? '',
     fileUrl: (sha256) => [...attachments.values()].find((a) => a.sha256 === sha256)?.url ?? '',
     attachmentFiles: async (noteId) =>
       [...attachments.values()]

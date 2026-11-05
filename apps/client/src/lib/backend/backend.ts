@@ -72,6 +72,11 @@ export interface Backend {
    * portable exe, and a Mac app with nothing downloaded, open the version's
    * release page instead. */
   appUpdateInstall(): Promise<void>
+  /** The system lets this app show notifications, asking the person if it
+   * must. False where there are none (the browser). */
+  notificationsAllowed(): Promise<boolean>
+  /** A system notification. */
+  notify(title: string, body: string): Promise<void>
   /** Desktop: opens the quick note window (commands/quick.rs). */
   quickWindowOpen(title: string): Promise<void>
   /** The quick note page is drawn: its window shows, in front. */
@@ -143,8 +148,6 @@ export interface Backend {
   /** Every attachment of the notes not in the trash, newest first. */
   allAttachments(): Promise<import('./types').NoteAttachment[]>
   removeAttachment(id: Id): Promise<void>
-  /** Url the webview can load for an attachment. */
-  attachmentUrl(attachment: Attachment): string
   /** Url the webview can load for a file by its hash (a preview). */
   fileUrl(sha256: string): string
   /** A note's attachments with where each file stands here. */
