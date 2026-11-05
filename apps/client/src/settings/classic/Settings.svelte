@@ -75,7 +75,7 @@
     'feedback',
     'experimental',
     // dev and preview builds only
-    ...(__APP_DEV_REPORTS__ ? (['testTools'] as const) : []),
+    ...(__APP_DEV_TOOLS__ ? (['testTools'] as const) : []),
     'about',
   ] as Section[]
   const SECTION_ICONS: Record<Section, IconName> = {

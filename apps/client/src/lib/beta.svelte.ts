@@ -12,7 +12,7 @@ const pretend = import.meta.env.DEV ? new URLSearchParams(location.search) : nul
  * the beta and update screens show and can be walked through, nothing is
  * ever checked, downloaded or installed. Read once at start, the switch
  * reloads the page. Never in a release build. */
-export const pretendRelease = __APP_DEV_REPORTS__ && prefs.pretendBeta
+export const pretendRelease = __APP_DEV_TOOLS__ && prefs.pretendBeta
 
 export const isBeta =
   /-beta\.\d+$/.test(__APP_VERSION__) || !!pretend?.has('beta') || pretendRelease

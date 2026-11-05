@@ -3,4 +3,4 @@
 // builds take any length, so testing does not mean typing long ones; release
 // builds keep the real minimum.
 
-export const MIN_PASSWORD = __APP_DEV_REPORTS__ ? 1 : 8
+export const MIN_PASSWORD = __APP_DEV_TOOLS__ ? 1 : 8

@@ -31,7 +31,7 @@ export default defineConfig({
     // the portable Windows exe, see src-tauri/src/portable.rs
     __APP_PORTABLE__: JSON.stringify(!!process.env.APP_PORTABLE),
     // temporary issue reports outside releases
-    __APP_DEV_REPORTS__: JSON.stringify(!isRelease()),
+    __APP_DEV_TOOLS__: JSON.stringify(!isRelease()),
     // the system the tauri cli builds for, "web" in the browser and tests
     __APP_PLATFORM__: JSON.stringify(process.env.TAURI_ENV_PLATFORM ?? 'web'),
   },

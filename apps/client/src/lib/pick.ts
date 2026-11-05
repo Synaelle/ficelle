@@ -11,7 +11,7 @@ import {
 } from '@tauri-apps/plugin-dialog'
 
 const testPick = () =>
-  __APP_DEV_REPORTS__ ? (window as { __testPick?: string }).__testPick : undefined
+  __APP_DEV_TOOLS__ ? (window as { __testPick?: string }).__testPick : undefined
 
 // Android turns extensions into media types, and greys out every file whose
 // type it does not know (`.enex`, a backup): everything is offered there,

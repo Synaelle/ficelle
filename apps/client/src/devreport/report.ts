@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Temporary dev and preview issue reports. Builds the markdown and saves it through
+// Dev and preview issue reports. Builds the markdown and saves it through
 // the dev_report commands, nothing leaves the machine.
 
 import { invoke } from '@tauri-apps/api/core'

@@ -314,7 +314,7 @@
       run: () => (page = 'feedback'),
     },
     // dev and preview builds only
-    ...(__APP_DEV_REPORTS__
+    ...(__APP_DEV_TOOLS__
       ? [
           {
             icon: 'log' as const,

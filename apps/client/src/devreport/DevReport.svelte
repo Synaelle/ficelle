@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Temporary report button and dialog for dev and preview builds, until the
-     real feedback feature replaces them. -->
+<!-- The report button and dialog of dev and preview builds, which save to this
+     machine. Releases have the feedback form (lib/BetaFeedback.svelte). -->
 <script lang="ts">
   import { tick } from 'svelte'
   import { SvelteMap } from 'svelte/reactivity'

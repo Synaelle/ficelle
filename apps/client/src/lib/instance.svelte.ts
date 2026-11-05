@@ -127,4 +127,4 @@ class Instance {
 export const instance = new Instance()
 
 // dev builds let the end to end tests ask again at once
-if (__APP_DEV_REPORTS__) (window as { __instance?: Instance }).__instance = instance
+if (__APP_DEV_TOOLS__) (window as { __instance?: Instance }).__instance = instance

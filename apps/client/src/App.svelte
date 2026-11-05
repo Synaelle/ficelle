@@ -37,7 +37,7 @@
    * unencrypted on purpose stays so, Security offers to encrypt it. */
   const needsPassword = (s: VaultStatus) => backend.native && s.way === 'device'
 
-  if (__APP_DEV_REPORTS__) captureErrors()
+  if (__APP_DEV_TOOLS__) captureErrors()
   captureLogs()
   catchErrors()
   persistPrefs()
@@ -135,7 +135,7 @@
   </div>
 {/if}
 
-{#if __APP_DEV_REPORTS__}<DevReport />{/if}
+{#if __APP_DEV_TOOLS__}<DevReport />{/if}
 
 <style>
   .notes {

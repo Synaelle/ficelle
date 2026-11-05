@@ -121,4 +121,4 @@ class Backups {
 export const backups = new Backups()
 
 // dev builds let the end to end tests look at it
-if (__APP_DEV_REPORTS__) (window as { __backups?: Backups }).__backups = backups
+if (__APP_DEV_TOOLS__) (window as { __backups?: Backups }).__backups = backups

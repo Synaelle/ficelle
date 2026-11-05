@@ -14,7 +14,7 @@
   let { close }: { close: () => void } = $props()
 
   // dev and preview builds are reset often while testing: a short pause
-  const WAIT_SECONDS = __APP_DEV_REPORTS__ ? 2 : 10
+  const WAIT_SECONDS = __APP_DEV_TOOLS__ ? 2 : 10
 
   let left = $state(WAIT_SECONDS)
   let busy = $state(false)

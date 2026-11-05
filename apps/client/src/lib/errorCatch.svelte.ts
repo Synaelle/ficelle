@@ -36,7 +36,7 @@ class ErrorCatch {
    * and preview builds open their own report instead, so test errors never
    * reach the project's server. */
   async report() {
-    if (__APP_DEV_REPORTS__) {
+    if (__APP_DEV_TOOLS__) {
       window.dispatchEvent(new Event('app-dev-report'))
       this.caught = null
       return

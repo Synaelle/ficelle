@@ -8,8 +8,8 @@ declare const __APP_BUILD_DATE__: string
 declare const __APP_PROTOCOL__: number
 /** The portable Windows exe, see src-tauri/src/portable.rs. */
 declare const __APP_PORTABLE__: boolean
-/** Temporary issue reports outside releases. */
-declare const __APP_DEV_REPORTS__: boolean
+/** Everything only for builds that are not releases: the report tool, test hooks, shorter waits. */
+declare const __APP_DEV_TOOLS__: boolean
 /** The system the build is for, see lib/platform.ts. */
 declare const __APP_PLATFORM__: 'windows' | 'darwin' | 'linux' | 'android' | 'ios' | 'web'
 

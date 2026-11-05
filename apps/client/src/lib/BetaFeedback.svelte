@@ -27,7 +27,7 @@
   {#if !touchScreen}
     <button
       class="launcher"
-      class:beside={__APP_DEV_REPORTS__}
+      class:beside={__APP_DEV_TOOLS__}
       title={t('beta.feedback')}
       aria-label={t('beta.feedback')}
       data-no-shot

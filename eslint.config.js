@@ -28,7 +28,7 @@ export default ts.config(
         __APP_BUILD_DATE__: 'readonly',
         __APP_PROTOCOL__: 'readonly',
         __APP_RELEASE__: 'readonly',
-        __APP_DEV_REPORTS__: 'readonly',
+        __APP_DEV_TOOLS__: 'readonly',
         __APP_PORTABLE__: 'readonly',
       },
     },
