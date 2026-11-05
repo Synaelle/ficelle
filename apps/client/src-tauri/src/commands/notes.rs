@@ -150,6 +150,11 @@ pub async fn trash_folder(state: State<'_, AppState>, id: FolderId) -> CommandRe
 }
 
 #[tauri::command]
+pub async fn list_trashed_folders(state: State<'_, AppState>) -> CommandResult<Vec<Folder>> {
+    state.with(|s| s.store.list_trashed_folders())
+}
+
+#[tauri::command]
 pub async fn restore_folder(state: State<'_, AppState>, id: FolderId) -> CommandResult<()> {
     state.with(|s| s.store.restore_folder(id))
 }

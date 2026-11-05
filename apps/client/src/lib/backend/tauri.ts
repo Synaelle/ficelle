@@ -77,6 +77,7 @@ export function createTauriBackend(): Backend {
     renameFolder: (id, name) => invoke('rename_folder', { id, name }),
     moveFolder: (id, parent) => invoke('move_folder', { id, parent }),
     trashFolder: (id) => invoke('trash_folder', { id }),
+    listTrashedFolders: () => invoke('list_trashed_folders'),
     restoreFolder: (id) => invoke('restore_folder', { id }),
 
     listTags: () => invoke('list_tags'),

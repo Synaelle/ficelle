@@ -138,6 +138,31 @@ impl Store {
         Ok(folders)
     }
 
+    /// The folders in the trash that can be restored: not those that went
+    /// there with their parent, which come back with it. Last trashed first.
+    ///
+    /// # Errors
+    ///
+    /// Fails only on database errors.
+    pub fn list_trashed_folders(&self) -> Result<Vec<Folder>> {
+        let columns = FOLDER_COLUMNS
+            .split(", ")
+            .map(|column| format!("f.{column}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT {columns} FROM folders f
+             LEFT JOIN folders p ON p.id = f.parent_id
+             WHERE f.trashed_at IS NOT NULL
+               AND (p.trashed_at IS NULL OR p.trashed_at <> f.trashed_at)
+             ORDER BY f.trashed_at DESC, f.name COLLATE NOCASE"
+        ))?;
+        let folders = stmt
+            .query_map([], folder_from_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(folders)
+    }
+
     /// Renames a folder.
     ///
     /// # Errors

@@ -16,6 +16,24 @@ describe('memory backend', () => {
     expect((await b.listNotes({ kind: 'trash' }, 'updatedDesc')).map((n) => n.id)).toEqual([a.id])
   })
 
+  it('brings a trashed folder back with its notes, not those trashed before', async () => {
+    const b = createMemoryBackend()
+    const folder = await b.createFolder(null, 'f')
+    const earlier = await b.createNote({ title: 'earlier', folderId: folder.id })
+    const inside = await b.createNote({ title: 'inside', folderId: folder.id })
+    await b.trashNote(earlier.id)
+    await new Promise((resolve) => setTimeout(resolve, 2))
+    await b.trashFolder(folder.id)
+    expect((await b.listTrashedFolders()).map((f) => f.id)).toEqual([folder.id])
+    await b.restoreFolder(folder.id)
+    expect(await b.listTrashedFolders()).toEqual([])
+    expect((await b.listFolders()).map((f) => f.id)).toEqual([folder.id])
+    const trash = await b.listNotes({ kind: 'trash' }, 'updatedDesc')
+    expect(trash.map((n) => n.id)).toEqual([earlier.id])
+    const live = await b.listNotes({ kind: 'all' }, 'updatedDesc')
+    expect(live.map((n) => n.id)).toEqual([inside.id])
+  })
+
   it('finds backlinks and follows renames', async () => {
     const b = createMemoryBackend()
     const target = await b.createNote({ title: 'Garden log' })

@@ -125,6 +125,8 @@ export interface Backend {
   renameFolder(id: Id, name: string): Promise<void>
   moveFolder(id: Id, parent: Id | null): Promise<void>
   trashFolder(id: Id): Promise<void>
+  /** Folders in the trash that can be restored, those trashed with a parent come with it. */
+  listTrashedFolders(): Promise<Folder[]>
   restoreFolder(id: Id): Promise<void>
 
   listTags(): Promise<Tag[]>

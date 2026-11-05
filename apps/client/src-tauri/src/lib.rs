@@ -152,6 +152,7 @@ pub fn run() {
             commands::notes::rename_folder,
             commands::notes::move_folder,
             commands::notes::trash_folder,
+            commands::notes::list_trashed_folders,
             commands::notes::restore_folder,
             commands::notes::list_tags,
             commands::notes::list_versions,

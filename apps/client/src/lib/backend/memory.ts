@@ -308,6 +308,7 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     emptyTrash: async () => {
       const gone = [...notes.values()].filter((n) => n.trashedAt !== null)
       gone.forEach((n) => notes.delete(n.id))
+      for (const f of [...folders.values()]) if (f.trashedAt !== null) folders.delete(f.id)
       return gone.length
     },
 
@@ -335,13 +336,26 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       if (folder) folder.parentId = parent
     },
     trashFolder: async (folderId) => {
+      const when = now()
       const folder = folders.get(folderId)
-      if (folder) folder.trashedAt = now()
-      for (const n of notes.values()) if (n.folderId === folderId) n.trashedAt = now()
+      if (folder) folder.trashedAt = when
+      for (const n of notes.values()) {
+        if (n.folderId === folderId && n.trashedAt === null) n.trashedAt = when
+      }
     },
+    listTrashedFolders: async () =>
+      [...folders.values()].filter((f) => {
+        if (f.trashedAt === null) return false
+        const parent = f.parentId ? folders.get(f.parentId) : undefined
+        return parent?.trashedAt !== f.trashedAt
+      }),
     restoreFolder: async (folderId) => {
       const folder = folders.get(folderId)
-      if (folder) folder.trashedAt = null
+      if (!folder?.trashedAt) return
+      for (const n of notes.values()) {
+        if (n.folderId === folderId && n.trashedAt === folder.trashedAt) n.trashedAt = null
+      }
+      folder.trashedAt = null
     },
 
     listTags: async () => {

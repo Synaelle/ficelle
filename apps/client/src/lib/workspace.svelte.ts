@@ -30,6 +30,8 @@ export function isBackendError(err: unknown): err is BackendError {
 
 class Workspace {
   folders: Folder[] = $state([])
+  /** Folders the trash can bring back, read while the trash is shown. */
+  trashedFolders: Folder[] = $state([])
   tags: Tag[] = $state([])
   notes: NoteSummary[] = $state([])
   scope: Scope = $state({ kind: 'all' })
@@ -103,6 +105,7 @@ class Workspace {
 
   async refreshNotes() {
     this.notes = await backend.listNotes(this.scope, prefs.sort)
+    this.trashedFolders = this.scope.kind === 'trash' ? await backend.listTrashedFolders() : []
   }
 
   async setScope(scope: Scope) {
@@ -376,6 +379,12 @@ class Workspace {
   async trashFolder(id: Id) {
     await backend.trashFolder(id)
     if (this.scope.kind === 'folder' && this.scope.id === id) this.scope = { kind: 'all' }
+    await this.load()
+  }
+
+  /** Brings a folder back with everything that went to the trash with it. */
+  async restoreFolder(id: Id) {
+    await backend.restoreFolder(id)
     await this.load()
   }
 

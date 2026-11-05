@@ -6,13 +6,7 @@
 // is themed too), a theme being looked at in the picker shows on the whole
 // app until the pointer leaves it.
 
-import {
-  resolveMode,
-  themeToCssVars,
-  validateTheme,
-  type Mode,
-  type Theme,
-} from '@app/ui/theme'
+import { resolveMode, themeToCssVars, validateTheme, type Mode, type Theme } from '@app/ui/theme'
 import { builtInThemes, DEFAULT_THEME_ID } from '@app/ui/themes'
 import { ARROWS_FONT, familyOf, loadListedFont, quoted } from './fonts'
 import { prefs } from './prefs.svelte'

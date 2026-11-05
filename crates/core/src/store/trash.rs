@@ -365,6 +365,42 @@ mod tests {
     }
 
     #[test]
+    fn the_trash_lists_only_folders_that_can_be_restored() {
+        let (mut store, clock) = store();
+        let top = store.create_folder(None, "top").unwrap();
+        let below = store.create_folder(Some(top.id), "below").unwrap();
+        let alone = store.create_folder(Some(top.id), "alone").unwrap();
+        let kept = store.create_folder(None, "kept").unwrap();
+
+        store.trash_folder(alone.id).unwrap();
+        clock.advance(1000);
+        store.trash_folder(top.id).unwrap();
+        let ids: Vec<_> = store
+            .list_trashed_folders()
+            .unwrap()
+            .into_iter()
+            .map(|f| f.id)
+            .collect();
+        assert_eq!(ids, [top.id, alone.id], "not below, it went with top");
+
+        store.restore_folder(top.id).unwrap();
+        let live: Vec<_> = store
+            .list_folders()
+            .unwrap()
+            .into_iter()
+            .map(|f| f.id)
+            .collect();
+        assert!(live.contains(&top.id) && live.contains(&below.id) && live.contains(&kept.id));
+        let ids: Vec<_> = store
+            .list_trashed_folders()
+            .unwrap()
+            .into_iter()
+            .map(|f| f.id)
+            .collect();
+        assert_eq!(ids, [alone.id], "trashed on its own, it stays");
+    }
+
+    #[test]
     fn restoring_a_note_from_a_trashed_folder_puts_it_at_the_top() {
         let (mut store, _) = store();
         let folder = store.create_folder(None, "f").unwrap();

@@ -38,6 +38,9 @@
   })
 
   const trash = $derived(workspace.scope.kind === 'trash')
+  const restorable = $derived(
+    workspace.trashedFolders.filter((folder) => !sharing.readOnly(folder.spaceId)),
+  )
 
   const title = $derived.by(() => {
     const scope = workspace.scope
@@ -253,7 +256,7 @@
       {/if}
       {#if trash}
         <!-- only when there is something to empty, an icon on narrow screens -->
-        {#if workspace.notes.length > 0}
+        {#if workspace.notes.length > 0 || workspace.trashedFolders.length > 0}
           {#if narrow}
             <button
               class="icon-btn danger"
@@ -334,6 +337,22 @@
         {/snippet}
       </VirtualList>
     {:else}
+      {#if restorable.length > 0}
+        <ul class="trashed-folders" aria-label={t('list.trashedFolders')}>
+          {#each restorable as folder (folder.id)}
+            <li>
+              <Icon name="folder" size={16} />
+              <span class="name">{folder.name}</span>
+              <button
+                class="icon-btn"
+                aria-label={t('list.restoreFolder', { name: folder.name })}
+                title={t('list.restoreFolder', { name: folder.name })}
+                onclick={() => workspace.restoreFolder(folder.id)}><Icon name="restore" /></button
+              >
+            </li>
+          {/each}
+        </ul>
+      {/if}
       <VirtualList items={listed} key={(note) => note.id} label={t('list.label')}>
         {#snippet row(note)}
           <div
@@ -424,7 +443,9 @@
           </div>
         {/snippet}
         {#snippet empty()}
-          <li class="empty">{trash ? t('list.trashEmpty') : t('list.empty')}</li>
+          {#if restorable.length === 0}
+            <li class="empty">{trash ? t('list.trashEmpty') : t('list.empty')}</li>
+          {/if}
         {/snippet}
       </VirtualList>
     {/if}
@@ -679,6 +700,28 @@
   }
   .swipe:has(.row-actions) .row {
     padding-right: 96px;
+  }
+  .trashed-folders {
+    flex: none;
+    max-height: 40%;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .trashed-folders li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
+  }
+  .trashed-folders .name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .empty {
     padding: var(--space-6) var(--space-3);
