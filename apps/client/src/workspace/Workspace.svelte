@@ -18,7 +18,6 @@
   import { backups } from '../lib/backups.svelte'
   import { onMount } from 'svelte'
   import Settings from '../settings/Settings.svelte'
-  import ClassicSettings from '../settings/classic/Settings.svelte'
   import AttachmentList from './AttachmentList.svelte'
   import NoteList from './NoteList.svelte'
   import NoteView from './NoteView.svelte'
@@ -36,15 +35,6 @@
     settingsSection = section
     settingsOpen = true
   }
-  // switching the settings look (Experimental) swaps the whole settings:
-  // the new one opens where the switch is, before it is drawn
-  let lookShown = prefs.settingsLook
-  $effect.pre(() => {
-    const look = prefs.settingsLook
-    if (look === lookShown) return
-    lookShown = look
-    if (settingsOpen) settingsSection = 'experimental'
-  })
   let searchFocus = $state(0)
 
   const NARROW = 720
@@ -211,11 +201,7 @@
 {/if}
 
 {#if settingsOpen}
-  {#if prefs.settingsLook === 'classic'}
-    <ClassicSettings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />
-  {:else}
-    <Settings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />
-  {/if}
+  <Settings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />
 {/if}
 
 {#if workspace.error}

@@ -514,22 +514,6 @@
           {:else if section === 'experimental'}
             <p class="settings-help">{t('settings.experimentalHelp')}</p>
             <LayoutPicker />
-            <Group>
-              <Row label={t('settings.settingsLook')} help={t('settings.settingsLookHelp')}>
-                <div class="segmented" role="radiogroup" aria-label={t('settings.settingsLook')}>
-                  {#each ['grouped', 'classic'] as const as look (look)}
-                    <label class:checked={prefs.settingsLook === look}>
-                      <input
-                        type="radio"
-                        name="settingsLook"
-                        value={look}
-                        bind:group={prefs.settingsLook}
-                      />{t(`settings.settingsLook_${look}`)}
-                    </label>
-                  {/each}
-                </div>
-              </Row>
-            </Group>
           {:else if section === 'testTools'}
             <TestTools />
           {:else if section === 'feedback'}
