@@ -375,27 +375,15 @@ export const CREDIT_GROUPS: CreditGroup[] = [
         license: 'OFL-1.1',
       },
       {
-        name: 'Schibsted Grotesk',
-        url: 'https://fontsource.org/fonts/schibsted-grotesk',
-        use: 'the Carbon theme',
-        license: 'OFL-1.1',
-      },
-      {
-        name: 'Literata',
-        url: 'https://fontsource.org/fonts/literata',
-        use: 'the Classic theme',
-        license: 'OFL-1.1',
-      },
-      {
         name: 'IBM Plex Mono',
         url: 'https://fontsource.org/fonts/ibm-plex-mono',
         use: 'the code font',
         license: 'OFL-1.1',
       },
       {
-        name: 'Ubuntu and Ubuntu Mono',
-        url: 'https://fontsource.org/fonts/ubuntu',
-        use: 'a theme font',
+        name: 'Ubuntu Mono',
+        url: 'https://fontsource.org/fonts/ubuntu-mono',
+        use: 'a font to download',
         license: 'UFL-1.0',
       },
       {

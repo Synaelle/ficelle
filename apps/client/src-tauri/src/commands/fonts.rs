@@ -5,9 +5,8 @@
 //! offline afterwards. It comes from the project's own host, which mirrors
 //! Fontsource's open font files (`FONTS_URL`), so no third party sees which
 //! font a device loads; from Fontsource on jsDelivr only when that fails.
-//! The Carbon and Classic themes' fonts and OpenDyslexic come the same way
-//! when first needed, the app does not carry them (`THEME_FONTS` in
-//! lib/fonts.ts). Only those two addresses are ever asked, with a font id and
+//! OpenDyslexic comes the same way when first needed, the app does not carry
+//! it (lib/fonts.ts). Only those two addresses are ever asked, with a font id and
 //! file names checked here, so the page cannot make the app fetch anything
 //! else.
 //! Fonts installed on the device are listed too, they need no download.

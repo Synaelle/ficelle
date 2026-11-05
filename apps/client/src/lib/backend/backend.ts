@@ -197,10 +197,6 @@ export interface Backend {
   themesList(): Promise<string[]>
   /** Keeps a theme the page checked, returns its id. */
   themeSave(json: string): Promise<string>
-  themeRemove(id: string): Promise<void>
-  /** A small text file the person picked (a theme). */
-  readTextFile(path: string): Promise<string>
-  writeTextFile(path: string, text: string): Promise<void>
 
   /** The instance's rules and offers, null without an account. */
   instanceExtensions(): Promise<import('./types').Extensions | null>

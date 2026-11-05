@@ -579,15 +579,6 @@ ${input.key}`,
       themes.set(id, json)
       return id
     },
-    themeRemove: async (id) => {
-      themes.delete(id)
-    },
-    readTextFile: async () => {
-      throw { kind: 'unsupported', message: 'files need the app' }
-    },
-    writeTextFile: async () => {
-      throw { kind: 'unsupported', message: 'files need the app' }
-    },
 
     sentFeedback,
     instanceExtensions: async () => null,

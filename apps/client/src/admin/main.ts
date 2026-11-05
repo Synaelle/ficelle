@@ -5,8 +5,6 @@
 import { brand } from '@app/brand'
 import { mount } from 'svelte'
 import '../styles/app.css'
-// the apps download these when a theme needs them, the page carries them
-import '../styles/fonts-themes.css'
 import Admin from './Admin.svelte'
 
 document.title = `${brand.displayName} admin`

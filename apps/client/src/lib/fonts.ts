@@ -2,9 +2,8 @@
 // Fonts for notes and code, chosen over the theme's (commands/fonts.rs). A
 // font from the list is downloaded once when chosen and loaded from the
 // device afterwards; a font installed on the device is used as it is. The
-// OpenDyslexic setting still wins (lib/dyslexicFont.ts). The Carbon and
-// Classic themes' fonts and OpenDyslexic come the same way, as font packs:
-// the app does not carry them, to stay small.
+// OpenDyslexic setting still wins (lib/dyslexicFont.ts). OpenDyslexic comes
+// the same way, as a font pack: the app does not carry it, to stay small.
 
 import { backend } from './backend'
 
@@ -105,32 +104,6 @@ export interface FontPack {
   files: string[]
   /** The weights a variable font's files cover. */
   weights?: string
-}
-
-const both = (...names: string[]) => names.flatMap((n) => [`latin-${n}`, `latin-ext-${n}`])
-
-/** The built-in themes' fonts the app does not carry: styles/fonts.css has
- * the default theme's, the web pages carry these in fonts-themes.css. */
-export const THEME_FONTS: FontPack[] = [
-  {
-    id: 'schibsted-grotesk:vf',
-    family: 'Schibsted Grotesk',
-    files: both('wght-normal'),
-    weights: '400 900',
-  },
-  {
-    id: 'literata:vf',
-    family: 'Literata',
-    files: both('wght-normal', 'wght-italic'),
-    weights: '200 900',
-  },
-  { id: 'ubuntu', family: 'Ubuntu', files: both('400-normal', '500-normal', '700-normal') },
-  { id: 'ubuntu-mono', family: 'Ubuntu Mono', files: both('400-normal') },
-]
-
-/** The pack for a theme font of that family, if the app downloads it. */
-export function themeFontPack(family: string): FontPack | undefined {
-  return THEME_FONTS.find((pack) => pack.family === family)
 }
 
 /** Hands a font's files to the page as `family`. The first must load, a

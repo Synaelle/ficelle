@@ -10,12 +10,11 @@ import {
   resolveMode,
   themeToCssVars,
   validateTheme,
-  withAccent,
   type Mode,
   type Theme,
 } from '@app/ui/theme'
 import { builtInThemes, DEFAULT_THEME_ID } from '@app/ui/themes'
-import { ARROWS_FONT, familyOf, loadFontPack, loadListedFont, quoted, themeFontPack } from './fonts'
+import { ARROWS_FONT, familyOf, loadListedFont, quoted } from './fonts'
 import { prefs } from './prefs.svelte'
 import { readSystemAccent, systemAccent } from './systemAccent.svelte'
 import { clock, readSystemClock } from './clock.svelte'
@@ -121,36 +120,6 @@ export async function importTheme(text: string): Promise<ImportResult> {
   return { ok: true, theme: valid, replaced }
 }
 
-export async function removeTheme(id: string) {
-  if (isBuiltIn(id)) return
-  if (prefs.theme === id) prefs.theme = DEFAULT_THEME_ID
-  await (await store()).themeRemove(id)
-  await loadImportedThemes()
-}
-
-/**
- * The theme on screen as a file: with the person's accent when they chose
- * one, under a new id when it is a built-in one, which an import would
- * refuse.
- */
-export function exportTheme(copyName: (name: string) => string): { id: string; json: string } {
-  const theme = chosenTheme()
-  const copy = isBuiltIn(theme.id) || prefs.accent !== null
-  const accent = prefs.accent ?? undefined
-  const out: Theme = {
-    ...theme,
-    id: copy ? `${theme.id}-copy`.slice(0, 40) : theme.id,
-    name: copy ? copyName(theme.name).slice(0, 60) : theme.name,
-    colors: {
-      dark: withAccent(theme.colors.dark, accent),
-      light: withAccent(theme.colors.light, accent),
-      ...(theme.colors.warmLight && { warmLight: withAccent(theme.colors.warmLight, accent) }),
-    },
-    version: 2,
-  }
-  return { id: out.id, json: JSON.stringify(out, null, 2) + '\n' }
-}
-
 function remember(theme: Theme | null) {
   try {
     if (theme) localStorage.setItem(ACTIVE_KEY, JSON.stringify(theme))
@@ -162,8 +131,7 @@ function remember(theme: Theme | null) {
 
 /**
  * Keeps the page styled. Call once from the root component. The admin page
- * has no imported themes and carries every built-in theme's fonts, it
- * downloads none.
+ * has no imported themes and downloads no fonts.
  */
 export function applyTheme({
   imported = true,
@@ -187,17 +155,6 @@ export function applyTheme({
     if (!downloads) return
     for (const choice of [prefs.notesFont, prefs.codeFont])
       if (choice?.source === 'list') void loadListedFont(choice.id, true).catch(() => {})
-  })
-
-  // the Carbon and Classic themes' fonts come the first time the theme is
-  // used, the text shows the fallback fonts until then (offline included)
-  $effect(() => {
-    if (!downloads) return
-    const { ui, editor, mono } = currentTheme().fonts
-    for (const family of [ui, editor, mono]) {
-      const pack = themeFontPack(family)
-      if (pack) void loadFontPack(pack, true).catch(() => {})
-    }
   })
 
   $effect(() => {

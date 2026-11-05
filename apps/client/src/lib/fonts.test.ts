@@ -3,9 +3,8 @@
 import { builtInThemes } from '@app/ui/themes'
 import { describe, expect, it } from 'vitest'
 import bundled from '../styles/fonts.css?raw'
-import webOnly from '../styles/fonts-themes.css?raw'
 import { OPENDYSLEXIC } from './dyslexicFont'
-import { describeFile, familyOf, FONT_LIST, quoted, THEME_FONTS, themeFontPack } from './fonts'
+import { describeFile, familyOf, FONT_LIST, quoted } from './fonts'
 
 describe('fonts', () => {
   it('lists fonts with plain, unique ids the app accepts', () => {
@@ -27,26 +26,20 @@ describe('fonts', () => {
     })
   })
 
-  it("has every built-in theme's fonts, bundled or as packs, and the web pages all", () => {
-    const web = bundled + webOnly
+  it("carries every built-in theme's fonts", () => {
     for (const theme of builtInThemes) {
       for (const family of Object.values(theme.fonts)) {
-        const inApp = bundled.includes(`font-family: '${family}'`)
-        expect(inApp || themeFontPack(family), `${theme.id}: ${family}`).toBeTruthy()
-        expect(inApp && themeFontPack(family), `${family} twice`).toBeFalsy()
-        expect(web, family).toContain(`font-family: '${family}'`)
+        expect(bundled, `${theme.id}: ${family}`).toContain(`font-family: '${family}'`)
       }
     }
   })
 
   it('asks only for files and ids the app accepts', () => {
     // the same rules as commands/fonts.rs
-    for (const pack of [...THEME_FONTS, OPENDYSLEXIC]) {
-      expect(pack.id).toMatch(/^[a-z0-9-]+(:vf)?$/)
-      expect(pack.id.endsWith(':vf')).toBe(!!pack.weights)
-      for (const name of pack.files)
-        expect(name).toMatch(/^latin(-ext)?-(400|500|700|wght)-(normal|italic)$/)
-    }
+    expect(OPENDYSLEXIC.id).toMatch(/^[a-z0-9-]+(:vf)?$/)
+    expect(OPENDYSLEXIC.id.endsWith(':vf')).toBe(!!OPENDYSLEXIC.weights)
+    for (const name of OPENDYSLEXIC.files)
+      expect(name).toMatch(/^latin(-ext)?-(400|500|700|wght)-(normal|italic)$/)
   })
 
   it('names the family a choice puts in css, quoted safely', () => {

@@ -139,9 +139,6 @@ export function createTauriBackend(): Backend {
 
     themesList: () => invoke('themes_list'),
     themeSave: (json) => invoke('theme_save', { json }),
-    themeRemove: (id) => invoke('theme_remove', { id }),
-    readTextFile: (path) => invoke('read_text_file', { path }),
-    writeTextFile: (path, text) => invoke('write_text_file', { path, text }),
 
     instanceExtensions: () => invoke('instance_extensions'),
     backupsGet: () => invoke('backups_get'),

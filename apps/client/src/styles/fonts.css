@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* The default theme's fonts, bundled so a new app looks right offline.
    Only latin and latin-ext are shipped, enough for English and French and
-   most European languages. The other built-in themes' fonts are downloaded
-   by the apps when a theme needs them (lib/fonts.ts, THEME_FONTS); the web
-   pages carry them in fonts-themes.css. */
+   most European languages. */
 
 @font-face {
   font-family: 'Hanken Grotesk';
