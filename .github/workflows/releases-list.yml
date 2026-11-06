@@ -52,7 +52,7 @@ jobs:
           save-if: false
       # built before the key is in reach of anything
       - if: steps.list.outputs.found == 'true'
-        run: cargo build --locked --release -p devtool
+        run: cargo build --release -p devtool
       - name: sign, with the key servers trust only
         if: steps.list.outputs.found == 'true'
         env:
