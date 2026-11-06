@@ -6,9 +6,9 @@ name: release
 # only then published. Until then the release is a draft, which neither
 # people nor apps see; a failed build leaves it a draft.
 #
-# The draft can be made beforehand, with its notes and the servers' signed
-# releases.json; a tag pushed without one gets a plain draft, its notes
-# edited on GitHub before running this again.
+# The draft can be made beforehand, with its notes and the servers'
+# releases.json, which releases-list.yml signs here; a tag pushed without one
+# gets a plain draft, its notes edited on GitHub before running this again.
 #
 # Two channels. A stable tag vX.Y.Z becomes the latest release, the list
 # stable apps read (releases/latest/download/latest.json). A beta tag
@@ -54,6 +54,13 @@ jobs:
               echo "made a plain draft for $TAG" ;;
           esac
 
+  list:
+    needs: draft
+    uses: ./.github/workflows/releases-list.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
+
   windows:
     needs: draft
     uses: ./.github/workflows/windows.yml
@@ -86,10 +93,11 @@ jobs:
     secrets: inherit
 
   publish:
-    needs: [windows, linux, android, mac]
+    needs: [list, windows, linux, android, mac]
     # the Mac app is skipped for most releases
     if: >-
-      ${{ !cancelled() && needs.windows.result == 'success' && needs.linux.result == 'success'
+      ${{ !cancelled() && needs.list.result == 'success'
+      && needs.windows.result == 'success' && needs.linux.result == 'success'
       && needs.android.result == 'success'
       && contains(fromJSON('["success", "skipped"]'), needs.mac.result) }}
     runs-on: ubuntu-latest

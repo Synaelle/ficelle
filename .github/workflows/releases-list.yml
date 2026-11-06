@@ -1,0 +1,89 @@
+name: releases-list
+
+# Signs the list of releases servers read for update notices, in place on a
+# release: release.yml does it for each app release, and it can run alone from
+# the Actions tab after a release of the server only. The key is the
+# RELEASES_SIGNING_KEY secret, base64 of the key file. A release with no
+# releases.json attached is left as it is. Signing the same list again gives
+# the same signatures.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: the release holding releases.json
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: the release holding releases.json
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: the list on the release
+        id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -eu
+          if gh release download "$TAG" -p releases.json -O releases.json --clobber; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "$TAG has no releases.json, nothing to sign"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      # rust-toolchain.toml selects the version and components
+      - if: steps.list.outputs.found == 'true'
+        run: rustup show
+      - if: steps.list.outputs.found == 'true'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: false
+      # built before the key is in reach of anything
+      - if: steps.list.outputs.found == 'true'
+        run: cargo build --locked --release -p devtool
+      - name: sign, with the key servers trust only
+        if: steps.list.outputs.found == 'true'
+        env:
+          KEY: ${{ secrets.RELEASES_SIGNING_KEY }}
+        run: |
+          set -eu
+          umask 077
+          keyfile="$RUNNER_TEMP/releases.key"
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s' "$KEY" | tr -d '\r\n ' | base64 -d > "$keyfile"
+          KEYFILE="$keyfile" node -e '
+            const { createPrivateKey, createPublicKey } = require("node:crypto")
+            const { readFileSync } = require("node:fs")
+            const seed = Buffer.from(readFileSync(process.env.KEYFILE, "utf8").trim(), "hex")
+            if (seed.length !== 32) throw new Error("the secret does not hold a key")
+            const der = Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), seed])
+            const key = createPrivateKey({ key: der, format: "der", type: "pkcs8" })
+            const pub = createPublicKey(key).export({ format: "der", type: "spki" }).subarray(-32).toString("hex")
+            const trusted = JSON.parse(readFileSync("packages/brand/brand.json", "utf8")).releasesKey
+            if (pub !== trusted) throw new Error("the secret is not the key servers trust")
+            console.log("the key is the one servers trust")
+          '
+          target/release/devtool releases sign releases.json "$keyfile"
+      - name: the signed list back on the release
+        if: steps.list.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -eu
+          jq -e '[.releases[] | select(.signature == "" or .signature == null)] | length == 0' releases.json > /dev/null
+          gh release upload "$TAG" releases.json --clobber
+          echo "signed $(jq '.releases | length' releases.json) releases on $TAG"
