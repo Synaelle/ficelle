@@ -7,7 +7,7 @@
   "configFile": "ficelle.toml",
   "backupExtension": "ficelle",
   "dockerImage": "ghcr.io/synaelle/ficelle-server",
-  "serverSeries": "0.4",
+  "serverSeries": "0.5",
   "contactEmail": "synaelle@protonmail.com",
   "feedbackUrl": "https://ficelle.synaelle.com",
   "fontsUrl": "https://ficelle.synaelle.com/fonts",
