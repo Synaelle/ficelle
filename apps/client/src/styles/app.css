@@ -389,3 +389,17 @@ details.settings-group:not([open]) {
     height: 22px;
   }
 }
+
+/* What an expandable setting shows when open, so it does not blend in with
+   what is around it: beside the page's groups, or inside a group. */
+.fold-body {
+  display: grid;
+  gap: var(--space-4);
+  padding-left: var(--space-3);
+  box-shadow: inset 3px 0 0 var(--color-border-strong);
+}
+.fold-rows {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+  box-shadow: inset 3px 0 0 var(--color-border-strong);
+}

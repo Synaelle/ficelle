@@ -281,101 +281,107 @@
 </Group>
 
 {#if setup}
-  <Group title={setup === 'restore' ? t('backups.restoreFrom') : undefined}>
-    <div class="inside">
-      {#if phoneFolder}
-        <p class="settings-help">
-          {setup === 'restore' ? t('backups.phoneFolderRestore') : t('backups.phoneFolder')}
-        </p>
-        <code>{phoneFolder}</code>
-      {:else}
-        <label class="settings-field">
-          {t('backups.folder')}
-          <span class="line">
-            <input
-              class="field"
-              autocomplete="off"
-              bind:value={folder}
-              onchange={() => void look()}
-            />
-            <button type="button" class="btn" onclick={() => void chooseFolder()}
-              >{t('backups.chooseFolder')}</button
-            >
-          </span>
-        </label>
-      {/if}
-
-      {#if looking}
-        <p class="settings-help" role="status">{t('backups.looking')}</p>
-      {:else if looked !== null && looked === folder.trim()}
-        {#if found}
-          <p class="settings-help" role="status">
-            {setup === 'restore' ? t('backups.foundTitle') : t('backups.foundStartHelp')}
+  <div class="fold-body">
+    <Group title={setup === 'restore' ? t('backups.restoreFrom') : undefined}>
+      <div class="inside">
+        {#if phoneFolder}
+          <p class="settings-help">
+            {setup === 'restore' ? t('backups.phoneFolderRestore') : t('backups.phoneFolder')}
           </p>
-          {#if needsPassword}
-            <label class="settings-field">
-              {t('backups.password')}
-              <PasswordField class="field" autocomplete="current-password" bind:value={password} />
-            </label>
-          {/if}
-          <div class="settings-actions">
-            <button class="btn" type="button" onclick={() => open(null)}
-              >{t('common.cancel')}</button
-            >
-            <button
-              class="btn primary"
-              disabled={busy || (needsPassword && !password)}
-              onclick={openFound}>{busy ? t('backups.connecting') : t('backups.useThem')}</button
-            >
-          </div>
-        {:else if setup === 'restore'}
-          <p class="settings-help bad" role="status">{t('backups.noneHere')}</p>
-          <div class="settings-actions">
-            <button class="btn" type="button" onclick={() => open(null)}
-              >{t('common.cancel')}</button
-            >
-          </div>
+          <code>{phoneFolder}</code>
         {:else}
-          {#if !openDevice}
-            <label class="settings-check">
-              <input type="checkbox" bind:checked={sameAsNotes} />
-              {t('backups.sameAsNotes')}
-            </label>
-            <label class="settings-field">
-              {sameAsNotes ? t('backups.notesPassword') : t('backups.newPassword')}
-              <PasswordField
+          <label class="settings-field">
+            {t('backups.folder')}
+            <span class="line">
+              <input
                 class="field"
-                autocomplete={sameAsNotes ? 'current-password' : 'new-password'}
-                bind:value={password}
+                autocomplete="off"
+                bind:value={folder}
+                onchange={() => void look()}
               />
-            </label>
-            {#if !sameAsNotes}
+              <button type="button" class="btn" onclick={() => void chooseFolder()}
+                >{t('backups.chooseFolder')}</button
+              >
+            </span>
+          </label>
+        {/if}
+
+        {#if looking}
+          <p class="settings-help" role="status">{t('backups.looking')}</p>
+        {:else if looked !== null && looked === folder.trim()}
+          {#if found}
+            <p class="settings-help" role="status">
+              {setup === 'restore' ? t('backups.foundTitle') : t('backups.foundStartHelp')}
+            </p>
+            {#if needsPassword}
               <label class="settings-field">
-                {t('backups.passwordAgain')}
+                {t('backups.password')}
                 <PasswordField
-                  eye={false}
                   class="field"
-                  autocomplete="new-password"
-                  bind:value={again}
+                  autocomplete="current-password"
+                  bind:value={password}
                 />
               </label>
             {/if}
-            <p class="settings-help">
-              {sameAsNotes ? t('backups.sameAsNotesHelp') : t('backups.passwordWarning')}
-            </p>
+            <div class="settings-actions">
+              <button class="btn" type="button" onclick={() => open(null)}
+                >{t('common.cancel')}</button
+              >
+              <button
+                class="btn primary"
+                disabled={busy || (needsPassword && !password)}
+                onclick={openFound}>{busy ? t('backups.connecting') : t('backups.useThem')}</button
+              >
+            </div>
+          {:else if setup === 'restore'}
+            <p class="settings-help bad" role="status">{t('backups.noneHere')}</p>
+            <div class="settings-actions">
+              <button class="btn" type="button" onclick={() => open(null)}
+                >{t('common.cancel')}</button
+              >
+            </div>
+          {:else}
+            {#if !openDevice}
+              <label class="settings-check">
+                <input type="checkbox" bind:checked={sameAsNotes} />
+                {t('backups.sameAsNotes')}
+              </label>
+              <label class="settings-field">
+                {sameAsNotes ? t('backups.notesPassword') : t('backups.newPassword')}
+                <PasswordField
+                  class="field"
+                  autocomplete={sameAsNotes ? 'current-password' : 'new-password'}
+                  bind:value={password}
+                />
+              </label>
+              {#if !sameAsNotes}
+                <label class="settings-field">
+                  {t('backups.passwordAgain')}
+                  <PasswordField
+                    eye={false}
+                    class="field"
+                    autocomplete="new-password"
+                    bind:value={again}
+                  />
+                </label>
+              {/if}
+              <p class="settings-help">
+                {sameAsNotes ? t('backups.sameAsNotesHelp') : t('backups.passwordWarning')}
+              </p>
+            {/if}
+            <div class="settings-actions">
+              <button class="btn" type="button" onclick={() => open(null)}
+                >{t('common.cancel')}</button
+              >
+              <button class="btn primary" disabled={busy || !!newPasswordProblem} onclick={startNew}
+                >{busy ? t('backups.connecting') : t('backups.turnOn')}</button
+              >
+            </div>
           {/if}
-          <div class="settings-actions">
-            <button class="btn" type="button" onclick={() => open(null)}
-              >{t('common.cancel')}</button
-            >
-            <button class="btn primary" disabled={busy || !!newPasswordProblem} onclick={startNew}
-              >{busy ? t('backups.connecting') : t('backups.turnOn')}</button
-            >
-          </div>
         {/if}
-      {/if}
-    </div>
-  </Group>
+      </div>
+    </Group>
+  </div>
 {/if}
 
 {#if failure}<p class="settings-help bad" role="alert">{failure}</p>{/if}
@@ -387,19 +393,21 @@
       {@render chevron(!!snapshots)}
     </Row>
     {#if snapshots}
-      {#if newestFirst.length === 0}
-        <p class="settings-help inside">{t('backups.none')}</p>
-      {/if}
-      {#each newestFirst as snapshot (snapshot.id)}
-        <Row
-          label={dateTime(snapshot.time)}
-          help={`${t('backups.notes', { count: snapshot.counts.notes ?? 0 })}, ${t('backups.files', { count: snapshot.counts.files ?? 0 })}`}
-        >
-          <button class="btn" disabled={busy} onclick={() => void restore(snapshot)}
-            >{t('backups.restore')}</button
+      <div class="fold-rows">
+        {#if newestFirst.length === 0}
+          <p class="settings-help inside">{t('backups.none')}</p>
+        {/if}
+        {#each newestFirst as snapshot (snapshot.id)}
+          <Row
+            label={dateTime(snapshot.time)}
+            help={`${t('backups.notes', { count: snapshot.counts.notes ?? 0 })}, ${t('backups.files', { count: snapshot.counts.files ?? 0 })}`}
           >
-        </Row>
-      {/each}
+            <button class="btn" disabled={busy} onclick={() => void restore(snapshot)}
+              >{t('backups.restore')}</button
+            >
+          </Row>
+        {/each}
+      </div>
     {/if}
   {:else}
     <Row label={t('backups.restoreFrom')} opens onclick={() => open('restore')} />

@@ -46,16 +46,18 @@
   <Row label={t('settings.credits')} onclick={() => (credits = !credits)}>
     {@render chevron(credits)}
   </Row>
-  {#if credits}<div class="inside"><CreditsList {phone} /></div>{/if}
+  {#if credits}<div class="inside fold-rows"><CreditsList {phone} /></div>{/if}
   <Row label={t('settings.details')} onclick={() => (details = !details)}>
     {@render chevron(details)}
   </Row>
   {#if details}
-    <Row label={t('settings.buildDate')}><span class="mono">{__APP_BUILD_DATE__}</span></Row>
-    <Row label={t('settings.protocol')}><span class="mono">{__APP_PROTOCOL__}</span></Row>
-    {#if serverProtocols}
-      <Row label={t('settings.serverProtocol')}><span class="mono">{serverProtocols}</span></Row>
-    {/if}
+    <div class="fold-rows">
+      <Row label={t('settings.buildDate')}><span class="mono">{__APP_BUILD_DATE__}</span></Row>
+      <Row label={t('settings.protocol')}><span class="mono">{__APP_PROTOCOL__}</span></Row>
+      {#if serverProtocols}
+        <Row label={t('settings.serverProtocol')}><span class="mono">{serverProtocols}</span></Row>
+      {/if}
+    </div>
   {/if}
 </Group>
 
