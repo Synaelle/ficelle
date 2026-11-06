@@ -375,12 +375,6 @@ export const CREDIT_GROUPS: CreditGroup[] = [
         license: 'OFL-1.1',
       },
       {
-        name: 'Ubuntu Mono',
-        url: 'https://fontsource.org/fonts/ubuntu-mono',
-        use: 'a font to download',
-        license: 'UFL-1.0',
-      },
-      {
         name: 'OpenDyslexic',
         url: 'https://opendyslexic.org/',
         use: 'the dyslexia friendly font, by Abbie Gonzalez',
@@ -389,7 +383,7 @@ export const CREDIT_GROUPS: CreditGroup[] = [
       {
         name: 'Fontsource',
         url: 'https://fontsource.org/',
-        use: 'the fonts offered for notes and code',
+        use: 'the font files',
         license: 'Each font under its own license, mostly OFL-1.1',
       },
       { name: 'Lucide', url: 'https://lucide.dev/', use: 'the icons', license: 'ISC' },
