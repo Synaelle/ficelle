@@ -1,8 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- About: which versions come (Stable or Beta, not on a Mac), how they
-     come, and a check right now. Only release builds update themselves, the
-     others show nothing. The phone settings show it as groups of rows and
-     the channel as rows of their own (rows). -->
+<!-- The updates group of About: how versions come, the beta versions and a
+     check right now. Only release builds update themselves, the others show
+     nothing. -->
 <script lang="ts">
   import { ANDROID } from '../lib/platform'
   import { channelSwitch } from '../lib/channelChange.svelte'
@@ -19,10 +18,7 @@
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
 
-  let { rows = false }: { rows?: boolean } = $props()
-
   const phone = ANDROID
-  const CHANNELS = ['stable', 'beta'] as const
 
   /** Turning the security checks off waits a few seconds on a warning. */
   async function securityOff() {
@@ -34,22 +30,11 @@
     if (yes) prefs.securityChecks = false
   }
 
-  async function setSecurityChecks(box: HTMLInputElement) {
-    if (box.checked) {
-      prefs.securityChecks = true
-      return
-    }
-    box.checked = true
-    await securityOff()
-  }
-
   /** The system refused notifications: says where to allow them. */
   let notifyDenied = $state(false)
 
-  async function setNotifications(on: boolean, box?: HTMLInputElement) {
+  async function setNotifications(on: boolean) {
     notifyDenied = !(await appUpdates.setNotifications(on))
-    // refused, the setting stays as it was and so does the box
-    if (box) box.checked = prefs.updateNotifications
   }
 
   /** One line: how updates come while on, what is still looked for when off. */
@@ -66,7 +51,7 @@
   )
 </script>
 
-{#if updatesHere && rows}
+{#if updatesHere}
   <Group title={t('appUpdate.title')} note={help}>
     <Row
       label={t('appUpdate.auto')}
@@ -89,6 +74,14 @@
         help={notifyDenied ? t('appUpdate.notifyDenied') : undefined}
         on={prefs.updateNotifications}
         onclick={() => void setNotifications(!prefs.updateNotifications)}
+      />
+    {/if}
+    {#if channelChoice}
+      <Row
+        label={t('appUpdate.betaVersions')}
+        help={t('appUpdate.betaHelp')}
+        on={prefs.channel === 'beta'}
+        onclick={() => void channelSwitch.choose(prefs.channel === 'beta' ? 'stable' : 'beta')}
       />
     {/if}
     {#if appUpdates.ready}
@@ -117,120 +110,16 @@
         onclick={() => void appUpdates.check()}
       />
     {/if}
-    {#if appUpdates.error}<p class="error inside" role="alert">
+    {#if appUpdates.error}<p class="error" role="alert">
         {t(`errors.${appUpdates.error}`)}
       </p>{/if}
   </Group>
-{:else if updatesHere}
-  <div class="updates">
-    {#if channelChoice}
-      <fieldset class="channel">
-        <legend>{t('appUpdate.channel')}</legend>
-        <div class="segmented">
-          {#each CHANNELS as choice (choice)}
-            <label class:checked={prefs.channel === choice}>
-              <input
-                type="radio"
-                name="channel"
-                value={choice}
-                checked={prefs.channel === choice}
-                onchange={() => void channelSwitch.choose(choice)}
-              />{choice === 'stable' ? t('appUpdate.channelStable') : t('appUpdate.channelBeta')}
-            </label>
-          {/each}
-        </div>
-        <p class="settings-help">
-          {prefs.channel === 'stable'
-            ? t('appUpdate.channelStableHelp')
-            : t('appUpdate.channelBetaHelp')}
-        </p>
-      </fieldset>
-    {/if}
-    {#if waitingForStable() && !appUpdates.ready}
-      <p class="settings-help">{t('appUpdate.channelWaiting')}</p>
-    {/if}
-    <label class="settings-check">
-      <input type="checkbox" bind:checked={prefs.autoUpdates} />
-      {t('appUpdate.auto')}
-    </label>
-    {#if !prefs.autoUpdates}
-      <label class="settings-check">
-        <input
-          type="checkbox"
-          checked={prefs.securityChecks}
-          onchange={(e) => void setSecurityChecks(e.currentTarget)}
-        />
-        {t('appUpdate.securityChecks')}
-      </label>
-    {/if}
-    {#if notificationsHere}
-      <label class="settings-check">
-        <input
-          type="checkbox"
-          checked={prefs.updateNotifications}
-          onchange={(e) => void setNotifications(e.currentTarget.checked, e.currentTarget)}
-        />
-        {t('appUpdate.notify')}
-      </label>
-      {#if notifyDenied}<p class="settings-help" role="status">
-          {t('appUpdate.notifyDenied')}
-        </p>{/if}
-    {/if}
-    <p class="settings-help">{help}</p>
-    {#if appUpdates.ready?.page}
-      <p>{t('appUpdate.out', { version: appUpdates.ready.version })}</p>
-      <button class="btn primary" onclick={() => void channelSwitch.update()}
-        >{t('appUpdate.download')}</button
-      >
-    {:else if appUpdates.ready}
-      <p>{t('appUpdate.ready', { version: appUpdates.ready.version })}</p>
-      <button class="btn primary" onclick={() => void channelSwitch.update()}
-        >{phone ? t('appUpdate.install') : t('appUpdate.restart')}</button
-      >
-    {:else}
-      <!-- the answer beside the button -->
-      <div class="settings-actions check-row">
-        <button class="btn" disabled={appUpdates.checking} onclick={() => void appUpdates.check()}
-          >{appUpdates.checking ? t('appUpdate.checking') : t('appUpdate.check')}</button
-        >
-        {#if appUpdates.upToDate}<span class="settings-help" role="status"
-            >{t('appUpdate.upToDate')}</span
-          >{/if}
-      </div>
-    {/if}
-    {#if appUpdates.error}<p class="error" role="alert">{t(`errors.${appUpdates.error}`)}</p>{/if}
-  </div>
 {/if}
 
 <style>
-  .updates {
-    display: grid;
-    justify-items: start;
-    gap: var(--space-2);
-  }
-  p {
-    margin: 0;
-  }
-  .channel {
-    display: grid;
-    justify-items: start;
-    gap: var(--space-2);
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-  legend {
-    margin-bottom: var(--space-2);
-    padding: 0;
-  }
-  .check-row {
-    align-items: center;
-    gap: var(--space-3);
-  }
   .error {
-    color: var(--color-danger);
-  }
-  .inside {
+    margin: 0;
     padding: 0 var(--space-3) var(--space-2);
+    color: var(--color-danger);
   }
 </style>

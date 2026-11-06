@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Root: applies display preferences, then shows first launch, unlock or the notes. -->
+<!-- Root: applies display preferences, then shows unlock or the notes. A first
+     launch makes the notes, not encrypted, and goes straight to them. -->
 <script lang="ts">
   import DevReport from './devreport/DevReport.svelte'
   import BetaFeedback from './lib/BetaFeedback.svelte'
@@ -20,8 +21,7 @@
   import Overlays from './lib/Overlays.svelte'
   import CriticalUpdate from './lib/CriticalUpdate.svelte'
   import Toasts from './lib/Toasts.svelte'
-  import { appUpdates, channelAskDue } from './lib/appUpdate.svelte'
-  import ChannelAsk from './lib/ChannelAsk.svelte'
+  import { appUpdates } from './lib/appUpdate.svelte'
   import { applyTheme } from './lib/theme.svelte'
   import { applyUiSize } from './lib/uiSize'
   import { workspace } from './lib/workspace.svelte'
@@ -29,7 +29,7 @@
   import Unlock from './screens/Unlock.svelte'
   import Workspace from './workspace/Workspace.svelte'
 
-  type Stage = 'loading' | 'setup' | 'unlock' | 'upgrade' | 'ready'
+  type Stage = 'loading' | 'failed' | 'unlock' | 'upgrade' | 'ready'
   let stage = $state<Stage>('loading')
   let status = $state<VaultStatus | null>(null)
   /** An old vault the app opened without asking: it gets a password before
@@ -49,7 +49,7 @@
 
   async function start() {
     status = await backend.vaultStatus()
-    if (!status.exists) return (stage = 'setup')
+    if (!status.exists) return void firstLaunch()
     if (status.unlocked) return (stage = needsPassword(status) ? 'upgrade' : 'ready')
     // the unlock screen asks for Windows Hello, the fingerprint, the PIN or
     // the password itself
@@ -61,6 +61,17 @@
       stage = needsPassword(status) ? 'upgrade' : 'ready'
     } catch {
       stage = 'unlock'
+    }
+  }
+
+  /** Encryption is a choice in Settings, Security, not a question on the way in. */
+  async function firstLaunch() {
+    stage = 'loading'
+    try {
+      await backend.vaultCreate('plain', '', null)
+      await ready()
+    } catch {
+      stage = 'failed'
     }
   }
 
@@ -102,10 +113,14 @@
   void start()
 </script>
 
-{#if stage === 'setup'}
-  <Setup done={ready} />
+{#if stage === 'failed'}
+  <main class="failed">
+    <h1>{t('unlock.failedTitle')}</h1>
+    <p role="alert">{t('unlock.failedHelp')}</p>
+    <button class="btn primary" onclick={firstLaunch}>{t('unlock.retry')}</button>
+  </main>
 {:else if stage === 'upgrade' && status?.way === 'device'}
-  <Setup done={ready} upgrade />
+  <Setup done={ready} />
 {:else if stage === 'unlock' && status}
   <Unlock done={ready} {status} />
 {:else if stage === 'ready'}
@@ -118,8 +133,6 @@
 <Overlays />
 <Toasts />
 <CriticalUpdate />
-<!-- once the notes are open, never over the lock screen -->
-{#if stage === 'ready' && channelAskDue()}<ChannelAsk />{/if}
 {#if errorCatch.open}<ErrorReport />{/if}
 {#if channelSwitch.open}<ChannelSwitch />{/if}
 {#if encryptFlow.open}
@@ -138,6 +151,23 @@
 {#if __APP_DEV_TOOLS__}<DevReport />{/if}
 
 <style>
+  .failed {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: var(--space-3);
+    height: 100%;
+    padding: var(--space-4);
+    text-align: center;
+  }
+  .failed h1 {
+    margin: 0;
+    font-size: 22px;
+  }
+  .failed p {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
   .notes {
     height: 100%;
   }

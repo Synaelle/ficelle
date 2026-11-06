@@ -231,7 +231,6 @@
         italic: () => chain()?.toggleItalic().run() ?? false,
         strike: () => chain()?.toggleStrike().run() ?? false,
         code: () => chain()?.toggleCode().run() ?? false,
-        heading: () => chain()?.toggleHeading({ level: 2 }).run() ?? false,
         checklist: () => chain()?.toggleTaskList().run() ?? false,
         link: () => (void promptLink(), true),
       }
@@ -242,7 +241,7 @@
         .split('+')
         .map((part) => (part.length === 1 ? part.toLowerCase() : part))
         .join('-')
-    const actions: ActionId[] = ['bold', 'italic', 'strike', 'code', 'heading', 'checklist', 'link']
+    const actions: ActionId[] = ['bold', 'italic', 'strike', 'code', 'checklist', 'link']
     return Object.fromEntries(actions.map((a) => [tiptapKey(shortcutFor(a)), () => run(a)]))
   }
 

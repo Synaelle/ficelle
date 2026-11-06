@@ -50,7 +50,7 @@ export interface Prefs {
   updateNotifications: boolean
   /** Which update list the app follows. A Mac always follows Beta. */
   channel: UpdateChannel
-  /** The person chose a channel, or was asked once. */
+  /** The person chose a channel: a beta install no longer follows Beta by itself. */
   channelAsked: boolean
   /** The open note follows other devices' edits as they come in. */
   coediting: boolean

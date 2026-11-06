@@ -28,7 +28,6 @@
   let { onlock, lockable }: { onlock: () => void; lockable: boolean } = $props()
 
   let width = $state(window.innerWidth)
-  let sidebarOpen = $state(true)
   let settingsOpen = $state(false)
   let settingsSection: 'sync' | undefined = $state()
   function openSettings(section?: 'sync') {
@@ -39,7 +38,7 @@
 
   const NARROW = 720
   const narrow = $derived(width < NARROW)
-  const showSidebar = $derived(sidebarOpen && !narrow)
+  const showSidebar = $derived(!narrow)
   // the note keeps at least this much room when the list grows
   const NOTE_MIN = 360
   const listMax = $derived(Math.max(240, width - (showSidebar ? prefs.sidebarWidth : 0) - NOTE_MIN))
@@ -69,7 +68,6 @@
   const actions: Partial<Record<ActionId, () => void>> = {
     newNote: () => void workspace.create(),
     search: () => (searchFocus += 1),
-    toggleSidebar: () => (sidebarOpen = !sidebarOpen),
     pin: () =>
       workspace.current &&
       void workspace.togglePin(workspace.current.id, !workspace.current.pinned),

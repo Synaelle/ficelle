@@ -3,8 +3,7 @@
      icon tiles, the current value on the right, a short note under groups.
      Every row is one tap from the first screen, details open a page. -->
 <script lang="ts">
-  import { channelSwitch } from '../lib/channelChange.svelte'
-  import { serverProtocol, sync } from '../lib/sync.svelte'
+  import { sync } from '../lib/sync.svelte'
   import SyncSettings from './SyncSettings.svelte'
   import { brand } from '@app/brand'
   import Knot from '../lib/Knot.svelte'
@@ -24,15 +23,13 @@
   import BackupSettings from './BackupSettings.svelte'
   import FeedbackSettings from './FeedbackSettings.svelte'
   import TestTools from '../devreport/TestTools.svelte'
-  import ContactLine from './ContactLine.svelte'
-  import CreditsList from './CreditsList.svelte'
+  import AboutSettings from './AboutSettings.svelte'
   import { backend } from '../lib/backend'
   import { ANDROID } from '../lib/platform'
   import { backups } from '../lib/backups.svelte'
   import { UI_SIZES } from '../lib/uiSize'
   import { workspace } from '../lib/workspace.svelte'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
-  import UpdateCheck from './UpdateCheck.svelte'
   import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
   import { LOCK_CHOICES, lockLabel, ways, type SettingsState } from './settingsState.svelte'
@@ -73,14 +70,8 @@
     | 'feedback'
     | 'testTools'
     | 'about'
-    | 'credits'
   // svelte-ignore state_referenced_locally
   let page: Page = $state(start ?? 'home')
-  /** The linked server's protocol versions, asked when About opens. */
-  let serverProtocols: string | null = $state(null)
-  $effect(() => {
-    if (page === 'about') void serverProtocol().then((v) => (serverProtocols = v))
-  })
   let query = $state('')
   let fileInput: HTMLInputElement | undefined = $state()
 
@@ -343,10 +334,10 @@
     ['emoji', 'settings.emojiShortcodes', 'editor'],
     ['right', 'settings.arrow', 'editor'],
     ['timer', 'settings.clock', 'language'],
-    ['info', 'settings.credits', 'credits'],
+    ['info', 'settings.credits', 'about'],
   ]
   if (updatesHere) inner.push(['info', 'appUpdate.check', 'about'])
-  if (updatesHere && channelChoice) inner.push(['info', 'appUpdate.channel', 'about'])
+  if (updatesHere && channelChoice) inner.push(['info', 'appUpdate.betaVersions', 'about'])
   const innerRows = $derived<SettingRow[]>(
     inner.map(([icon, label, to]) => ({
       icon,
@@ -395,12 +386,10 @@
     feedback: 'settings.feedback',
     testTools: 'settings.testTools',
     about: 'settings.about',
-    credits: 'settings.credits',
   }
 
   /** Backups opens from the data page, and goes back to it. */
-  const parentOf = (p: Page): Page =>
-    p === 'backups' ? 'notes' : p === 'credits' ? 'about' : 'home'
+  const parentOf = (p: Page): Page => (p === 'backups' ? 'notes' : 'home')
   const parent = $derived(parentOf(page))
 
   function back() {
@@ -498,6 +487,7 @@
             title={vault && !encrypted
               ? t('settings.notEncryptedTitle')
               : t('settings.phone.groupPrivacy')}
+            note={vault && !encrypted ? t('settings.encryptNote') : undefined}
           >
             {#each privacyRows as r (r.label)}{@render row(r)}{/each}
           </Group>
@@ -669,49 +659,7 @@
       {:else if page === 'testTools'}
         <TestTools />
       {:else if page === 'about'}
-        <Group>
-          <Row label={t('settings.version')}><span class="value mono">{__APP_VERSION__}</span></Row>
-          <Row label={t('settings.buildDate')}
-            ><span class="value mono">{__APP_BUILD_DATE__}</span></Row
-          >
-          <Row label={t('settings.protocol')}
-            ><span class="value mono">{__APP_PROTOCOL__}</span></Row
-          >
-          {#if serverProtocols}
-            <Row label={t('settings.serverProtocol')}
-              ><span class="value mono">{serverProtocols}</span></Row
-            >
-          {/if}
-        </Group>
-        {#if updatesHere}
-          {#if channelChoice}
-            <Group title={t('appUpdate.channel')}>
-              {#each ['stable', 'beta'] as const as choice (choice)}
-                <Row
-                  label={choice === 'stable'
-                    ? t('appUpdate.channelStable')
-                    : t('appUpdate.channelBeta')}
-                  help={choice === 'stable'
-                    ? t('appUpdate.channelStableHelp')
-                    : t('appUpdate.channelBetaHelp')}
-                  checked={prefs.channel === choice}
-                  onclick={() => void channelSwitch.choose(choice)}
-                />
-              {/each}
-            </Group>
-          {/if}
-          <UpdateCheck rows />
-        {/if}
-        <Group>
-          <ContactLine row />
-          {@render row({
-            icon: 'info',
-            label: t('settings.credits'),
-            run: () => (page = 'credits'),
-          })}
-        </Group>
-      {:else if page === 'credits'}
-        <CreditsList phone />
+        <AboutSettings phone />
       {/if}
     </div>
   {/if}
@@ -947,10 +895,6 @@
   /* a value in a shared row (About): nothing else beside it to give way to */
   :global(.settings-row) .value {
     max-width: none;
-  }
-  .mono {
-    font-family: var(--font-mono);
-    font-size: 13px;
   }
   .bar {
     position: sticky;

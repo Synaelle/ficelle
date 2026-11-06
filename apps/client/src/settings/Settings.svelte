@@ -31,12 +31,8 @@
   import PhoneSettings from './PhoneSettings.svelte'
   import SizePicker from './SizePicker.svelte'
   import SyncSettings from './SyncSettings.svelte'
-  import UpdateCheck from './UpdateCheck.svelte'
   import TestTools from '../devreport/TestTools.svelte'
-  import ContactLine from './ContactLine.svelte'
-  import CreditsList from './CreditsList.svelte'
-  import { serverProtocol } from '../lib/sync.svelte'
-  import { updatesHere } from '../lib/appUpdate.svelte'
+  import AboutSettings from './AboutSettings.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
   import { LOCK_CHOICES, lockLabel, SettingsState, ways } from './settingsState.svelte'
   import Group from './ui/Group.svelte'
@@ -93,11 +89,6 @@
   const phone = $derived(width <= PHONE)
   // svelte-ignore state_referenced_locally
   let section: Section = $state(start ?? 'appearance')
-  /** The linked server's protocol versions, asked when About opens. */
-  let serverProtocols: string | null = $state(null)
-  $effect(() => {
-    if (section === 'about') void serverProtocol().then((v) => (serverProtocols = v))
-  })
   /** The import dialog open, for this app's own export or another app's. */
   let importing = $state<'ficelle' | 'other' | null>(null)
   let resetting = $state(false)
@@ -154,8 +145,6 @@
 
   let oldPassword = $state('')
   let newPassword = $state('')
-  /** The credits, open under their row in About. */
-  let creditsOpen = $state(false)
   /** The change password form, open under its row. */
   let changingPassword = $state(false)
   async function changePassword(event: SubmitEvent) {
@@ -342,7 +331,7 @@
           {:else if section === 'security'}
             {@const vault = settings.vault}
             {#if vault && !vault.encrypted}
-              <Group title={t('settings.notEncryptedTitle')}>
+              <Group note={t('settings.encryptNote')}>
                 <Row label={t('settings.phone.plain')}>
                   <button class="btn primary" onclick={() => settings.encrypt()}
                     ><Icon name="lock" size={16} />{t('settings.encrypt')}</button
@@ -522,34 +511,7 @@
           {:else if section === 'feedback'}
             <FeedbackSettings />
           {:else if section === 'about'}
-            <Group>
-              <Row label={t('settings.version')}
-                ><span class="value mono">{__APP_VERSION__}</span></Row
-              >
-              <Row label={t('settings.buildDate')}
-                ><span class="value mono">{__APP_BUILD_DATE__}</span></Row
-              >
-              <Row label={t('settings.protocol')}
-                ><span class="value mono">{__APP_PROTOCOL__}</span></Row
-              >
-              {#if serverProtocols}
-                <Row label={t('settings.serverProtocol')}
-                  ><span class="value mono">{serverProtocols}</span></Row
-                >
-              {/if}
-            </Group>
-            {#if updatesHere}
-              <Group title={t('appUpdate.title')}>
-                <div class="inside"><UpdateCheck /></div>
-              </Group>
-            {/if}
-            <Group>
-              <div class="inside"><ContactLine /></div>
-              <Row label={t('settings.credits')} onclick={() => (creditsOpen = !creditsOpen)}>
-                <span class="opens" class:open={creditsOpen}><Icon name="down" size={16} /></span>
-              </Row>
-              {#if creditsOpen}<div class="inside"><CreditsList /></div>{/if}
-            </Group>
+            <AboutSettings />
           {/if}
         </div>
 
@@ -670,21 +632,6 @@
   /* opened under its row: the row above gives the space */
   .inside.under {
     padding-top: 0;
-  }
-  .value {
-    color: var(--color-text-muted);
-  }
-  .mono {
-    font-family: var(--font-mono);
-    font-size: 13px;
-  }
-  .opens {
-    display: grid;
-    color: var(--color-text-faint);
-    transition: transform var(--dur-fast) var(--ease-out);
-  }
-  .opens.open {
-    transform: rotate(180deg);
   }
   .state {
     color: var(--color-text-muted);

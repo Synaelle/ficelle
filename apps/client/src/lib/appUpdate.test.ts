@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import { channel, channelAskDue, isBigJump, isFix, waitingForStable } from './appUpdate.svelte'
+import { channel, isBigJump, isFix, waitingForStable } from './appUpdate.svelte'
 import { prefs } from './prefs.svelte'
 
 beforeEach(() => {
@@ -54,15 +54,5 @@ describe('channels', () => {
     expect(waitingForStable('0.4.0')).toBe(false)
     prefs.channel = 'beta'
     expect(waitingForStable('0.4.0-beta.2')).toBe(false)
-  })
-
-  it('asks once, from 0.4.0 on', () => {
-    expect(channelAskDue('0.3.2')).toBe(false)
-    expect(channelAskDue('dev-abc')).toBe(false)
-    expect(channelAskDue('0.4.0-beta.1')).toBe(true)
-    expect(channelAskDue('0.4.0')).toBe(true)
-    expect(channelAskDue('1.0.0')).toBe(true)
-    prefs.channelAsked = true
-    expect(channelAskDue('0.4.0')).toBe(false)
   })
 })

@@ -6,7 +6,6 @@
 export const ACTIONS = [
   'newNote',
   'search',
-  'toggleSidebar',
   'pin',
   'trash',
   'settings',
@@ -15,7 +14,6 @@ export const ACTIONS = [
   'strike',
   'code',
   'link',
-  'heading',
   'checklist',
 ] as const
 
@@ -24,7 +22,6 @@ export type ActionId = (typeof ACTIONS)[number]
 export const DEFAULT_SHORTCUTS: Record<ActionId, string> = {
   newNote: 'Mod+N',
   search: 'Mod+K',
-  toggleSidebar: 'Mod+\\',
   pin: 'Mod+Shift+P',
   trash: 'Mod+Backspace',
   settings: 'Mod+,',
@@ -33,7 +30,6 @@ export const DEFAULT_SHORTCUTS: Record<ActionId, string> = {
   strike: 'Mod+Shift+X',
   code: 'Mod+E',
   link: 'Mod+L',
-  heading: 'Mod+Alt+1',
   checklist: 'Mod+Shift+9',
 }
 

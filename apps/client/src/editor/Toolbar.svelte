@@ -51,7 +51,6 @@
     {
       icon: 'heading',
       label: () => t('editor.heading'),
-      action: 'heading',
       run: () => chain().toggleHeading({ level: 2 }).run(),
       active: () => editor.isActive('heading'),
     },

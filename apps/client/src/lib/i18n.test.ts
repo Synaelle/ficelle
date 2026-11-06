@@ -7,7 +7,7 @@ import { currentLocale, setLocale, t } from './i18n.svelte'
 describe('t', () => {
   it('fills placeholders and the app name', () => {
     setLocale('en')
-    expect(t('setup.title')).toBe(`Welcome to ${brand.displayName}`)
+    expect(t('errorReport.lead')).toContain(brand.displayName)
     expect(t('folders.confirmTrash', { name: 'Garden' })).toContain('Garden')
   })
 
@@ -26,6 +26,6 @@ describe('t', () => {
   it('falls back to English for a language this build does not have', () => {
     setLocale('fr' as 'en')
     expect(currentLocale()).toBe('en')
-    expect(t('setup.title')).toBe(`Welcome to ${brand.displayName}`)
+    expect(t('errorReport.lead')).toContain(brand.displayName)
   })
 })

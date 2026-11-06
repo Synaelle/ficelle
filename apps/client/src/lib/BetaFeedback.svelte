@@ -4,7 +4,6 @@
      the welcome shown once, with the Mac warning merged in on a Mac. -->
 <script lang="ts">
   import { brand } from '@app/brand'
-  import { channelAskDue } from './appUpdate.svelte'
   import { betaFeedback, isBeta, isMacApp, touchScreen } from './beta.svelte'
   import { t } from './i18n.svelte'
   import Icon from './icons/Icon.svelte'
@@ -13,8 +12,7 @@
   import { prefs } from './prefs.svelte'
   import FeedbackSettings from '../settings/FeedbackSettings.svelte'
 
-  // after the one-time channel question, never on top of it
-  const welcome = $derived(isBeta && !prefs.betaWelcomed && !channelAskDue())
+  const welcome = $derived(isBeta && !prefs.betaWelcomed)
 
   const close = () => (betaFeedback.open = false)
 

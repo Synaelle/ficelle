@@ -1,19 +1,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- First launch. First the kind of notes: encrypted (recommended), or
-     standard, open to anyone using the device. Then how the app looks,
-     which shows at once, so the rest of the setup is in it; standard notes
-     start there. Encrypted, a password next: it always opens the notes, and it is the
-     way back when the quicker way is gone. Then how they open day to day:
-     Windows Hello or a fingerprint, a PIN typed here, or the password each
-     time. An old vault that opened without asking goes through the password
-     steps once open, `upgrade` set, and notes being encrypted from the
-     settings, `encrypt`; neither asks for the look again. -->
+<!-- Giving the notes a password, for notes being encrypted from the settings
+     (`encrypt`) and an old vault that opened without asking. First
+     the password: it always opens the notes, and it is the way back when the
+     quicker way is gone. Then how they open day to day: Windows Hello or a
+     fingerprint, a PIN typed here, or the password each time. -->
 <script lang="ts">
   import { MIN_PASSWORD } from '../lib/passwords'
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
   import { onMount } from 'svelte'
-  import logo from '../../../../packages/ui/brand/app-icon.svg?url'
+  import Knot from '../lib/Knot.svelte'
   import { onBack } from '../lib/back'
   import { backend, PIN_LENGTH, type VaultWay } from '../lib/backend'
   import { biometricMethod } from '../lib/biometric'
@@ -26,13 +22,10 @@
 
   let {
     done,
-    upgrade,
     encrypt,
     cancel,
   }: {
     done: () => void
-    /** An old vault that opened without asking, open already. */
-    upgrade?: boolean
     /** Unencrypted notes being encrypted from the settings: they are
      * encrypted first, then given the password and the way in. */
     encrypt?: boolean
@@ -40,14 +33,10 @@
     cancel?: () => void
   } = $props()
 
-  type Step = 'kind' | 'password' | 'quick' | 'pin' | 'recovery'
-  // svelte-ignore state_referenced_locally
-  let step: Step = $state(upgrade || encrypt ? 'password' : 'kind')
-  /** Encrypted notes, or standard ones open to anyone using the device. */
-  let encrypted = $state(true)
+  type Step = 'password' | 'quick' | 'pin' | 'recovery'
+  let step: Step = $state('password')
   $effect(() => {
     if (step === 'password' && cancel) return onBack(cancel)
-    if (step === 'password' && !upgrade && !encrypt) return onBack(() => (step = 'kind'))
     if (step === 'quick') return onBack(() => (step = 'password'))
     if (step === 'pin') return onBack(() => ((step = 'quick'), (firstPin = '')))
   })
@@ -95,13 +84,6 @@
           : '',
   )
 
-  function submitKind(event: SubmitEvent) {
-    event.preventDefault()
-    error = ''
-    if (encrypted) step = 'password'
-    else void plain()
-  }
-
   function submitPassword(event: SubmitEvent) {
     event.preventDefault()
     if (problem) return
@@ -138,8 +120,7 @@
       if (encrypt) {
         await backend.vaultEncrypt()
         await backend.vaultSetWay(way, null, password, pin)
-      } else if (upgrade) await backend.vaultSetWay(way, null, password, pin)
-      else await backend.vaultCreate(way, password, pin)
+      } else await backend.vaultSetWay(way, null, password, pin)
       if (wantRecovery) {
         recoveryCode = await backend.vaultCreateRecovery(password)
         step = 'recovery'
@@ -151,20 +132,6 @@
       // a cancelled Windows Hello prompt leaves the choice on screen
       if (!isBackendError(err) || err.kind !== 'cancelled')
         error = t(`errors.${isBackendError(err) ? err.kind : 'unknown'}`)
-    } finally {
-      busy = false
-    }
-  }
-
-  /** No password, no encryption: the notes open as soon as the app does. */
-  async function plain() {
-    busy = true
-    error = ''
-    try {
-      await backend.vaultCreate('plain', '', null)
-      done()
-    } catch (err) {
-      error = t(`errors.${isBackendError(err) ? err.kind : 'unknown'}`)
     } finally {
       busy = false
     }
@@ -204,44 +171,11 @@
 
 <main class="screen">
   <div class="card">
-    {#if step === 'kind'}
-      <form onsubmit={submitKind}>
-        <img class="logo" src={logo} alt="" />
-        <h1>{t('setup.title', { appName: brand.displayName })}</h1>
-        <p class="muted center">{t('setup.welcome')}</p>
-        <div class="choices" role="radiogroup" aria-label={t('setup.kindTitle')}>
-          <label class="choice" class:chosen={encrypted}>
-            <input type="radio" name="kind" value={true} bind:group={encrypted} />
-            <span class="tile"><Icon name="lock" size={18} /></span>
-            <span class="words">
-              <strong>{t('setup.kindEncrypted')}</strong>
-              <span class="muted small">{t('setup.kindEncryptedHelp')}</span>
-            </span>
-          </label>
-          <label class="choice" class:chosen={!encrypted}>
-            <input type="radio" name="kind" value={false} bind:group={encrypted} />
-            <span class="tile"><Icon name="eye" size={18} /></span>
-            <span class="words">
-              <strong>{t('setup.kindStandard')}</strong>
-              <span class="muted small">{t('setup.plainHelp')}</span>
-            </span>
-          </label>
-        </div>
-        <button class="btn primary big" type="submit">{t('setup.next')}</button>
-      </form>
-    {:else if step === 'password'}
+    {#if step === 'password'}
       <form onsubmit={submitPassword}>
-        {#if encrypt}
-          <img class="logo" src={logo} alt="" />
-          <h1>{t('setup.encryptTitle')}</h1>
-          <p class="muted center">{t('setup.encryptHelp')}</p>
-        {:else if upgrade}
-          <img class="logo" src={logo} alt="" />
-          <h1>{t('setup.upgradeTitle')}</h1>
-          <p class="muted center">{t('setup.upgradeHelp')}</p>
-        {:else}
-          <h1>{t('setup.passwordTitle')}</h1>
-        {/if}
+        <span class="logo"><Knot size={48} /></span>
+        <h1>{encrypt ? t('setup.encryptTitle') : t('setup.upgradeTitle')}</h1>
+        <p class="muted center">{encrypt ? t('setup.encryptHelp') : t('setup.upgradeHelp')}</p>
         <p class="muted small center">{t('setup.passwordWhy')}</p>
         <!-- password managers and Chromium expect a username next to a password -->
         <input type="text" autocomplete="username" value={brand.displayName} hidden readonly />
@@ -269,15 +203,13 @@
         <p class="small" class:warning={!wantRecovery} class:muted={wantRecovery}>
           {wantRecovery ? t('recovery.createHelp') : t('setup.noRecovery')}
         </p>
-        {#if upgrade && !cancel}
+        {#if !cancel}
           <button class="btn primary big" type="submit" disabled={!!problem}
             >{t('setup.next')}</button
           >
         {:else}
           <div class="actions">
-            <button class="btn" type="button" onclick={() => (cancel ? cancel() : (step = 'kind'))}
-              >{t('common.back')}</button
-            >
+            <button class="btn" type="button" onclick={cancel}>{t('common.back')}</button>
             <button class="btn primary" type="submit" disabled={!!problem}>{t('setup.next')}</button
             >
           </div>
@@ -366,8 +298,8 @@
     justify-items: center;
   }
   .logo {
-    width: 72px;
-    height: 72px;
+    --knot-behind: var(--color-surface);
+    display: grid;
     justify-self: center;
   }
   h1 {

@@ -116,14 +116,6 @@ export function isBigJump(next: string, current: string = thisVersion): boolean 
 export const waitingForStable = (current: string = thisVersion) =>
   channel() === 'stable' && parts(current)?.[3] != null
 
-/** Asked once which channel to follow, from 0.4.0 on. */
-export function channelAskDue(current: string = thisVersion): boolean {
-  if (!channelChoice || prefs.channelAsked) return false
-  if (pretend?.has('channelAsk')) return true
-  const p = parts(current)
-  return !!p && (p[0] > 0 || p[1] >= 4)
-}
-
 class AppUpdates {
   ready: AppUpdate | null = $state(null)
   /** The notes are open: the card waits while the app is locked. */

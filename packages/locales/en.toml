@@ -72,17 +72,11 @@ check = "Check for updates"
 checking = "Checking…"
 upToDate = "This is the latest version."
 title = "Updates"
+betaVersions = "Get beta versions" # DRAFT
+betaHelp = "Early versions of the next release. They may have bugs and breaking changes can happen, so keep backups." # DRAFT
 help = "New versions download on their own. Nothing changes until you restart into them."
 helpPhone = "New versions download on their own, then Android asks you to install them."
-channel = "Versions" # DRAFT
-channelStable = "Stable" # DRAFT
-channelStableHelp = "Tested versions, and small fixes in between." # DRAFT
-channelBeta = "Beta" # DRAFT
-channelBetaHelp = "Early versions of the next release, updated often. They may have bugs." # DRAFT
 channelWaiting = "This beta is newer than the latest stable version. Updates come again once Stable catches up." # DRAFT
-channelAskTitle = "Which updates do you want?" # DRAFT
-channelAskHelp = "You can change this later in Settings, About." # DRAFT
-channelAskDone = "Done" # DRAFT
 
 [files]
 remove = "Remove the file"
@@ -128,8 +122,6 @@ quotaFull = "storage full"
 fileInvalid = "could not be checked"
 
 [setup]
-welcome = "A lightweight, private notes app."
-title = "Welcome to {appName}"
 password = "Password"
 confirm = "Password again"
 noRecovery = "There is no way to recover your notes without this password. Keep it somewhere safe."
@@ -146,16 +138,10 @@ quickPin = "A {count}-digit PIN"
 quickPinHelp = "Typed in the app. After 5 wrong tries only the password opens your notes."
 quickPassword = "The password each time"
 quickPasswordHelp = "Nothing on this device can open your notes without it."
-kindTitle = "How your notes are kept"
-kindEncrypted = "Encrypted (recommended)"
-kindEncryptedHelp = "A password protects your notes, and they are encrypted on this device."
-kindStandard = "Standard, not protected"
-passwordTitle = "Choose a password"
-plainHelp = "Without encryption, anyone who gets this device or a copy of its files can read your notes. You can encrypt them later in Settings, Security."
 upgradeTitle = "Choose a password"
 upgradeHelp = "Your notes opened without asking. From now on they need a password, or a quicker way in front of it."
 encryptTitle = "Encrypt your notes"
-encryptHelp = "Your notes get encrypted on this device, and from now on a password opens them."
+encryptHelp = "Your notes get encrypted on this device, and from now on a password opens them. Encryption can't be turned off afterwards." # DRAFT
 
 [setup.tooShort]
 one = "Use at least {count} character."
@@ -353,6 +339,8 @@ serverProtocol = "Server's sync protocol"
 wayTitle = "Unlock"
 currentPasswordPrompt = "Enter your current password"
 encrypt = "Encrypt my notes"
+encryptNote = "Your notes are kept on this device without a password. Encrypt them if other people can reach this device or its files. Encryption can't be turned off afterwards." # DRAFT
+details = "Technical details" # DRAFT
 lockNow = "Lock now"
 encrypted = "Your notes are encrypted."
 
@@ -500,7 +488,6 @@ empty = "No notes yet."
 [shortcuts]
 newNote = "New note"
 search = "Search"
-toggleSidebar = "Show or hide the sidebar"
 pin = "Pin or unpin"
 trash = "Move to trash"
 settings = "Settings"
@@ -509,7 +496,6 @@ italic = "Italic"
 strike = "Strikethrough"
 code = "Inline code"
 link = "Link"
-heading = "Heading"
 checklist = "Checklist"
 
 [editor]
@@ -611,7 +597,7 @@ forgotTitle = "Use your recovery key"
 forgotHelp = "Type the recovery key you saved, then choose a new password. The recovery key keeps working."
 keyLabel = "Recovery key"
 wrongKey = "This recovery key does not open these notes."
-noneNow = "No recovery key. If this device loses its key and your notes are not synced, a recovery key is the only way back."
+noneNow = "No recovery key. If you forget your password, a recovery key is the only way back to your notes." # DRAFT
 
 [conflict]
 title = "Compare the versions"

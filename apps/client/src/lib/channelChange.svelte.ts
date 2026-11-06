@@ -77,7 +77,7 @@ const PRETEND_STABLE: AppUpdate = {
   goBack: true,
 }
 
-/** Before it was asked, a beta install follows Beta. */
+/** Until a channel is chosen, a beta install follows Beta. */
 if (installedBeta && !prefs.channelAsked) prefs.channel = 'beta'
 
 export type Step =
