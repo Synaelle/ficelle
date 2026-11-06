@@ -1,21 +1,20 @@
 name: image
 
-# The server image on ghcr.io. A tag vX.Y.Z publishes X.Y.Z, X.Y, X and
-# latest. A beta tag vX.Y.Z-beta.N publishes that version and beta, never
+# The server image on ghcr.io, built only for a real change to the server: a
+# release of the apps builds none. A tag server-vX.Y.Z publishes X.Y.Z, X.Y, X
+# and latest. A tag server-vX.Y.Z-beta.N publishes that version and beta, never
 # the others. beta always names the newest image of either kind: a stable
-# release moves it too when it is newer than the image it names, so a
-# server following beta follows every release. A tag server-vX.Y.Z does the same for a release of the server
-# alone: release.yml only takes vX.Y.Z, so the apps are not built and their
-# latest.json stays where it is. Each image carries its SBOM and build
-# provenance, and is signed with cosign by this workflow's own GitHub
-# identity, no key to keep: deploy/update/server-update checks it.
+# image moves it too when it is newer than the image it names. release.yml
+# does not take these tags, so the apps are not built and their latest.json
+# stays where it is. Each image carries its SBOM and build provenance, and is
+# signed with cosign by this workflow's own GitHub identity, no key to keep:
+# deploy/update/server-update checks it.
 
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+'
       - 'server-v[0-9]+.[0-9]+.[0-9]+'
+      - 'server-v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+'
   workflow_dispatch:
 
 permissions:

@@ -129,14 +129,17 @@ jobs:
             mac=$(jq -n --arg sig "$(cat "$macapp.sig")" --arg url "$base/$(basename "$macapp")" '{signature: $sig, url: $url}')
             macfiles=("$macapp")
           fi
-          # the line servers show, from the signed releases.json on the draft
-          # and whether it fixes a security problem: apps then ask in the
-          # middle of the screen, a critical update
+          # the line apps show and whether it fixes a security problem: apps
+          # then ask in the middle of the screen, a critical update. It comes
+          # from update.json on the draft, not from the servers' releases.json,
+          # which only names versions with a server image
           notes=""
           critical=false
-          if gh release download "$TAG" -p releases.json -O releases.json --clobber 2>/dev/null; then
-            notes=$(jq -r --arg v "$version" '.releases[] | select(.version == $v) | .notes // ""' releases.json)
-            critical=$(jq --arg v "$version" '[.releases[] | select(.version == $v) | .security == true] | any' releases.json)
+          gh release download "$TAG" -p releases.json -O releases.json --clobber 2>/dev/null || true
+          if gh release download "$TAG" -p update.json -O update.json --clobber 2>/dev/null; then
+            notes=$(jq -r '.notes // ""' update.json)
+            critical=$(jq '.critical == true' update.json)
+            gh release delete-asset "$TAG" update.json --yes
           fi
           # the notes database's format, its schema steps: an app going back
           # to an older version only does so when they match
