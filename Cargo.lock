@@ -1004,7 +1004,6 @@ dependencies = [
  "app-e2ee",
  "app-protocol",
  "app-webview-memory",
- "apple-native-keyring-store",
  "base64 0.23.1",
  "minisign-verify",
  "serde",

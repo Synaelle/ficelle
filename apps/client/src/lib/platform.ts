@@ -9,9 +9,8 @@
 export const PLATFORM = __APP_PLATFORM__
 
 export const ANDROID = PLATFORM === 'android'
-export const IOS = PLATFORM === 'ios'
 /** A phone or a tablet. */
-export const MOBILE = ANDROID || IOS
+export const MOBILE = ANDROID
 export const WINDOWS = PLATFORM === 'windows'
 export const MAC = PLATFORM === 'darwin'
 export const LINUX = PLATFORM === 'linux'

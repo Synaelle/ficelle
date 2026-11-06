@@ -1,8 +1,8 @@
 name: mac
 
 # One macOS app for Apple Silicon and Intel, as an unsigned .dmg, and the same
-# app as an archive signed for the app updater. release.yml calls it for beta
-# tags: the Mac app follows Beta only. Without an Apple signing account the app is signed ad hoc
+# app as an archive signed for the app updater. release.yml calls it only for
+# the tag named in the MAC_RELEASE repository variable. Without an Apple signing account the app is signed ad hoc
 # and not notarised. A manual run builds the chosen branch, kept as an artifact
 # for a week, signed for the updater if asked. No Mac is at hand to try the
 # update on, so the steps here run what can be checked on the runner.

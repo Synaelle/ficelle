@@ -1,8 +1,6 @@
-# Ficelle on a Mac or an iPhone
+# Ficelle on a Mac
 
-The Mac app is in 0.4.0, then it comes with the Beta releases, early versions of the next release. It is untested, I have no Mac to try it on, so keep backups of your notes and tell me what goes wrong. On iOS, [Obsidian](https://obsidian.md) opens Markdown notes, and Ficelle's Export as markdown (Settings, Data and backups) opens in it.
-
-## Mac
+The Mac app is untested, I have no Mac to try it on, so keep backups of your notes and tell me what goes wrong. The betas no longer include it. It gets one release once the current rework is done, then only major security or bug fixes, until it can be tested daily. Until that release, the latest Mac build is 0.5.0-beta.2.
 
 Download the `.dmg` from the [releases](https://github.com/Synaelle/ficelle/releases), the same file for Apple Silicon and Intel, open it and drag Ficelle to Applications. From beta 2 on, the app updates itself when run from there; otherwise it opens the release page when a new version is out. This has not been tried on a real Mac yet.
 
@@ -13,13 +11,6 @@ If macOS says the app is damaged, or Open Anyway does not show, run this once in
 ```sh
 xattr -dr com.apple.quarantine /Applications/Ficelle.app
 ```
-
-## iPhone and iPad
-
-> [!CAUTION]
-> The iOS build is untested, may not start, and does not follow Ficelle's version numbers. Do not use it for anything serious, keep your real notes elsewhere.
-
-Get `ficelle-apple-test-ios.ipa` from the [iOS test build](https://github.com/Synaelle/ficelle/releases/tag/apple-test) and install it with [AltStore](https://altstore.io) or [SideStore](https://sidestore.io), which sign it with your own Apple ID. With a free Apple ID it needs a refresh every 7 days.
 
 ## Help with testing
 

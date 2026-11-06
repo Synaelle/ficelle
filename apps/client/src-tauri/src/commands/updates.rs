@@ -878,17 +878,9 @@ pub async fn app_update_check(
             .await
             .map_err(|e| failed("unknown", e))?;
     }
-    #[cfg(any(desktop, target_os = "android"))]
-    return tauri::async_runtime::spawn_blocking(move || {
-        platform::check(&app, channel, allow_older)
-    })
-    .await
-    .map_err(|e| failed("unknown", e))?;
-    #[cfg(target_os = "ios")]
-    {
-        let _ = (app, channel, allow_older);
-        Ok(None)
-    }
+    tauri::async_runtime::spawn_blocking(move || platform::check(&app, channel, allow_older))
+        .await
+        .map_err(|e| failed("unknown", e))?
 }
 
 /// The newest version on the release list, downloading nothing. With

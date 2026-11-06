@@ -4,8 +4,8 @@
 //!
 //! Desktop uses the platform keychain (Windows Credential Manager, macOS
 //! Keychain, Secret Service on Linux) through [`OsKeyStore`]. Mobile shells
-//! provide their own implementation backed by Android Keystore or the iOS
-//! Secure Enclave, with biometric unlock (phase 4).
+//! provide their own implementation backed by Android Keystore, with
+//! biometric unlock.
 
 use std::collections::HashMap;
 use std::sync::Mutex;

@@ -39,7 +39,7 @@ fn platform() -> Option<Platform> {
 /// system's key store on desktop (Credential Manager on Windows), the app's
 /// private storage on Android (encrypted by the phone with its screen lock).
 /// `None` when neither works here.
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(target_os = "android"))]
 pub fn device_store() -> Option<&'static dyn KeyStore> {
     use app_core::keystore::OsKeyStore;
     // a store that cannot be read means this device cannot keep a key
@@ -52,11 +52,6 @@ pub fn device_store() -> Option<&'static dyn KeyStore> {
 #[cfg(target_os = "android")]
 pub fn device_store() -> Option<&'static dyn KeyStore> {
     crate::android_keystore::sealed_files().map(|files| files as &dyn KeyStore)
-}
-
-#[cfg(target_os = "ios")]
-pub fn device_store() -> Option<&'static dyn KeyStore> {
-    None
 }
 
 /// Key store that only releases the database key after verification, or

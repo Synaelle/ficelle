@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The `attachment` URI scheme serves decrypted attachment files to the
-//! webview by hash: `attachment://localhost/<sha256>` on macOS, iOS and Linux,
+//! webview by hash: `attachment://localhost/<sha256>` on macOS and Linux,
 //! `http://attachment.localhost/<sha256>` on Windows and Android. Files never
 //! touch disk in clear text and nothing is served while the vault is locked.
 

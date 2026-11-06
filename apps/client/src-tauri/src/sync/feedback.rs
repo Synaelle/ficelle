@@ -151,7 +151,6 @@ pub fn platform() -> &'static str {
         "macos" => "macos",
         "linux" => "linux",
         "android" => "android",
-        "ios" => "ios",
         _ => "other",
     }
 }

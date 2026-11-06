@@ -11,7 +11,7 @@ declare const __APP_PORTABLE__: boolean
 /** Everything only for builds that are not releases: the report tool, test hooks, shorter waits. */
 declare const __APP_DEV_TOOLS__: boolean
 /** The system the build is for, see lib/platform.ts. */
-declare const __APP_PLATFORM__: 'windows' | 'darwin' | 'linux' | 'android' | 'ios' | 'web'
+declare const __APP_PLATFORM__: 'windows' | 'darwin' | 'linux' | 'android' | 'web'
 
 declare module '*.toml' {
   /** Flat "section.key" strings, see vite/plugins.ts. */

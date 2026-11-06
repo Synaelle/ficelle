@@ -102,8 +102,7 @@ jobs:
       fail-fast: false
       matrix:
         # Windows on every push, Linux too for release tags; the Mac apps are
-        # built and checked by release.yml (mac.yml), where macOS runners
-        # are worth their wait
+        # built by mac.yml, for the rare release that has them or by hand
         os: ${{ fromJSON(startsWith(github.ref, 'refs/tags/v') && '["ubuntu-latest", "windows-latest"]' || '["windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
