@@ -1,27 +1,27 @@
 # Backups
 
-Backups are encrypted copies, made on a schedule, of your notes on a device (Settings, Backups) or of a whole server (admin page, Backups). Only what changed is stored each time.
+Backups are copies of your notes on a device (Settings, Data and backups) or of a whole server (admin page, Backups), made on a schedule. Only what changed is stored each time.
 
 ## Where they go
 
-| Place  | Devices | Servers | For                                        |
-| ------ | ------- | ------- | ------------------------------------------ |
-| Folder | Yes     | Yes     | another disk, a USB drive, a synced folder |
-| S3     | Yes     | Yes     | Backblaze B2, AWS, Wasabi, R2, MinIO       |
-| WebDAV | Yes     | Yes     | Nextcloud, ownCloud, most NAS              |
-| SFTP   | No      | Yes     | any machine reachable over SSH             |
+| Place  | Devices           | Servers | For                                        |
+| ------ | ----------------- | ------- | ------------------------------------------ |
+| Folder | Yes               | Yes     | another disk, a USB drive, a synced folder |
+| S3     | If set up earlier | Yes     | Backblaze B2, AWS, Wasabi, R2, MinIO       |
+| WebDAV | If set up earlier | Yes     | Nextcloud, ownCloud, most NAS              |
+| SFTP   | No                | Yes     | any machine reachable over SSH             |
 
-The short setup takes a folder and a password, with a daily backup. **Advanced** gives the other places, the schedule and how many backups are kept. On a phone, the folder is in Documents and does not survive the phone: copy it elsewhere now and then.
+On a device, turn on **Back up automatically** and choose a folder. A backup is made right away, then every day while the app is open. Backups set up earlier with S3 or WebDAV, or with their own schedule, keep working as they were. On a phone, the folder is in Documents and does not survive the phone, so copy it elsewhere now and then.
 
 ## The password
 
-Backups are encrypted with a password of their own, and restoring needs only that password. Keep it apart from your notes, in a password manager or on paper. Lost, nobody can open the backups. Several devices can share one place and password, each keeping its own backups.
+When your notes are encrypted, so are their backups, with your notes password or one of their own, and restoring needs only that password. Keep it in a password manager or on paper. Lost, nobody can open the backups. When your notes are not encrypted, their backups ask for no password, so keep them somewhere private. Several devices can share one place and password, each keeping its own backups.
 
 ## Restoring
 
-**Show the backups** lists them. **Restore** brings back what is missing, notes deleted since included, and changes nothing that is still there. **Test restore** checks a backup in a scratch copy without touching your notes.
+**Restore from a backup** lists them. **Restore** brings back what is missing, notes deleted since included, and changes nothing that is still there. **Restore from a file** opens a one-file backup.
 
-On a new device, make a vault, then in Settings, Backups, choose the same place and **Use a backup already there** with its password. The old device's backups show under its name.
+On a new device, open **Restore from a backup**, choose the same folder and enter its password. The newest backup is offered. The old device's backups show under its name.
 
 ## On a server
 
