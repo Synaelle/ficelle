@@ -372,7 +372,7 @@ pub async fn vault_lock(state: State<'_, AppState>) -> CommandResult<()> {
 }
 
 /// Deletes everything this device keeps: the vault (notes, files, history,
-/// the sign-in to a server), the imported themes, and the keys
+/// the sign-in to a server), and the keys
 /// this device kept for it. The page then starts the first launch setup.
 /// Works locked too: a vault that no longer opens can still go.
 #[tauri::command]
