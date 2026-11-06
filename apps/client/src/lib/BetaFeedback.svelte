@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Beta builds only: the feedback button floating bottom right (phones have
-     it in the notes list instead), the real feedback form in a dialog, and
-     the welcome shown once, with the Mac warning merged in on a Mac. -->
+<!-- Beta builds: the feedback button floating bottom right (phones have it in
+     the notes list instead), the real feedback form in a dialog, and the
+     welcome shown once. The Mac app, always: its warning, shown once. -->
 <script lang="ts">
   import { brand } from '@app/brand'
   import { betaFeedback, isBeta, isMacApp, touchScreen } from './beta.svelte'
@@ -12,7 +12,7 @@
   import { prefs } from './prefs.svelte'
   import FeedbackSettings from '../settings/FeedbackSettings.svelte'
 
-  const welcome = $derived(isBeta && !prefs.betaWelcomed)
+  const welcome = $derived((isBeta || isMacApp) && !prefs.betaWelcomed)
 
   const close = () => (betaFeedback.open = false)
 
@@ -21,67 +21,65 @@
   })
 </script>
 
-{#if isBeta}
-  {#if !touchScreen}
-    <button
-      class="launcher"
-      class:beside={__APP_DEV_TOOLS__}
-      title={t('beta.feedback')}
-      aria-label={t('beta.feedback')}
-      data-no-shot
-      onclick={() => (betaFeedback.open = true)}
-    >
-      <Icon name="speech" size={16} />
-    </button>
-  {/if}
+{#if isBeta && !touchScreen}
+  <button
+    class="launcher"
+    class:beside={__APP_DEV_TOOLS__}
+    title={t('beta.feedback')}
+    aria-label={t('beta.feedback')}
+    data-no-shot
+    onclick={() => (betaFeedback.open = true)}
+  >
+    <Icon name="speech" size={16} />
+  </button>
+{/if}
 
-  {#if betaFeedback.open}
+{#if isBeta && betaFeedback.open}
+  <div
+    class="backdrop"
+    role="presentation"
+    onclick={(e) => e.target === e.currentTarget && close()}
+  >
     <div
-      class="backdrop"
-      role="presentation"
-      onclick={(e) => e.target === e.currentTarget && close()}
+      class="dialog feedback"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('beta.feedback')}
+      use:modal={{ onclose: close }}
     >
-      <div
-        class="dialog feedback"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('beta.feedback')}
-        use:modal={{ onclose: close }}
-      >
-        <div class="head">
-          <h2>{t('beta.feedback')}</h2>
-          <button class="icon-btn" type="button" aria-label={t('common.close')} onclick={close}
-            ><Icon name="close" /></button
-          >
-        </div>
-        <FeedbackSettings />
+      <div class="head">
+        <h2>{t('beta.feedback')}</h2>
+        <button class="icon-btn" type="button" aria-label={t('common.close')} onclick={close}
+          ><Icon name="close" /></button
+        >
+      </div>
+      <FeedbackSettings />
+    </div>
+  </div>
+{:else if welcome}
+  <div class="backdrop" role="presentation">
+    <div
+      class="dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-label={isBeta ? t('beta.welcomeLabel') : t('beta.macLabel')}
+      aria-describedby="beta-welcome"
+      use:modal
+    >
+      <div id="beta-welcome" class="text">
+        {#if isBeta}<p>{touchScreen ? t('beta.welcomePhone') : t('beta.welcome')}</p>{/if}
+        {#if isMacApp}<p>{t('beta.mac', { address: brand.contactEmail })}</p>{/if}
+      </div>
+      <div class="actions">
+        <button
+          class="btn primary"
+          type="button"
+          data-autofocus=""
+          onclick={() => (prefs.betaWelcomed = true)}>{t('common.ok')}</button
+        >
       </div>
     </div>
-  {:else if welcome}
-    <div class="backdrop" role="presentation">
-      <div
-        class="dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-label={t('beta.welcomeLabel')}
-        aria-describedby="beta-welcome"
-        use:modal
-      >
-        <div id="beta-welcome" class="text">
-          <p>{touchScreen ? t('beta.welcomePhone') : t('beta.welcome')}</p>
-          {#if isMacApp}<p>{t('beta.mac', { address: brand.contactEmail })}</p>{/if}
-        </div>
-        <div class="actions">
-          <button
-            class="btn primary"
-            type="button"
-            data-autofocus=""
-            onclick={() => (prefs.betaWelcomed = true)}>{t('common.ok')}</button
-          >
-        </div>
-      </div>
-    </div>
-  {/if}
+  </div>
 {/if}
 
 <style>

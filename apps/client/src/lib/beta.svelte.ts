@@ -17,7 +17,8 @@ export const pretendRelease = __APP_DEV_TOOLS__ && prefs.pretendBeta
 export const isBeta =
   /-beta\.\d+$/.test(__APP_VERSION__) || !!pretend?.has('beta') || pretendRelease
 
-/** The Mac app, which is always a beta: macOS in the desktop shell, not an iPad. */
+/** The Mac app: macOS in the desktop shell, not an iPad. It gets few releases,
+ * all stable. */
 export const isMacApp = MAC || !!pretend?.has('mac')
 
 /** Phones keep the feedback button in the notes list, not floating over it. */

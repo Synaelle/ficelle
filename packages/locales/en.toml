@@ -524,7 +524,8 @@ feedback = "Send feedback"
 welcomeLabel = "Welcome to the beta"
 welcome = "Welcome to the beta. Thanks for testing what comes next, it may have bugs, so please report them with the feedback button at the bottom right."
 welcomePhone = "Welcome to the beta. Thanks for testing what comes next, it may have bugs, so please report them with the feedback button at the top of the notes list."
-mac = "The Mac version is mostly untested, I have no Mac to try it on. Please report issues on GitHub or to {address}, contributions are credited."
+macLabel = "About the Mac version"
+mac = "The Mac version is mostly untested, I have no Mac to try it on, and after this version it only gets major security and bug fixes. Please report issues on GitHub or to {address}, contributions are credited."
 
 [devReport]
 button = "Report an issue (Ctrl+Shift+B)"

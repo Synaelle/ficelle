@@ -101,6 +101,12 @@ impl Channel {
     }
 }
 
+/// Whether this version is for this app. Most releases have no Mac file, and a
+/// Mac then hears nothing of them, not even a page without a Mac download.
+fn for_this_app(latest: &list::Latest) -> bool {
+    !cfg!(target_os = "macos") || latest.platforms.contains_key(&list::platform_key())
+}
+
 /// This build offers a release page instead of installing: the portable
 /// exe, and a Mac app that cannot replace itself where it is.
 #[cfg(target_os = "macos")]
@@ -627,10 +633,6 @@ mod platform {
             return Ok(None);
         }
         let Some(file) = list.platforms.get(&platform_key()) else {
-            // the list's version has no Mac file: its page is still offered
-            #[cfg(target_os = "macos")]
-            return super::page::check(channel);
-            #[cfg(not(target_os = "macos"))]
             return Ok(None);
         };
         let ready = Ready {
@@ -824,7 +826,7 @@ mod page {
     use std::sync::Mutex;
 
     use super::list::{latest, newer};
-    use super::{AppUpdate, Channel, failed, release_page, releases_in};
+    use super::{AppUpdate, Channel, failed, for_this_app, release_page, releases_in};
     use crate::error::CommandResult;
 
     /// The version the last look found, whose page opens.
@@ -832,7 +834,7 @@ mod page {
 
     pub fn check(channel: Channel) -> CommandResult<Option<AppUpdate>> {
         let latest = latest(channel)?;
-        let found = newer(&latest.version, app_brand::VERSION)
+        let found = (newer(&latest.version, app_brand::VERSION) && for_this_app(&latest))
             .then(|| AppUpdate::new(&latest, Some(release_page(&latest.version))));
         *FOUND.lock().map_err(|e| failed("unknown", e))? =
             found.as_ref().map(|update| update.version.clone());
@@ -861,7 +863,7 @@ mod page {
 /// build does not update itself. `allow_older`: a beta going back to Stable,
 /// an older version with the same schema downloads too (never on the
 /// portable exe, which only reads the version, nor on the Mac, which only
-/// follows Beta).
+/// follows Stable).
 #[tauri::command]
 pub async fn app_update_check(
     app: tauri::AppHandle,
@@ -899,8 +901,9 @@ pub async fn app_update_latest(
     let allow_older = allow_older.unwrap_or(false);
     tauri::async_runtime::spawn_blocking(move || {
         let latest = list::latest(channel)?;
-        let shown = list::newer(&latest.version, app_brand::VERSION)
-            || (allow_older && list::older(&latest.version, app_brand::VERSION));
+        let shown = for_this_app(&latest)
+            && (list::newer(&latest.version, app_brand::VERSION)
+                || (allow_older && list::older(&latest.version, app_brand::VERSION)));
         Ok(shown
             .then(|| AppUpdate::new(&latest, page_only().then(|| release_page(&latest.version)))))
     })

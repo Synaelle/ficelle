@@ -75,7 +75,8 @@ export const thisVersion = pretendRelease ? '0.4.0-beta.1' : __APP_VERSION__
 export const updatesHere =
   /^\d+\.\d+\.\d+(-beta\.\d+)?$/.test(thisVersion) || !!pretend?.has('updates')
 
-/** Stable or Beta can be chosen: everywhere but the Mac, always on Beta. */
+/** Stable or Beta can be chosen: everywhere but the Mac, on Stable, whose
+ * releases are few. Betas have no Mac file. */
 export const channelChoice = !isMacApp
 
 /** System notifications can be turned on: not on a Mac, not in the portable
@@ -84,7 +85,7 @@ export const notificationsHere = updatesHere && !isMacApp && !__APP_PORTABLE__
 
 /** The list this device follows. */
 export function channel(): UpdateChannel {
-  return channelChoice ? prefs.channel : 'beta'
+  return channelChoice ? prefs.channel : 'stable'
 }
 
 /** `major.minor.micro` and a beta's number, null for anything else. */
