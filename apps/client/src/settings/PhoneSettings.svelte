@@ -20,15 +20,11 @@
   import { overlay, type MenuItem } from '../lib/overlay.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import ArrowPicker from './ArrowPicker.svelte'
-  import BackupSettings from './BackupSettings.svelte'
+  import DataSettings from './DataSettings.svelte'
   import FeedbackSettings from './FeedbackSettings.svelte'
   import TestTools from '../devreport/TestTools.svelte'
   import AboutSettings from './AboutSettings.svelte'
-  import { backend } from '../lib/backend'
-  import { ANDROID } from '../lib/platform'
-  import { backups } from '../lib/backups.svelte'
   import { UI_SIZES } from '../lib/uiSize'
-  import { workspace } from '../lib/workspace.svelte'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
   import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
@@ -39,7 +35,7 @@
     close,
     onlock,
     onimport,
-    onbackup,
+    onrestorefile,
     onreset,
     start,
   }: {
@@ -49,8 +45,8 @@
     /** Opens the import from another app. */
     /** `true` for this app's own export. */
     onimport: (ficelle: boolean) => void
-    /** Opens making or restoring a backup. */
-    onbackup: (mode: 'make' | 'restore') => void
+    /** Opens restoring a backup from a file. */
+    onrestorefile: () => void
     /** Opens deleting everything on this device. */
     onreset: () => void
     start?: 'sync'
@@ -66,14 +62,12 @@
     | 'way'
     | 'sync'
     | 'notes'
-    | 'backups'
     | 'feedback'
     | 'testTools'
     | 'about'
   // svelte-ignore state_referenced_locally
   let page: Page = $state(start ?? 'home')
   let query = $state('')
-  let fileInput: HTMLInputElement | undefined = $state()
 
   const method = $derived(biometricMethod())
   const vault = $derived(settings.vault)
@@ -115,11 +109,6 @@
       },
     ]
     overlay.openMenuBelow(event.currentTarget as HTMLElement, items)
-  }
-
-  async function importPicked(input: HTMLInputElement) {
-    await workspace.importFiles([...(input.files ?? [])])
-    input.value = ''
   }
 
   const lookRows = $derived<SettingRow[]>([
@@ -236,59 +225,6 @@
     },
   ])
 
-  // the Android app, not a narrow window
-  const android = ANDROID
-  const noteRows = $derived<SettingRow[]>([
-    {
-      icon: 'backup',
-      label: t('settings.backups'),
-      keywords: t('settings.backupsKeywords'),
-      value: backups.view?.config ? t(`backups.schedule_${backups.view.config.schedule}`) : '',
-      run: () => (page = 'backups'),
-    },
-  ])
-
-  // the browser has no files to reach: shown, but not tapped
-  const importRows = $derived<SettingRow[]>([
-    {
-      icon: 'archive',
-      label: t('settings.importFicelle', { app: brand.displayName }),
-      disabled: !backend.native,
-      run: () => onimport(true),
-    },
-    {
-      icon: 'import',
-      label: t('settings.import'),
-      disabled: !backend.native,
-      run: () => onimport(false),
-    },
-    { icon: 'markdown', label: t('list.import'), run: () => fileInput?.click() },
-  ])
-  const exportRows = $derived<SettingRow[]>([
-    {
-      icon: 'export',
-      // Android's folder picker gives no path to write files under: one zip
-      label: android ? t('settings.exportZip') : t('settings.export'),
-      keywords: t('settings.dataKeywords'),
-      disabled: !backend.native,
-      action: true,
-      run: () => void (android ? settings.exportZip() : settings.exportNotes()),
-    },
-    ...(android
-      ? []
-      : [
-          {
-            icon: 'archive' as const,
-            label: t('settings.exportZip'),
-            keywords: t('settings.dataKeywords'),
-            disabled: !backend.native,
-            action: true,
-            run: () => void settings.exportZip(),
-          },
-        ]),
-  ])
-
-  // one row on the first screen opens the import, export and backup rows
   const dataRow = $derived<SettingRow>({
     icon: 'backup',
     label: t('settings.phone.dataBackups'),
@@ -327,6 +263,10 @@
    * on shows as the value, a tap opens it. */
   const inner: [IconName, string, Exclude<Page, 'home'>][] = [
     ['eye', 'settings.lightBackground', 'accessibility'],
+    ['backup', 'backups.title', 'notes'],
+    ['restore', 'backups.restoreFrom', 'notes'],
+    ['import', 'settings.importTitle', 'notes'],
+    ['export', 'settings.exportTitle', 'notes'],
     ['palette', 'settings.pureBlack', 'appearance'],
     ['textSize', 'settings.uiSize', 'accessibility'],
     ['textStyle', 'settings.dyslexicFont', 'accessibility'],
@@ -363,9 +303,6 @@
       ...hideRows,
       ...syncRows,
       dataRow,
-      ...noteRows,
-      ...importRows,
-      ...exportRows,
       ...aboutRows,
       ...innerRows,
     ].filter(found)
@@ -382,18 +319,13 @@
     way: 'settings.wayTitle',
     sync: 'settings.sync',
     notes: 'settings.phone.dataBackups',
-    backups: 'settings.backups',
     feedback: 'settings.feedback',
     testTools: 'settings.testTools',
     about: 'settings.about',
   }
 
-  /** Backups opens from the data page, and goes back to it. */
-  const parentOf = (p: Page): Page => (p === 'backups' ? 'notes' : 'home')
-  const parent = $derived(parentOf(page))
-
   function back() {
-    page = parent
+    page = 'home'
     settings.message = ''
   }
   const onPage = $derived(page !== 'home')
@@ -412,7 +344,7 @@
     if (!screen || next === shown) return
     const box = screen
     places[shown] = box.scrollTop
-    const returning = next === parentOf(shown)
+    const returning = next === 'home'
     shown = next
     void tick().then(() => (box.scrollTop = returning ? (places[next] ?? 0) : 0))
   })
@@ -515,9 +447,7 @@
   {:else}
     <header class="bar">
       <button class="back" onclick={back}
-        ><Icon name="back" size={20} /><span
-          >{parent === 'home' ? t('settings.title') : t(titles[parent])}</span
-        ></button
+        ><Icon name="back" size={20} /><span>{t('settings.title')}</span></button
       >
       <b>{t(titles[page])}</b>
       <span></span>
@@ -634,26 +564,7 @@
       {:else if page === 'sync'}
         <SyncSettings />
       {:else if page === 'notes'}
-        <Group>
-          {#each noteRows as r (r.label)}{@render row(r)}{/each}
-        </Group>
-        <Group title={t('settings.importTitle')} note={t('settings.importHelp')}>
-          {#each importRows as r (r.label)}{@render row(r)}{/each}
-        </Group>
-        <Group title={t('settings.exportTitle')} note={t('settings.exportHelp')}>
-          {#each exportRows as r (r.label)}{@render row(r)}{/each}
-        </Group>
-        <!-- with the data, as on desktop -->
-        <Group note={t('reset.help')}>
-          {@render row({
-            icon: 'restore',
-            label: t('reset.title'),
-            danger: true,
-            run: onreset,
-          })}
-        </Group>
-      {:else if page === 'backups'}
-        <BackupSettings {onbackup} />
+        <DataSettings {settings} {onimport} {onrestorefile} {onreset} />
       {:else if page === 'feedback'}
         <FeedbackSettings />
       {:else if page === 'testTools'}
@@ -665,14 +576,6 @@
   {/if}
 
   {#if settings.message}<p class="message" role="status">{settings.message}</p>{/if}
-  <input
-    bind:this={fileInput}
-    type="file"
-    accept=".md,.markdown,.mdown,.mkd,text/markdown"
-    multiple
-    hidden
-    onchange={(e) => importPicked(e.currentTarget)}
-  />
 </div>
 
 <style>

@@ -3,12 +3,10 @@
      Phones get their own full screen layout, PhoneSettings. -->
 <script lang="ts">
   import { MIN_PASSWORD } from '../lib/passwords'
-  import { workspace } from '../lib/workspace.svelte'
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
   import { modal } from '../lib/modal'
   import { onMount } from 'svelte'
-  import { backend } from '../lib/backend'
   import { biometricMethod } from '../lib/biometric'
   import { LOCALES, t, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
@@ -25,7 +23,7 @@
   import ArrowPicker from './ArrowPicker.svelte'
   import BackupDialog from './BackupDialog.svelte'
   import ResetDialog from './ResetDialog.svelte'
-  import BackupSettings from './BackupSettings.svelte'
+  import DataSettings from './DataSettings.svelte'
   import ImportDialog from './ImportDialog.svelte'
   import FeedbackSettings from './FeedbackSettings.svelte'
   import PhoneSettings from './PhoneSettings.svelte'
@@ -50,7 +48,6 @@
     | 'security'
     | 'sync'
     | 'data'
-    | 'backups'
     | 'feedback'
     | 'testTools'
     | 'about'
@@ -63,7 +60,6 @@
     'security',
     'sync',
     'data',
-    'backups',
     'feedback',
     // dev and preview builds only
     ...(__APP_DEV_TOOLS__ ? (['testTools'] as const) : []),
@@ -77,8 +73,7 @@
     shortcuts: 'keyboard',
     security: 'lock',
     sync: 'synced',
-    data: 'database',
-    backups: 'backup',
+    data: 'backup',
     feedback: 'feedback',
     testTools: 'log',
     about: 'info',
@@ -92,7 +87,7 @@
   /** The import dialog open, for this app's own export or another app's. */
   let importing = $state<'ficelle' | 'other' | null>(null)
   let resetting = $state(false)
-  let backingUp = $state<'make' | 'restore' | null>(null)
+  let restoringFile = $state(false)
   let filter = $state('')
   const visible = $derived(
     SECTIONS.filter(
@@ -104,7 +99,6 @@
   )
 
   const settings = new SettingsState()
-  let markdownInput: HTMLInputElement | undefined = $state()
   onMount(() => void settings.refresh())
   const method = $derived(biometricMethod())
 
@@ -165,7 +159,7 @@
     {onlock}
     {start}
     onimport={(ficelle) => (importing = ficelle ? 'ficelle' : 'other')}
-    onbackup={(mode) => (backingUp = mode)}
+    onrestorefile={() => (restoringFile = true)}
     onreset={() => (resetting = true)}
   />
 {:else}
@@ -452,60 +446,13 @@
             {/if}
           {:else if section === 'sync'}
             <SyncSettings />
-          {:else if section === 'backups'}
-            <BackupSettings onbackup={(mode) => (backingUp = mode)} />
           {:else if section === 'data'}
-            <Group title={t('settings.importTitle')} note={t('settings.importHelp')}>
-              <!-- also in the list's header, here with the other ways in -->
-              <Row label={t('list.import')} opens onclick={() => markdownInput?.click()} />
-              <Row
-                label={t('settings.import')}
-                opens
-                disabled={!backend.native}
-                onclick={() => (importing = 'other')}
-              />
-              <Row
-                label={t('settings.importFicelle', { app: brand.displayName })}
-                opens
-                disabled={!backend.native}
-                onclick={() => (importing = 'ficelle')}
-              />
-              <!-- backups come back from Backups, where they are found and listed -->
-              <Row label={t('backups.restoreFrom')} opens onclick={() => (section = 'backups')} />
-            </Group>
-            <input
-              bind:this={markdownInput}
-              type="file"
-              accept=".md,.markdown,.mdown,.mkd,text/markdown"
-              multiple
-              hidden
-              onchange={async (e) => {
-                const input = e.currentTarget
-                await workspace.importFiles([...(input.files ?? [])])
-                input.value = ''
-              }}
+            <DataSettings
+              {settings}
+              onimport={(ficelle) => (importing = ficelle ? 'ficelle' : 'other')}
+              onrestorefile={() => (restoringFile = true)}
+              onreset={() => (resetting = true)}
             />
-            <Group title={t('settings.exportTitle')} note={t('settings.exportHelp')}>
-              <Row
-                label={t('settings.export')}
-                opens
-                disabled={!backend.native}
-                onclick={() => settings.exportNotes()}
-              />
-              <Row
-                label={t('settings.exportZip')}
-                opens
-                disabled={!backend.native}
-                onclick={() => settings.exportZip()}
-              />
-            </Group>
-            <Group>
-              <Row label={t('reset.title')} help={t('reset.help')}>
-                <button class="btn danger" onclick={() => (resetting = true)}
-                  >{t('reset.open')}</button
-                >
-              </Row>
-            </Group>
           {:else if section === 'testTools'}
             <TestTools />
           {:else if section === 'feedback'}
@@ -529,8 +476,8 @@
   <ImportDialog ficelle={importing === 'ficelle'} close={() => (importing = null)} />
 {/if}
 
-{#if backingUp}
-  <BackupDialog mode={backingUp} close={() => (backingUp = null)} />
+{#if restoringFile}
+  <BackupDialog mode="restore" close={() => (restoringFile = false)} />
 {/if}
 
 <style>
