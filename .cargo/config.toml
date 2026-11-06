@@ -11,6 +11,18 @@ rustflags = ["-C", "link-arg=/ignore:4099"]
 # goes through AppOnlyStructure (gen/android), so password managers name
 # saved logins after the app, not the web view's internal tauri.localhost.
 [env]
+# SQLite without what nothing here uses (search is FTS5), for a smaller app
+LIBSQLITE3_FLAGS = """
+    -USQLITE_ENABLE_COLUMN_METADATA -USQLITE_ENABLE_DBSTAT_VTAB -USQLITE_ENABLE_FTS3
+    -USQLITE_ENABLE_FTS3_PARENTHESIS -USQLITE_ENABLE_JSON1 -USQLITE_ENABLE_LOAD_EXTENSION
+    -USQLITE_ENABLE_RTREE -USQLITE_ENABLE_STAT4 -USQLITE_SOUNDEX
+    -DSQLITE_OMIT_DEPRECATED -DSQLITE_OMIT_JSON -DSQLITE_OMIT_LOAD_EXTENSION
+    -DSQLITE_OMIT_SHARED_CACHE
+"""
+# MSVC compiles C for size, OpenSSL asks for speed otherwise: its AES and SHA are
+# assembly and do not change. Cargo does not see this one change, so changing it
+# takes a new cache prefix in windows.yml, where the release exe is built
+_CL_ = "/O1"
 WRY_RUSTWEBVIEW_CLASS_EXTENSION = """
     override fun onProvideAutofillVirtualStructure(structure: android.view.ViewStructure?, flags: Int) {
         super.onProvideAutofillVirtualStructure(structure?.let { AppOnlyStructure(it) }, flags)
