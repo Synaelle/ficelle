@@ -43,13 +43,32 @@ pub struct Overview {
     pub personal: bool,
 }
 
-/// `PUT /api/v1/admin/personal`: the server for its admin alone, or for
-/// others too.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// One account in `GET /api/v1/admin/one-person`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PersonalRequest {
-    /// For the admin alone.
-    pub personal: bool,
+pub struct OnePersonAccount {
+    /// Id.
+    pub id: String,
+    /// Username.
+    pub username: String,
+    /// Shown name.
+    pub display_name: String,
+    /// Latest request from any device.
+    pub last_seen_at: Option<i64>,
+    /// Devices signed in.
+    pub devices: u64,
+    /// Documents the server holds for it, roughly its notes.
+    pub notes: u64,
+}
+
+/// `POST /api/v1/admin/one-person`: this account stays, every other goes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OnePersonRequest {
+    /// The account to keep.
+    pub keep: String,
+    /// Its username typed again, so the wrong one is not kept by a slip.
+    pub confirm: String,
 }
 
 fn yes() -> bool {

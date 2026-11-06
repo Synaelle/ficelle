@@ -180,7 +180,6 @@ files = "Attachments"
 trash = "Trash"
 settings = "Settings"
 lock = "Lock"
-shared = "Shared"
 
 [folders]
 expand = "Show subfolders"
@@ -616,52 +615,10 @@ copyTitle = "{title} (other device)"
 restore = "Restore it"
 conflicted = "Waits for a decision after a sync"
 
-[share]
-shareItem = "Share…"
-sharing = "Sharing…"
-title = "Share {name}"
-sharedRead = "{owner} shares this with you to read."
-sharedEdit = "{owner} shares this with you, you can edit it."
-e2eeNote = "End-to-end encrypted: only the people here can read it. To be sure the server gave the right key, compare each person's numbers with them, in person or by another channel."
-fingerprint = "Key fingerprint, the same on their side"
-noKeyYet = "Gets access once they open the app"
-waitingTitle = "Waiting for you"
-waitingHelp = "The server says these people belong here, but you did not add them on this device. Compare their numbers with them before letting them in."
-keyChanged = "Their key changed since you let them in. Someone may be standing in for them."
-allow = "Let in"
-roleOf = "Access for {name}"
-remove = "Remove {name}"
-username = "Username"
-add = "Add"
-addGroup = "Add a group…"
-confirmStop = "Stop sharing {name}? It comes back into your own notes, the others lose it."
-stop = "Stop sharing"
-confirmLeave = "Leave {name}? It goes from your devices, the others keep it."
-leave = "Leave"
-save = "Save"
-share = "Share"
-byYou = "Shared by you"
-by = "Shared by {owner}"
-readOnlyBanner = "{owner} shares this note with you to read only."
-
-[share.role]
-owner = "Owner"
-edit = "Can edit"
-read = "Can read"
-
-[share.error]
-offline = "The server cannot be reached, try again when online."
-notFound = "No account has this username."
-signedOut = "Sign in to the server again first."
-e2eeOnly = "End-to-end encrypted notes are shared with end-to-end encrypted accounts only."
-already = "Already in the list."
-unknown = "That did not work, try again."
-
-[presence]
-label = "Also in this note"
-here = "{name} is in this note"
-
 [sync]
+localComing = "Sync directly between your own devices is coming in a next version." # DRAFT
+serverSection = "Sync server" # DRAFT
+serverDeprecated = "Server support is deprecated for now and only security fixes are delivered. It made development more complex than it had the right to be. If you don't like this decision, send feedback, I'm more than open to talk about it."
 intro = "Connect to a {appName} server to keep your notes the same on all your devices. Notes stay on this device too and work offline."
 address = "Address, like notes.example.org"
 continue = "Continue"
@@ -922,7 +879,7 @@ secondStepOnPersonal = "Ask for a second step before anything can be changed her
 secondStepHelpPersonal = "A passkey, an authenticator app or codes by email, added under Your account. Without one, you sign in but cannot change settings until you add one."
 secondStepOffRisksPersonal = "You sign in with your password alone. Whoever learns or guesses it controls this server and your notes."
 secondStepOffConfirmPersonal = "Manage this server with your password alone? Whoever learns or guesses it would control the server and your notes."
-personalHelp = "This server is for you alone: your devices sync with it, nobody else signs up. Members, invites and groups are left out of this page."
+personalHelp = "This server is for you alone: your devices sync with it, nobody else signs up."
 openToOthers = "Open it to others"
 openToOthersConfirm = "Use this server with other people too? The admin page shows members, invites, groups, themes and feedback again. Nobody can sign up until you choose who may, here on the overview."
 justMe = "This server is only for me"
@@ -931,128 +888,9 @@ coeditingOn = "Open notes follow other devices' edits as they happen"
 coeditingHelp = "When off, changes from other devices still arrive, a note being edited takes them in when it is saved. Each member can also turn it off in their app."
 coeditingHelpPersonal = "When off, changes from your other devices still arrive, a note being edited takes them in when it is saved. You can also turn it off in each app."
 
-[admin.experimental]
-title = "Experimental"
-help = "Settings still being tried. Each changes a lot about this server, so read what it does first."
-justMeHelp = "When on, the admin page shows only what is about you. Members, invites, groups and sign-up leave it. Nothing is deleted, and you can open it to others again here."
-justMeButton = "Make it only for me"
-justMeConfirm = "Show only what is about you on this page? Members, invites, groups and sign-up leave it. The {others} other accounts keep signing in and syncing, and sign-up stays {signup}."
-
-[admin.registration]
-closed = "Closed"
-closedHelp = "Only admins add members, directly or with an invite link."
-invite = "Invite"
-inviteHelp = "Anyone with an account can send invite links."
-open = "Open"
-openHelp = "Anyone who reaches this server can create an account."
-openRisks = "An open server takes accounts from anyone on the internet, bots included. Expect accounts made to store files you would not want to host, spam and abuse to deal with, and your disk filling up: set a storage limit per member. As the one running it, you answer for what people put on it, so give an abuse contact on the privacy page. You cannot see inside end-to-end encrypted accounts, so you cannot check them either. Invites avoid most of this."
-openConfirm = "Open sign-up to anyone on the internet? Bots and strangers can then make accounts on this server, and you answer for what they put on it."
-openYes = "Open sign-up"
-
 [admin.role]
 admin = "Admin"
 user = "Member"
-
-[admin.people]
-title = "Members"
-search = "Search by name"
-add = "Add a member"
-added = "{name} added."
-displayName = "Shown name"
-firstPassword = "First password"
-role = "Role"
-addHelp = "Pass the first password on to the member. They can change it once signed in."
-groups = "Groups"
-lastSeen = "Last seen"
-off = "off"
-locked = "locked"
-none = "Nobody matches."
-created = "Account created"
-actions = "Role and actions"
-since = "joined"
-rename = "Change the shown name"
-renamePrompt = "Shown name"
-saved = "Saved."
-resetPassword = "Set a new password"
-passwordPrompt = "New password for {name}"
-passwordDone = "New password set. Every device of this account is signed out."
-signOutAll = "Sign out everywhere"
-signedOut = "Signed out everywhere."
-unlock = "Unlock"
-unlocked = "Unlocked."
-disable = "Turn off"
-enable = "Turn on"
-disableConfirm = "Turn off {name}? Their devices are signed out and they cannot sign in until you turn the account back on."
-disabled = "Account turned off."
-enabled = "Account turned on."
-delete = "Delete"
-deleteConfirm = "Delete {name} for good? Their devices are signed out and the account cannot come back."
-deleted = "{name} deleted."
-noDevices = "Not signed in anywhere."
-secondFactor = "Second step"
-kind = "Account type"
-email = "Email"
-deletion = "Deleted on"
-leaving = "leaving"
-resetFactors = "Reset the second factors"
-resetFactorsConfirm = "Remove the authenticator app, passkeys and recovery codes of {name}? Their password alone signs in again and every device is signed out. Do this only once you are sure it is really them."
-factorsReset = "Second factors removed. Every device of this account is signed out."
-
-[admin.people.devices]
-one = "{count} signed in device"
-other = "{count} signed in devices"
-
-[admin.invites]
-title = "Invites"
-help = "An invite link lets one person create an account. It works once."
-days = "Valid for"
-oneHour = "1 hour"
-create = "Create an invite link"
-linkReady = "Send this link to the new member:"
-codeReady = "Send this invite code to the new member, they paste it in the app:"
-once = "It is shown only now."
-copy = "Copy"
-copied = "Copied"
-copyFailed = "Copying failed, select the text and copy it."
-state = "State"
-by = "Created by"
-expires = "Expires"
-revoke = "Revoke"
-none = "No invites yet."
-
-[admin.invites.dayCount]
-one = "{count} day"
-other = "{count} days"
-
-[admin.invites.states]
-pending = "Waiting"
-used = "Used"
-revoked = "Revoked"
-expired = "Expired"
-
-[admin.groups]
-title = "Groups"
-help = "Groups gather members: share a folder or a note with a whole group, and give its members their own rules for files."
-create = "New group"
-namePrompt = "Group name"
-none = "No groups yet."
-since = "Since {date}"
-rename = "Rename"
-delete = "Delete the group"
-deleteConfirm = "Delete the group {name}? Its members keep their accounts."
-add = "Add"
-addPlaceholder = "Username"
-unknownPerson = "Nobody is called {name}."
-removeMember = "Remove"
-noMembers = "Nobody in this group yet."
-
-[admin.groups.andMore]
-one = "{names} and one more"
-other = "{names} and {count} more"
-
-[admin.groups.memberCount]
-one = "{count} member"
-other = "{count} members"
 
 [admin.storage]
 title = "Storage"
@@ -1284,14 +1122,6 @@ standardHelp = "The server keeps your notes encrypted with its own key and can s
 e2ee = "End-to-end encrypted"
 e2eeHelp = "Only your devices can read your notes. Your password never reaches the server and nobody can reset it."
 e2eeShort = "e2ee"
-
-[admin.accountKinds]
-choice = "The member chooses"
-choiceHelp = "Sign-up offers both types."
-e2ee = "End-to-end encrypted only"
-e2eeHelp = "Every new account is end-to-end encrypted. Admins add members with invite links."
-standard = "Standard only"
-standardHelp = "Every new account is standard."
 
 [admin.forgot]
 link = "Forgot your password?"
@@ -1764,6 +1594,35 @@ field_privateKey = "Private key (OpenSSH format), instead of a password"
 field_passphrase = "Its passphrase"
 field_hostKey = "Host key fingerprint (SHA256:…)"
 hostKeyHelp = "Leave the fingerprint empty the first time: the answer gives the one the server shows. Check it is that server's (ssh-keygen -lf on it), then set it."
+
+[admin.invites]
+copy = "Copy"
+copied = "Copied"
+copyFailed = "Copying failed, select the text and copy it."
+
+[admin.onePerson]
+title = "Go to one person" # DRAFT
+pointer = "This server has several accounts. Servers for several people are no longer supported, they keep working but only get security fixes." # DRAFT
+help = "Choose the account to keep. It becomes this server's admin and the others are removed from the server, with everything it holds for them." # DRAFT
+choose = "Account to keep" # DRAFT
+seen = "last seen {date}" # DRAFT
+typeName = "Type {name} to confirm" # DRAFT
+
+[admin.onePerson.notes]
+one = "about {count} note" # DRAFT
+other = "about {count} notes" # DRAFT
+
+[admin.onePerson.devices]
+one = "{count} device" # DRAFT
+other = "{count} devices" # DRAFT
+
+[admin.onePerson.warning]
+one = "{count} other account will be removed and {name} kept. This can't be undone. Their notes stay on their devices only once their apps are updated to this version, so ask them to update first, and to export anything they want to be sure of." # DRAFT
+other = "{count} other accounts will be removed and {name} kept. This can't be undone. Their notes stay on their devices only once their apps are updated to this version, so ask them to update first, and to export anything they want to be sure of." # DRAFT
+
+[admin.onePerson.submit]
+one = "Remove {count} other account" # DRAFT
+other = "Remove {count} other accounts" # DRAFT
 
 [admin.feedback]
 saveZip = "Save as zip"

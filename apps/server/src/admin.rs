@@ -211,6 +211,37 @@ pub fn update_user(
     Ok(())
 }
 
+/// Every account with what the server holds for it, for choosing which to
+/// keep. Its personal space has the account's id.
+///
+/// # Errors
+///
+/// Database errors only.
+pub fn one_person_accounts(
+    conn: &Connection,
+) -> Result<Vec<app_protocol::admin::OnePersonAccount>, DbError> {
+    let (_, users) = list_users(conn, "", 0, 100_000)?;
+    users
+        .into_iter()
+        .map(|user| {
+            let notes: i64 = conn.query_row(
+                "SELECT COUNT(DISTINCT doc_id) FROM sync_changes
+                 WHERE space_id = ?1 AND doc_id <> 'space'",
+                [&user.id],
+                |r| r.get(0),
+            )?;
+            Ok(app_protocol::admin::OnePersonAccount {
+                id: user.id,
+                username: user.username,
+                display_name: user.display_name,
+                last_seen_at: user.last_seen_at,
+                devices: user.devices,
+                notes: u64::try_from(notes).unwrap_or(0),
+            })
+        })
+        .collect()
+}
+
 /// Deletes an account with its devices and group memberships. Invites it
 /// made stay, without a creator. False when there was no such account.
 ///

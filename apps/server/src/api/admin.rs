@@ -450,14 +450,22 @@ pub async fn set_registration(
     let now = state.clock.now();
     let ip_text = ip.0.to_string();
     let mode = req.registration;
-    state
+    let refused = state
         .db
         .call(move |c| {
+            // a server for one person has no one else to let in
+            if admin_store::personal(c)? && mode != app_protocol::account::Registration::Closed {
+                return Ok(true);
+            }
             store::set_registration(c, mode)?;
             let what = format!("{mode:?}").to_lowercase();
-            admin_event(c, now, "registration_changed", None, &me, &ip_text, &what)
+            admin_event(c, now, "registration_changed", None, &me, &ip_text, &what)?;
+            Ok(false)
         })
         .await?;
+    if refused {
+        return Err(Error::invalid("this server is for one person"));
+    }
     Ok(Json(RegistrationRequest { registration: mode }))
 }
 
@@ -549,28 +557,79 @@ pub async fn set_second_step(
     Ok(Json(req))
 }
 
-/// `PUT /api/v1/admin/personal`: the server for its admin alone, or open
-/// to others. Only what the admin page shows changes; sign-up stays as it
-/// is until changed there.
-pub async fn set_personal(
+/// `GET /api/v1/admin/one-person`
+pub async fn one_person_list(
+    State(state): State<AppState>,
+    CurrentUser(me): CurrentUser,
+) -> Result<Json<Vec<app_protocol::admin::OnePersonAccount>>, Error> {
+    admin(&me)?;
+    let accounts = state
+        .db
+        .call(|c| admin_store::one_person_accounts(c))
+        .await?;
+    Ok(Json(accounts))
+}
+
+/// `POST /api/v1/admin/one-person`: a server for one person from here on.
+/// The account kept becomes its admin, every other goes with what the server
+/// holds of it, sign-up closes and open invites end. All of it or none.
+pub async fn one_person(
     State(state): State<AppState>,
     ip: ClientIp,
     CurrentUser(me): CurrentUser,
-    Body(req): Body<app_protocol::admin::PersonalRequest>,
-) -> Result<Json<app_protocol::admin::PersonalRequest>, Error> {
+    Body(req): Body<app_protocol::admin::OnePersonRequest>,
+) -> Result<StatusCode, Error> {
     admin(&me)?;
     let now = state.clock.now();
     let ip_text = ip.0.to_string();
-    let personal = req.personal;
     state
         .db
         .call(move |c| {
-            crate::admin::set_personal(c, personal)?;
-            let what = if personal { "personal" } else { "instance" };
-            admin_event(c, now, "server_use_changed", None, &me, &ip_text, what)
+            let tx = c.transaction()?;
+            let Some(kept) = store::user_by_id(&tx, &req.keep)? else {
+                return Ok(Err(no_user()));
+            };
+            if kept.username != req.confirm {
+                return Ok(Err(Error::invalid("the name typed is not the account's")));
+            }
+            let others: Vec<String> = {
+                let mut stmt = tx.prepare("SELECT id FROM users WHERE id <> ?1")?;
+                stmt.query_map([&req.keep], |row| row.get(0))?
+                    .collect::<rusqlite::Result<_>>()?
+            };
+            // said first: the log keeps who did it, who may be among those going
+            admin_event(
+                &tx,
+                now,
+                "server_one_person",
+                None,
+                &me,
+                &ip_text,
+                &format!("kept {}, removed {}", kept.username, others.len()),
+            )?;
+            admin_store::update_user(
+                &tx,
+                &req.keep,
+                None,
+                Some(Role::Admin),
+                Some(false),
+                true,
+                now,
+            )?;
+            for other in &others {
+                admin_store::delete_user(&tx, other)?;
+            }
+            admin_store::set_personal(&tx, true)?;
+            store::set_registration(&tx, app_protocol::account::Registration::Closed)?;
+            tx.execute(
+                "UPDATE invites SET revoked_at = ?1 WHERE used_at IS NULL AND revoked_at IS NULL",
+                [now],
+            )?;
+            tx.commit()?;
+            Ok(Ok(()))
         })
-        .await?;
-    Ok(Json(req))
+        .await??;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// Filters for the security log.

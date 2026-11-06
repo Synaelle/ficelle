@@ -173,6 +173,39 @@ fn salvage(conn: &Connection, docs: &mut crate::sync::Docs, space: &str) -> Resu
     Ok(u32::try_from(pending.len()).unwrap_or(u32::MAX))
 }
 
+/// Before a space that is gone from the server's list goes from this vault:
+/// everything in it becomes the person's own, the folders as they were. Nobody
+/// loses notes because a space ended, an account went or a server changed.
+/// Nothing is recorded in the space itself.
+fn keep_all(conn: &Connection, docs: &mut crate::sync::Docs, space: &str) -> Result<()> {
+    let roots: Vec<FolderId> = {
+        let mut stmt = conn.prepare(
+            "SELECT id FROM folders WHERE space_id = ?1
+               AND (parent_id IS NULL
+                    OR parent_id NOT IN (SELECT id FROM folders WHERE space_id = ?1))",
+        )?;
+        stmt.query_map([space], |row| row.get(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+    };
+    let mut folders = Vec::new();
+    for root in roots {
+        folders.extend(super::folders::subtree(conn, root)?);
+    }
+    let new_folders = copy_folders(conn, &folders, "")?;
+    let notes: Vec<NoteId> = {
+        let mut stmt = conn.prepare("SELECT id FROM notes WHERE space_id = ?1")?;
+        stmt.query_map([space], |row| row.get(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+    };
+    for old in notes {
+        copy_note(conn, docs, space, "", old, &new_folders)?;
+    }
+    let _ = docs.get(conn, &doc_key("", SPACE))?;
+    // the copies are recorded in the personal space, the space records nothing
+    conn.execute("DELETE FROM sync_touched WHERE space = ?1", [space])?;
+    Ok(())
+}
+
 /// Copies folders into a space with new ids, the moved tree's top at the
 /// top of the space. Returns the new id of each.
 fn copy_folders(
@@ -306,7 +339,8 @@ impl Store {
 
     /// Follows the server's list of the shared spaces this account belongs
     /// to: new ones are added (their notes come with the next pull), roles
-    /// follow, spaces no longer listed are dropped with everything in them.
+    /// follow, spaces no longer listed go, what they held kept as the person's
+    /// own notes.
     /// Returns the ids dropped.
     ///
     /// # Errors
@@ -339,7 +373,7 @@ impl Store {
         let mut dropped = Vec::new();
         for id in here {
             if !listed.iter().any(|s| s.id == id) {
-                salvage(&tx, &mut self.docs, &id)?;
+                keep_all(&tx, &mut self.docs, &id)?;
                 drop_space(&tx, &id)?;
                 dropped.push(id);
             }

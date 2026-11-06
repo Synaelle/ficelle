@@ -17,14 +17,11 @@
     keep,
     PROTOCOL_VERSION,
     thisDevice,
-    type AccountKinds,
-    type Registration,
     type Session,
     type TotpSetup,
   } from './api.svelte'
   import Backups from './Backups.svelte'
   import { bytes, errorText } from './format'
-  import Policy from './Policy.svelte'
   import { createPasskey, passkeysSupported } from './webauthn'
 
   interface Status {
@@ -51,16 +48,8 @@
     state: State
     detail: string
   }
-  type Step =
-    'checks' | 'use' | 'admin' | 'codes' | 'accounts' | 'files' | 'mail' | 'backups' | 'done'
-  /** Sync for one person: sign-up stays closed and the defaults stay, the
-   * steps about other people are left out. */
-  let personal = $state(true)
-  const steps: Step[] = $derived(
-    personal
-      ? ['checks', 'use', 'admin', 'backups', 'done']
-      : ['checks', 'use', 'admin', 'accounts', 'files', 'mail', 'backups', 'done'],
-  )
+  type Step = 'checks' | 'admin' | 'codes' | 'backups' | 'done'
+  const steps: Step[] = ['checks', 'admin', 'backups', 'done']
   const SESSION_KEY = 'setup-session'
 
   /** The token leaves the address before anything else: it works once and
@@ -292,7 +281,7 @@
           displayName: display,
           password,
           factor: proof,
-          personal,
+          personal: true,
           device: thisDevice(),
         },
       )
@@ -302,7 +291,7 @@
       again = ''
       codes = done.recoveryCodes
       // no second step, no recovery codes to keep
-      step = codes.length ? 'codes' : personal ? 'backups' : 'accounts'
+      step = codes.length ? 'codes' : 'backups'
     } catch (err) {
       if (err instanceof DOMException) problem = t('admin.signIn.passkeyCancelled')
       else if (err instanceof ApiError && err.code === 'setupLinkInvalid') lost(err)
@@ -329,46 +318,6 @@
     link.download = `${brand.slug}-recovery-codes.txt`
     link.click()
     URL.revokeObjectURL(link.href)
-  }
-
-  // the first choices, made with the admin's session
-  const MODES: Registration[] = ['closed', 'invite', 'open']
-  const KINDS: AccountKinds[] = ['choice', 'e2ee', 'standard']
-  let registration: Registration = $state('closed')
-  let kinds: AccountKinds = $state('choice')
-
-  async function saveAccounts() {
-    busy = true
-    problem = ''
-    try {
-      await api('PUT', '/admin/registration', { registration })
-      await api('PUT', '/admin/account-kinds', { accountKinds: kinds })
-      step = 'files'
-    } catch (err) {
-      problem = errorText(err)
-    } finally {
-      busy = false
-    }
-  }
-
-  let mailTo = $state('')
-  let mailState = $state<'sent' | 'failed' | ''>('')
-  let mailDetail = $state('')
-
-  async function testMail(event: SubmitEvent) {
-    event.preventDefault()
-    busy = true
-    mailState = ''
-    try {
-      await api('POST', '/admin/mail/test', { to: mailTo })
-      mailState = 'sent'
-    } catch (err) {
-      mailState = 'failed'
-      mailDetail =
-        err instanceof ApiError && err.code === 'mailFailed' ? err.message : errorText(err)
-    } finally {
-      busy = false
-    }
   }
 
   const position = $derived(steps.indexOf(step === 'codes' ? 'admin' : step))
@@ -436,31 +385,13 @@
             class="btn primary"
             type="button"
             disabled={running || httpsFailed || !seen}
-            onclick={() => (step = 'use')}>{t('admin.setup.next')}</button
+            onclick={() => (step = 'admin')}>{t('admin.setup.next')}</button
           >
         </div>
-      {:else if step === 'use'}
-        <fieldset>
-          <legend>{t('admin.setup.useTitle')}</legend>
-          {#each [true, false] as one (one)}
-            <label class="mode" class:checked={personal === one}>
-              <input type="radio" name="use" value={one} bind:group={personal} />
-              <span>
-                <b>{one ? t('admin.setup.usePersonal') : t('admin.setup.useInstance')}</b>
-                <span class="muted"
-                  >{one ? t('admin.setup.usePersonalHelp') : t('admin.setup.useInstanceHelp')}</span
-                >
-              </span>
-            </label>
-          {/each}
-        </fieldset>
-        <button class="btn primary" type="button" onclick={() => (step = 'admin')}
-          >{t('admin.setup.next')}</button
-        >
       {:else if step === 'admin'}
         <form class="form" onsubmit={createAdmin}>
           <p class="muted">
-            {t(personal ? 'admin.setup.adminHelpPersonal' : 'admin.setup.adminHelp')}
+            {t('admin.setup.adminHelpPersonal')}
           </p>
           <label>
             {t('admin.username')}
@@ -532,7 +463,7 @@
             </label>
             {#if factor === 'none'}
               <p class="warn" role="alert">
-                {t(personal ? 'admin.setup.noneWarningPersonal' : 'admin.setup.noneWarning')}
+                {t('admin.setup.noneWarningPersonal')}
               </p>
               <label class="tick">
                 <input type="checkbox" bind:checked={noneUnderstood} />
@@ -575,7 +506,7 @@
           {/if}
           {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
           <button class="btn primary" type="submit" disabled={busy}
-            >{t(personal ? 'admin.setup.createPersonal' : 'admin.setup.create')}</button
+            >{t('admin.setup.createPersonal')}</button
           >
         </form>
       {:else if step === 'codes'}
@@ -597,66 +528,7 @@
           class="btn primary"
           type="button"
           disabled={!kept}
-          onclick={() => (step = personal ? 'backups' : 'accounts')}>{t('admin.setup.next')}</button
-        >
-      {:else if step === 'accounts'}
-        <fieldset>
-          <legend>{t('admin.overview.registration')}</legend>
-          {#each MODES as mode (mode)}
-            <label class="mode" class:checked={registration === mode}>
-              <input type="radio" name="registration" value={mode} bind:group={registration} />
-              <span>
-                <b>{t(`admin.registration.${mode}`)}</b>
-                <span class="muted">{t(`admin.registration.${mode}Help`)}</span>
-              </span>
-            </label>
-          {/each}
-          {#if registration === 'open'}
-            <p class="warn" role="alert">{t('admin.registration.openRisks')}</p>
-          {/if}
-        </fieldset>
-        <fieldset>
-          <legend>{t('admin.overview.accountKinds')}</legend>
-          {#each KINDS as one (one)}
-            <label class="mode" class:checked={kinds === one}>
-              <input type="radio" name="account-kinds" value={one} bind:group={kinds} />
-              <span>
-                <b>{t(`admin.accountKinds.${one}`)}</b>
-                <span class="muted">{t(`admin.accountKinds.${one}Help`)}</span>
-              </span>
-            </label>
-          {/each}
-        </fieldset>
-        {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-        <button class="btn primary" type="button" disabled={busy} onclick={saveAccounts}
-          >{t('admin.setup.next')}</button
-        >
-      {:else if step === 'files'}
-        <p class="muted">{t('admin.setup.filesHelp')}</p>
-        <Policy path="/admin/policy" level="instance" />
-        <button class="btn primary" type="button" onclick={() => (step = 'mail')}
-          >{t('admin.setup.next')}</button
-        >
-      {:else if step === 'mail'}
-        {#if seen?.mail}
-          <form class="form" onsubmit={testMail}>
-            <p class="muted">{t('admin.setup.mailHelp')}</p>
-            <label>
-              {t('admin.setup.mailTo')}
-              <input class="field" type="email" autocomplete="email" required bind:value={mailTo} />
-            </label>
-            <button class="btn" type="submit" disabled={busy}>{t('admin.setup.mailSend')}</button>
-            {#if mailState === 'sent'}
-              <p class="ok" role="status">{t('admin.setup.mailSent', { to: mailTo })}</p>
-            {:else if mailState === 'failed'}
-              <p class="problem" role="alert">{t('admin.setup.mailFailed', { why: mailDetail })}</p>
-            {/if}
-          </form>
-        {:else}
-          <p class="muted">{t('admin.setup.mailOff')}</p>
-        {/if}
-        <button class="btn primary" type="button" onclick={() => (step = 'backups')}
-          >{t('admin.setup.next')}</button
+          onclick={() => (step = 'backups')}>{t('admin.setup.next')}</button
         >
       {:else if step === 'backups'}
         <p class="muted">{t('admin.setup.backupsHelp')}</p>
@@ -673,12 +545,10 @@
         {/if}
       {:else}
         <p>
-          {personal
-            ? t('admin.setup.finishedPersonal', {
-                app: brand.displayName,
-                address: location.origin + location.pathname.replace(/\/setup\/?$/, ''),
-              })
-            : t('admin.setup.finished')}
+          {t('admin.setup.finishedPersonal', {
+            app: brand.displayName,
+            address: location.origin + location.pathname.replace(/\/setup\/?$/, ''),
+          })}
         </p>
         <p class="warn">{t('admin.setup.secrets')}</p>
         <a class="btn primary" href="admin">{t('admin.setup.openAdmin')}</a>

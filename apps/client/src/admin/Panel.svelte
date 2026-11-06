@@ -11,67 +11,48 @@
   import { auth, signOut, type ServerInfo } from './api.svelte'
   import Account from './Account.svelte'
   import AuditLog from './AuditLog.svelte'
-  import Groups from './Groups.svelte'
-  import Invites from './Invites.svelte'
   import Overview from './Overview.svelte'
-  import People from './People.svelte'
+  import OnePerson from './OnePerson.svelte'
   import Storage from './Storage.svelte'
   import Backups from './Backups.svelte'
   import Feedback from './Feedback.svelte'
-  import Experimental from './Experimental.svelte'
   import { api } from './api.svelte'
 
   let { info, admin }: { info: ServerInfo; admin: boolean } = $props()
 
-  type Section =
-    | 'overview'
-    | 'people'
-    | 'invites'
-    | 'groups'
-    | 'storage'
-    | 'backups'
-    | 'feedback'
-    | 'experimental'
-    | 'log'
-    | 'account'
+  type Section = 'overview' | 'onePerson' | 'storage' | 'backups' | 'feedback' | 'log' | 'account'
   const SECTIONS: [Section, IconName][] = [
     ['overview', 'dashboard'],
-    ['people', 'user'],
-    ['invites', 'invite'],
-    ['groups', 'groups'],
+    ['onePerson', 'user'],
     ['storage', 'database'],
     ['backups', 'backup'],
     ['feedback', 'feedback'],
-    ['experimental', 'flask'],
     ['log', 'log'],
     ['account', 'shield'],
   ]
-  /** What a server for its admin alone shows: nothing about other people. */
-  const PERSONAL: Section[] = ['overview', 'storage', 'backups', 'experimental', 'log', 'account']
   /** Members the admins named read the feedback inbox too. */
   let reader = $state(false)
-  /** The server is for its admin alone, from the overview. */
-  let personal = $state(false)
+  /** More than one account here: going to one has its own section. */
+  let several = $state(false)
   const shown = $derived(
     admin
-      ? personal
-        ? SECTIONS.filter(([s]) => PERSONAL.includes(s))
-        : SECTIONS
+      ? SECTIONS.filter(([s]) => s !== 'onePerson' || several)
       : SECTIONS.filter(([s]) => s === 'account' || (reader && s === 'feedback')),
   )
   const fromHash = (): Section =>
     shown.find(([s]) => `#${s}` === location.hash)?.[0] ?? shown[0]?.[0] ?? 'account'
   let section: Section = $state(fromHash())
 
-  // svelte-ignore state_referenced_locally
-  if (admin) {
-    void api<{ personal: boolean }>('GET', '/admin/overview')
+  function countAccounts() {
+    void api<{ users: number }>('GET', '/admin/overview')
       .then((overview) => {
-        personal = overview.personal
+        several = overview.users > 1
         section = fromHash()
       })
       .catch(() => {})
   }
+  // svelte-ignore state_referenced_locally
+  if (admin) countAccounts()
   // svelte-ignore state_referenced_locally
   if (!admin) {
     void api<{ inbox: boolean }>('GET', '/admin/feedback/access')
@@ -117,21 +98,20 @@
     {/if}
     <h1>{t(`admin.${section}.title`)}</h1>
     {#if section === 'overview'}
-      <Overview onpersonal={(on) => (personal = on)} />
-    {:else if section === 'people'}
-      <People />
-    {:else if section === 'invites'}
-      <Invites />
-    {:else if section === 'groups'}
-      <Groups />
+      <Overview {several} ongo={() => go('onePerson')} />
+    {:else if section === 'onePerson'}
+      <OnePerson
+        ondone={() => {
+          several = false
+          go('overview')
+        }}
+      />
     {:else if section === 'storage'}
       <Storage />
     {:else if section === 'backups'}
       <Backups />
     {:else if section === 'feedback'}
       <Feedback {admin} />
-    {:else if section === 'experimental'}
-      <Experimental onpersonal={(on) => (personal = on)} />
     {:else if section === 'log'}
       <AuditLog />
     {:else}

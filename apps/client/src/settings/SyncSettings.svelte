@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Sync settings: connect this vault to a server account, see how sync
-     stands, sync now or disconnect. Shared by the desktop and phone
-     settings. -->
+<!-- Sync settings, shared by the desktop and phone settings. Sync between
+     devices comes next; a sync server is folded away, deprecated, open by
+     itself on a device linked to one: connect to an account, see how sync
+     stands, sync now or disconnect. -->
 <script lang="ts">
   import { hour12 } from '../lib/clock.svelte'
   import PasswordField from '../lib/PasswordField.svelte'
@@ -47,6 +48,9 @@
 
   const status = $derived(sync.status)
   const linked = $derived(status.state !== 'off')
+  /** The server part, folded unless this device uses one. */
+  let unfolded = $state(false)
+  const serverOpen = $derived(unfolded || linked)
 
   let address = $state('')
   let checked: ServerCheck | null = $state(null)
@@ -197,9 +201,20 @@
     })
 </script>
 
-{#if !sync.available}
+<p class="settings-help">{t('sync.localComing')}</p>
+
+<Group>
+  <Row label={t('sync.serverSection')} onclick={() => (unfolded = !unfolded)}>
+    <span class="chevron" class:open={serverOpen}><Icon name="down" size={16} /></span>
+  </Row>
+</Group>
+
+{#if !serverOpen}
+  <!-- folded -->
+{:else if !sync.available}
   <p class="settings-help">{t('errors.unsupported')}</p>
 {:else if linked && status.state !== 'signedOut'}
+  <p class="settings-help">{t('sync.serverDeprecated')}</p>
   <Group>
     <div class="settings-row state">
       <SyncIcon state={status.state} />
@@ -400,6 +415,7 @@
   </form>
 {:else}
   <form class="sync-form" onsubmit={check}>
+    <p class="settings-help">{t('sync.serverDeprecated')}</p>
     <p class="settings-help">{t('sync.intro')}</p>
     <Group>
       <div class="field-row">
@@ -424,6 +440,14 @@
 {#if error}<p class="error" role="alert">{error}</p>{/if}
 
 <style>
+  .chevron {
+    display: grid;
+    color: var(--color-text-faint);
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .chevron.open {
+    transform: rotate(180deg);
+  }
   .sync-form {
     display: grid;
     gap: var(--space-3);

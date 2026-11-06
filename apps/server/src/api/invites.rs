@@ -58,6 +58,10 @@ pub async fn create(
     let created = state
         .db
         .call(move |c| {
+            // a server for one person has no one else to invite
+            if crate::admin::personal(c)? {
+                return Ok(Err(Error::forbidden()));
+            }
             if !is_admin && store::registration(c)? != Registration::Invite {
                 return Ok(Err(Error::forbidden()));
             }

@@ -654,16 +654,16 @@ async fn a_server_for_its_admin_alone_says_so() {
     assert_eq!(overview["personal"], true);
     assert_eq!(overview["registration"], "closed");
 
-    // opened to others later
+    // nobody else gets in: no invites, sign-up stays closed
+    let (status, _) = call(&app, "POST", "/invites", Some(&token), Some(json!({}))).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
     let (status, _) = call(
         &app,
         "PUT",
-        "/admin/personal",
+        "/admin/registration",
         Some(&token),
-        Some(json!({ "personal": false })),
+        Some(json!({ "registration": "open" })),
     )
     .await;
-    assert_eq!(status, StatusCode::OK);
-    let (_, overview) = call(&app, "GET", "/admin/overview", Some(&token), None).await;
-    assert_eq!(overview["personal"], false);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 }

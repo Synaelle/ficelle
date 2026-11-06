@@ -129,7 +129,10 @@ pub fn router() -> Router<AppState> {
         .route("/admin/account-kinds", put(admin::set_account_kinds))
         .route("/admin/coediting", put(admin::set_coediting))
         .route("/admin/second-step", put(admin::set_second_step))
-        .route("/admin/personal", put(admin::set_personal))
+        .route(
+            "/admin/one-person",
+            get(admin::one_person_list).post(admin::one_person),
+        )
         .merge(group_routes())
         .merge(
             sync_routes()

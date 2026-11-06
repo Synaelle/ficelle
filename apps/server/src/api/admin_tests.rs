@@ -17,6 +17,68 @@ async fn add_user(app: &axum::Router, admin: &str, username: &str, role: &str) -
 }
 
 #[tokio::test]
+async fn a_server_goes_to_one_person_keeping_the_account_chosen() {
+    let (_, app, admin) = with_admin().await;
+    // a password alone is enough here, the second step has its own tests
+    let (status, _) = call(
+        &app,
+        "PUT",
+        "/admin/second-step",
+        Some(&admin),
+        Some(json!({ "required": false })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let keep = add_user(&app, &admin, "keeper", "user").await;
+    let gone = add_user(&app, &admin, "leaver", "user").await;
+    let (status, invite) = call(&app, "POST", "/invites", Some(&admin), Some(json!({}))).await;
+    assert_eq!(status, StatusCode::CREATED, "{invite}");
+
+    let (status, list) = call(&app, "GET", "/admin/one-person", Some(&admin), None).await;
+    assert_eq!(status, StatusCode::OK, "{list}");
+    assert_eq!(list.as_array().unwrap().len(), 3);
+
+    // only an admin, and the name has to match
+    let (_, member) = login(&app, "keeper", "keeper password").await;
+    let member = member["accessToken"].as_str().unwrap().to_owned();
+    let body = json!({ "keep": keep, "confirm": "keeper" });
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/admin/one-person",
+        Some(&member),
+        Some(body.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let wrong = json!({ "keep": keep, "confirm": "leaver" });
+    let (status, _) = call(&app, "POST", "/admin/one-person", Some(&admin), Some(wrong)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (_, still) = call(&app, "GET", "/admin/one-person", Some(&admin), None).await;
+    assert_eq!(still.as_array().unwrap().len(), 3, "nothing happened");
+
+    // the admin may keep someone else: every other account goes, that one too
+    let (status, answer) = call(&app, "POST", "/admin/one-person", Some(&admin), Some(body)).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{answer}");
+    let (status, _) = call(&app, "GET", "/me", Some(&admin), None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "the old admin is gone");
+    let (status, _) = login(&app, "leaver", "leaver password").await;
+    assert_ne!(status, StatusCode::OK, "{gone} is gone");
+
+    // the one kept runs the server now, for itself alone
+    let (status, kept) = login(&app, "keeper", "keeper password").await;
+    assert_eq!(status, StatusCode::OK, "{kept}");
+    let kept = kept["accessToken"].as_str().unwrap().to_owned();
+    let (status, overview) = call(&app, "GET", "/admin/overview", Some(&kept), None).await;
+    assert_eq!(status, StatusCode::OK, "{overview}");
+    assert_eq!(overview["users"], 1);
+    assert_eq!(overview["personal"], true);
+    assert_eq!(overview["registration"], "closed");
+    let (status, _) = call(&app, "POST", "/invites", Some(&kept), Some(json!({}))).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn the_last_active_admin_cannot_be_removed_demoted_or_turned_off() {
     let (_, app, admin) = with_admin().await;
     let (_, me) = call(&app, "GET", "/me", Some(&admin), None).await;

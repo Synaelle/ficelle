@@ -244,22 +244,6 @@ impl Api {
         read(request.send_json(body).map_err(offline)?)
     }
 
-    pub fn put(
-        &self,
-        path: &str,
-        token: Option<&str>,
-        body: &impl Serialize,
-    ) -> Result<Answer, HttpError> {
-        let mut request = self
-            .agent
-            .put(format!("{}/api/v1{path}", self.base))
-            .header(PROTOCOL_HEADER, PROTOCOL_VERSION.to_string());
-        if let Some(token) = token {
-            request = request.header("authorization", format!("Bearer {token}"));
-        }
-        read(request.send_json(body).map_err(offline)?)
-    }
-
     pub fn delete(&self, path: &str, token: Option<&str>) -> Result<Answer, HttpError> {
         let mut request = self
             .agent

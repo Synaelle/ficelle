@@ -208,16 +208,6 @@ pub fn run() {
             sync::commands::sync_now,
             sync::commands::sync_viewing,
             sync::commands::sync_disconnect,
-            sync::sharing::share_list,
-            sync::sharing::share_find,
-            sync::sharing::share_groups,
-            sync::sharing::share_members,
-            sync::sharing::share_create,
-            sync::sharing::share_set_members,
-            sync::sharing::share_stop,
-            sync::sharing::share_waiting,
-            sync::sharing::share_allow,
-            sync::sharing::share_leave,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start the app");

@@ -16,8 +16,6 @@
   import Knot from '../lib/Knot.svelte'
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
   import { displayBinding } from '../lib/shortcuts'
-  import { sharing } from '../lib/sharing.svelte'
-  import { sync } from '../lib/sync.svelte'
   import type { MenuItem } from '../lib/overlay.svelte'
   import { workspace } from '../lib/workspace.svelte'
 
@@ -35,13 +33,12 @@
     const timer = setTimeout(() => (justSaved = false), 2000)
     return () => clearTimeout(timer)
   })
-  const readonly = $derived(sharing.readOnly(note?.spaceId))
 
   /** The editor is made again when one of its settings changes or the note
    * syncs: the same note keeps its place, another one starts at the top. */
   const editorKey = $derived(
     note
-      ? `${note.id}:${prefs.autoLists}:${prefs.emojiShortcodes}:${prefs.arrow}:${prefs.spellcheck}:${workspace.revision}:${readonly}`
+      ? `${note.id}:${prefs.autoLists}:${prefs.emojiShortcodes}:${prefs.arrow}:${prefs.spellcheck}:${workspace.revision}`
       : '',
   )
   let scroller: HTMLDivElement | undefined = $state()
@@ -70,14 +67,6 @@
     }
     requestAnimationFrame(keep)
   })
-  const others = $derived(note ? sync.others(note.spaceId, note.id) : [])
-  const initials = (name: string) =>
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase())
-      .join('')
   let backlinks: NoteSummary[] = $state([])
   let versions: NoteVersion[] | null = $state(null)
   const historyShown = $derived(versions !== null)
@@ -121,7 +110,6 @@
   function noteMenu(button: HTMLElement) {
     if (!note) return
     const id = note.id
-    const name = note.title || t('note.untitled')
     const items: MenuItem[] = [
       {
         label: source ? t('note.rendered') : t('note.source'),
@@ -129,31 +117,17 @@
         run: () => (source = !source),
       },
     ]
-    if (sharing.available && note.spaceId === '')
-      items.push({
-        label: t('share.shareItem'),
-        icon: 'share',
-        run: () => sharing.open({ item: { kind: 'note', id }, name }),
-      })
-    const root = sharing.rootOf(id)
-    if (root)
-      items.push({
-        label: t('share.sharing'),
-        icon: 'share',
-        run: () => sharing.open({ space: root.id, name }),
-      })
-    if (!readonly)
-      items.push(
-        { label: t('note.history'), icon: 'history', run: () => void showHistory() },
-        { label: t('note.moveTo'), icon: 'move', items: moveToItems(id, note.folderId) },
-        SEPARATOR,
-        {
-          label: t('note.trash'),
-          icon: 'trash',
-          danger: true,
-          run: () => void workspace.trash(id),
-        },
-      )
+    items.push(
+      { label: t('note.history'), icon: 'history', run: () => void showHistory() },
+      { label: t('note.moveTo'), icon: 'move', items: moveToItems(id, note.folderId) },
+      SEPARATOR,
+      {
+        label: t('note.trash'),
+        icon: 'trash',
+        danger: true,
+        run: () => void workspace.trash(id),
+      },
+    )
     overlay.openMenuBelow(button, items)
   }
 
@@ -198,31 +172,17 @@
         </button>
       {/if}
       <span class="where muted">{workspace.folderName(note.folderId)}</span>
-      {#if others.length}
-        <ul class="viewers" aria-label={t('presence.label')}>
-          {#each others as viewer (viewer.name)}
-            <li title={t('presence.here', { name: viewer.displayName || viewer.name })}>
-              <span aria-hidden="true">{initials(viewer.displayName || viewer.name)}</span>
-              <span class="visually-hidden"
-                >{t('presence.here', { name: viewer.displayName || viewer.name })}</span
-              >
-            </li>
-          {/each}
-        </ul>
-      {/if}
       <span class="saved muted" class:quiet={!workspace.dirty && !justSaved} aria-live="polite"
         >{workspace.dirty ? t('note.saving') : t('note.saved')}</span
       >
-      {#if !readonly}
-        <button
-          class="icon-btn"
-          aria-label={note.pinned ? t('note.unpin') : t('note.pin')}
-          aria-pressed={note.pinned}
-          onclick={() => note && workspace.togglePin(note.id, !note.pinned)}
-        >
-          <Icon name="pin" />
-        </button>
-      {/if}
+      <button
+        class="icon-btn"
+        aria-label={note.pinned ? t('note.unpin') : t('note.pin')}
+        aria-pressed={note.pinned}
+        onclick={() => note && workspace.togglePin(note.id, !note.pinned)}
+      >
+        <Icon name="pin" />
+      </button>
       <button
         class="icon-btn"
         aria-label={t('note.more')}
@@ -236,20 +196,12 @@
     <div class="scroll" bind:this={scroller} style:overflow-anchor={hold ? 'none' : null}>
       <article style:min-height={hold ? `${hold}px` : null}>
         <ConflictBanner {narrow} />
-        {#if readonly}
-          <p class="readonly-banner" role="note">
-            <Icon name="lock" size={16} />{t('share.readOnlyBanner', {
-              owner: sharing.space(note.spaceId)?.ownerName ?? '',
-            })}
-          </p>
-        {/if}
         <input
           bind:this={titleInput}
           class="title"
           spellcheck={prefs.spellcheck && !PHONE}
           placeholder={t('note.untitled')}
           aria-label={t('note.title')}
-          {readonly}
           value={note.title}
           oninput={(e) => workspace.edit({ title: e.currentTarget.value })}
         />
@@ -257,27 +209,22 @@
           {#each note.tags as tag (tag)}
             <span class="tag">
               #{tag}
-              {#if !readonly}
-                <button
-                  aria-label={t('note.removeTag', { tag })}
-                  onclick={() => note && workspace.setTags(note.tags.filter((x) => x !== tag))}
-                  >×</button
-                >
-              {/if}
+              <button
+                aria-label={t('note.removeTag', { tag })}
+                onclick={() => note && workspace.setTags(note.tags.filter((x) => x !== tag))}
+                >×</button
+              >
             </span>
           {/each}
-          {#if !readonly}
-            <form onsubmit={addTag}>
-              <input class="tag-input" placeholder={t('note.addTag')} bind:value={tagDraft} />
-            </form>
-          {/if}
+          <form onsubmit={addTag}>
+            <input class="tag-input" placeholder={t('note.addTag')} bind:value={tagDraft} />
+          </form>
         </div>
 
         {#if source}
           <textarea
             class="source"
             spellcheck="false"
-            {readonly}
             aria-label={t('note.source')}
             value={note.body}
             oninput={(e) => workspace.edit({ body: e.currentTarget.value })}></textarea>
@@ -287,7 +234,6 @@
               bind:this={editorRef}
               noteId={note.id}
               markdown={note.body}
-              {readonly}
               onchange={(body) => workspace.edit({ body })}
               onopenlink={(title, heading) => workspace.openByTitle(title, heading)}
             />
@@ -309,12 +255,7 @@
           </aside>
         {/if}
 
-        <NoteFiles
-          noteId={note.id}
-          body={note.body}
-          editor={source ? undefined : editorRef}
-          {readonly}
-        />
+        <NoteFiles noteId={note.id} body={note.body} editor={source ? undefined : editorRef} />
       </article>
     </div>
 
@@ -513,37 +454,6 @@
   .placeholder kbd {
     color: var(--color-text-muted);
     font-size: 11px;
-  }
-  .viewers {
-    display: flex;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .viewers li {
-    width: 26px;
-    height: 26px;
-    display: grid;
-    place-items: center;
-    margin-left: -6px;
-    border: 2px solid var(--color-bg);
-    border-radius: var(--radius-chip);
-    background: var(--color-accent);
-    color: var(--color-accent-on);
-    font-size: 11px;
-    font-weight: 600;
-  }
-  .readonly-banner {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin: 0 0 var(--space-3);
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-control);
-    background: var(--color-surface);
-    color: var(--color-text-muted);
-    font-size: 13px;
   }
   .sheet {
     position: absolute;

@@ -1444,15 +1444,29 @@ mod sharing {
     }
 
     #[test]
-    fn a_removed_member_loses_the_space_and_all_of_it() {
+    fn a_removed_member_keeps_every_note_as_their_own() {
         let (_, mut laptop, mut phone, _) = shared_folder(SpaceRole::Edit);
         phone.sync();
-        assert!(phone.view().contains("Tickets"));
+        let before = phone.view();
+        assert!(before.contains("Tickets") && before.contains("Packing"));
         World::remove(&laptop.server.world, SPACE_ID, "alex");
         phone.sync();
-        assert!(!phone.view().contains("Tickets"), "gone from the vault");
+        // no longer shared: nothing of the space is left to follow
         assert!(phone.s().shared_spaces().unwrap().is_empty());
         assert!(!phone.s().doc_stored_for_tests(&format!("{SPACE_ID}/space")));
+        // and nothing was lost, the notes and their folder are in the person's own
+        let mine = space_view(&phone.s(), "");
+        assert!(
+            mine.contains("Tickets") && mine.contains("Packing") && mine.contains("Trip"),
+            "{mine}"
+        );
+        // they sync as the person's own notes, once, nothing left waiting
+        phone.sync();
+        assert_eq!(phone.s().sync_counts().unwrap().pending, 0);
+        assert_eq!(phone.s().sync_rejected().unwrap(), 0);
+        assert_eq!(space_view(&phone.s(), ""), mine, "no second copy");
+        let note = phone.s().space_roots("").unwrap().notes.len();
+        assert_eq!(note, 0, "the notes stay in their folder, not at the top");
         laptop.sync();
         assert!(laptop.view().contains("Tickets"), "the owner keeps it");
     }
@@ -1466,7 +1480,11 @@ mod sharing {
         laptop.server.world.borrow_mut().spaces.remove(SPACE_ID);
         laptop.sync();
         phone.sync();
-        assert!(!phone.view().contains("Tickets"));
+        assert!(phone.s().shared_spaces().unwrap().is_empty());
+        assert!(
+            space_view(&phone.s(), "").contains("Tickets"),
+            "the member keeps a copy of what was shared"
+        );
         let mine = space_view(&laptop.s(), "");
         assert!(mine.contains("Tickets") && mine.contains("Packing") && mine.contains("Trip"));
         assert!(

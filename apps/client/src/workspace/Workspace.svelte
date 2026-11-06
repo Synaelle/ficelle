@@ -2,8 +2,6 @@
 <!-- Main screen: sidebar, list, note.
      Narrow windows and phones show the list or the note, never both. -->
 <script lang="ts">
-  import ShareDialog from './ShareDialog.svelte'
-  import { sharing } from '../lib/sharing.svelte'
   import { sync } from '../lib/sync.svelte'
   import { onBack } from '../lib/back'
   import { currentLocale, t } from '../lib/i18n.svelte'
@@ -192,10 +190,6 @@
     <NoteView {narrow} />
   {/if}
 </main>
-
-{#if sharing.target}
-  <ShareDialog target={sharing.target} />
-{/if}
 
 {#if settingsOpen}
   <Settings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />

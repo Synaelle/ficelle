@@ -266,7 +266,10 @@ async fn a_shared_folder_goes_both_ways_between_two_standard_accounts() {
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (laptop, _) = round(laptop).await;
     let (phone, _) = round(phone).await;
-    assert!(!view_of(&phone).contains("booked by alex"));
+    assert!(
+        space_view(&phone, "").contains("booked by alex"),
+        "the member keeps a copy as their own"
+    );
     assert!(
         view_of(&laptop).contains("booked by alex"),
         "the owner keeps it"
@@ -617,7 +620,10 @@ async fn e2ee_accounts_share_with_keys_the_server_never_holds() {
         vec![1, 2]
     );
     let (phone, _) = round(phone).await;
-    assert!(!view_of(&phone).contains("plan"), "yan lost it");
+    assert!(
+        !view_of(&phone).contains("the new plan"),
+        "yan keeps what yan had, nothing written after"
+    );
     let (_, listed) = call(&app, "GET", "/sync/spaces", Some(token(&yan)), None).await;
     assert_eq!(listed["spaces"], json!([]));
     drop(phone);

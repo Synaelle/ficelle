@@ -59,7 +59,7 @@ Until an admin exists, the server logs a one-time setup link, valid for an hour:
 sudo journalctl -u ficelle-server | grep setup
 ```
 
-The setup checks the proxy, asks whether the server is for you alone or for several people, creates the admin with a passkey or an authenticator app, and offers backups. Then sign in from the apps with the server's address.
+The setup checks the proxy, creates the admin with a passkey or an authenticator app, and offers backups. Then sign in from the apps with the server's address.
 
 ## Updates
 

@@ -141,17 +141,9 @@ class Workspace {
     this.revision++
   }
 
-  /** Whether a space is shared with this account to read only. The sharing
-   * module sets it. */
-  readOnly: (spaceId: string) => boolean = () => false
-
-  /** The folder new notes go into: the one shown, unless it is shared to
-   * read only, then none. */
+  /** The folder new notes go into: the one shown. */
   private newNoteFolder(): Id | null {
-    if (this.scope.kind !== 'folder' || !this.scope.id) return null
-    const id = this.scope.id
-    const folder = this.folders.find((f) => f.id === id)
-    return folder && this.readOnly(folder.spaceId) ? null : id
+    return this.scope.kind === 'folder' ? this.scope.id || null : null
   }
 
   /**
@@ -356,12 +348,8 @@ class Workspace {
   }
 
   async move(id: Id, folder: Id | null) {
-    const moved = await backend.moveNote(id, folder)
-    // into or out of a shared folder, the note is a copy with a new id
-    if (this.current?.id === id) {
-      if (moved === id) this.current.folderId = folder
-      else await this.open(moved)
-    }
+    await backend.moveNote(id, folder)
+    if (this.current?.id === id) this.current.folderId = folder
     await this.refreshNotes()
   }
 

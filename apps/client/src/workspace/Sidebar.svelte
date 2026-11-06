@@ -9,10 +9,8 @@
   import { prefs } from '../lib/prefs.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
-  import { overlay } from '../lib/overlay.svelte'
   import { workspace } from '../lib/workspace.svelte'
   import FolderTree from './FolderTree.svelte'
-  import { sharing } from '../lib/sharing.svelte'
 
   let {
     onsettings,
@@ -82,44 +80,6 @@
       </form>
     {/if}
   </div>
-
-  {#if sharing.list.length}
-    <div class="group">
-      <div class="heading"><span>{t('sidebar.shared')}</span></div>
-      {#each sharing.list as space (space.id)}
-        <div
-          class="shared"
-          title={space.role === 'owner'
-            ? t('share.byYou')
-            : t('share.by', { owner: space.ownerName })}
-        >
-          <FolderTree parent={null} depth={0} space={space.id} />
-          {#each space.notes as note (note.id)}
-            <button
-              class="item"
-              class:active={workspace.current?.id === note.id}
-              onclick={() => void workspace.open(note.id)}
-              oncontextmenu={(e) =>
-                overlay.openMenu(e, [
-                  {
-                    label: t('share.sharing'),
-                    icon: 'share',
-                    run: () =>
-                      sharing.open({ space: space.id, name: note.title || t('note.untitled') }),
-                  },
-                ])}
-            >
-              <Icon name="share" size={16} />
-              <span class="label">{note.title || t('note.untitled')}</span>
-            </button>
-          {/each}
-          {#if space.role !== 'owner'}
-            <span class="owner">{t('share.by', { owner: space.ownerName })}</span>
-          {/if}
-        </div>
-      {/each}
-    </div>
-  {/if}
 
   {#if workspace.tags.length}
     <div class="group">
@@ -229,10 +189,5 @@
   }
   form {
     padding: var(--space-1) var(--space-2);
-  }
-  .owner {
-    padding: 0 var(--space-2) var(--space-1) 26px;
-    font-size: 12px;
-    color: var(--color-text-muted);
   }
 </style>

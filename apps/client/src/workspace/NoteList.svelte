@@ -4,7 +4,6 @@
 <script lang="ts">
   import { betaFeedback, isBeta, touchScreen } from '../lib/beta.svelte'
   import { hour12 } from '../lib/clock.svelte'
-  import { sharing } from '../lib/sharing.svelte'
   import { sync } from '../lib/sync.svelte'
   import SyncIcon from './SyncIcon.svelte'
   import { backend, MATCH_END, MATCH_START, type NoteSort, type Scope } from '../lib/backend'
@@ -38,9 +37,7 @@
   })
 
   const trash = $derived(workspace.scope.kind === 'trash')
-  const restorable = $derived(
-    workspace.trashedFolders.filter((folder) => !sharing.readOnly(folder.spaceId)),
-  )
+  const restorable = $derived(workspace.trashedFolders)
 
   const title = $derived.by(() => {
     const scope = workspace.scope
@@ -167,11 +164,6 @@
         { label: t('list.purge'), icon: 'trash', danger: true, run: () => void purge(note.id) },
       ])
     }
-    // shared to read only: open is all there is
-    if (sharing.readOnly(note.spaceId))
-      return overlay.openMenu(event, [
-        { label: t('menu.open'), run: () => void workspace.open(note.id) },
-      ])
     overlay.openMenu(event, [
       { label: t('menu.open'), run: () => void workspace.open(note.id) },
       {

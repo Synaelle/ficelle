@@ -7,7 +7,6 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { backend } from './backend'
 import { prefs } from './prefs.svelte'
-import { sharing } from './sharing.svelte'
 import { workspace } from './workspace.svelte'
 import { protocolRange } from './serverVersion'
 
@@ -31,13 +30,6 @@ export interface SyncStatus {
   live: boolean
   /** The server's admin allows co-editing. */
   coediting: boolean
-}
-
-/** Someone with a note of a shared space open. */
-export interface Viewer {
-  name: string
-  displayName: string
-  note: string
 }
 
 /** How long a server check is reused before the server is asked again. */
@@ -90,17 +82,7 @@ const native = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 class Sync {
   readonly available = native
   status: SyncStatus = $state(OFF)
-  /** Who has which note open, by shared space, while connected live. */
-  presence: Record<string, Viewer[]> = $state({})
   private started = false
-
-  /** The others with this note open, this account's own devices left out. */
-  others(space: string, note: string): Viewer[] {
-    if (!space || !this.status.live || !this.status.coediting) return []
-    return (this.presence[space] ?? []).filter(
-      (v) => v.note === note && v.name !== this.status.username,
-    )
-  }
 
   /** Follows the sync thread. Called once the vault is open. */
   async start() {
@@ -108,19 +90,11 @@ class Sync {
     this.started = true
     workspace.coediting = () =>
       this.status.state !== 'off' && this.status.coediting && prefs.coediting
-    await listen<{ space: string; viewers: Viewer[] }>('sync-presence', (event) => {
-      this.presence[event.payload.space] = event.payload.viewers
-    })
     await listen<SyncStatus>('sync-status', (event) => {
       this.status = event.payload
-      // what was heard before the socket went down is stale
-      if (!event.payload.live) this.presence = {}
-      // a round may have joined or left shared spaces
-      if (event.payload.state === 'synced') void sharing.refresh()
     })
     await listen('sync-changed', () => {
       void workspace.remoteChanged()
-      void sharing.refresh()
     })
     // files that arrived: the open note shows them
     await listen('files-changed', () => window.dispatchEvent(new Event(FILES_CHANGED)))
@@ -128,7 +102,6 @@ class Sync {
     $effect.root(() => {
       $effect(() => void backend.setAutoFetch(prefs.autoFetchMb))
     })
-    void sharing.refresh()
     // coming back to the app is when other devices' changes are wanted:
     // pull then rather than at the next minute
     const back = () => {
@@ -136,23 +109,6 @@ class Sync {
     }
     window.addEventListener('focus', back)
     document.addEventListener('visibilitychange', back)
-    // the others in a shared space see who has which of its notes open:
-    // the open note while the app is in view, nothing otherwise
-    const shown = $state({ visible: document.visibilityState === 'visible' })
-    document.addEventListener(
-      'visibilitychange',
-      () => (shown.visible = document.visibilityState === 'visible'),
-    )
-    $effect.root(() => {
-      $effect(() => {
-        const note = workspace.current
-        const shared = shown.visible && note && note.spaceId ? note : null
-        void invoke('sync_viewing', {
-          space: shared?.spaceId ?? null,
-          note: shared?.id ?? null,
-        })
-      })
-    })
   }
 
   /** Recent checks by address: a server is asked again only after a

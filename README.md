@@ -31,6 +31,8 @@ There is also an untested Mac app, see [Ficelle on a Mac](docs/mac.md).
 
 ## Your own server
 
+Server support is deprecated for now and only security fixes are delivered, it made development more complex than it had the right to be. New servers are for one person, servers with several accounts keep working and can go to one account from their admin page. If you don't like this decision, send feedback, I'm more than open to talk about it.
+
 Run it with Docker, see [Self-hosting with Docker](docs/self-hosting-docker.md). Running it without Docker is supported but not recommended, see [Self-hosting without Docker](docs/self-hosting-without-docker.md).
 
 ## License

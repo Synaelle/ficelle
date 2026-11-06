@@ -454,10 +454,7 @@ fn wire(state: &AppState) -> Result<(Wire<'_>, AccountKind), SyncError> {
 }
 
 fn round(state: &AppState) -> Result<engine::Round, SyncError> {
-    let (mut wire, kind) = wire(state)?;
-    if kind == AccountKind::E2ee {
-        sharing::ensure_key_pair(state, &mut wire)?;
-    }
+    let (mut wire, _) = wire(state)?;
     let done = engine::run(&Vault(state), &mut wire)?;
     // now and then, documents the server holds many changes of go as one
     // whole document, the server empties the changes it replaces
@@ -646,26 +643,20 @@ impl Remote for Wire<'_> {
             .map_err(|e| RemoteError::Refused(e.to_string()))
     }
 
+    /// Sharing left the apps: this device follows no shared space, what it
+    /// still holds of one becomes the person's own (`sync_set_spaces`).
     fn spaces(&mut self) -> Result<Option<app_protocol::sync::SharedSpaces>, RemoteError> {
-        match self.call(|api, token| api.get("/sync/spaces", Some(token))) {
-            Ok(answer) => answer
-                .parse()
-                .map(Some)
-                .map_err(|e| RemoteError::Refused(e.to_string())),
-            // a server from before sharing: the shared spaces stay as they are
-            Err(RemoteError::Refused(_)) => Ok(None),
-            Err(other) => Err(other),
-        }
+        Ok(Some(app_protocol::sync::SharedSpaces {
+            spaces: Vec::new(),
+        }))
     }
 
     fn give_grants(
         &mut self,
-        space: &str,
-        grants: &app_protocol::sync::GiveGrants,
+        _space: &str,
+        _grants: &app_protocol::sync::GiveGrants,
     ) -> Result<(), RemoteError> {
-        let path = format!("/sync/spaces/{space}/grants");
-        self.call(|api, token| api.post(&path, Some(token), grants))
-            .map(drop)
+        Ok(())
     }
 
     fn files_info(&mut self) -> Result<Option<app_protocol::files::FilesInfo>, RemoteError> {
