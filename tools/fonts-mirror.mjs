@@ -6,20 +6,17 @@
 //
 //   node tools/fonts-mirror.mjs <folder>
 //
-// The fonts are the ones in apps/client/src/lib/fonts.ts (the list and the
-// themes' packs) and OpenDyslexic (lib/dyslexicFont.ts); the files, those
-// commands/fonts.rs accepts. A file a font does not have is skipped; a font
+// The one font apps download is OpenDyslexic (lib/dyslexicFont.ts); the files,
+// those commands/fonts.rs accepts. A file a font does not have is skipped; a font
 // whose regular file cannot be had stops the mirror. All are open fonts
 // (SIL Open Font License or similar), free to copy.
 //
 // The Docker build runs it into the web pages' folder: the image carries
 // them, a few megabytes.
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const out = process.argv[2]
 if (!out) {
   console.error('usage: node tools/fonts-mirror.mjs <folder>')
@@ -45,13 +42,7 @@ const FILES = [
   'latin-ext-wght-italic',
 ]
 
-const source = readFileSync(join(root, 'apps/client/src/lib/fonts.ts'), 'utf8')
-const ids = [...new Set([...source.matchAll(/\bid: '([a-z0-9:-]+)'/g)].map((m) => m[1]))]
-ids.push('opendyslexic')
-if (ids.length < 30) {
-  console.error(`only ${ids.length} fonts found in fonts.ts, the list moved?`)
-  process.exit(1)
-}
+const ids = ['opendyslexic']
 
 /**
  * One file, `null` when the font has none. Tried three times.
