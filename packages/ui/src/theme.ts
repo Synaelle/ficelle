@@ -258,10 +258,13 @@ export type Corners = 'square' | 'round'
  * between them (a menu item 10 in a 14 menu with 4 around it). */
 export const ROUND_RADIUS: Theme['radius'] = { control: 10, popover: 14, window: 20 }
 
-/** The radius to draw with: the theme's, or with round corners at least
- * ROUND_RADIUS, a theme rounder than that keeps its own. */
+/** The radius to draw with. Square is one small corner everywhere, a theme's
+ * larger panels beside its small buttons would read as a clash. Round corners
+ * are at least ROUND_RADIUS, a theme rounder than that keeps its own. */
 export function cornerRadius(radius: Theme['radius'], corners: Corners): Theme['radius'] {
-  if (corners !== 'round') return radius
+  if (corners !== 'round') {
+    return { control: radius.control, popover: radius.control, window: radius.control }
+  }
   return {
     control: Math.max(radius.control, ROUND_RADIUS.control),
     popover: Math.max(radius.popover, ROUND_RADIUS.popover),

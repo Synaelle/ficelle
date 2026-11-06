@@ -103,7 +103,7 @@
     height: 28px;
     padding: 0;
     border: 2px solid var(--color-surface);
-    border-radius: 50%;
+    border-radius: var(--radius-chip);
     background: var(--swatch);
     box-shadow: 0 0 0 1px var(--color-border);
   }

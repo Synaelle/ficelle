@@ -96,6 +96,9 @@
   let version = $state('')
   let page: Page | null = $state(null)
   let reports: Summary[] = $state([])
+  /** The reports ticked in the list, for marking or deleting them together. */
+  let picked: string[] = $state([])
+  const allPicked = $derived(reports.length > 0 && picked.length === reports.length)
   let open: Full | null = $state(null)
   let images: string[] = $state([])
   /** The images themselves, for the zip: the page may not read its own blob links back. */
@@ -143,8 +146,35 @@
       })
       const next = await api<Page>('GET', `/admin/feedback/reports?${params}`)
       reports = more ? [...reports, ...next.reports] : next.reports
+      if (!more) picked = []
       page = next
     })
+  }
+
+  /** One at a time, as from a report's page: what failed stays ticked. */
+  async function eachPicked(work: (id: string) => Promise<unknown>) {
+    await act(async () => {
+      for (const id of picked) {
+        await work(id)
+        picked = picked.filter((p) => p !== id)
+      }
+    })
+    const left = picked
+    const failed = problem
+    await load()
+    picked = left.filter((id) => reports.some((r) => r.id === id))
+    problem = failed
+  }
+
+  const markPicked = (s: Status) =>
+    eachPicked((id) => api('PATCH', `/admin/feedback/reports/${id}`, { status: s }))
+
+  async function deletePicked() {
+    const yes = await overlay.ask(t('admin.feedback.deletePicked', { count: picked.length }), {
+      confirmLabel: t('admin.feedback.delete'),
+      danger: true,
+    })
+    if (yes) await eachPicked((id) => api('DELETE', `/admin/feedback/reports/${id}`))
   }
 
   function forget() {
@@ -515,9 +545,44 @@
         >
       {/if}
     </div>
+    {#if reports.length}
+      <div class="picking">
+        <label class="choice">
+          <input
+            type="checkbox"
+            checked={allPicked}
+            indeterminate={picked.length > 0 && !allPicked}
+            onchange={() => (picked = allPicked ? [] : reports.map((r) => r.id))}
+          />
+          {t('admin.feedback.pickAll')}
+        </label>
+        {#if picked.length}
+          <span class="muted small">{t('admin.feedback.picked', { count: picked.length })}</span>
+          {#each STATUSES as s (s)}
+            {#if s !== status}
+              <button class="btn" disabled={busy} onclick={() => markPicked(s)}
+                >{t(`admin.feedback.mark_${s}`)}</button
+              >
+            {/if}
+          {/each}
+          <button class="btn danger" disabled={busy} onclick={deletePicked}
+            >{t('admin.feedback.delete')}</button
+          >
+        {/if}
+      </div>
+    {/if}
     <ul class="reports">
       {#each reports as report (report.id)}
-        <li>
+        <li class="report-row">
+          <input
+            type="checkbox"
+            aria-label={t('admin.feedback.pick', { about: report.about ?? report.excerpt })}
+            checked={picked.includes(report.id)}
+            onchange={(e) =>
+              (picked = e.currentTarget.checked
+                ? [...picked, report.id]
+                : picked.filter((id) => id !== report.id))}
+          />
           <!-- one line: when, where from, what about, then the start of it -->
           <button onclick={() => read(report.id)}>
             <span class="meta muted">{date(report.createdAt)}</span>
@@ -839,15 +904,32 @@
   .reports {
     gap: 0;
   }
+  .picking {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    min-height: 36px;
+    padding-left: var(--space-3);
+  }
+  .report-row {
+    display: flex;
+    align-items: center;
+    padding-left: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .report-row input {
+    flex: none;
+  }
   .reports button {
     display: grid;
+    flex: 1;
     grid-template-columns: 6.5em 9em minmax(0, 1fr) auto;
     gap: var(--space-3);
     align-items: baseline;
-    width: 100%;
+    min-width: 0;
     padding: var(--space-2) var(--space-3);
     border: 0;
-    border-bottom: 1px solid var(--color-border);
     background: none;
     color: inherit;
     font: inherit;

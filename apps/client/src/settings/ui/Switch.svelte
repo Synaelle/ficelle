@@ -46,7 +46,7 @@
     flex: none;
     padding: 0;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius-chip);
     background: var(--color-border-strong);
     cursor: pointer;
     transition: background var(--dur-fast) var(--ease-out);
@@ -57,7 +57,7 @@
     left: 2px;
     width: 16px;
     height: 16px;
-    border-radius: 50%;
+    border-radius: var(--radius-chip);
     background: var(--color-text);
     transition: transform var(--dur-fast) var(--ease-out);
   }
@@ -76,16 +76,17 @@
   /* a finger's size, and a target bigger than the picture */
   @media (pointer: coarse) {
     .switch {
-      width: 44px;
-      height: 26px;
-      border-radius: 13px;
+      width: 50px;
+      height: 30px;
     }
     .switch i {
-      width: 22px;
-      height: 22px;
+      top: 3px;
+      left: 3px;
+      width: 24px;
+      height: 24px;
     }
     .switch.on i {
-      transform: translateX(18px);
+      transform: translateX(20px);
     }
     button.switch::after {
       content: '';

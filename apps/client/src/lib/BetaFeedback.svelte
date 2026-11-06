@@ -50,10 +50,13 @@
         aria-label={t('beta.feedback')}
         use:modal={{ onclose: close }}
       >
-        <FeedbackSettings />
-        <div class="actions">
-          <button class="btn" type="button" onclick={close}>{t('common.close')}</button>
+        <div class="head">
+          <h2>{t('beta.feedback')}</h2>
+          <button class="icon-btn" type="button" aria-label={t('common.close')} onclick={close}
+            ><Icon name="close" /></button
+          >
         </div>
+        <FeedbackSettings />
       </div>
     </div>
   {:else if welcome}
@@ -93,7 +96,7 @@
     place-items: center;
     width: 32px;
     height: 32px;
-    border-radius: 50%;
+    border-radius: var(--radius-chip);
     border: 1px solid var(--color-border-strong);
     background: var(--color-surface-2);
     color: var(--color-text-muted);
@@ -132,8 +135,20 @@
     background: var(--color-surface-2);
     box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
   }
+  /* on the page's colour, so its groups stand out as they do in settings */
   .dialog.feedback {
     width: min(560px, 100%);
+    background: var(--color-bg);
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+  h2 {
+    margin: 0;
+    font-size: 16px;
   }
   .text {
     display: grid;

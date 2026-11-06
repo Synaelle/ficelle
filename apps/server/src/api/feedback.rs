@@ -870,10 +870,13 @@ pub struct ToMain {
     /// An email address or a Discord name, for an answer.
     #[serde(default)]
     contact: Option<String>,
+    /// PNG, JPEG or WebP images, standard base64.
+    #[serde(default)]
+    images: Vec<String>,
 }
 
-/// The main instance answers within this, a report is small.
-const MAIN_TIME: Duration = Duration::from_secs(15);
+/// The main instance answers within this, images take their time.
+const MAIN_TIME: Duration = Duration::from_secs(30);
 
 /// Most of an answer from the main instance read back.
 const MAIN_ANSWER: usize = 64 * 1024;
@@ -929,7 +932,7 @@ pub async fn send_to_main(
         version: app_brand::VERSION.to_owned(),
         platform: "server".to_owned(),
         logs: None,
-        images: Vec::new(),
+        images: draft.images,
         server,
         receipt: None,
     };

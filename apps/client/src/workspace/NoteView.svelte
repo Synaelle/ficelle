@@ -527,7 +527,7 @@
     place-items: center;
     margin-left: -6px;
     border: 2px solid var(--color-bg);
-    border-radius: 50%;
+    border-radius: var(--radius-chip);
     background: var(--color-accent);
     color: var(--color-accent-on);
     font-size: 11px;

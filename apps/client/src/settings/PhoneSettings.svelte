@@ -7,6 +7,7 @@
   import { serverProtocol, sync } from '../lib/sync.svelte'
   import SyncSettings from './SyncSettings.svelte'
   import { brand } from '@app/brand'
+  import Knot from '../lib/Knot.svelte'
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'
@@ -20,7 +21,6 @@
   import { overlay, type MenuItem } from '../lib/overlay.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import AccentPicker from './AccentPicker.svelte'
-  import CornersPicker from './CornersPicker.svelte'
   import ArrowPicker from './ArrowPicker.svelte'
   import BackupSettings from './BackupSettings.svelte'
   import FeedbackSettings from './FeedbackSettings.svelte'
@@ -152,6 +152,7 @@
       icon: 'textStyle',
       label: t('settings.editor'),
       keywords: t('settings.editorKeywords'),
+      value: prefs.autoLists ? t('settings.phone.listsOn') : t('settings.phone.listsOff'),
       run: () => (page = 'editor'),
     },
     {
@@ -340,7 +341,6 @@
     ['palette', 'settings.warmLight', 'appearance'],
     ['textStyle', 'fonts.title', 'appearance'],
     ['palette', 'settings.accent', 'appearance'],
-    ['palette', 'settings.corners', 'appearance'],
     ['textSize', 'settings.uiSize', 'accessibility'],
     ['textStyle', 'settings.dyslexicFont', 'accessibility'],
     ['list', 'settings.autoLists', 'editor'],
@@ -453,27 +453,6 @@
   </button>
 {/snippet}
 
-<!-- a few short choices on one line, the whole width of the group -->
-{#snippet segments<T>(
-  name: string,
-  label: string,
-  choices: readonly T[],
-  current: T,
-  text: (choice: T) => string,
-  pick: (choice: T) => void,
-)}
-  <div class="settings-row segments-row">
-    <div class="segmented segments" role="radiogroup" aria-label={label}>
-      {#each choices as choice, i (i)}
-        <label class:checked={current === choice}>
-          <input type="radio" {name} checked={current === choice} onchange={() => pick(choice)} />
-          {text(choice)}
-        </label>
-      {/each}
-    </div>
-  </div>
-{/snippet}
-
 <div
   bind:this={screen}
   class="screen"
@@ -508,6 +487,13 @@
           </Group>
         {/if}
       {:else}
+        <div class="hero">
+          <span class="mark"><Knot size={32} /></span>
+          <span>
+            <b>{brand.displayName}</b>
+            <span>{encrypted ? t('settings.phone.encrypted') : t('settings.phone.plain')}</span>
+          </span>
+        </div>
         <Group title={t('settings.phone.groupLook')}>
           {#each lookRows as r (r.label)}{@render row(r)}{/each}
         </Group>
@@ -529,8 +515,10 @@
             </Group>
           {/if}
         {/if}
-        <Group>
+        <Group title={t('settings.sync')}>
           {#each syncRows as r (r.label)}{@render row(r)}{/each}
+        </Group>
+        <Group>
           {@render row(dataRow)}
         </Group>
         <Group>
@@ -552,50 +540,52 @@
     <div class="groups page">
       {#if page === 'appearance'}
         <Group title={t('settings.mode')}>
-          {@render segments(
-            'mode',
-            t('settings.mode'),
-            ['system', 'dark', 'light'] as const,
-            prefs.mode,
-            (mode) => t(`settings.mode_${mode}`),
-            (mode) => (prefs.mode = mode),
-          )}
-          <Row
-            label={t('settings.pureBlack')}
-            on={prefs.pureBlack}
-            onclick={() => (prefs.pureBlack = !prefs.pureBlack)}
-          />
-          <Row
-            label={t('settings.warmLight')}
-            on={prefs.warmLight}
-            onclick={() => (prefs.warmLight = !prefs.warmLight)}
-          />
-        </Group>
-        <Group title={t('settings.accent')}><AccentPicker row /></Group>
-        <Group title={t('fonts.title')}>
-          <FontPicker role="notes" row />
-          <FontPicker role="code" row />
-        </Group>
-        <Group title={t('settings.corners')} note={t('settings.cornersHelp')}>
-          <div class="inside"><CornersPicker /></div>
-        </Group>
-      {:else if page === 'accessibility'}
-        <Group title={t('settings.uiSize')} note={t('settings.uiSizeHelp')}>
-          {@render segments(
-            'size',
-            t('settings.uiSize'),
-            UI_SIZES,
-            prefs.uiSize,
-            (size) => t(`settings.uiSize_${size}`),
-            (size) => (prefs.uiSize = size),
-          )}
+          {#each ['system', 'dark', 'light'] as const as mode (mode)}
+            <Row
+              label={t(`settings.mode_${mode}`)}
+              checked={prefs.mode === mode}
+              onclick={() => (prefs.mode = mode)}
+            />
+          {/each}
         </Group>
         <Group>
-          <Row
-            label={t('settings.dyslexicFont')}
-            on={prefs.dyslexicFont}
-            onclick={() => (prefs.dyslexicFont = !prefs.dyslexicFont)}
-          />
+          {@render row({
+            icon: 'palette',
+            label: t('settings.pureBlack'),
+            on: prefs.pureBlack,
+            run: () => (prefs.pureBlack = !prefs.pureBlack),
+          })}
+          {@render row({
+            icon: 'palette',
+            label: t('settings.warmLight'),
+            on: prefs.warmLight,
+            run: () => (prefs.warmLight = !prefs.warmLight),
+          })}
+        </Group>
+        <Group title={t('fonts.title')}>
+          <div class="inside fonts">
+            <FontPicker role="notes" />
+            <FontPicker role="code" />
+          </div>
+        </Group>
+        <Group title={t('settings.accent')}><AccentPicker row /></Group>
+      {:else if page === 'accessibility'}
+        <Group title={t('settings.uiSize')} note={t('settings.uiSizeHelp')}>
+          {#each UI_SIZES as size (size)}
+            <Row
+              label={t(`settings.uiSize_${size}`)}
+              checked={prefs.uiSize === size}
+              onclick={() => (prefs.uiSize = size)}
+            />
+          {/each}
+        </Group>
+        <Group>
+          {@render row({
+            icon: 'textStyle',
+            label: t('settings.dyslexicFont'),
+            on: prefs.dyslexicFont,
+            run: () => (prefs.dyslexicFont = !prefs.dyslexicFont),
+          })}
           {#if prefs.dyslexicFont && dyslexicStatus.loading}
             <p class="under" role="status">{t('settings.dyslexicFontLoading')}</p>
           {:else if prefs.dyslexicFont && dyslexicStatus.failed}
@@ -604,16 +594,18 @@
         </Group>
       {:else if page === 'editor'}
         <Group>
-          <Row
-            label={t('settings.autoLists')}
-            on={prefs.autoLists}
-            onclick={() => (prefs.autoLists = !prefs.autoLists)}
-          />
-          <Row
-            label={t('settings.emojiShortcodes')}
-            on={prefs.emojiShortcodes}
-            onclick={() => (prefs.emojiShortcodes = !prefs.emojiShortcodes)}
-          />
+          {@render row({
+            icon: 'list',
+            label: t('settings.autoLists'),
+            on: prefs.autoLists,
+            run: () => (prefs.autoLists = !prefs.autoLists),
+          })}
+          {@render row({
+            icon: 'emoji',
+            label: t('settings.emojiShortcodes'),
+            on: prefs.emojiShortcodes,
+            run: () => (prefs.emojiShortcodes = !prefs.emojiShortcodes),
+          })}
         </Group>
         <Group title={t('settings.arrow')} typed>
           <div class="inside"><ArrowPicker /></div>
@@ -729,7 +721,11 @@
         {/if}
         <Group>
           <ContactLine row />
-          <Row label={t('settings.credits')} opens onclick={() => (page = 'credits')} />
+          {@render row({
+            icon: 'info',
+            label: t('settings.credits'),
+            run: () => (page = 'credits'),
+          })}
         </Group>
       {:else if page === 'credits'}
         <CreditsList phone />
@@ -763,11 +759,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--space-3) 0 var(--space-2) var(--space-1);
+    padding: var(--space-4) 0 var(--space-3) var(--space-1);
   }
   h1 {
     margin: 0;
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 700;
   }
   .search {
@@ -776,7 +772,7 @@
     gap: var(--space-2);
     height: 44px;
     padding: 0 var(--space-3);
-    border-radius: 12px;
+    border-radius: var(--radius-popover);
     background: var(--color-surface-2);
     color: var(--color-text-muted);
   }
@@ -787,6 +783,48 @@
     outline: 0;
     background: transparent;
     color: var(--color-text);
+  }
+  .hero {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-popover);
+    background: var(--color-surface);
+  }
+  .hero .mark {
+    --knot-behind: var(--color-surface-2);
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-control);
+    background: var(--knot-behind);
+  }
+  :global(:root[data-black='true']) .hero .mark {
+    --knot-behind: transparent;
+  }
+  .hero > span {
+    display: grid;
+  }
+  .hero b {
+    font-size: 18px;
+  }
+  .hero span span {
+    color: var(--color-text-muted);
+    font-size: 14px;
+  }
+  /* pure black means black: what would be a shade of grey is an outline */
+  :global(:root[data-black='true']) .search,
+  :global(:root[data-black='true']) .hero,
+  :global(:root[data-black='true']) .screen :global(section.group > .panel),
+  :global(:root[data-black='true']) .screen :global(.settings-panel) {
+    border: 1px solid var(--color-border);
+    background: transparent;
+  }
+  :global(:root[data-black='true']) .tile {
+    background: transparent;
   }
   /* every page the same: groups one under the other, the same gap between */
   .groups {
@@ -816,7 +854,7 @@
   .screen :global(section.group > .panel),
   .screen :global(.settings-panel) {
     border: 0;
-    border-radius: 14px;
+    border-radius: var(--radius-popover);
     background: var(--color-surface);
   }
   .screen :global(section.group > h3) {
@@ -837,38 +875,21 @@
     margin: 0 var(--space-4);
   }
   .screen :global(.settings-row) {
-    min-height: 48px;
+    min-height: 52px;
     font-size: 16px;
   }
   .screen :global(.settings-row .help) {
     font-size: 13px;
   }
-  .screen :global(.field.compact) {
-    width: 170px;
-    min-height: 36px;
-    height: 36px;
-    padding-block: 0;
-    font-size: 14px;
-  }
-
-  .segments-row {
-    position: relative;
-    padding: var(--space-2) var(--space-3);
-  }
-  .segments {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-  }
-  .segments label {
-    display: grid;
-    place-items: center;
-    min-height: 40px;
-    padding: 0 var(--space-1);
-    text-align: center;
-  }
   .inside {
     padding: var(--space-3);
+  }
+  .inside.fonts {
+    display: grid;
+    gap: var(--space-3);
+  }
+  .inside.fonts :global(.font-picker) {
+    width: 100%;
   }
   .under {
     margin: 0;
@@ -886,7 +907,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    min-height: 48px;
+    min-height: 52px;
     padding: 0 var(--space-3);
     border: 0;
     background: none;
@@ -907,7 +928,7 @@
     content: '';
     position: absolute;
     top: 0;
-    left: calc(var(--space-3) * 2 + 28px);
+    left: calc(var(--space-3) * 2 + 30px);
     right: 0;
     border-top: 1px solid var(--color-border);
   }
@@ -921,12 +942,12 @@
     color: var(--color-text-faint);
   }
   .tile {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     flex: none;
     display: grid;
     place-items: center;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     /* one quiet tile for every row, the icon in the accent: the colour
        says "a setting", not which kind */
     background: var(--color-surface-2);

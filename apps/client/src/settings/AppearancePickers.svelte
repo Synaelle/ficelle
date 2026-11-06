@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Light or dark, accent, corners and fonts in the desktop settings, every
+<!-- Light or dark, accent and fonts in the desktop settings, every
      choice applies at once. Groups of rows like the phone's (ui/). The
      theme choice comes back with the themes page. -->
 <script lang="ts">
@@ -7,7 +7,6 @@
   import { prefs } from '../lib/prefs.svelte'
   import FontPicker from './FontPicker.svelte'
   import AccentPicker from './AccentPicker.svelte'
-  import CornersPicker from './CornersPicker.svelte'
   import LayoutPicker from './LayoutPicker.svelte'
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
@@ -39,10 +38,6 @@
 
 <Group title={t('settings.accent')}>
   <div class="inside"><AccentPicker /></div>
-</Group>
-
-<Group title={t('settings.corners')} note={t('settings.cornersHelp')}>
-  <div class="inside"><CornersPicker /></div>
 </Group>
 
 <!-- open, as on the phone; side by side when there is room -->

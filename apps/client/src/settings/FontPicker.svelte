@@ -15,10 +15,8 @@
   } from '../lib/fonts'
   import { t } from '../lib/i18n.svelte'
   import { prefs } from '../lib/prefs.svelte'
-  import Row from './ui/Row.svelte'
 
-  /** `row` puts it in a settings group, on the phone. */
-  let { role, row = false }: { role: FontRole; row?: boolean } = $props()
+  let { role }: { role: FontRole } = $props()
 
   let device: { family: string; monospaced: boolean }[] = $state([])
   let busy = $state(false)
@@ -59,15 +57,9 @@
   }
 </script>
 
-{#snippet picker(label?: string)}
-  <select
-    class="field"
-    class:compact={row}
-    aria-label={label}
-    disabled={busy}
-    {value}
-    onchange={(e) => void choose(e.currentTarget)}
-  >
+<label class="font-picker">
+  <span>{role === 'notes' ? t('fonts.notes') : t('fonts.code')}</span>
+  <select class="field" disabled={busy} {value} onchange={(e) => void choose(e.currentTarget)}>
     <option value="">{t('fonts.theme')}</option>
     {#each kinds as kind (kind)}
       <optgroup label={t(`fonts.kind.${kind}`)}>
@@ -84,29 +76,11 @@
       </optgroup>
     {/if}
   </select>
-{/snippet}
-
-{#snippet state()}
   {#if busy}<span class="status" role="status">{t('fonts.downloading')}</span>{/if}
   {#if error}<span class="error" role="alert">{error}</span>{/if}
-{/snippet}
-
-{#if row}
-  {@const name = role === 'notes' ? t('fonts.notes') : t('fonts.code')}
-  <Row label={name}>{@render picker(name)}</Row>
-  {#if busy || error}<div class="under">{@render state()}</div>{/if}
-{:else}
-  <label class="font-picker">
-    <span>{role === 'notes' ? t('fonts.notes') : t('fonts.code')}</span>
-    {@render picker()}
-    {@render state()}
-  </label>
-{/if}
+</label>
 
 <style>
-  .under {
-    padding: 0 var(--space-3) var(--space-2);
-  }
   .font-picker {
     display: grid;
     gap: var(--space-1);

@@ -164,7 +164,7 @@
   .logo {
     width: 24px;
     height: 24px;
-    border-radius: 6px;
+    border-radius: var(--radius-control);
   }
   .version {
     font-family: var(--font-mono);

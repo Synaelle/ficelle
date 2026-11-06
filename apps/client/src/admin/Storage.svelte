@@ -159,7 +159,7 @@
     height: 6px;
     margin-top: 4px;
     max-width: 220px;
-    border-radius: 999px;
+    border-radius: var(--radius-chip);
     background: var(--color-surface-2);
     overflow: hidden;
   }

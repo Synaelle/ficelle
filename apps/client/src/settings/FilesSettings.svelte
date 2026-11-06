@@ -112,7 +112,7 @@
     display: block;
     height: 6px;
     width: 140px;
-    border-radius: 999px;
+    border-radius: var(--radius-chip);
     background: var(--color-border);
     overflow: hidden;
   }

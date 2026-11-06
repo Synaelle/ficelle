@@ -947,6 +947,33 @@ async fn an_admin_sends_feedback_about_the_server_to_the_main_instance() {
     );
     assert!(events(&state).await.contains(&"feedback_sent".to_owned()));
 
+    // images go along, as many as an app may send and no more
+    let image = STANDARD.encode(crate::feedback::images::tests::png_of(32, 16));
+    let (status, answer) = call(
+        &app,
+        "POST",
+        "/admin/feedback/send",
+        Some(&admin),
+        Some(json!({ "about": "With a picture", "images": [image] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{answer}");
+    let pictures: i64 = main
+        .feedback
+        .call(|c| Ok(c.query_row("SELECT COUNT(*) FROM images", [], |r| r.get(0))?))
+        .await
+        .unwrap();
+    assert_eq!(pictures, 1);
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/admin/feedback/send",
+        Some(&admin),
+        Some(json!({ "about": "Too many", "images": [image, image, image, image] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
     // only an admin, with something to say it is about
     let (status, _) = call(&app, "POST", "/admin/feedback/send", None, Some(body)).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);

@@ -445,7 +445,7 @@
     display: inline-block;
     margin: 2px 4px 0 0;
     padding: 0 6px;
-    border-radius: 999px;
+    border-radius: var(--radius-chip);
     font-size: 12px;
     background: var(--color-surface-2);
   }

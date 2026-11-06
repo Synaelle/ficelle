@@ -156,7 +156,7 @@
     place-items: center;
     width: 20px;
     height: 20px;
-    border-radius: 999px;
+    border-radius: var(--radius-chip);
     background: var(--color-accent);
     color: var(--color-accent-on);
   }

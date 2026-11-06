@@ -3,7 +3,7 @@
 // before the vault is unlocked (theme of the unlock screen), so they live in
 // localStorage instead of the encrypted database.
 
-import type { Corners, ModePreference } from '@app/ui/theme'
+import type { ModePreference } from '@app/ui/theme'
 import { DEFAULT_THEME_ID } from '@app/ui/themes'
 import type { NoteSort, UpdateChannel } from './backend'
 import type { FontChoice } from './fonts'
@@ -35,8 +35,6 @@ export interface Prefs {
   shortcuts: Partial<Record<ActionId, string>>
   /** Size of text, buttons and spacing everywhere. */
   uiSize: UiSize
-  /** The theme's corners, or rounder ones everywhere. */
-  corners: Corners
   /** OpenDyslexic everywhere, whatever the theme's fonts. */
   dyslexicFont: boolean
   /** Desktop shortcut that opens the quick note window from any app, null is off. */
@@ -103,7 +101,6 @@ export const DEFAULT_PREFS: Prefs = {
   sort: 'updatedDesc',
   shortcuts: {},
   uiSize: 'medium',
-  corners: 'square',
   dyslexicFont: false,
   quickNoteShortcut: null,
   autoLists: true,

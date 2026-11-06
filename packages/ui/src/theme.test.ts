@@ -211,9 +211,12 @@ describe('themeToCssVars', () => {
 })
 
 describe('corners', () => {
-  it('keeps the theme radius when square', () => {
+  it('has one small corner everywhere when square', () => {
     const vars = themeToCssVars(darkroom, 'dark')
-    expect(vars['--radius-control']).toBe(`${darkroom.radius.control}px`)
+    const corner = `${darkroom.radius.control}px`
+    expect(vars['--radius-control']).toBe(corner)
+    expect(vars['--radius-popover']).toBe(corner)
+    expect(vars['--radius-window']).toBe(corner)
     expect(themeToCssVars(darkroom, 'dark', undefined, false, 'square')).toEqual(vars)
   })
 

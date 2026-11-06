@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- A newer version is downloaded: a card above the toasts, the knot tying
      itself beside the version, the button that installs it, what changed
-     behind "What's changed". "Later" waits for the next start, "Skip this
-     version" for the next version (never offered for a security fix). -->
+     behind "What's changed". "Later" offers waiting for the next start or
+     skipping this version for the next one (a security fix can only wait). -->
 <script lang="ts">
   import { ANDROID } from './platform'
   import { appUpdates, isFix } from './appUpdate.svelte'
@@ -10,9 +10,19 @@
   import Icon from './icons/Icon.svelte'
   import Knot from './Knot.svelte'
   import { t } from './i18n.svelte'
+  import { overlay } from './overlay.svelte'
 
   const phone = ANDROID
   let changes = $state(false)
+
+  function later(event: MouseEvent) {
+    const wait = () => (appUpdates.dismissed = true)
+    if (appUpdates.ready?.critical) return void wait()
+    overlay.openMenuBelow(event.currentTarget as HTMLElement, [
+      { label: t('appUpdate.laterStart'), icon: 'timer', run: wait },
+      { label: t('appUpdate.skip'), icon: 'close', run: () => appUpdates.skip() },
+    ])
+  }
 
   /** A new version (another middle number, or a beta) or a fix for this one,
    * downloaded or only out (`page`: the portable exe, sometimes the Mac app). */
@@ -55,11 +65,10 @@
     {/if}
     {#if appUpdates.error}<p class="error">{t(`errors.${appUpdates.error}`)}</p>{/if}
     <div class="actions">
-      {#if !appUpdates.ready.critical}
-        <button class="skip" onclick={() => appUpdates.skip()}>{t('appUpdate.skip')}</button>
-      {/if}
-      <button class="btn later" onclick={() => (appUpdates.dismissed = true)}
-        >{t('appUpdate.later')}</button
+      <button
+        class="btn later"
+        aria-haspopup={appUpdates.ready.critical ? undefined : 'menu'}
+        onclick={later}>{t('appUpdate.later')}</button
       >
       <button
         class="btn primary"
@@ -109,7 +118,7 @@
     place-items: center;
     width: 44px;
     height: 44px;
-    border-radius: 50%;
+    border-radius: var(--radius-chip);
     background: var(--badge);
   }
   .titles {
@@ -172,21 +181,6 @@
     align-items: center;
     gap: var(--space-2);
     justify-content: flex-end;
-  }
-  .skip {
-    margin-right: auto;
-    min-height: 28px;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    font: inherit;
-    font-size: 13px;
-  }
-  .skip:hover {
-    color: var(--color-text);
-    text-decoration: underline;
   }
   .btn {
     justify-content: center;

@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import java.io.File
 
@@ -146,6 +147,27 @@ class SystemInfo(private val activity: Activity) {
   fun setHidden(on: Boolean) {
     prefs(activity).edit().putBoolean(HIDDEN, on).apply()
     activity.runOnUiThread { applyHidden(activity) }
+  }
+
+  /**
+   * The page's background behind the status and navigation bars, which the
+   * content is padded away from, and icons that show on it.
+   */
+  @JavascriptInterface
+  fun setBars(color: String, light: Boolean) {
+    val parsed = try {
+      android.graphics.Color.parseColor(color)
+    } catch (_: IllegalArgumentException) {
+      return
+    }
+    activity.runOnUiThread {
+      val window = activity.window
+      window.decorView.setBackgroundColor(parsed)
+      WindowCompat.getInsetsController(window, window.decorView).apply {
+        isAppearanceLightStatusBars = light
+        isAppearanceLightNavigationBars = light
+      }
+    }
   }
 
   companion object {

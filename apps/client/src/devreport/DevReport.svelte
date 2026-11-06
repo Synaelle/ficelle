@@ -256,7 +256,7 @@
     z-index: 40;
     width: 32px;
     height: 32px;
-    border-radius: 50%;
+    border-radius: var(--radius-chip);
     display: grid;
     place-items: center;
     border: 1px solid var(--color-border-strong);

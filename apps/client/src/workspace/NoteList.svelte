@@ -229,7 +229,9 @@
       {/if}
     {/if}
     <div class="actions">
-      {#if (prefs.layout === 'lite' || narrow) && sync.status.state !== 'off'}
+      <!-- a phone's bar has room for the folder's name: sync only when it needs
+           a look, importing is in Settings -->
+      {#if narrow ? ['signedOut', 'offline', 'error'].includes(sync.status.state) : prefs.layout === 'lite' && sync.status.state !== 'off'}
         <button
           class="icon-btn"
           aria-label={t(`sync.state.${sync.status.state}`)}
@@ -269,17 +271,19 @@
           {/if}
         {/if}
       {:else}
-        <button class="icon-btn" aria-label={t('list.import')} onclick={() => fileInput?.click()}>
-          <Icon name="import" />
-        </button>
-        <input
-          bind:this={fileInput}
-          type="file"
-          accept=".md,.markdown,.mdown,.mkd,text/markdown"
-          multiple
-          hidden
-          onchange={(e) => importPicked(e.currentTarget)}
-        />
+        {#if !narrow}
+          <button class="icon-btn" aria-label={t('list.import')} onclick={() => fileInput?.click()}>
+            <Icon name="import" />
+          </button>
+          <input
+            bind:this={fileInput}
+            type="file"
+            accept=".md,.markdown,.mdown,.mkd,text/markdown"
+            multiple
+            hidden
+            onchange={(e) => importPicked(e.currentTarget)}
+          />
+        {/if}
         <button
           class="icon-btn new"
           aria-label={t('list.newNote')}

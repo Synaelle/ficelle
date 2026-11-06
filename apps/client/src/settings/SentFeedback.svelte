@@ -1,14 +1,14 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- The reports sent from here: what each was about, when, how it stands
+<!-- The reports sent from here, folded: what each was about, when, how it stands
      and the one answer it got. Each instance is asked with the secrets of
      its own reports only, and nothing else of this app goes with them. A
      report the instance no longer has reads as no longer kept. Settings
      groups, see app.css. -->
 <script lang="ts">
-  import { onMount } from 'svelte'
   import { backend, type FeedbackAnswer } from '../lib/backend'
   import { forgetSent, loadSent, type SentReport } from '../lib/feedback'
   import { t } from '../lib/i18n.svelte'
+  import Icon from '../lib/icons/Icon.svelte'
 
   let list: SentReport[] = $state(loadSent())
   /** By secret; a secret missing from a read instance is no longer kept. */
@@ -17,6 +17,9 @@
   let read: string[] = $state([])
   let unreached: string[] = $state([])
   let busy = $state(false)
+  let open = $state(false)
+  /** Asked once it is opened: a closed list sends nothing. */
+  let asked = false
 
   async function refresh() {
     busy = true
@@ -43,7 +46,13 @@
     busy = false
   }
 
-  onMount(() => void refresh())
+  function fold() {
+    open = !open
+    if (open && !asked) {
+      asked = true
+      void refresh()
+    }
+  }
 
   function forget(secret: string) {
     forgetSent(secret)
@@ -64,42 +73,78 @@
 {#if list.length}
   <div class="settings-group wide settings-panel" data-feedback-list aria-busy={busy}>
     <div class="line head">
-      <h3>{t('feedback.sentTitle')}</h3>
-      <button class="btn small" disabled={busy} onclick={() => void refresh()}
-        >{t('feedback.refresh')}</button
-      >
+      <h3>
+        <button class="fold" aria-expanded={open} onclick={fold}>
+          {t('feedback.sentTitle')} ({list.length})
+          <span class="chev" class:open><Icon name="down" size={14} /></span>
+        </button>
+      </h3>
+      {#if open}
+        <button class="btn small" disabled={busy} onclick={() => void refresh()}
+          >{t('feedback.refresh')}</button
+        >
+      {/if}
     </div>
-    <p class="settings-help">{t('feedback.sentHelp')}</p>
-    <ul>
-      {#each list as r (r.secret)}
-        {@const answer = answers[r.secret]}
-        <li data-feedback-sent-report>
-          <div class="line">
-            <span class="about">{r.about}</span>
-            <span class="state" data-state={answer?.state ?? ''}>{standing(r)}</span>
-          </div>
-          <div class="line">
-            <span class="settings-help">{when(r.sentAt)} · {r.host}</span>
-            <button class="btn small" onclick={() => forget(r.secret)}
-              >{t('feedback.forget')}</button
-            >
-          </div>
-          {#if answer?.answer}
-            <blockquote data-feedback-answer>
-              <span class="settings-help">{t('feedback.answer')}</span>
-              {answer.answer}
-            </blockquote>
-          {/if}
-        </li>
-      {/each}
-    </ul>
+    {#if open}
+      <p class="settings-help">{t('feedback.sentHelp')}</p>
+      <ul>
+        {#each list as r (r.secret)}
+          {@const answer = answers[r.secret]}
+          <li data-feedback-sent-report>
+            <div class="line">
+              <span class="about">{r.about}</span>
+              <span class="state" data-state={answer?.state ?? ''}>{standing(r)}</span>
+            </div>
+            <div class="line">
+              <span class="settings-help">{when(r.sentAt)} · {r.host}</span>
+              <button class="btn small" onclick={() => forget(r.secret)}
+                >{t('feedback.forget')}</button
+              >
+            </div>
+            {#if answer?.answer}
+              <blockquote data-feedback-answer>
+                <span class="settings-help">{t('feedback.answer')}</span>
+                {answer.answer}
+              </blockquote>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
   </div>
 {/if}
 
 <style>
+  [data-feedback-list] {
+    padding: var(--space-1) var(--space-3);
+  }
   h3 {
     margin: 0;
     font-size: 14px;
+  }
+  .fold {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: 32px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+  }
+  .chev {
+    display: inline-flex;
+    transition: transform 160ms ease;
+  }
+  .chev.open {
+    transform: rotate(180deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chev {
+      transition: none;
+    }
   }
   ul {
     display: grid;

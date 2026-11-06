@@ -34,6 +34,8 @@ declare global {
       /** The folder this phone's backups go to, made if needed. */
       backupFolder?(): string
       setHidden?(on: boolean): void
+      /** The colour behind the status and navigation bars, and their icons. */
+      setBars?(color: string, light: boolean): void
     }
   }
 }

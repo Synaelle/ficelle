@@ -65,6 +65,7 @@ restart = "Restart to update"
 changes = "What's changed"
 install = "Install"
 later = "Later"
+laterStart = "Remind me at the next start" # DRAFT
 skip = "Skip this version"
 restarting = "Restarting…"
 check = "Check for updates"
@@ -270,7 +271,7 @@ other = "{count} notes link here"
 title = "Settings"
 search = "Search settings"
 appearance = "Appearance"
-appearanceKeywords = "theme color colour accent dark light mode layout lite corners rounded round square shape warm paper"
+appearanceKeywords = "theme color colour accent dark light mode layout lite warm paper"
 language = "Language"
 languageKeywords = "language translation"
 languageSystem = "Same as the system"
@@ -329,10 +330,6 @@ mode_dark = "Dark"
 mode_light = "Light"
 pureBlack = "Pure black"
 warmLight = "Warm paper"
-corners = "Corners"
-corners_square = "Square"
-corners_round = "Rounded"
-cornersHelp = "Rounded softens buttons, menus and windows."
 accent = "Accent color"
 accentTheme = "Theme color"
 accent_ember = "Ember"
@@ -805,6 +802,9 @@ other = "Something went wrong, try again."
 groupLook = "Look and writing"
 groupPrivacy = "Privacy"
 dataBackups = "Data and backups"
+listsOn = "Lists on"
+listsOff = "Lists off"
+encrypted = "Encrypted, on this device"
 plain = "Not encrypted, on this device"
 groupPassword = "Password and recovery"
 keyCreated = "Created"
@@ -1822,6 +1822,8 @@ sendMessage = "What happened"
 sendContact = "Email or Discord name, to be answered (optional)"
 sendButton = "Send"
 sendDone = "Sent, thank you."
+pickAll = "Select all" # DRAFT
+pick = "Select {about}" # DRAFT
 title = "Feedback"
 status_new = "New"
 status_open = "Open"
@@ -1911,6 +1913,14 @@ unblock = "Lift"
 [admin.feedback.images]
 one = "{count} image"
 other = "{count} images"
+
+[admin.feedback.picked]
+one = "{count} selected" # DRAFT
+other = "{count} selected" # DRAFT
+
+[admin.feedback.deletePicked]
+one = "Delete this report and its images for good?" # DRAFT
+other = "Delete these {count} reports and their images for good?" # DRAFT
 
 [admin.feedback.fromSender]
 one = "{count} report from this sender"

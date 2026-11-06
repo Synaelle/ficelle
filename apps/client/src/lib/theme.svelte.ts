@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Applies the chosen theme, light or dark mode, accent and corners to the
+// Applies the chosen theme, light or dark mode and accent to the
 // page as css variables, plus the theme's own css. Mode follows the system unless the
 // user picked one, dark when the system has no preference. Themes the person
 // imported are kept by the app beside the vault (not in it: the lock screen
@@ -169,14 +169,7 @@ export function applyTheme({
     const mode = currentMode()
     const root = document.documentElement
     const accent = (prefs.systemAccent && systemAccent.color) || prefs.accent || undefined
-    const vars = themeToCssVars(
-      theme,
-      mode,
-      accent,
-      prefs.pureBlack,
-      prefs.corners,
-      prefs.warmLight,
-    )
+    const vars = themeToCssVars(theme, mode, accent, prefs.pureBlack, 'square', prefs.warmLight)
     // a chosen font goes first, the theme's stay behind it as fallbacks
     const notes = prefs.notesFont && familyOf(prefs.notesFont)
     const code = prefs.codeFont && familyOf(prefs.codeFont)
@@ -191,8 +184,9 @@ export function applyTheme({
     for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value)
     root.dataset.mode = mode
     root.dataset.theme = theme.id
-    // for what has no radius token: chips turn into pills (app.css)
-    root.dataset.corners = prefs.corners
+    // for what stays a shade of grey otherwise: phone settings go outlined
+    root.dataset.black = String(mode === 'dark' && prefs.pureBlack)
+    window.AppSystem?.setBars?.(vars['--color-bg'] ?? '', mode === 'light')
     root.style.colorScheme = mode
     themeStyle().textContent = theme.css ?? ''
   })

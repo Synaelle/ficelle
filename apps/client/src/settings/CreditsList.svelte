@@ -97,7 +97,7 @@
   }
   .phone ul {
     overflow: hidden;
-    border-radius: 14px;
+    border-radius: var(--radius-popover);
     background: var(--color-surface);
   }
   .phone li {

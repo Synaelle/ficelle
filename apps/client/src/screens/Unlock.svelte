@@ -349,7 +349,7 @@
     place-items: center;
     width: 120px;
     height: 120px;
-    border-radius: 50%;
+    border-radius: var(--radius-chip);
     background: var(--knot-behind);
   }
   .body,

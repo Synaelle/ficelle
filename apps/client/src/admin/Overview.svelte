@@ -311,7 +311,7 @@
     width: 38px;
     height: 22px;
     margin: 0;
-    border-radius: 11px;
+    border-radius: var(--radius-chip);
     background: var(--color-border);
     cursor: pointer;
     transition: background 0.15s;
@@ -323,7 +323,7 @@
     left: 3px;
     width: 16px;
     height: 16px;
-    border-radius: 50%;
+    border-radius: var(--radius-chip);
     background: var(--color-bg);
     transition: translate 0.15s;
   }

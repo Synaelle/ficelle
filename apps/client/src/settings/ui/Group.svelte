@@ -38,7 +38,7 @@
   .panel {
     overflow: hidden;
     border: 1px solid var(--color-border);
-    border-radius: calc(var(--radius-window) + 2px);
+    border-radius: var(--radius-window);
     background: var(--color-surface-2);
   }
   .note {

@@ -124,7 +124,7 @@
   .dot {
     width: 14px;
     height: 14px;
-    border-radius: 50%;
+    border-radius: var(--radius-chip);
     border: 2px solid var(--color-border-strong);
     transition:
       background var(--dur-fast) var(--ease-out),

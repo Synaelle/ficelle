@@ -625,7 +625,7 @@
     height: 22px;
     flex: none;
     place-items: center;
-    border-radius: 6px;
+    border-radius: var(--radius-control);
     background: var(--color-surface-2);
     color: var(--color-accent-text);
   }
