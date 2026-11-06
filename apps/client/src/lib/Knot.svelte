@@ -2,8 +2,8 @@
 <!-- The app's knot, drawn as a thread rather than a picture, so it can tie
      itself: `tie` draws the thread and pulls it tight (the notes locking),
      `untie` loosens and fades it (unlocking), `still` just shows it. The
-     system's "reduce motion" shows it still. The over-crossing is cut with
-     the colour behind it, `--knot-behind`. -->
+     system's "reduce motion" shows it still. The over-crossing is a real gap
+     in the thread, so the knot is transparent on any background. -->
 <script lang="ts">
   let {
     motion = 'still',
@@ -14,6 +14,7 @@
   const THREAD =
     'M40 340C140 340 210 320 260 250C300 195 320 130 280 110C240 90 195 120 205 175C215 230 280 300 340 325C390 345 430 340 472 340'
   const OVER = 'M224.2 222C239.8 247.8 262.9 273.4 288.3 293.6'
+  const gap = $props.id()
 </script>
 
 <svg
@@ -27,8 +28,11 @@
     if (e.animationName.endsWith('-done')) onend?.()
   }}
 >
-  <path class="thread" d={THREAD} pathLength="1" />
-  <path class="cut" d={OVER} />
+  <mask id={gap} maskUnits="userSpaceOnUse" x="-40" y="-70" width="592" height="592">
+    <rect x="-40" y="-70" width="592" height="592" fill="white" />
+    <path class="cut" d={OVER} />
+  </mask>
+  <g mask="url(#{gap})"><path class="thread" d={THREAD} pathLength="1" /></g>
   <path class="over" d={OVER} />
 </svg>
 
@@ -47,7 +51,7 @@
     stroke-width: 40;
   }
   .cut {
-    stroke: var(--knot-behind, var(--color-surface));
+    stroke: black;
     stroke-width: 84;
     stroke-linecap: butt;
   }

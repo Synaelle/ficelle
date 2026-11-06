@@ -112,7 +112,6 @@
     gap: var(--space-3);
   }
   .mark {
-    --knot-behind: var(--badge);
     display: grid;
     flex: none;
     place-items: center;

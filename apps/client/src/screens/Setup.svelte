@@ -298,7 +298,6 @@
     justify-items: center;
   }
   .logo {
-    --knot-behind: var(--color-surface);
     display: grid;
     justify-self: center;
   }

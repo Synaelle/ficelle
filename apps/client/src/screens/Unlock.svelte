@@ -343,14 +343,10 @@
     }
   }
   .mark {
-    /* the knot cuts its crossing with the colour behind it */
-    --knot-behind: color-mix(in srgb, var(--color-text) 6%, var(--color-surface));
     display: grid;
     place-items: center;
     width: 120px;
     height: 120px;
-    border-radius: var(--radius-chip);
-    background: var(--knot-behind);
   }
   .body,
   .password,
@@ -453,9 +449,6 @@
       background: none;
       border: 0;
       box-shadow: none;
-    }
-    .mark {
-      --knot-behind: color-mix(in srgb, var(--color-text) 6%, var(--color-bg));
     }
   }
   @media (prefers-reduced-motion: reduce) {
