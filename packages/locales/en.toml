@@ -35,7 +35,7 @@ cancelled = "Verification was cancelled."
 notAnExport = "This does not look like an export any importer can read."
 offline = "Not reachable, try again when online."
 update = "The update could not be checked or installed."
-testBuild = "Test build pretending to be a beta, so nothing is checked, downloaded or installed." # DRAFT
+testBuild = "Test build pretending to be a beta, so nothing is checked, downloaded or installed."
 
 [appUpdate]
 auto = "Update automatically"
@@ -55,28 +55,28 @@ criticalSkipConfirm = "Yes, don't update"
 ready = "Version {version} is ready"
 out = "Version {version} is out"
 cardTitle = "Version {version}"
-cardNewReady = "A new version, downloaded and ready" # DRAFT
-cardFixReady = "A fix for this version, downloaded and ready" # DRAFT
-cardNewOut = "A new version is out" # DRAFT
-cardFixOut = "A fix for this version is out" # DRAFT
+cardNewReady = "A new version, downloaded and ready"
+cardFixReady = "A fix for this version, downloaded and ready"
+cardNewOut = "A new version is out"
+cardFixOut = "A fix for this version is out"
 download = "Download"
 helpPortable = "This portable app does not update itself. It says when a new version is out and opens its download page."
 restart = "Restart to update"
 changes = "What's changed"
 install = "Install"
 later = "Later"
-laterStart = "Remind me at the next start" # DRAFT
+laterStart = "Remind me at the next start"
 skip = "Skip this version"
 restarting = "Restarting…"
 check = "Check for updates"
 checking = "Checking…"
 upToDate = "This is the latest version."
 title = "Updates"
-betaVersions = "Get beta versions" # DRAFT
-betaHelp = "Early versions of the next release. They may have bugs and breaking changes can happen, so keep backups." # DRAFT
+betaVersions = "Get beta versions"
+betaHelp = "Early versions of the next release. They may have bugs and breaking changes can happen, so keep backups."
 help = "New versions download on their own. Nothing changes until you restart into them."
 helpPhone = "New versions download on their own, then Android asks you to install them."
-channelWaiting = "This beta is newer than the latest stable version. Updates come again once Stable catches up." # DRAFT
+channelWaiting = "This beta is newer than the latest stable version. Updates come again once Stable catches up."
 
 [files]
 remove = "Remove the file"
@@ -141,7 +141,7 @@ quickPasswordHelp = "Nothing on this device can open your notes without it."
 upgradeTitle = "Choose a password"
 upgradeHelp = "Your notes opened without asking. From now on they need a password, or a quicker way in front of it."
 encryptTitle = "Encrypt your notes"
-encryptHelp = "Your notes get encrypted on this device, and from now on a password opens them. Encryption can't be turned off afterwards." # DRAFT
+encryptHelp = "Your notes get encrypted on this device, and from now on a password opens them. Encryption can't be turned off afterwards."
 
 [setup.tooShort]
 one = "Use at least {count} character."
@@ -202,8 +202,8 @@ empty = "No notes yet."
 trashEmpty = "The trash is empty."
 noResults = "Nothing found."
 restore = "Restore"
-restoreFolder = "Restore the folder {name} and its notes" # DRAFT
-trashedFolders = "Folders in the trash" # DRAFT
+restoreFolder = "Restore the folder {name} and its notes"
+trashedFolders = "Folders in the trash"
 purge = "Delete for good"
 emptyTrash = "Empty trash"
 confirmPurge = "Delete this note for good? This cannot be undone."
@@ -266,7 +266,7 @@ arrow = "Typing -> makes"
 arrowOff = "Off"
 openNoteFirst = "Keep the open note at the top of the list"
 appearance = "Appearance"
-appearanceKeywords = "dark black oled screen" # DRAFT
+appearanceKeywords = "dark black oled screen"
 accessibility = "Accessibility"
 accessibilityKeywords = "light dark contrast background size text buttons bigger smaller zoom scale read dyslexia dyslexic font typeface opendyslexic"
 dyslexicFont = "Use the OpenDyslexic font"
@@ -297,9 +297,9 @@ feedbackKeywords = "feedback bug report idea problem contact help"
 themeNotJson = "This file is not a theme, it is not JSON."
 themeInvalid = "This theme cannot be used:"
 pureBlack = "Pure black"
-pureBlackHelp = "For OLED screens. Only with the dark background." # DRAFT
-lightBackground = "Light background" # DRAFT
-lightBackgroundHelp = "For people who find light text on a dark background hard to read." # DRAFT
+pureBlackHelp = "For OLED screens. Only with the dark background."
+lightBackground = "Light background"
+lightBackgroundHelp = "For people who find light text on a dark background hard to read."
 pressKeys = "Press keys…"
 resetShortcuts = "Reset to defaults"
 noShortcut = "None"
@@ -336,8 +336,8 @@ serverProtocol = "Server's sync protocol"
 wayTitle = "Unlock"
 currentPasswordPrompt = "Enter your current password"
 encrypt = "Encrypt my notes"
-encryptNote = "Your notes are kept on this device without a password. Encrypt them if other people can reach this device or its files. Encryption can't be turned off afterwards." # DRAFT
-details = "Technical details" # DRAFT
+encryptNote = "Your notes are kept on this device without a password. Encrypt them if other people can reach this device or its files. Encryption can't be turned off afterwards."
+details = "Technical details"
 lockNow = "Lock now"
 encrypted = "Your notes are encrypted."
 
@@ -522,7 +522,7 @@ wrap_center = "Centered"
 wrap_full = "Full width"
 
 [beta]
-feedback = "Send feedback" # DRAFT
+feedback = "Send feedback"
 welcomeLabel = "Welcome to the beta"
 welcome = "Welcome to the beta. Thanks for testing what comes next, it may have bugs, so please report them with the feedback button at the bottom right."
 welcomePhone = "Welcome to the beta. Thanks for testing what comes next, it may have bugs, so please report them with the feedback button at the top of the notes list."
@@ -554,8 +554,8 @@ choose = "Choose a folder"
 default = "Use the default"
 screenshot = "Start each report with a screenshot"
 screenshotHelp = "Taken when the bug button is pressed, before the report window opens. Remove it from the report if it shows something private."
-pretendBeta = "Pretend this is a beta release" # DRAFT
-pretendBetaHelp = "Shows the beta welcome, the feedback button and the update settings, and lets you walk through switching channel. Nothing is ever checked, downloaded or installed. The app reloads when you change this." # DRAFT
+pretendBeta = "Pretend this is a beta release"
+pretendBetaHelp = "Shows the beta welcome, the feedback button and the update settings, and lets you walk through switching channel. Nothing is ever checked, downloaded or installed. The app reloads when you change this."
 
 [menu]
 open = "Open"
@@ -592,7 +592,7 @@ forgotTitle = "Use your recovery key"
 forgotHelp = "Type the recovery key you saved, then choose a new password. The recovery key keeps working."
 keyLabel = "Recovery key"
 wrongKey = "This recovery key does not open these notes."
-noneNow = "No recovery key. If you forget your password, a recovery key is the only way back to your notes." # DRAFT
+noneNow = "No recovery key. If you forget your password, a recovery key is the only way back to your notes."
 
 [conflict]
 title = "Compare the versions"
@@ -612,8 +612,8 @@ restore = "Restore it"
 conflicted = "Waits for a decision after a sync"
 
 [sync]
-localComing = "Sync directly between your own devices is coming in a next version." # DRAFT
-serverSection = "Sync server" # DRAFT
+localComing = "Sync directly between your own devices is coming in a next version."
+serverSection = "Sync server"
 serverDeprecated = "Server support is deprecated for now and only security fixes are delivered. It made development more complex than it had the right to be. If you don't like this decision, send feedback, I'm more than open to talk about it."
 intro = "Connect to a {appName} server to keep your notes the same on all your devices. Notes stay on this device too and work offline."
 address = "Address, like notes.example.org"
@@ -622,11 +622,11 @@ checking = "Checking…"
 signInTo = "Sign in to {server}"
 serverState = "Server"
 serverUp = "Answers"
-versions = "Versions" # DRAFT
-thisApp = "This app" # DRAFT
-versionLine = "{version}, protocol {protocol}" # DRAFT
-version_serverOlder = "The server runs an older version than this app. Sync still works, but both are best kept on the same version." # DRAFT
-version_serverNewer = "The server runs a newer version than this app. Sync still works, but both are best kept on the same version." # DRAFT
+versions = "Versions"
+thisApp = "This app"
+versionLine = "{version}, protocol {protocol}"
+version_serverOlder = "The server runs an older version than this app. Sync still works, but both are best kept on the same version."
+version_serverNewer = "The server runs a newer version than this app. Sync still works, but both are best kept on the same version."
 signUps = "Sign-ups"
 signUpsOpen = "Open to anyone"
 signUpsInvite = "With an invite"
@@ -1425,10 +1425,10 @@ keep_weekly = "Weeks kept"
 keep_monthly = "Months kept"
 title = "Backups"
 list = "Show the backups"
-help = "A copy of your notes and files in a folder, every day while the app is open: a USB key, or a OneDrive or Google Drive folder." # DRAFT
-auto = "Back up automatically" # DRAFT
-restoreTitle = "Restore" # DRAFT
-restoreFile = "Restore from a file" # DRAFT
+help = "A copy of your notes and files in a folder, every day while the app is open: a USB key, or a OneDrive or Google Drive folder."
+auto = "Back up automatically"
+restoreTitle = "Restore"
+restoreFile = "Restore from a file"
 failed = "The backup did not go through: {error}"
 overdue = "No backup went through for a while. See Settings, Data and backups."
 status = "Status"
@@ -1437,8 +1437,8 @@ running = "Backing up…"
 lastFailed = "The last backup failed: {error}"
 lastSuccess = "Last backup {when} ({date})."
 never = "No backup yet."
-backedUp = "Backed up {when}" # DRAFT
-failedTitle = "The last backup failed" # DRAFT
+backedUp = "Backed up {when}"
+failedTitle = "The last backup failed"
 now = "Back up now"
 check = "Check"
 checkFull = "Check every file"
@@ -1463,8 +1463,8 @@ setUp = "Set up backups"
 placeKind = "Back up to"
 folder = "Folder"
 chooseFolder = "Choose…"
-phoneFolder = "Backups go to this folder on the phone. Copy it to a computer now and then: it does not survive the phone itself." # DRAFT
-phoneHelp = "A copy of your notes and files on this phone, every day while the app is open." # DRAFT
+phoneFolder = "Backups go to this folder on the phone. Copy it to a computer now and then: it does not survive the phone itself."
+phoneHelp = "A copy of your notes and files on this phone, every day while the app is open."
 unchanged = "unchanged"
 repository = "Backup"
 new = "Start a new backup there"
@@ -1483,13 +1483,13 @@ connected = "Backups are set up, the first one is done."
 foundTitle = "Backups are already here"
 foundOpened = "The backups are open. Pick one to restore your notes from."
 restoreFrom = "Restore from a backup"
-phoneFolderRestore = "This phone keeps its backups in this folder." # DRAFT
-looking = "Looking in the folder…" # DRAFT
-noneHere = "No backups in this folder." # DRAFT
-foundStartHelp = "This folder holds backups from before. Keep backing up to them." # DRAFT
-useThem = "Use these backups" # DRAFT
-latestAsk = "Restore the latest backup, from {when}? It holds {notes}." # DRAFT
-latestRestore = "Restore it" # DRAFT
+phoneFolderRestore = "This phone keeps its backups in this folder."
+looking = "Looking in the folder…"
+noneHere = "No backups in this folder."
+foundStartHelp = "This folder holds backups from before. Keep backing up to them."
+useThem = "Use these backups"
+latestAsk = "Restore the latest backup, from {when}? It holds {notes}."
+latestRestore = "Restore it"
 sameAsNotes = "Use my notes password"
 notesPassword = "Your notes password"
 notesPasswordWrong = "That is not the password of your notes."
@@ -1564,28 +1564,28 @@ copied = "Copied"
 copyFailed = "Copying failed, select the text and copy it."
 
 [admin.onePerson]
-title = "Go to one person" # DRAFT
-pointer = "This server has several accounts. Servers for several people are no longer supported, they keep working but only get security fixes." # DRAFT
-help = "Choose the account to keep. It becomes this server's admin and the others are removed from the server, with everything it holds for them." # DRAFT
-choose = "Account to keep" # DRAFT
-seen = "last seen {date}" # DRAFT
-typeName = "Type {name} to confirm" # DRAFT
+title = "Go to one person"
+pointer = "This server has several accounts. Servers for several people are no longer supported, they keep working but only get security fixes."
+help = "Choose the account to keep. It becomes this server's admin and the others are removed from the server, with everything it holds for them."
+choose = "Account to keep"
+seen = "last seen {date}"
+typeName = "Type {name} to confirm"
 
 [admin.onePerson.notes]
-one = "about {count} note" # DRAFT
-other = "about {count} notes" # DRAFT
+one = "about {count} note"
+other = "about {count} notes"
 
 [admin.onePerson.devices]
-one = "{count} device" # DRAFT
-other = "{count} devices" # DRAFT
+one = "{count} device"
+other = "{count} devices"
 
 [admin.onePerson.warning]
-one = "{count} other account will be removed and {name} kept. This can't be undone. Their notes stay on their devices only once their apps are updated to this version, so ask them to update first, and to export anything they want to be sure of." # DRAFT
-other = "{count} other accounts will be removed and {name} kept. This can't be undone. Their notes stay on their devices only once their apps are updated to this version, so ask them to update first, and to export anything they want to be sure of." # DRAFT
+one = "{count} other account will be removed and {name} kept. This can't be undone. Their notes stay on their devices only once their apps are updated to this version, so ask them to update first, and to export anything they want to be sure of."
+other = "{count} other accounts will be removed and {name} kept. This can't be undone. Their notes stay on their devices only once their apps are updated to this version, so ask them to update first, and to export anything they want to be sure of."
 
 [admin.onePerson.submit]
-one = "Remove {count} other account" # DRAFT
-other = "Remove {count} other accounts" # DRAFT
+one = "Remove {count} other account"
+other = "Remove {count} other accounts"
 
 [admin.feedback]
 saveZip = "Save as zip"
@@ -1602,8 +1602,8 @@ sendMessage = "What happened"
 sendContact = "Email or Discord name, to be answered (optional)"
 sendButton = "Send"
 sendDone = "Sent, thank you."
-pickAll = "Select all" # DRAFT
-pick = "Select {about}" # DRAFT
+pickAll = "Select all"
+pick = "Select {about}"
 title = "Feedback"
 status_new = "New"
 status_open = "Open"
@@ -1695,12 +1695,12 @@ one = "{count} image"
 other = "{count} images"
 
 [admin.feedback.picked]
-one = "{count} selected" # DRAFT
-other = "{count} selected" # DRAFT
+one = "{count} selected"
+other = "{count} selected"
 
 [admin.feedback.deletePicked]
-one = "Delete this report and its images for good?" # DRAFT
-other = "Delete these {count} reports and their images for good?" # DRAFT
+one = "Delete this report and its images for good?"
+other = "Delete these {count} reports and their images for good?"
 
 [admin.feedback.fromSender]
 one = "{count} report from this sender"
@@ -1748,9 +1748,9 @@ backUp = "Back up and switch"
 skip = "Switch without a backup"
 backingUp = "Backing up…"
 failed = "The backup did not work, so nothing changed. Try again, or switch without a backup."
-failedTryAgain = "The backup did not work, so nothing changed. Try again." # DRAFT
-synced = "Your notes are also on your sync server." # DRAFT
-uploading = "Some changes are still uploading to your sync server, so make a backup to be safe." # DRAFT
+failedTryAgain = "The backup did not work, so nothing changed. Try again."
+synced = "Your notes are also on your sync server."
+uploading = "Some changes are still uploading to your sync server, so make a backup to be safe."
 
 [bigJump]
 message = "Version {version} is several versions ahead of {current}, a lot changes at once. Make a backup of your notes before updating?"
@@ -1758,24 +1758,24 @@ backUp = "Back up and update"
 skip = "Update without a backup"
 
 [backToStable]
-warning = "Going back installs an older version. Notes changed by this beta stay, but anything that needs the beta stops working." # DRAFT
-switch = "Switch anyway" # DRAFT
-wait = "Wait for Stable" # DRAFT
-schema = "This beta changed how notes are stored, and the stable version cannot read them yet. Going back has to wait for the next stable version." # DRAFT
-backupMessage = "Make a backup of your notes before going back?" # DRAFT
-backupKept = "On this phone backups go to Documents, in {folder}, and stay there when the app is uninstalled." # DRAFT
-backupLost = "On this Android version backups stay inside the app and are removed with it. Copy the backup somewhere else before you uninstall, or use sync." # DRAFT
-downloading = "Downloading version {version}…" # DRAFT
-failed = "The stable version could not be downloaded. Nothing changed, you are still on this beta." # DRAFT
-androidTitle = "Back to version {version}" # DRAFT
-androidSaved = "The stable version is saved in Downloads as {file}." # DRAFT
-androidNotSaved = "This Android version does not let the app save it to Downloads. Download version {version} for Android from the release page on GitHub." # DRAFT
-stepUninstall = "Uninstall {appName}. Your notes on this phone are removed with it." # DRAFT
-uninstall = "Uninstall {appName}" # DRAFT
-uninstallSure = "Did you make a backup, or are your notes on your sync server? Uninstalling removes them from this phone." # DRAFT
-stepInstall = "Open Downloads and install {file}." # DRAFT
-stepInstallDownloaded = "Install the stable version you downloaded." # DRAFT
-stepSignIn = "Open the new app and sign in to your sync server again. Your notes come back." # DRAFT
-stepRestore = "Open the new app and restore your backup from Documents, {folder}." # DRAFT
-stepRestoreCopied = "Open the new app and restore the backup you copied." # DRAFT
-later = "Later" # DRAFT
+warning = "Going back installs an older version. Notes changed by this beta stay, but anything that needs the beta stops working."
+switch = "Switch anyway"
+wait = "Wait for Stable"
+schema = "This beta changed how notes are stored, and the stable version cannot read them yet. Going back has to wait for the next stable version."
+backupMessage = "Make a backup of your notes before going back?"
+backupKept = "On this phone backups go to Documents, in {folder}, and stay there when the app is uninstalled."
+backupLost = "On this Android version backups stay inside the app and are removed with it. Copy the backup somewhere else before you uninstall, or use sync."
+downloading = "Downloading version {version}…"
+failed = "The stable version could not be downloaded. Nothing changed, you are still on this beta."
+androidTitle = "Back to version {version}"
+androidSaved = "The stable version is saved in Downloads as {file}."
+androidNotSaved = "This Android version does not let the app save it to Downloads. Download version {version} for Android from the release page on GitHub."
+stepUninstall = "Uninstall {appName}. Your notes on this phone are removed with it."
+uninstall = "Uninstall {appName}"
+uninstallSure = "Did you make a backup, or are your notes on your sync server? Uninstalling removes them from this phone."
+stepInstall = "Open Downloads and install {file}."
+stepInstallDownloaded = "Install the stable version you downloaded."
+stepSignIn = "Open the new app and sign in to your sync server again. Your notes come back."
+stepRestore = "Open the new app and restore your backup from Documents, {folder}."
+stepRestoreCopied = "Open the new app and restore the backup you copied."
+later = "Later"
