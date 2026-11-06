@@ -8,7 +8,7 @@ Ficelle has no analytics, no tracking and no crash reporting. Your notes stay on
 | ---------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Update check     | GitHub, the latest release's `latest.json`                      | Release builds, when the notes are unlocked, every few hours, and when the app comes back after a while |
 | Update download  | GitHub, the release files                                       | When a newer version is installed                                                                       |
-| Fonts            | ficelle.synaelle.com, or jsDelivr if it fails                   | Once per font, when you choose one the app does not carry                                               |
+| Fonts            | ficelle.synaelle.com, or jsDelivr if it fails                   | Once, when you turn on OpenDyslexic, which the app does not carry                                       |
 | Feedback         | ficelle.synaelle.com, or your sync server if its admin chose so | Only when you press Send                                                                                |
 | Feedback answers | The server that received your feedback                          | When you open Settings, Feedback, after sending one                                                     |
 
@@ -37,9 +37,9 @@ The server keeps a log of sign-ins, failures and account changes with the networ
 
 ## On your devices
 
-Notes and attachments are encrypted on the device. Settings (theme, language, layout) are kept unencrypted, they hold nothing about your notes. Warnings and errors stay in memory for feedback and are never written to disk.
+Notes and attachments are encrypted on the device once you turn on encryption in Settings, Security. New installs start without it. Settings (appearance, language) are kept unencrypted, they hold nothing about your notes. Warnings and errors stay in memory for feedback and are never written to disk.
 
-Backups are always encrypted, see [Backups](backups.md). **Save a copy** without a password makes an unencrypted file, and a Markdown export is always unencrypted.
+Backups are encrypted when your notes are, see [Backups](backups.md). A Markdown export is always unencrypted.
 
 ## What a server sends
 
