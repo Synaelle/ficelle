@@ -22,7 +22,6 @@
   import type { IconName } from '../lib/icons/sets'
   import PinPad from '../lib/PinPad.svelte'
   import { isBackendError } from '../lib/workspace.svelte'
-  import LookPicker from './LookPicker.svelte'
   import RecoveryKey from './RecoveryKey.svelte'
 
   let {
@@ -41,15 +40,14 @@
     cancel?: () => void
   } = $props()
 
-  type Step = 'kind' | 'look' | 'password' | 'quick' | 'pin' | 'recovery'
+  type Step = 'kind' | 'password' | 'quick' | 'pin' | 'recovery'
   // svelte-ignore state_referenced_locally
   let step: Step = $state(upgrade || encrypt ? 'password' : 'kind')
   /** Encrypted notes, or standard ones open to anyone using the device. */
   let encrypted = $state(true)
   $effect(() => {
     if (step === 'password' && cancel) return onBack(cancel)
-    if (step === 'look') return onBack(() => (step = 'kind'))
-    if (step === 'password' && !upgrade && !encrypt) return onBack(() => (step = 'look'))
+    if (step === 'password' && !upgrade && !encrypt) return onBack(() => (step = 'kind'))
     if (step === 'quick') return onBack(() => (step = 'password'))
     if (step === 'pin') return onBack(() => ((step = 'quick'), (firstPin = '')))
   })
@@ -98,12 +96,6 @@
   )
 
   function submitKind(event: SubmitEvent) {
-    event.preventDefault()
-    error = ''
-    step = 'look'
-  }
-
-  function submitLook(event: SubmitEvent) {
     event.preventDefault()
     error = ''
     if (encrypted) step = 'password'
@@ -237,21 +229,6 @@
         </div>
         <button class="btn primary big" type="submit">{t('setup.next')}</button>
       </form>
-    {:else if step === 'look'}
-      <form onsubmit={submitLook}>
-        <h1>{t('setup.lookTitle')}</h1>
-        <p class="muted center">{t('setup.lookHelp')}</p>
-        <LookPicker />
-        {#if error}<p class="error" role="alert">{error}</p>{/if}
-        <div class="actions">
-          <button class="btn" type="button" onclick={() => (step = 'kind')}
-            >{t('common.back')}</button
-          >
-          <button class="btn primary" type="submit" disabled={busy}
-            >{busy ? t('setup.working') : encrypted ? t('setup.next') : t('setup.start')}</button
-          >
-        </div>
-      </form>
     {:else if step === 'password'}
       <form onsubmit={submitPassword}>
         {#if encrypt}
@@ -298,7 +275,7 @@
           >
         {:else}
           <div class="actions">
-            <button class="btn" type="button" onclick={() => (cancel ? cancel() : (step = 'look'))}
+            <button class="btn" type="button" onclick={() => (cancel ? cancel() : (step = 'kind'))}
               >{t('common.back')}</button
             >
             <button class="btn primary" type="submit" disabled={!!problem}>{t('setup.next')}</button

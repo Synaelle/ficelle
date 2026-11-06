@@ -27,8 +27,6 @@ declare global {
       fontScale(): number
       /** Notes out of screenshots and the recent apps (FLAG_SECURE). */
       hidden?(): boolean
-      /** The system's accent as #RRGGBB, empty before Android 12. */
-      accentColor?(): string
       /** The phone shows a 24-hour clock. */
       clock24h?(): boolean
       /** The folder this phone's backups go to, made if needed. */

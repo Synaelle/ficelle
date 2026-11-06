@@ -48,8 +48,6 @@ export function createTauriBackend(): Backend {
     fontDownload: (id, files) => invoke('font_download', { id, files }),
     fontFiles: (id, files) => invoke('font_files', { id, files }),
     fontFile: (id, name) => invoke('font_file', { id, name }),
-    systemFonts: () => invoke('system_fonts'),
-    systemAccent: () => invoke('system_accent'),
     systemClock24h: () => invoke('system_clock_24h'),
     vaultCheckPassword: (password) => invoke('vault_check_password', { password }),
     vaultCreateRecovery: (password) => invoke('vault_create_recovery', { password }),
@@ -137,9 +135,6 @@ export function createTauriBackend(): Backend {
     importPut: (bytes) => invoke('import_put', bytes),
     importWrite: (id, batch) => invoke('import_write', { id, batch }),
     importClose: (id) => invoke('import_close', { id }),
-
-    themesList: () => invoke('themes_list'),
-    themeSave: (json) => invoke('theme_save', { json }),
 
     backupsGet: () => invoke('backups_get'),
     backupsFound: (target) => invoke('backups_found', { target }),

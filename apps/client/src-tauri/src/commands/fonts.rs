@@ -1,22 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Fonts for notes and code, over the theme's. A font from the app's list is
-//! downloaded once, when chosen, and kept beside the vault in `fonts/<id>/`:
-//! offline afterwards. It comes from the project's own host, which mirrors
-//! Fontsource's open font files (`FONTS_URL`), so no third party sees which
-//! font a device loads; from Fontsource on jsDelivr only when that fails.
-//! OpenDyslexic comes the same way when first needed, the app does not carry
-//! it (lib/fonts.ts). Only those two addresses are ever asked, with a font id and
-//! file names checked here, so the page cannot make the app fetch anything
-//! else.
-//! Fonts installed on the device are listed too, they need no download.
+//! OpenDyslexic, which the app does not carry (lib/fonts.ts): downloaded once,
+//! when first needed, and kept beside the vault in `fonts/<id>/`, offline
+//! afterwards. It comes from the project's own host, which mirrors Fontsource's
+//! open font files (`FONTS_URL`); from Fontsource on jsDelivr only when that
+//! fails. Only those two addresses are ever asked, with a font id and file names
+//! checked here, so the page cannot make the app fetch anything else.
 
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::OnceLock;
 use std::time::Duration;
 
-use serde::Serialize;
 use tauri::State;
 use tauri::ipc::Response;
 
@@ -219,51 +213,6 @@ pub async fn font_file(
     let path = folder(&state, &id)?.join(format!("{}.woff2", checked_file(&name)?));
     let bytes = std::fs::read(path).map_err(|e| CommandError::new("notFound", e.to_string()))?;
     Ok(Response::new(bytes))
-}
-
-/// A font family installed on the device.
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeviceFont {
-    family: String,
-    /// Every character the same width: fit for code.
-    monospaced: bool,
-}
-
-/// Font families installed on this device, by name. Read once, the list
-/// takes a moment to build.
-#[tauri::command]
-pub async fn system_fonts() -> CommandResult<Vec<DeviceFont>> {
-    static FAMILIES: OnceLock<Vec<DeviceFont>> = OnceLock::new();
-    if let Some(families) = FAMILIES.get() {
-        return Ok(families.clone());
-    }
-    let families = tauri::async_runtime::spawn_blocking(installed_families)
-        .await
-        .map_err(|e| CommandError::new("unknown", e.to_string()))?;
-    Ok(FAMILIES.get_or_init(|| families).clone())
-}
-
-fn installed_families() -> Vec<DeviceFont> {
-    let mut db = fontdb::Database::new();
-    #[cfg(target_os = "android")]
-    db.load_fonts_dir("/system/fonts");
-    #[cfg(not(target_os = "android"))]
-    db.load_system_fonts();
-    let mut families: Vec<DeviceFont> = db
-        .faces()
-        .filter_map(|face| {
-            face.families.first().map(|(name, _)| DeviceFont {
-                family: name.clone(),
-                monospaced: face.monospaced,
-            })
-        })
-        // Windows lists vertical writing fonts as "@Name", hidden fonts start with a dot
-        .filter(|font| !font.family.starts_with('@') && !font.family.starts_with('.'))
-        .collect();
-    families.sort_by_key(|font| font.family.to_lowercase());
-    families.dedup_by(|a, b| a.family == b.family);
-    families
 }
 
 #[cfg(test)]

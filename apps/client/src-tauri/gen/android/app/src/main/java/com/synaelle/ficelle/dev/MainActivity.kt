@@ -100,17 +100,6 @@ class SystemInfo(private val activity: Activity) {
   fun fontScale(): Float = activity.resources.configuration.fontScale
 
   /**
-   * The system's accent, from the wallpaper on Android 12 and later, as
-   * #RRGGBB; empty before that.
-   */
-  @JavascriptInterface
-  fun accentColor(): String {
-    if (Build.VERSION.SDK_INT < 31) return ""
-    val color = activity.getColor(android.R.color.system_accent1_500)
-    return String.format("#%06X", color and 0xFFFFFF)
-  }
-
-  /**
    * Where backups go on this phone, created if needed: "Ficelle backups" in
    * the shared Documents from Android 11 (no permission needed, a file
    * manager or a computer over USB sees it, it stays when the app goes),

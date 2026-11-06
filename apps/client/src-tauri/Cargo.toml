@@ -22,8 +22,6 @@ app-e2ee = { path = "../../../crates/e2ee" }
 app-protocol.workspace = true
 # the fingerprint plugin passes data as text, update signatures come as text
 base64 = "0.23.1"
-# names of the fonts installed on the device, for the note and code fonts
-fontdb = { version = "0.24.0", default-features = false, features = ["std", "fs"] }
 # checks the app files an update downloads, see commands/updates.rs
 minisign-verify = "0.3.0"
 serde.workspace = true
@@ -66,8 +64,6 @@ windows = { version = "0.62.2", features = [
   "Security_Credentials",
   "Security_Cryptography",
   "Storage_Streams",
-  "UI",
-  "UI_ViewManagement",
 ] }
 winsafe = { version = "0.0.29", features = ["user"] }
 

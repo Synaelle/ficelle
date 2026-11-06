@@ -1,5 +1,4 @@
 {
-  "$schema": "./theme.schema.json",
   "id": "darkroom",
   "name": "Ficelle",
   "description": "Default Ficelle look",
@@ -45,27 +44,13 @@
       "success": "#3D6B35",
       "warning": "#8A5A00",
       "selection": "#F5D5CE"
-    },
-    "warmLight": {
-      "bg": "#EAE4D9",
-      "surface": "#F4F0E8",
-      "surface2": "#DFD8CB",
-      "border": "#D0C7B8",
-      "borderStrong": "#A0958A",
-      "text": "#1A1714",
-      "textMuted": "#574F47",
-      "textFaint": "#837A6E",
-      "accent": "#B02518",
-      "accentText": "#A32216",
-      "accentPressed": "#8C1C12",
-      "accentOn": "#FFF4EC",
-      "danger": "#9A2E1A",
-      "success": "#36602F",
-      "warning": "#7A5000",
-      "selection": "#ECD6CA"
     }
   },
-  "radius": { "control": 2, "popover": 4, "window": 6 },
+  "radius": {
+    "control": 2,
+    "popover": 2,
+    "window": 2
+  },
   "space": [4, 8, 12, 16, 24, 32, 48],
   "motion": {
     "fast": 140,

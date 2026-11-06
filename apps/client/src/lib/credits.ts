@@ -66,12 +66,6 @@ export const CREDIT_GROUPS: CreditGroup[] = [
         license: 'MIT',
       },
       {
-        name: 'fontdb',
-        url: 'https://github.com/RazrFalcon/fontdb',
-        use: 'listing the fonts on the device',
-        license: 'MIT',
-      },
-      {
         name: 'windows',
         url: 'https://github.com/microsoft/windows-rs',
         use: 'Windows system features',

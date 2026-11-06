@@ -9,8 +9,8 @@
 // @font-face of the same name. Code gets OpenDyslexic Mono, so columns
 // still line up.
 //
-// OpenDyslexic itself is downloaded the first time the setting is on, like
-// a listed font (lib/fonts.ts), and kept on the device: the app does not
+// OpenDyslexic itself is downloaded the first time the setting is on
+// (lib/fonts.ts) and kept on the device: the app does not
 // carry it, to stay small. OpenDyslexic Mono, built for the app and small,
 // is bundled.
 

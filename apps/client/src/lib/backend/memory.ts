@@ -86,8 +86,6 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
   // imports: where each note came from, files stored before a batch, the
   // folders of the import being written
   const imported = new Map<string, Id>()
-  // imported themes by id, as their json
-  const themes = new Map<string, string>()
   const stored = new Map<string, Uint8Array>()
   let importRoot: Id | null = null
   const importFolders = new Map<string, Id>()
@@ -186,8 +184,6 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       if (!response.ok) throw { kind: 'notFound', message: `${id} has no ${name}` }
       return response.arrayBuffer()
     },
-    systemFonts: async () => [],
-    systemAccent: async () => null,
     systemClock24h: async () => null,
     appUpdateInstall: async () => {
       throw { kind: 'unsupported', message: 'updates need the app' }
@@ -215,7 +211,6 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       encrypted = false
       notes.clear()
       folders.clear()
-      themes.clear()
     },
     vaultChangePassword: async () => {},
 
@@ -583,16 +578,6 @@ ${input.key}`,
       return { notes: written, leftOut }
     },
     importClose: async () => {},
-
-    themesList: async () => [...themes.keys()].sort().map((id) => themes.get(id) as string),
-    themeSave: async (json) => {
-      const id = (JSON.parse(json) as { id?: unknown }).id
-      if (typeof id !== 'string' || !/^[a-z0-9-]{1,40}$/.test(id)) {
-        throw { kind: 'invalid', message: 'the theme has no valid id' }
-      }
-      themes.set(id, json)
-      return id
-    },
 
     sentFeedback,
     backupsGet: async () => structuredClone(backups),

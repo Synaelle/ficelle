@@ -23,7 +23,6 @@ Ficelle stands on the work of the projects below, with thanks. Each is listed wi
 - [highlight.js](https://highlightjs.org/), colors in code blocks. BSD-3-Clause.
 - [lowlight](https://github.com/wooorm/lowlight), code blocks in the editor. MIT.
 - [modern-screenshot](https://github.com/qq15725/modern-screenshot), the picture in an error report. MIT.
-- [fontdb](https://github.com/RazrFalcon/fontdb), listing the fonts on the device. MIT.
 - [windows](https://github.com/microsoft/windows-rs), Windows system features. MIT or Apache-2.0.
 - [winsafe](https://github.com/rodrigocfd/winsafe), Windows system features. MIT.
 - [serde and serde_json](https://serde.rs/), reading and writing data. MIT or Apache-2.0.

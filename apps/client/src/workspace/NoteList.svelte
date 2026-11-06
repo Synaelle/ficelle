@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Note list with search, sort and new note. In lite layout the title is a
+<!-- Note list with search, sort and new note. On a phone the title is a
      scope picker, since there is no sidebar. -->
 <script lang="ts">
   import { betaFeedback, isBeta, touchScreen } from '../lib/beta.svelte'
@@ -50,7 +50,7 @@
     return t('sidebar.allNotes')
   })
 
-  // lite layout: one select replaces the sidebar
+  // on a phone: one select replaces the sidebar
   const scopeValue = $derived(
     workspace.scope.kind === 'folder' || workspace.scope.kind === 'tag'
       ? `${workspace.scope.kind}:${workspace.scope.id}`
@@ -198,7 +198,7 @@
   style:width={narrow ? undefined : `${prefs.listWidth}px`}
 >
   <header>
-    {#if prefs.layout === 'lite' || narrow}
+    {#if narrow}
       <h1 class="visually-hidden">{title}</h1>
       <select
         class="scope"
@@ -231,7 +231,7 @@
     <div class="actions">
       <!-- a phone's bar has room for the folder's name: sync only when it needs
            a look, importing is in Settings -->
-      {#if narrow ? ['signedOut', 'offline', 'error'].includes(sync.status.state) : prefs.layout === 'lite' && sync.status.state !== 'off'}
+      {#if narrow && ['signedOut', 'offline', 'error'].includes(sync.status.state)}
         <button
           class="icon-btn"
           aria-label={t(`sync.state.${sync.status.state}`)}
@@ -251,7 +251,7 @@
           <Icon name="speech" />
         </button>
       {/if}
-      {#if prefs.layout === 'lite' || narrow}
+      {#if narrow}
         <button class="icon-btn" aria-label={t('sidebar.settings')} onclick={() => onsettings()}>
           <Icon name="settings" />
         </button>

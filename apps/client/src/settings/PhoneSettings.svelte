@@ -20,7 +20,6 @@
   import type { IconName } from '../lib/icons/sets'
   import { overlay, type MenuItem } from '../lib/overlay.svelte'
   import { prefs } from '../lib/prefs.svelte'
-  import AccentPicker from './AccentPicker.svelte'
   import ArrowPicker from './ArrowPicker.svelte'
   import BackupSettings from './BackupSettings.svelte'
   import FeedbackSettings from './FeedbackSettings.svelte'
@@ -34,7 +33,6 @@
   import { workspace } from '../lib/workspace.svelte'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
   import UpdateCheck from './UpdateCheck.svelte'
-  import FontPicker from './FontPicker.svelte'
   import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
   import { LOCK_CHOICES, lockLabel, ways, type SettingsState } from './settingsState.svelte'
@@ -138,7 +136,7 @@
       icon: 'palette',
       label: t('settings.appearance'),
       keywords: t('settings.appearanceKeywords'),
-      value: t(`settings.mode_${prefs.mode}`),
+      value: prefs.mode === 'dark' && prefs.pureBlack ? t('settings.pureBlack') : '',
       run: () => (page = 'appearance'),
     },
     {
@@ -337,10 +335,8 @@
   /** Settings inside the pages, found by their own name: the page they sit
    * on shows as the value, a tap opens it. */
   const inner: [IconName, string, Exclude<Page, 'home'>][] = [
+    ['eye', 'settings.lightBackground', 'accessibility'],
     ['palette', 'settings.pureBlack', 'appearance'],
-    ['palette', 'settings.warmLight', 'appearance'],
-    ['textStyle', 'fonts.title', 'appearance'],
-    ['palette', 'settings.accent', 'appearance'],
     ['textSize', 'settings.uiSize', 'accessibility'],
     ['textStyle', 'settings.dyslexicFont', 'accessibility'],
     ['list', 'settings.autoLists', 'editor'],
@@ -539,36 +535,15 @@
 
     <div class="groups page">
       {#if page === 'appearance'}
-        <Group title={t('settings.mode')}>
-          {#each ['system', 'dark', 'light'] as const as mode (mode)}
-            <Row
-              label={t(`settings.mode_${mode}`)}
-              checked={prefs.mode === mode}
-              onclick={() => (prefs.mode = mode)}
-            />
-          {/each}
-        </Group>
-        <Group>
+        <Group note={t('settings.pureBlackHelp')}>
           {@render row({
             icon: 'palette',
             label: t('settings.pureBlack'),
             on: prefs.pureBlack,
+            disabled: prefs.mode === 'light',
             run: () => (prefs.pureBlack = !prefs.pureBlack),
           })}
-          {@render row({
-            icon: 'palette',
-            label: t('settings.warmLight'),
-            on: prefs.warmLight,
-            run: () => (prefs.warmLight = !prefs.warmLight),
-          })}
         </Group>
-        <Group title={t('fonts.title')}>
-          <div class="inside fonts">
-            <FontPicker role="notes" />
-            <FontPicker role="code" />
-          </div>
-        </Group>
-        <Group title={t('settings.accent')}><AccentPicker row /></Group>
       {:else if page === 'accessibility'}
         <Group title={t('settings.uiSize')} note={t('settings.uiSizeHelp')}>
           {#each UI_SIZES as size (size)}
@@ -578,6 +553,14 @@
               onclick={() => (prefs.uiSize = size)}
             />
           {/each}
+        </Group>
+        <Group note={t('settings.lightBackgroundHelp')}>
+          {@render row({
+            icon: 'eye',
+            label: t('settings.lightBackground'),
+            on: prefs.mode === 'light',
+            run: () => (prefs.mode = prefs.mode === 'light' ? 'dark' : 'light'),
+          })}
         </Group>
         <Group>
           {@render row({
@@ -883,13 +866,6 @@
   }
   .inside {
     padding: var(--space-3);
-  }
-  .inside.fonts {
-    display: grid;
-    gap: var(--space-3);
-  }
-  .inside.fonts :global(.font-picker) {
-    width: 100%;
   }
   .under {
     margin: 0;

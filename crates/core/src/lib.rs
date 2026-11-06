@@ -44,7 +44,6 @@ pub mod store;
 pub mod sync;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
-pub mod themes;
 pub mod vault;
 
 pub use error::{Error, Result};

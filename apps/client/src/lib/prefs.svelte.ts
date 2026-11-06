@@ -3,31 +3,20 @@
 // before the vault is unlocked (theme of the unlock screen), so they live in
 // localStorage instead of the encrypted database.
 
-import type { ModePreference } from '@app/ui/theme'
-import { DEFAULT_THEME_ID } from '@app/ui/themes'
+import type { Mode } from '@app/ui/theme'
 import type { NoteSort, UpdateChannel } from './backend'
-import type { FontChoice } from './fonts'
 import { isLocale, type Locale } from './i18n.svelte'
 import { DEFAULT_SHORTCUTS, type ActionId } from './shortcuts'
 import type { UiSize } from './uiSize'
 
-export type Layout = 'lite' | 'standard'
+/** What a typed -> may become, the first leaves it as typed. */
+export const ARROW_CHOICES = ['', '→', '➔', '➞']
 
 export interface Prefs {
-  theme: string
-  mode: ModePreference
+  /** Dark, or the light background chosen in Accessibility. */
+  mode: Mode
   /** Dark mode on pure black, for OLED screens. */
   pureBlack: boolean
-  /** Light mode on the theme's warmer, softer paper (colors.warmLight). */
-  warmLight: boolean
-  /** Fonts for note text and code over the theme's, null keeps the theme's. */
-  notesFont: FontChoice | null
-  codeFont: FontChoice | null
-  /** User accent as #rrggbb, null keeps the theme accent. */
-  accent: string | null
-  /** The system's accent color, over `accent`, where the system has one. */
-  systemAccent: boolean
-  layout: Layout
   /** null follows the system language. */
   language: Locale | null
   sort: NoteSort
@@ -87,16 +76,8 @@ export interface Prefs {
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  theme: DEFAULT_THEME_ID,
-  // dark whatever the system says, the look Ficelle is made for; System is a choice
   mode: 'dark',
   pureBlack: false,
-  warmLight: false,
-  notesFont: null,
-  codeFont: null,
-  accent: null,
-  systemAccent: false,
-  layout: 'standard',
   language: null,
   sort: 'updatedDesc',
   shortcuts: {},
@@ -136,6 +117,9 @@ function load(): Prefs {
       : { ...DEFAULT_PREFS }
     // a language removed since it was chosen goes back to the system's, so English
     if (loaded.language !== null && !isLocale(loaded.language)) loaded.language = null
+    // from older versions: following the system is dark now, a custom arrow the default
+    if (loaded.mode !== 'light') loaded.mode = 'dark'
+    if (!ARROW_CHOICES.includes(loaded.arrow)) loaded.arrow = DEFAULT_PREFS.arrow
     return loaded
   } catch {
     // storage can be unavailable (private mode) or hold broken json

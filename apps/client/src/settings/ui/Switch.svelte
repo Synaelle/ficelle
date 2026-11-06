@@ -61,6 +61,10 @@
     background: var(--color-text);
     transition: transform var(--dur-fast) var(--ease-out);
   }
+  /* on the light background a black knob weighs more than the label beside it */
+  :global(:root[data-mode='light']) .switch:not(.on) i {
+    background: var(--color-surface);
+  }
   .switch.on {
     background: var(--color-accent);
   }

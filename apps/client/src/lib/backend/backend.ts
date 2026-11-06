@@ -87,10 +87,6 @@ export interface Backend {
   /** The files of a font this device has, of `files` or the usual eight. */
   fontFiles(id: string, files?: string[]): Promise<string[]>
   fontFile(id: string, name: string): Promise<ArrayBuffer>
-  /** Font families installed on the device. */
-  systemFonts(): Promise<{ family: string; monospaced: boolean }[]>
-  /** The system's accent color as #RRGGBB, null where it has none. */
-  systemAccent(): Promise<string | null>
   /** The system shows a 24-hour clock, `null` when it does not say. */
   systemClock24h(): Promise<boolean | null>
   /** Returns the new key to show once, any earlier key stops working. */
@@ -194,11 +190,6 @@ export interface Backend {
   importPut(bytes: Uint8Array): Promise<{ sha256: string; size: number }>
   importWrite(source: number | null, batch: ImportBatchInput): Promise<ImportWritten>
   importClose(source: number): Promise<void>
-
-  /** The themes imported on this device, each as its json text. */
-  themesList(): Promise<string[]>
-  /** Keeps a theme the page checked, returns its id. */
-  themeSave(json: string): Promise<string>
 
   /** Where a feedback report would go now. */
   feedbackWhere(): Promise<import('./types').FeedbackWhere>

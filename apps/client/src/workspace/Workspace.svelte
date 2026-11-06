@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Main screen. Standard: sidebar, list, note. Lite: list and note only.
+<!-- Main screen: sidebar, list, note.
      Narrow windows and phones show the list or the note, never both. -->
 <script lang="ts">
   import ShareDialog from './ShareDialog.svelte'
@@ -30,7 +30,7 @@
   let width = $state(window.innerWidth)
   let sidebarOpen = $state(true)
   let settingsOpen = $state(false)
-  let settingsSection: 'sync' | 'experimental' | undefined = $state()
+  let settingsSection: 'sync' | undefined = $state()
   function openSettings(section?: 'sync') {
     settingsSection = section
     settingsOpen = true
@@ -39,7 +39,7 @@
 
   const NARROW = 720
   const narrow = $derived(width < NARROW)
-  const showSidebar = $derived(prefs.layout === 'standard' && sidebarOpen && !narrow)
+  const showSidebar = $derived(sidebarOpen && !narrow)
   // the note keeps at least this much room when the list grows
   const NOTE_MIN = 360
   const listMax = $derived(Math.max(240, width - (showSidebar ? prefs.sidebarWidth : 0) - NOTE_MIN))
@@ -70,7 +70,6 @@
     newNote: () => void workspace.create(),
     search: () => (searchFocus += 1),
     toggleSidebar: () => (sidebarOpen = !sidebarOpen),
-    toggleLayout: () => (prefs.layout = prefs.layout === 'lite' ? 'standard' : 'lite'),
     pin: () =>
       workspace.current &&
       void workspace.togglePin(workspace.current.id, !workspace.current.pinned),
@@ -164,7 +163,7 @@
 
 <svelte:window bind:innerWidth={width} {onkeydown} />
 
-<main class="workspace" class:narrow class:lite={prefs.layout === 'lite'}>
+<main class="workspace" class:narrow>
   {#if showSidebar}
     <Sidebar onsettings={openSettings} {onlock} {lockable} />
     <Splitter

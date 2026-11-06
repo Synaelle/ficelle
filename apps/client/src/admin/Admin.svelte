@@ -29,7 +29,7 @@
   import SignIn from './SignIn.svelte'
 
   persistPrefs()
-  applyTheme({ imported: false, downloads: false })
+  applyTheme()
   $effect(() => setLocale(prefs.language ?? systemLocale()))
 
   /** A public page: a link from a mail, the recovery page, the privacy

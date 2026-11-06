@@ -22,8 +22,6 @@
   } from '../lib/quickNote'
   import { ACTIONS, bindingOf, displayBinding, type ActionId } from '../lib/shortcuts'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
-  import AppearancePickers from './AppearancePickers.svelte'
-  import LayoutPicker from './LayoutPicker.svelte'
   import ArrowPicker from './ArrowPicker.svelte'
   import BackupDialog from './BackupDialog.svelte'
   import ResetDialog from './ResetDialog.svelte'
@@ -45,11 +43,7 @@
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'
 
-  let {
-    close,
-    onlock,
-    start,
-  }: { close: () => void; onlock: () => void; start?: 'sync' | 'experimental' } = $props()
+  let { close, onlock, start }: { close: () => void; onlock: () => void; start?: 'sync' } = $props()
 
   type Section =
     | 'appearance'
@@ -62,7 +56,6 @@
     | 'data'
     | 'backups'
     | 'feedback'
-    | 'experimental'
     | 'testTools'
     | 'about'
   const SECTIONS: Section[] = [
@@ -76,7 +69,6 @@
     'data',
     'backups',
     'feedback',
-    'experimental',
     // dev and preview builds only
     ...(__APP_DEV_TOOLS__ ? (['testTools'] as const) : []),
     'about',
@@ -92,7 +84,6 @@
     data: 'database',
     backups: 'backup',
     feedback: 'feedback',
-    experimental: 'flask',
     testTools: 'log',
     about: 'info',
   }
@@ -183,7 +174,7 @@
     {settings}
     {close}
     {onlock}
-    start={start === 'sync' ? start : undefined}
+    {start}
     onimport={(ficelle) => (importing = ficelle ? 'ficelle' : 'other')}
     onbackup={(mode) => (backingUp = mode)}
     onreset={() => (resetting = true)}
@@ -224,7 +215,15 @@
 
         <div class="settings-body">
           {#if section === 'appearance'}
-            <AppearancePickers layout={false} />
+            <Group>
+              <Row label={t('settings.pureBlack')} help={t('settings.pureBlackHelp')}>
+                <Switch
+                  label={t('settings.pureBlack')}
+                  disabled={prefs.mode === 'light'}
+                  bind:checked={prefs.pureBlack}
+                />
+              </Row>
+            </Group>
           {:else if section === 'accessibility'}
             <Group
               note={prefs.dyslexicFont && dyslexicStatus.loading
@@ -233,6 +232,13 @@
             >
               <Row label={t('settings.uiSize')} help={t('settings.uiSizeHelp')}>
                 <SizePicker />
+              </Row>
+              <Row label={t('settings.lightBackground')} help={t('settings.lightBackgroundHelp')}>
+                <Switch
+                  label={t('settings.lightBackground')}
+                  checked={prefs.mode === 'light'}
+                  onchange={(on) => (prefs.mode = on ? 'light' : 'dark')}
+                />
               </Row>
               <Row label={t('settings.dyslexicFont')}>
                 <Switch label={t('settings.dyslexicFont')} bind:checked={prefs.dyslexicFont} />
@@ -511,9 +517,6 @@
                 >
               </Row>
             </Group>
-          {:else if section === 'experimental'}
-            <p class="settings-help">{t('settings.experimentalHelp')}</p>
-            <LayoutPicker />
           {:else if section === 'testTools'}
             <TestTools />
           {:else if section === 'feedback'}

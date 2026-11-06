@@ -114,7 +114,7 @@
       `Version: ${__APP_VERSION__}, built ${__APP_BUILD_DATE__}`,
       `Platform: ${navigator.userAgent}`,
       `Window: ${w}x${h} at ${ratio}x`,
-      `Display: ${prefs.layout} layout, ${prefs.theme} theme, ${prefs.mode} mode, accent ${prefs.accent ?? 'theme'}, language ${prefs.language ?? 'system'}`,
+      `Display: ${prefs.mode}${prefs.pureBlack ? ', pure black' : ''}`,
       `Screen: ${workspace.current ? 'a note is open' : 'no note open'}, scope ${workspace.scope.kind}`,
     ]
   }
