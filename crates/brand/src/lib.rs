@@ -3,11 +3,11 @@
 
 //! Product names and identifiers shared by every rust crate.
 //!
-//! Release and preview builds (`APP_RELEASE=1`, `APP_PREVIEW=1`) use the
-//! real identity. Every other build uses the dev identity so it installs next
-//! to the real app with its own data.
+//! Release builds (`APP_RELEASE=1`) use the real identity. Previews
+//! (`APP_PREVIEW=1`) and every other build use identities of their own, so
+//! they install next to the real app with their own data.
 
-#[cfg(app_release)]
+#[cfg(all(app_release, not(app_preview)))]
 mod identity {
     //! Release identity.
 
@@ -17,6 +17,18 @@ mod identity {
     pub const SLUG: &str = "ficelle";
     /// Reverse domain app identifier (bundle id, package name).
     pub const IDENTIFIER: &str = "com.synaelle.ficelle";
+}
+
+#[cfg(app_preview)]
+mod identity {
+    //! Preview identity.
+
+    /// Name shown to users.
+    pub const DISPLAY_NAME: &str = "Ficelle Preview";
+    /// Lowercase name used for folders, files and binaries.
+    pub const SLUG: &str = "ficelle-preview";
+    /// Reverse domain app identifier (bundle id, package name).
+    pub const IDENTIFIER: &str = "com.synaelle.ficelle.preview";
 }
 
 #[cfg(not(app_release))]

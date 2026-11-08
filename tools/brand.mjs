@@ -86,11 +86,13 @@ const rust = `// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Product names and identifiers shared by every rust crate.
 //!
-//! Release and preview builds (\`APP_RELEASE=1\`, \`APP_PREVIEW=1\`) use the
-//! real identity. Every other build uses the dev identity so it installs next
-//! to the real app with its own data.
+//! Release builds (\`APP_RELEASE=1\`) use the real identity. Previews
+//! (\`APP_PREVIEW=1\`) and every other build use identities of their own, so
+//! they install next to the real app with their own data.
 
-${identity(brand, 'app_release', 'Release')}
+${identity(brand, 'all(app_release, not(app_preview))', 'Release')}
+
+${identity(brand.preview, 'app_preview', 'Preview')}
 
 ${identity(brand.dev, 'not(app_release)', 'Dev')}
 
@@ -451,6 +453,20 @@ const targets = [
         ),
       }
       conf.plugins = { updater: { pubkey: brand.appUpdatesKey } }
+      return toJson(conf)
+    },
+  ],
+  [
+    // preview overlay, merged after the release one: its own name, id and
+    // data, and its yellow knot
+    'apps/client/src-tauri/tauri.preview.conf.json',
+    (current) => {
+      const base = JSON.parse(readFileSync(join(root, tauriConf), 'utf8'))
+      const conf = tauriIdentity(
+        { app: { windows: base.app.windows } },
+        { ...brand, ...brand.preview },
+      )
+      conf.bundle = { icon: JSON.parse(current || '{}').bundle?.icon ?? [] }
       return toJson(conf)
     },
   ],

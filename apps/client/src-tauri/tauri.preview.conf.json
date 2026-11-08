@@ -1,4 +1,19 @@
 {
+  "app": {
+    "windows": [
+      {
+        "title": "Ficelle Preview",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 400,
+        "minHeight": 480,
+        "dragDropEnabled": false
+      }
+    ]
+  },
+  "productName": "Ficelle Preview",
+  "mainBinaryName": "ficelle-preview",
+  "identifier": "com.synaelle.ficelle.preview",
   "bundle": {
     "icon": [
       "icons-preview/32x32.png",

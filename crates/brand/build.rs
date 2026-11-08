@@ -4,9 +4,9 @@
 //! identity. tools/version.mjs mirrors this logic for the ui, keep both in sync.
 //!
 //! - `APP_RELEASE=1`: the workspace version, release identity.
-//! - `APP_PREVIEW=1`: `preview-{version}-{commit}`, release identity, for a
-//!   build used day to day before the next release; the version is the
-//!   release it is based on.
+//! - `APP_PREVIEW=1`: `preview-{version}-{commit}`, the preview identity (its
+//!   own name, id and data), for trying a build before the next release; the
+//!   version is the release it is based on.
 //! - `CI` set: `dev-{commit}`, dev identity, never dirty.
 //! - otherwise: `dev-{commit}`, plus `-dirty` when the tree has local changes.
 //!
@@ -24,6 +24,7 @@ fn main() {
     watch(&root);
 
     println!("cargo:rustc-check-cfg=cfg(app_release)");
+    println!("cargo:rustc-check-cfg=cfg(app_preview)");
     let release = std::env::var("APP_RELEASE").as_deref() == Ok("1");
     let preview = std::env::var("APP_PREVIEW").as_deref() == Ok("1");
     let commit = given("APP_COMMIT")
@@ -38,6 +39,10 @@ fn main() {
 
     if release || preview {
         println!("cargo:rustc-cfg=app_release");
+    }
+    // its own identity, next to the release
+    if preview && !release {
+        println!("cargo:rustc-cfg=app_preview");
     }
     let version = if release {
         env!("CARGO_PKG_VERSION").to_owned()

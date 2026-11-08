@@ -21,5 +21,10 @@
     "displayName": "Ficelle Dev",
     "slug": "ficelle-dev",
     "identifier": "com.synaelle.ficelle.dev"
+  },
+  "preview": {
+    "displayName": "Ficelle Preview",
+    "slug": "ficelle-preview",
+    "identifier": "com.synaelle.ficelle.preview"
   }
 }

@@ -28,6 +28,8 @@ export default defineConfig({
     __APP_BUILD_DATE__: JSON.stringify(buildDate()),
     __APP_PROTOCOL__: JSON.stringify(protocolVersion()),
     __APP_RELEASE__: JSON.stringify(hasReleaseIdentity()),
+    // a preview has its own name, id and data, see packages/brand
+    __APP_PREVIEW__: JSON.stringify(process.env.APP_PREVIEW === '1'),
     // the portable Windows exe, see src-tauri/src/portable.rs
     __APP_PORTABLE__: JSON.stringify(!!process.env.APP_PORTABLE),
     // temporary issue reports outside releases
