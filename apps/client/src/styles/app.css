@@ -59,6 +59,39 @@ body {
   background: var(--color-selection);
 }
 
+/* Linux: drawn by the page instead of GTK's overlay scrollbars. On Wayland a
+   GTK scrollbar that was hovered stays painted above anything opened over
+   its list, a dialog included; one drawn by the page sits under it */
+:root[data-platform='linux'] ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+}
+/* WebKitGTK gives scrollbar parts no :hover or :active: lib/scrollbars.ts
+   marks the element whose bar is under the pointer instead. The track shows
+   there, so the bar reads as something to grab */
+:root[data-platform='linux'] [data-bar]::-webkit-scrollbar-track {
+  background: var(--color-surface-2);
+}
+:root[data-platform='linux'] ::-webkit-scrollbar-thumb {
+  background: var(--color-text-faint);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: var(--radius-control);
+}
+/* wider and lighter under the pointer, the accent while held */
+:root[data-platform='linux'] [data-bar='hover']::-webkit-scrollbar-thumb {
+  border-width: 2px;
+  background-color: var(--color-text-muted);
+}
+:root[data-platform='linux'] [data-bar='held']::-webkit-scrollbar-thumb {
+  border-width: 2px;
+  background-color: var(--color-accent);
+}
+:root[data-platform='linux'] ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 button,
 input,
 select,

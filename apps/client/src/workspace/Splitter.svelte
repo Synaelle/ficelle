@@ -60,7 +60,9 @@
     position: relative;
     z-index: 5;
     width: 8px;
-    margin: 0 -4px;
+    /* entirely over the pane on its right: half over the left pane, it took
+       the clicks meant for that pane's scrollbar, which sits at its edge */
+    margin: 0 -8px 0 0;
     flex: none;
     cursor: col-resize;
     touch-action: none;
@@ -68,7 +70,9 @@
   .splitter::after {
     content: '';
     position: absolute;
-    inset: 0 3px;
+    /* the line on the panes' border, where it was before */
+    inset: 0 auto 0 0;
+    width: 2px;
     transition: background var(--dur-fast) var(--ease-out);
   }
   .splitter:focus-visible::after,
@@ -82,5 +86,10 @@
   }
   .splitter:focus-visible {
     outline: none;
+  }
+  /* a scrollbar beside it is being dragged (lib/scrollbars.ts): the pointer
+     passing over is not for the divider */
+  :global(:root[data-bar-held]) .splitter:not(.dragging) {
+    pointer-events: none;
   }
 </style>
