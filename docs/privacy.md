@@ -30,8 +30,8 @@ Sync only talks to the server you sign in to. That server sees your username, yo
 
 What it can read depends on the account.
 
-- **Standard account.** Notes and files are encrypted on the server's disk, but the server holds the key. Whoever runs the server can read them.
-- **End-to-end encrypted account.** Notes, titles, folders, tags and files are encrypted on your device. The server cannot read them. It still sees how many notes and files there are, their sizes and when they change. Your password never reaches it.
+- With a standard account, notes and files are encrypted on the server's disk, but the server holds the key. Whoever runs the server can read them.
+- With an end-to-end encrypted account, notes, titles, folders, tags and files are encrypted on your device. The server cannot read them. It still sees how many notes and files there are, their sizes and when they change. Your password never reaches it.
 
 The server keeps a log of sign-ins, failures and account changes with the network address, 365 days by default. It keeps no log of other requests. Each admin can change these lengths, see their server's privacy page.
 
@@ -43,7 +43,7 @@ Backups are encrypted when your notes are, see [Backups](backups.md). A Markdown
 
 ## What a server sends
 
-- **Update check.** It reads ficelle.synaelle.com's `releases.json` once a day, with no version or details. The admin can turn it off.
-- **Mail.** Confirmations, sign-in codes and password notices go through the admin's mail server, only if one is set up.
-- **Single sign-on.** If it is set up, the chosen provider learns you signed in.
-- **Server issues.** An admin can send a report to ficelle.synaelle.com from the admin page, with the server's version and address.
+- Once a day it reads ficelle.synaelle.com's `releases.json` to check for updates, with no version or details. The admin can turn it off.
+- Confirmations, sign-in codes and password notices go out through the admin's mail server, only if one is set up.
+- With single sign-on set up, the chosen provider learns you signed in.
+- An admin can report a server issue to ficelle.synaelle.com from the admin page, which sends the server's version and address.

@@ -18,10 +18,10 @@
 
 ## What it does
 
-- **Write in Markdown**, formatted as you type, with tables, task lists, code, images and attachments.
-- **Keep it private**, notes can be encrypted on your device, and synced end-to-end encrypted. No analytics, see [Privacy](docs/privacy.md).
-- **Sync your devices** through a server you host yourself, or keep everything on one device.
-- **Undo anything**, every note keeps its earlier versions.
+- Write in Markdown, formatted as you type, with tables, task lists, code, images and attachments.
+- Keep your notes private. They can be encrypted on your device and synced end-to-end encrypted. No analytics, see [Privacy](docs/privacy.md).
+- Sync your devices through a server you host yourself, or keep everything on one device.
+- Undo anything, every note keeps its earlier versions.
 
 ## Download
 
