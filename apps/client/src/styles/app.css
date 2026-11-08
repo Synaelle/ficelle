@@ -55,8 +55,13 @@ body {
   filter: grayscale(1);
 }
 
+/* the accent, see-through: WebKitGTK repaints an opaque selection colour,
+   and a dark one came out almost black */
 ::selection {
-  background: var(--color-selection);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+:root[data-mode='light'] ::selection {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 /* Linux: drawn by the page instead of GTK's overlay scrollbars. On Wayland a
