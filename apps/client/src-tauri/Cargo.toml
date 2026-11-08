@@ -45,6 +45,12 @@ tauri-plugin-haptics = "2.4.2"
 [target.'cfg(not(target_os = "android"))'.dependencies]
 tauri-plugin-global-shortcut = "2.4.1"
 
+# Linux: GTK's program name is the app id Wayland compositors match a window's
+# icon by, and the AppImage writes its icon as a PNG
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18.2"
+png = "0.18.1"
+
 # Windows Hello unlock goes through WinRT, the official bindings with only
 # the credential and buffer APIs enabled; winsafe (safe Win32 calls) brings
 # its prompt forward

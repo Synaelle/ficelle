@@ -10,6 +10,8 @@ mod commands;
 mod error;
 #[cfg(windows)]
 mod hello;
+#[cfg(target_os = "linux")]
+mod linux_desktop;
 mod picked;
 mod portable;
 mod protocol;
@@ -49,6 +51,13 @@ fn webview_memory(window: &tauri::Window, event: &tauri::WindowEvent) {
     reason = "the list of every command, read top to bottom"
 )]
 pub fn run() {
+    let context = tauri::generate_context!();
+    // before any window: the desktop looks the window's icon up when it maps
+    #[cfg(target_os = "linux")]
+    {
+        linux_desktop::set_app_id();
+        linux_desktop::integrate(context.default_window_icon());
+    }
     let builder = tauri::Builder::default();
     #[cfg(target_os = "android")]
     let builder = builder
@@ -209,6 +218,6 @@ pub fn run() {
             sync::commands::sync_viewing,
             sync::commands::sync_disconnect,
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("failed to start the app");
 }
