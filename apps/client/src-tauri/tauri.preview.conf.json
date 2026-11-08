@@ -21,6 +21,11 @@
       "icons-preview/128x128@2x.png",
       "icons-preview/icon.icns",
       "icons-preview/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/ficelle-preview.desktop"
+      }
+    }
   }
 }

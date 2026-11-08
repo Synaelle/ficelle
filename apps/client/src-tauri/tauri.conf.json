@@ -34,6 +34,11 @@
       "icons-dev/128x128@2x.png",
       "icons-dev/icon.icns",
       "icons-dev/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/ficelle-dev.desktop"
+      }
+    }
   }
 }

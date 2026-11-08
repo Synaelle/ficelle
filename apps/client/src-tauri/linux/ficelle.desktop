@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name={{name}}
+Exec={{exec}}
+Icon={{icon}}
+StartupWMClass=com.synaelle.ficelle
+Terminal=false
+Categories=Office;Utility;

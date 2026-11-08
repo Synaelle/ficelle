@@ -166,6 +166,27 @@ function tauriIdentity(conf, values) {
   return conf
 }
 
+/**
+ * The desktop entry the Linux bundles carry. Its window class is the app id,
+ * which the app sets as its program name (src-tauri/src/linux_desktop.rs), so
+ * a desktop matches the window to this entry and its icon.
+ * @param {{ identifier: string }} values
+ */
+const desktopEntry = (values) => `[Desktop Entry]
+Type=Application
+Name={{name}}
+Exec={{exec}}
+Icon={{icon}}
+StartupWMClass=${values.identifier}
+Terminal=false
+Categories=Office;Utility;
+`
+
+/** @param {{ slug: string }} values */
+const linuxBundle = (values) => ({
+  linux: { deb: { desktopTemplate: `linux/${values.slug}.desktop` } },
+})
+
 /** @param {unknown} value */
 const toJson = (value) => JSON.stringify(value, null, 2) + '\n'
 
@@ -432,7 +453,21 @@ const targets = [
   ['crates/brand/src/lib.rs', () => rust],
   // the base config carries the dev identity so a plain tauri build never
   // overwrites an installed release
-  [tauriConf, (current) => toJson(tauriIdentity(JSON.parse(current), brand.dev))],
+  [
+    tauriConf,
+    (current) => {
+      const conf = tauriIdentity(JSON.parse(current), brand.dev)
+      conf.bundle = { ...conf.bundle, ...linuxBundle(brand.dev) }
+      return toJson(conf)
+    },
+  ],
+  ...[brand.dev, brand, brand.preview].map(
+    (values) =>
+      /** @type {[string, () => string]} */ ([
+        `apps/client/src-tauri/linux/${values.slug}.desktop`,
+        () => desktopEntry(values),
+      ]),
+  ),
   [
     // release overlay, merged by tauri with --config. Merging replaces arrays
     // whole, so the full window list is copied from the base config.
@@ -451,6 +486,7 @@ const targets = [
         icon: ['32x32.png', '128x128.png', '128x128@2x.png', 'icon.icns', 'icon.ico'].map(
           (file) => `icons/${file}`,
         ),
+        ...linuxBundle(brand),
       }
       conf.plugins = { updater: { pubkey: brand.appUpdatesKey } }
       return toJson(conf)
@@ -466,7 +502,10 @@ const targets = [
         { app: { windows: base.app.windows } },
         { ...brand, ...brand.preview },
       )
-      conf.bundle = { icon: JSON.parse(current || '{}').bundle?.icon ?? [] }
+      conf.bundle = {
+        icon: JSON.parse(current || '{}').bundle?.icon ?? [],
+        ...linuxBundle(brand.preview),
+      }
       return toJson(conf)
     },
   ],
