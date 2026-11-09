@@ -105,6 +105,8 @@
     }
   }
 
+  let lastWidth = window.innerWidth
+
   function onkeydown(event: KeyboardEvent) {
     if (event.key !== 'Escape') return
     if (overlay.menu) overlay.closeMenu()
@@ -116,7 +118,12 @@
   {oncontextmenu}
   {onkeydown}
   onblur={() => overlay.closeMenu()}
-  onresize={() => overlay.closeMenu()}
+  onresize={() => {
+    // a phone's keyboard showing or hiding changes only the height, and
+    // opening a menu can hide it: the menu stays
+    if (window.innerWidth !== lastWidth) overlay.closeMenu()
+    lastWidth = window.innerWidth
+  }}
 />
 
 {#if overlay.menu}
