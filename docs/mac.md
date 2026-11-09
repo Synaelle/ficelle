@@ -1,8 +1,8 @@
 # Ficelle on a Mac
 
-The Mac app is untested, I have no Mac to try it on, so keep backups of your notes and tell me what goes wrong. [Ficelle 0.5.0](https://github.com/Synaelle/ficelle/releases/tag/v0.5.0) is the latest Mac version. After it, the Mac app only gets major security or bug fixes, until it can be tested daily.
+The Mac app is untested, I have no Mac to try it on, so keep backups of your notes and tell me what goes wrong. It is built with every release, like the other apps.
 
-Download [`Ficelle_0.5.0_universal.dmg`](https://github.com/Synaelle/ficelle/releases/download/v0.5.0/Ficelle_0.5.0_universal.dmg), the same file for Apple Silicon and Intel, open it and drag Ficelle to Applications. The app updates itself when run from there; otherwise it opens the release page when a new Mac version is out. This has not been tried on a real Mac yet.
+Download the `.dmg` of the [latest release](https://github.com/Synaelle/ficelle/releases/latest), the same file for Apple Silicon and Intel, open it and drag Ficelle to Applications. The app updates itself when run from there; otherwise it opens the release page when a new version is out. This has not been tried on a real Mac yet.
 
 The app is not signed by Apple, so macOS refuses to open it the first time. Click Done, then open System Settings, Privacy & Security, scroll down and click Open Anyway next to Ficelle. Confirm with your password and open Ficelle again.
 
