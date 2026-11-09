@@ -8,7 +8,7 @@
 
 No one else has contributed code yet. Contributions are welcome, and every contributor is credited here.
 
-## What Ficelle builds on
+## Built on
 
 Ficelle stands on the work of the projects below, with thanks. Each is listed with what Ficelle uses it for and the license it is under. The same list is in the app, under Settings and About.
 
@@ -69,7 +69,7 @@ Ficelle stands on the work of the projects below, with thanks. Each is listed wi
 - [lettre](https://lettre.rs/), sending email. MIT.
 - [openidconnect](https://github.com/ramosbugs/openidconnect-rs), signing in with another service. MIT.
 - [webauthn-rs](https://github.com/kanidm/webauthn-rs), passkeys. MPL-2.0.
-- [reqwest](https://github.com/seanmonstar/reqwest), fetching the official catalog. MIT or Apache-2.0.
+- [reqwest](https://github.com/seanmonstar/reqwest), update checks, feedback and single sign-on. MIT or Apache-2.0.
 - [qrcode](https://github.com/kennytm/qrcode-rust), QR codes. MIT or Apache-2.0.
 - [toml](https://github.com/toml-rs/toml), reading the settings file. MIT or Apache-2.0.
 - [url](https://github.com/servo/rust-url), web addresses. MIT or Apache-2.0.

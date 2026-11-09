@@ -2,7 +2,7 @@
 
 Ficelle has no analytics, no tracking and no crash reporting. Your notes stay on your devices, and on a sync server only if you choose one. This page lists everything the apps and the server send by themselves.
 
-## What the apps send
+## The apps
 
 | What             | Where                                                           | When                                                                                                    |
 | ---------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -41,7 +41,7 @@ Notes and attachments are encrypted on the device once you turn on encryption in
 
 Backups are encrypted when your notes are, see [Backups](backups.md). A Markdown export is always unencrypted.
 
-## What a server sends
+## Servers
 
 - Once a day it reads ficelle.synaelle.com's `releases.json` to check for updates, with no version or details. The admin can turn it off.
 - Confirmations, sign-in codes and password notices go out through the admin's mail server, only if one is set up.

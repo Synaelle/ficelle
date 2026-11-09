@@ -1,5 +1,8 @@
 # Self-hosting without Docker
 
+> [!NOTE]
+> Server support is deprecated and only gets security fixes. New servers are for one person.
+
 The server is one binary, `ficelle-server`, with the web pages beside it and its data in one folder. It runs as a systemd service behind a reverse proxy with HTTPS.
 
 The commands below are written for Debian and Ubuntu. Other Linux systems with systemd work the same way, with their own package names and paths.
@@ -11,9 +14,9 @@ The commands below are written for Debian and Ubuntu. Other Linux systems with s
 
 For now the server is built from source. Ready-made server builds, with an easy way to update them, will come in a later version.
 
-What the build needs, with Debian and Ubuntu package names. They may differ on other distributions.
+The build needs these, named as Debian and Ubuntu packages, which may differ on other distributions.
 
-| What         | How                                                                                                        |
+| Need         | How                                                                                                        |
 | ------------ | ---------------------------------------------------------------------------------------------------------- |
 | Build tools  | `sudo apt install git curl build-essential pkg-config perl`                                                |
 | Rust         | [rustup](https://rustup.rs), which reads the version and the WebAssembly target from `rust-toolchain.toml` |

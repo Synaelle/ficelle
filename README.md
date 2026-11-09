@@ -6,35 +6,15 @@
 
 <p align="center">A lightweight, private notes app for your computer and your phone.</p>
 
-<p align="center">
-  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Synaelle/ficelle"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="80"></a>
-</p>
-
-> [!CAUTION]
-> From 2027, Google plans to check the developer of every Android app, APKs from outside the Play Store included, which may make installing Ficelle harder. See [Android developer verification](https://developer.android.com/developer-verification).
-
 > [!WARNING]
 > Ficelle is in early development, it is recommended to keep backups of your notes.
 
-## What it does
+# Features
 
-- Write in Markdown, formatted as you type, with tables, task lists, code, images and attachments.
-- Keep your notes private. They can be encrypted on your device and synced end-to-end encrypted. No analytics, see [Privacy](docs/privacy.md).
-- Sync your devices through a server you host yourself, or keep everything on one device.
-- Undo anything, every note keeps its earlier versions.
+- Notes are Markdown, with a few extras, see [Markdown in notes](docs/markdown.md).
+- Images work like in a word processor.
+- Every note keeps its earlier versions.
 
-## Download
+# Download
 
-Ficelle runs on Windows, Linux and Android. Get it from the [latest release](../../releases/latest). ARM builds for Windows and Linux are coming soon.
-
-There is also an untested Mac app, see [Ficelle on a Mac](docs/mac.md).
-
-## Your own server
-
-Server support is deprecated for now and only security fixes are delivered, it made development more complex than it had the right to be. New servers are for one person, servers with several accounts keep working and can go to one account from their admin page. If you don't like this decision, send feedback, I'm more than open to talk about it.
-
-Run it with Docker, see [Self-hosting with Docker](docs/self-hosting-docker.md). Running it without Docker is supported but not recommended, see [Self-hosting without Docker](docs/self-hosting-without-docker.md).
-
-## License
-
-Ficelle is free software under the AGPL 3.0 or later. See [LICENSE](LICENSE).
+Ficelle for Windows, Linux and Android is in the [latest release](../../releases/latest). The Mac app stays on [0.5.0](../../releases/tag/v0.5.0) and is untested, see [Ficelle on a Mac](docs/mac.md).

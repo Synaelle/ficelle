@@ -1,5 +1,8 @@
 # Self-hosting with Docker
 
+> [!NOTE]
+> Server support is deprecated and only gets security fixes. New servers are for one person.
+
 The server is one container, `ghcr.io/synaelle/ficelle-server`, with its data in one volume. Put a reverse proxy with HTTPS in front of it. This is the recommended way to run a server.
 
 ## Install

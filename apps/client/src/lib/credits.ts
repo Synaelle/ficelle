@@ -300,7 +300,7 @@ export const CREDIT_GROUPS: CreditGroup[] = [
       {
         name: 'reqwest',
         url: 'https://github.com/seanmonstar/reqwest',
-        use: 'fetching the official catalog',
+        use: 'update checks, feedback and single sign-on',
         license: DUAL_MIT,
       },
       {
