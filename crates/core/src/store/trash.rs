@@ -10,10 +10,11 @@
 //! - Restoring an item whose parent folder is still in the trash puts it at
 //!   the top level, so it is visible again.
 //!
-//! The one exception: a note left blank (no title, no text, not pinned) holds
-//! nothing worth a trip through the trash and is deleted straight away.
+//! The one exception: a note left blank (no title, no text, not pinned) that
+//! never held anything is not worth a trip through the trash and is deleted
+//! straight away. One that was emptied goes to the trash like any other.
 
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{Store, folders};
 use crate::clock::{DAY, Timestamp};
@@ -30,10 +31,32 @@ fn parent_is_trashed(conn: &Connection, parent: Option<FolderId>) -> Result<bool
     }
 }
 
-/// Live notes with nothing in them. Whitespace alone counts as nothing, a
-/// pinned note was kept on purpose.
-const BLANK_NOTES: &str = "SELECT id FROM notes WHERE trashed_at IS NULL AND pinned = 0
+/// Live notes with nothing in them, and whether they ever held something
+/// (an emptied note keeps its text in its history). Whitespace alone counts
+/// as nothing, a pinned note was kept on purpose.
+const BLANK_NOTES: &str =
+    "SELECT id, EXISTS (SELECT 1 FROM note_versions v WHERE v.note_id = notes.id
+         AND (trim(v.title, char(32, 9, 10, 13)) <> '' OR trim(v.body, char(32, 9, 10, 13)) <> ''))
+     FROM notes WHERE trashed_at IS NULL AND pinned = 0
      AND trim(title, char(32, 9, 10, 13)) = '' AND trim(body, char(32, 9, 10, 13)) = ''";
+
+/// Deletes the blank notes that never held anything and moves the emptied
+/// ones to the trash. Returns how many left the notes.
+fn discard(conn: &Connection, blank: &[(NoteId, bool)], now: Timestamp) -> Result<usize> {
+    let never_written: Vec<NoteId> = blank
+        .iter()
+        .filter(|(_, held)| !held)
+        .map(|(id, _)| *id)
+        .collect();
+    for (id, _) in blank.iter().filter(|(_, held)| *held) {
+        conn.execute(
+            "UPDATE notes SET trashed_at = ?2 WHERE id = ?1",
+            params![id, now],
+        )?;
+    }
+    delete_items(conn, &never_written, &[])?;
+    Ok(blank.len())
+}
 
 /// Deletes notes and folders whose ids are listed. Notes go first because a
 /// folder delete would only detach them.
@@ -247,42 +270,44 @@ impl Store {
         Ok(notes.len() + folders.len())
     }
 
-    /// Deletes the note if it was left blank, see [`BLANK_NOTES`]. Returns
+    /// Discards the note if it was left blank, see [`BLANK_NOTES`]: deleted
+    /// if it never held anything, in the trash if it was emptied. Returns
     /// false, keeping the note, when it holds anything.
     ///
     /// # Errors
     ///
     /// Fails only on database errors.
     pub fn discard_if_blank(&mut self, id: NoteId) -> Result<bool> {
+        let now = self.now();
         let tx = self.conn.transaction()?;
-        let blank: bool = tx.query_row(
-            &format!("SELECT EXISTS ({BLANK_NOTES} AND id = ?1)"),
-            [id],
-            |row| row.get(0),
-        )?;
-        if blank {
-            delete_items(&tx, &[id], &[])?;
-        }
-        crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
-        Ok(blank)
+        let blank = tx
+            .query_row(&format!("{BLANK_NOTES} AND id = ?1"), [id], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .optional()?;
+        let discarded = discard(&tx, blank.as_slice(), now)? > 0;
+        crate::sync::finish(tx, &mut self.docs, now)?;
+        Ok(discarded)
     }
 
-    /// Deletes every note left blank, the ones abandoned when the app closed
-    /// or locked with an empty note open. Call it at startup.
+    /// Discards every note left blank, the ones abandoned when the app closed
+    /// or locked with an empty note open, as [`Store::discard_if_blank`]
+    /// does. Call it at startup.
     ///
     /// # Errors
     ///
     /// Fails only on database errors.
     pub fn discard_blank_notes(&mut self) -> Result<usize> {
+        let now = self.now();
         let tx = self.conn.transaction()?;
-        let notes = {
+        let blank = {
             let mut stmt = tx.prepare(BLANK_NOTES)?;
-            stmt.query_map([], |row| row.get(0))?
-                .collect::<rusqlite::Result<Vec<NoteId>>>()?
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .collect::<rusqlite::Result<Vec<(NoteId, bool)>>>()?
         };
-        delete_items(&tx, &notes, &[])?;
-        crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
-        Ok(notes.len())
+        let discarded = discard(&tx, &blank, now)?;
+        crate::sync::finish(tx, &mut self.docs, now)?;
+        Ok(discarded)
     }
 
     /// Applies [`TRASH_RETENTION`]. Call it at startup.
@@ -300,8 +325,8 @@ impl Store {
 mod tests {
     use crate::clock::DAY;
     use crate::model::{NoteScope, NoteSort};
-    use crate::store::NewNote;
     use crate::store::test_support::store;
+    use crate::store::{NewNote, NoteChange};
 
     #[test]
     fn trashed_notes_leave_lists_and_come_back() {
@@ -469,6 +494,47 @@ mod tests {
         assert!(
             store.list_tags().unwrap().is_empty(),
             "its tag went with it"
+        );
+    }
+
+    #[test]
+    fn an_emptied_note_goes_to_the_trash_with_its_text_in_history() {
+        let (mut store, clock) = store();
+        let note = store.create_note(&NewNote::default()).unwrap();
+        let empty = || NoteChange {
+            body: Some(String::new()),
+            ..NoteChange::default()
+        };
+        // written and emptied in one editing session, then on another day
+        for (written, later) in [("milk", 1000), ("eggs", 30 * DAY)] {
+            clock.advance(1000);
+            store
+                .update_note(
+                    note.id,
+                    NoteChange {
+                        body: Some(written.into()),
+                        ..NoteChange::default()
+                    },
+                )
+                .unwrap();
+            clock.advance(later);
+            store.update_note(note.id, empty()).unwrap();
+            assert!(
+                store
+                    .list_versions(note.id)
+                    .unwrap()
+                    .iter()
+                    .any(|v| v.body == written)
+            );
+        }
+
+        assert!(store.discard_if_blank(note.id).unwrap());
+        assert!(store.note(note.id).unwrap().trashed_at.is_some());
+        store.restore_note(note.id).unwrap();
+        assert_eq!(store.discard_blank_notes().unwrap(), 1);
+        assert!(
+            store.note(note.id).unwrap().trashed_at.is_some(),
+            "at startup too"
         );
     }
 

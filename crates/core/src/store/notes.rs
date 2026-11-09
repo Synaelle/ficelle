@@ -44,6 +44,13 @@ pub struct NoteChange {
     pub base_body: Option<String>,
 }
 
+/// No title and no text, as the trash's blank notes are: spaces, tabs and
+/// line breaks alone count as nothing.
+fn is_blank(title: &str, body: &str) -> bool {
+    let empty = |text: &str| text.trim_matches([' ', '\t', '\n', '\r']).is_empty();
+    empty(title) && empty(body)
+}
+
 /// The new text of a field: `mine` as is, or merged with what another
 /// device wrote since `base`.
 fn edited(current: &str, mine: Option<String>, base: Option<&String>) -> Result<String> {
@@ -158,7 +165,10 @@ impl Store {
             };
             crate::sync::conflict::record_merge(&tx, id, &mine, &theirs, &merged, now)?;
         }
-        history::snapshot_if_new_session(&tx, &current, now)?;
+        let saved = history::snapshot_if_new_session(&tx, &current, now)?;
+        if !saved && is_blank(&title, &body) && !is_blank(&current.title, &current.body) {
+            history::snapshot_before_emptying(&tx, &current, now)?;
+        }
         tx.execute(
             "UPDATE notes SET title = ?2, body = ?3, updated_at = ?4 WHERE id = ?1",
             params![id, title, body, now],

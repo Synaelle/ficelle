@@ -63,11 +63,12 @@ pub(crate) fn save_text(
 /// Saves `note`, the state before an edit, when this edit starts a new
 /// session: the previous change is older than [`EDIT_SESSION`], or the note
 /// has no version yet (so the original text of a new note is always kept).
+/// Returns whether it was saved.
 pub(crate) fn snapshot_if_new_session(
     conn: &Connection,
     note: &Note,
     now: Timestamp,
-) -> Result<()> {
+) -> Result<bool> {
     let has_versions: bool = conn.query_row(
         "SELECT EXISTS (SELECT 1 FROM note_versions WHERE note_id = ?1)",
         [note.id],
@@ -75,10 +76,22 @@ pub(crate) fn snapshot_if_new_session(
     )?;
     // a date ahead of this device's clock came from a device whose clock is
     // fast: a new session, or none would start until that date
-    if now - note.updated_at >= EDIT_SESSION || note.updated_at > now || !has_versions {
+    let new_session =
+        now - note.updated_at >= EDIT_SESSION || note.updated_at > now || !has_versions;
+    if new_session {
         save(conn, note, VersionReason::Edit, now)?;
     }
-    Ok(())
+    Ok(new_session)
+}
+
+/// Keeps `note` before an edit that empties it, so a note emptied by mistake
+/// can be brought back, and so it is known to have held something.
+pub(crate) fn snapshot_before_emptying(
+    conn: &Connection,
+    note: &Note,
+    now: Timestamp,
+) -> Result<()> {
+    save(conn, note, VersionReason::Edit, now)
 }
 
 impl Store {

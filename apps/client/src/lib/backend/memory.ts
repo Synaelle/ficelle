@@ -302,7 +302,10 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       const note = notes.get(noteId)
       const blank =
         !!note && !note.trashedAt && !note.pinned && !note.title.trim() && !note.body.trim()
-      if (blank) notes.delete(noteId)
+      // an emptied note goes to the trash, as in the app
+      const held = versions.some((v) => v.noteId === noteId && (v.title.trim() || v.body.trim()))
+      if (blank && held) note.trashedAt = now()
+      else if (blank) notes.delete(noteId)
       return blank
     },
     emptyTrash: async () => {
