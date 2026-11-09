@@ -6,7 +6,7 @@
   import { sync } from '../lib/sync.svelte'
   import SyncSettings from './SyncSettings.svelte'
   import { brand } from '@app/brand'
-  import Knot from '../lib/Knot.svelte'
+  import Knot from '@app/ui/Knot.svelte'
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'

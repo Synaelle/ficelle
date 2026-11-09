@@ -6,7 +6,7 @@
   import { updatesHere } from '../lib/appUpdate.svelte'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
-  import Knot from '../lib/Knot.svelte'
+  import Knot from '@app/ui/Knot.svelte'
   import { serverProtocol } from '../lib/sync.svelte'
   import ContactLine from './ContactLine.svelte'
   import CreditsList from './CreditsList.svelte'

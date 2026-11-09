@@ -9,7 +9,7 @@
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
   import { onMount } from 'svelte'
-  import Knot from '../lib/Knot.svelte'
+  import Knot from '@app/ui/Knot.svelte'
   import { onBack } from '../lib/back'
   import { backend, PIN_LENGTH, type VaultWay } from '../lib/backend'
   import { biometricMethod } from '../lib/biometric'

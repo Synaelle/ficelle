@@ -8,7 +8,7 @@
   import { appUpdates, isFix } from './appUpdate.svelte'
   import { channelSwitch } from './channelChange.svelte'
   import Icon from './icons/Icon.svelte'
-  import Knot from './Knot.svelte'
+  import Knot from '@app/ui/Knot.svelte'
   import { t } from './i18n.svelte'
   import { overlay } from './overlay.svelte'
 

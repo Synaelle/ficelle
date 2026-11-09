@@ -13,7 +13,7 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { moveToItems } from '../lib/noteMenu'
   import { overlay, SEPARATOR } from '../lib/overlay.svelte'
-  import Knot from '../lib/Knot.svelte'
+  import Knot from '@app/ui/Knot.svelte'
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
   import { displayBinding } from '../lib/shortcuts'
   import type { MenuItem } from '../lib/overlay.svelte'

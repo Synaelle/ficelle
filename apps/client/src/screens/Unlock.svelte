@@ -16,7 +16,7 @@
   import { asksOnItsOwn, biometricMethod } from '../lib/biometric'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
-  import Knot from '../lib/Knot.svelte'
+  import Knot from '@app/ui/Knot.svelte'
   import PinPad from '../lib/PinPad.svelte'
   import { isBackendError } from '../lib/workspace.svelte'
   import ResetDialog from '../settings/ResetDialog.svelte'

@@ -6,7 +6,8 @@
   "exports": {
     "./theme": "./src/theme.ts",
     "./color": "./src/color.ts",
-    "./themes": "./themes/index.ts"
+    "./themes": "./themes/index.ts",
+    "./Knot.svelte": "./src/Knot.svelte"
   },
   "scripts": {
     "check": "tsc -p tsconfig.json",
