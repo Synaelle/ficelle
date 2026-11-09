@@ -89,53 +89,11 @@ export interface Overview {
   personal: boolean
 }
 
-export interface AdminUser {
-  id: string
-  username: string
-  displayName: string
-  role: Role
-  createdAt: number
-  disabledAt: number | null
-  lockedUntil: number | null
-  lastSeenAt: number | null
-  devices: number
-  groups: string[]
-  secondFactor: boolean
-  kind: AccountKind
-  email?: string
-  deleteAt?: number
-}
-
-export interface Device {
-  id: string
-  name: string
-  platform: string
-  createdAt: number
-  lastSeenAt: number
-}
-
-export interface Invite {
-  id: string
-  token?: string
-  link?: string
-  createdBy: string
-  createdAt: number
-  expiresAt: number
-  state: 'pending' | 'used' | 'revoked' | 'expired'
-}
-
 export interface Group {
   id: string
   name: string
   createdAt: number
   members: number
-}
-
-export interface GroupMember {
-  userId: string
-  username: string
-  displayName: string
-  addedAt: number
 }
 
 export interface AuditEntry {

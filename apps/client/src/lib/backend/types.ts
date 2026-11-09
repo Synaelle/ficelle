@@ -287,7 +287,6 @@ export interface BackupStatus {
   storedBytes: number
 }
 
-/** This device's backups, see commands/backups.rs. */
 /** What a place holds before backups are set up there. */
 export interface BackupsFound {
   found: boolean
@@ -296,6 +295,7 @@ export interface BackupsFound {
   needsPassword: boolean
 }
 
+/** This device's backups, see commands/backups.rs. */
 export interface BackupsView {
   config: {
     target: BackupTarget
