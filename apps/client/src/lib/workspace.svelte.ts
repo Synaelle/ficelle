@@ -28,6 +28,9 @@ export const UNFILED: Scope = { kind: 'folder', id: null }
  * shorter, a pause to think is longer: one save per thought, not per word. */
 const SAVE_DELAY_MS = 1000
 
+/** Wait before trying a save that failed again. */
+const RETRY_DELAY_MS = 5000
+
 export function isBackendError(err: unknown): err is BackendError {
   return typeof err === 'object' && err !== null && 'kind' in err
 }
@@ -54,6 +57,9 @@ class Workspace {
   error: string | null = $state(null)
   /** True while an edit waits to be saved. */
   dirty = $state(false)
+  /** The last save failed: the edit waits, tried again, and the note stays
+   * open until it is saved. */
+  unsaved = $state(false)
   /** Heading the next opened note should scroll to, from a [[Note#Heading]] link. */
   pendingHeading: string | null = null
   /** Grows when the open note's text is replaced (an older version brought
@@ -127,7 +133,7 @@ class Workspace {
   }
 
   async open(id: Id | null) {
-    await this.leave(id)
+    if (!(await this.leave(id))) return
     this.show(id ? await backend.getNote(id) : null)
     await this.refreshConflicts()
   }
@@ -195,17 +201,21 @@ class Workspace {
   /**
    * Saves the open note before another takes its place. A note left with no
    * title and no text is not kept: creating one and backing out leaves
-   * nothing behind.
+   * nothing behind. False, staying on the note, when its edit could not be
+   * saved: the queued edit belongs to it.
    */
   private async leave(next: Id | null = null) {
     await this.flush()
+    if (this.unsaved) return false
     const note = this.current
-    if (!note || note.id === next || note.title.trim() || note.body.trim() || note.pinned) return
+    if (!note || note.id === next || note.title.trim() || note.body.trim() || note.pinned)
+      return true
     try {
       if (await backend.discardIfBlank(note.id)) await this.refreshNotes()
     } catch (err) {
       this.report(err)
     }
+    return true
   }
 
   async openByTitle(title: string, heading: string | null = null) {
@@ -222,8 +232,10 @@ class Workspace {
    * stored, for callers that finish it (attachments) before showing it: the
    * editor reads the body once, when the note opens.
    */
+  async create(initial?: { title?: string; body?: string }, open?: true): Promise<Note | null>
+  async create(initial: { title?: string; body?: string }, open: false): Promise<Note>
   async create(initial: { title?: string; body?: string } = {}, open = true) {
-    if (open) await this.leave()
+    if (open && !(await this.leave())) return null
     const folderId = this.newNoteFolder()
     const tags = this.scope.kind === 'tag' ? [this.tagName(this.scope.id)] : []
     const note = await backend.createNote({ ...initial, folderId, tags })
@@ -240,7 +252,7 @@ class Workspace {
    * and opens the last one. Other files are skipped and reported.
    */
   async importFiles(files: File[]) {
-    await this.leave()
+    if (!(await this.leave())) return
     const markdown = files.filter(isMarkdownFile)
     if (markdown.length < files.length) this.error = 'notMarkdown'
     if (markdown.length === 0) return
@@ -293,6 +305,7 @@ class Workspace {
           (change.title !== undefined && saved.title !== change.title) ||
           (change.body !== undefined && saved.body !== change.body)
         const queued = Object.keys(this.pending).length > 0
+        this.unsaved = false
         if (!queued) {
           this.current.updatedAt = saved.updatedAt
           this.dirty = false
@@ -313,6 +326,14 @@ class Workspace {
       await Promise.all([this.refreshNotes(), this.refreshConflicts()])
       if (change.title !== undefined) await this.refreshTags()
     } catch (err) {
+      // the edit is queued again, ahead of any typed since, and tried
+      // again; a note deleted meanwhile has nothing to save to
+      if (this.current?.id === note.id && !(isBackendError(err) && err.kind === 'notFound')) {
+        this.pending = { ...change, ...this.pending }
+        this.unsaved = true
+        clearTimeout(this.timer)
+        this.timer = setTimeout(() => void this.flush(), RETRY_DELAY_MS)
+      }
       this.report(err)
     }
   }

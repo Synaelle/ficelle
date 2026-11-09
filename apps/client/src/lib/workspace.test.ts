@@ -4,13 +4,20 @@ import { describe, expect, it } from 'vitest'
 import { backend, type NoteChange } from './backend'
 import { workspace } from './workspace.svelte'
 
+/** A note made and opened, as the New note button does. */
+async function create(initial: { title?: string; body?: string } = {}) {
+  const note = await workspace.create(initial)
+  if (!note) throw new Error('the open note could not be left')
+  return note
+}
+
 const ids = async () => (await backend.listNotes({ kind: 'all' }, 'updatedDesc')).map((n) => n.id)
 
 describe('blank notes', () => {
   it('a new note left empty is gone once another is opened', async () => {
     await workspace.load()
     const [other] = await ids()
-    const blank = await workspace.create()
+    const blank = await create()
     expect(await ids()).toContain(blank.id)
     await workspace.open(other ?? null)
     expect(await ids()).not.toContain(blank.id)
@@ -18,25 +25,25 @@ describe('blank notes', () => {
   })
 
   it('backing out to the list, or creating another, drops it too', async () => {
-    const first = await workspace.create()
-    const second = await workspace.create()
+    const first = await create()
+    const second = await create()
     expect(await ids()).not.toContain(first.id)
     await workspace.open(null)
     expect(await ids()).not.toContain(second.id)
   })
 
   it('a note with a title or text is kept', async () => {
-    const titled = await workspace.create()
+    const titled = await create()
     workspace.edit({ title: 'Groceries' })
     await workspace.open(null)
-    const written = await workspace.create()
+    const written = await create()
     workspace.edit({ body: 'milk' })
     await workspace.open(null)
     expect(await ids()).toEqual(expect.arrayContaining([titled.id, written.id]))
   })
 
   it('opening the same note again keeps it even while blank', async () => {
-    const blank = await workspace.create()
+    const blank = await create()
     await workspace.open(blank.id)
     expect(await ids()).toContain(blank.id)
     expect(workspace.current?.id).toBe(blank.id)
@@ -46,7 +53,7 @@ describe('blank notes', () => {
 describe('changes from another device', () => {
   it('with co-editing the open note takes them in place', async () => {
     workspace.coediting = () => true
-    const note = await workspace.create({ title: 'Plan', body: 'one' })
+    const note = await create({ title: 'Plan', body: 'one' })
     const before = workspace.revision
     // as if a pull rewrote it
     await backend.updateNote(note.id, { body: 'one\ntwo' })
@@ -57,7 +64,7 @@ describe('changes from another device', () => {
 
   it('without co-editing the open note stays as shown', async () => {
     workspace.coediting = () => false
-    const note = await workspace.create({ title: 'Quiet', body: 'one' })
+    const note = await create({ title: 'Quiet', body: 'one' })
     await backend.updateNote(note.id, { body: 'one\ntwo', title: 'Quiet' })
     await workspace.remoteChanged()
     expect(workspace.current?.body).toBe('one')
@@ -65,7 +72,7 @@ describe('changes from another device', () => {
 
   it('an edit being typed is saved from the text it started from', async () => {
     workspace.coediting = () => false
-    const note = await workspace.create({ title: 'Draft', body: 'start' })
+    const note = await create({ title: 'Draft', body: 'start' })
     const sent: unknown[] = []
     const update = backend.updateNote
     backend.updateNote = (id, change) => {
@@ -86,7 +93,7 @@ describe('changes from another device', () => {
 
   it('after a merged save the next one starts from the text sent, not again from the old one', async () => {
     workspace.coediting = () => false
-    await workspace.create({ title: 'Draft', body: 'start' })
+    await create({ title: 'Draft', body: 'start' })
     const sent: NoteChange[] = []
     const update = backend.updateNote
     // another device wrote first: the save comes back merged
@@ -106,9 +113,33 @@ describe('changes from another device', () => {
     }
   })
 
+  it('a failed save keeps the edit and the note, and saves it later', async () => {
+    workspace.coediting = () => false
+    const other = await create({ title: 'Other', body: '' })
+    const note = await create({ title: 'Kept', body: 'start' })
+    const update = backend.updateNote
+    backend.updateNote = async () => {
+      throw { kind: 'database', message: 'disk full' }
+    }
+    try {
+      workspace.edit({ body: 'start, typed' })
+      await workspace.flush()
+      expect(workspace.unsaved).toBe(true)
+      await workspace.open(other.id)
+      expect(workspace.current?.id, 'the note stays open').toBe(note.id)
+    } finally {
+      backend.updateNote = update
+    }
+    await workspace.flush()
+    expect(workspace.unsaved).toBe(false)
+    expect((await backend.getNote(note.id)).body).toBe('start, typed')
+    await workspace.open(other.id)
+    expect(workspace.current?.id).toBe(other.id)
+  })
+
   it('a flush takes the typing the editor has not passed on yet', async () => {
     workspace.coediting = () => false
-    const note = await workspace.create({ title: 'Typed', body: 'start' })
+    const note = await create({ title: 'Typed', body: 'start' })
     // the editor still holds the last keys, in its pause before passing them
     workspace.serializeEditor = () => workspace.edit({ body: 'start, last keys' })
     try {
@@ -121,7 +152,7 @@ describe('changes from another device', () => {
 
   it('with co-editing an edit waiting is saved first, then the note follows', async () => {
     workspace.coediting = () => true
-    const note = await workspace.create({ title: 'Both', body: 'start' })
+    const note = await create({ title: 'Both', body: 'start' })
     workspace.edit({ body: 'start, mine' })
     await workspace.remoteChanged()
     expect(workspace.dirty).toBe(false)
@@ -129,7 +160,7 @@ describe('changes from another device', () => {
   })
 
   it('a note trashed elsewhere closes', async () => {
-    const note = await workspace.create({ title: 'Old', body: 'x' })
+    const note = await create({ title: 'Old', body: 'x' })
     await backend.trashNote(note.id)
     await workspace.remoteChanged()
     expect(workspace.current).toBeNull()

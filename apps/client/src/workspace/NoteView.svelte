@@ -172,8 +172,16 @@
         </button>
       {/if}
       <span class="where muted">{workspace.folderName(note.folderId)}</span>
-      <span class="saved muted" class:quiet={!workspace.dirty && !justSaved} aria-live="polite"
-        >{workspace.dirty ? t('note.saving') : t('note.saved')}</span
+      <span
+        class="saved muted"
+        class:bad={workspace.unsaved}
+        class:quiet={!workspace.dirty && !justSaved}
+        aria-live="polite"
+        >{workspace.unsaved
+          ? t('note.notSaved')
+          : workspace.dirty
+            ? t('note.saving')
+            : t('note.saved')}</span
       >
       <button
         class="icon-btn"
@@ -335,6 +343,9 @@
   }
   .saved.quiet {
     opacity: 0;
+  }
+  .saved.bad {
+    color: var(--color-danger);
   }
   .scroll {
     flex: 1;
