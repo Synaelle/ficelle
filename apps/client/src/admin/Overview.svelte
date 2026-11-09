@@ -60,6 +60,7 @@
 </script>
 
 {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+{#if !overview && !problem}<p class="muted" aria-busy="true">{t('admin.loading')}</p>{/if}
 {#if several}
   <p class="warn" role="alert">
     {t('admin.onePerson.pointer')}
@@ -195,7 +196,7 @@
     border-radius: var(--radius-chip);
     background: var(--color-border);
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background var(--dur-fast) var(--ease-out);
   }
   .switch-row input::after {
     content: '';
@@ -206,7 +207,7 @@
     height: 16px;
     border-radius: var(--radius-chip);
     background: var(--color-bg);
-    transition: translate 0.15s;
+    transition: translate var(--dur-fast) var(--ease-out);
   }
   .switch-row input:checked {
     background: var(--color-accent);

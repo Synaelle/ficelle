@@ -142,7 +142,7 @@
   function startNew() {
     void act(async () => {
       if (!openDevice && sameAsNotes) {
-        const ok = await backend.vaultCheckPassword(password).catch(() => false)
+        const ok = await backend.vaultCheckPassword(password)
         if (!ok) throw new Error(t('backups.notesPasswordWrong'))
       }
       backups.view = await backend.backupsConnect(target(), openDevice ? '' : password, true, '')

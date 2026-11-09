@@ -17,6 +17,7 @@
   import Backups from './Backups.svelte'
   import Feedback from './Feedback.svelte'
   import { api } from './api.svelte'
+  import { errorText } from './format'
 
   let { info, admin }: { info: ServerInfo; admin: boolean } = $props()
 
@@ -34,6 +35,8 @@
   let reader = $state(false)
   /** More than one account here: going to one has its own section. */
   let several = $state(false)
+  /** Why the sections that depend on the server could not be shown. */
+  let problem = $state('')
   const shown = $derived(
     admin
       ? SECTIONS.filter(([s]) => s !== 'onePerson' || several)
@@ -49,7 +52,7 @@
         several = overview.users > 1
         section = fromHash()
       })
-      .catch(() => {})
+      .catch((err: unknown) => (problem = errorText(err)))
   }
   // svelte-ignore state_referenced_locally
   if (admin) countAccounts()
@@ -60,7 +63,7 @@
         reader = access.inbox
         section = fromHash()
       })
-      .catch(() => {})
+      .catch((err: unknown) => (problem = errorText(err)))
   }
 
   function go(next: Section) {
@@ -96,6 +99,7 @@
     {#if auth.session?.user.factorRequired}
       <p class="notice" role="status">{t('admin.factorRequired')}</p>
     {/if}
+    {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
     <h1>{t(`admin.${section}.title`)}</h1>
     {#if section === 'overview'}
       <Overview {several} ongo={() => go('onePerson')} />
@@ -121,6 +125,9 @@
 </div>
 
 <style>
+  .problem {
+    color: var(--color-danger);
+  }
   .notice {
     margin: 0 0 var(--space-4);
     padding: var(--space-3);

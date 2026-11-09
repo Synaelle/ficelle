@@ -29,6 +29,7 @@
 </script>
 
 {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+{#if !overview && !problem}<p class="muted" aria-busy="true">{t('admin.loading')}</p>{/if}
 {#if overview}
   <dl class="counts">
     <div>

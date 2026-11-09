@@ -15,6 +15,7 @@
   import { workspace } from '../lib/workspace.svelte'
   import { backups } from '../lib/backups.svelte'
   import { onMount } from 'svelte'
+  import Icon from '../lib/icons/Icon.svelte'
   import Settings from '../settings/Settings.svelte'
   import AttachmentList from './AttachmentList.svelte'
   import NoteList from './NoteList.svelte'
@@ -120,7 +121,8 @@
       settingsOpen = false
       if (item.kind === 'newNote') await workspace.create()
       else if (item.kind === 'share') await saveShare(item)
-      else if (item.kind === 'openNote') await workspace.open(item.id).catch(() => {})
+      else if (item.kind === 'openNote')
+        await workspace.open(item.id).catch((err: unknown) => workspace.report(err))
       else {
         if (narrow) await workspace.open(null)
         searchFocus += 1
@@ -199,7 +201,7 @@
   <div class="toast" role="alert">
     {t(`errors.${workspace.error}`)}
     <button class="icon-btn" aria-label={t('common.close')} onclick={() => (workspace.error = null)}
-      >×</button
+      ><Icon name="close" size={16} /></button
     >
   </div>
 {/if}
