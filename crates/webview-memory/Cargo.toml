@@ -11,4 +11,4 @@ publish.workspace = true
 # Everything here is the one call in src/lib.rs
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39.1"
-windows-core = "0.62.2"
+windows-core = "0.100.0"
