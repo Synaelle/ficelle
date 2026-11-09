@@ -71,6 +71,10 @@ pub fn run() {
     let builder = builder.manage(commands::updates::Pending::default());
     #[cfg(windows)]
     let builder = builder.on_window_event(webview_memory);
+    #[cfg(desktop)]
+    let builder = builder
+        .manage(commands::images::Dropped::default())
+        .on_window_event(commands::images::remember_drop);
     builder
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -128,6 +132,10 @@ pub fn run() {
             commands::fonts::font_download,
             commands::fonts::font_files,
             commands::fonts::font_file,
+            commands::images::clipboard_images,
+            commands::images::clipboard_image,
+            commands::images::dropped_images,
+            commands::images::dropped_image,
             commands::clock::system_clock_24h,
             commands::quick::quick_window_open,
             commands::quick::quick_window_ready,

@@ -5,6 +5,7 @@
 <script lang="ts">
   import { Image as TauriImage } from '@tauri-apps/api/image'
   import { writeImage } from '@tauri-apps/plugin-clipboard-manager'
+  import { getCurrentWebview } from '@tauri-apps/api/webview'
   import { toasts } from '../lib/toast.svelte'
   import { headingSlug } from './headingSlug'
   import { Editor } from '@tiptap/core'
@@ -303,6 +304,61 @@
     window.dispatchEvent(new Event(ATTACHMENTS_CHANGED))
   }
 
+  /** The files a paste carries, as files or as file items (WebKitGTK's way). */
+  function filesOf(data: DataTransfer | null): File[] {
+    const files = [...(data?.files ?? [])]
+    if (files.length > 0 || !data) return files
+    return [...data.items].flatMap((item) => {
+      const file = item.kind === 'file' ? item.getAsFile() : null
+      return file ? [file] : []
+    })
+  }
+
+  /** A paste that is an image the page cannot read itself. */
+  function copiedImage(data: DataTransfer, text: string): boolean {
+    if (data.types.some((type) => type.startsWith('image/'))) return true
+    if (data.types.includes('text/uri-list')) return true
+    const lines = text.trim().split('\n')
+    return lines.every((line) =>
+      /^(file:\/\/|\/)\S.*\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(line.trim()),
+    )
+  }
+
+  /**
+   * Files dropped from a file manager. On Linux the window takes them itself
+   * (WebKitGTK gives the page only their paths): the app keeps the dropped
+   * images and the page asks for them by number. Elsewhere this never fires
+   * and the page's own drop (handleDrop) gets the files.
+   */
+  async function dropFromSystem(x: number, y: number) {
+    if (!editor || readonly) return
+    const found = await backend.droppedImages().catch(() => [])
+    const files: File[] = []
+    for (const [index, image] of found.entries()) {
+      const bytes = await backend.droppedImage(index).catch(() => null)
+      if (bytes) files.push(new File([bytes], image.name, { type: image.mime }))
+    }
+    if (files.length === 0) return
+    // where the pointer let go, in the note; the end of the cursor otherwise
+    const at = editor.view.posAtCoords({ left: x, top: y })?.pos
+    await insertFiles(files, at)
+  }
+
+  /** The clipboard's images read by the app; its text when it holds none. */
+  async function pasteFromSystem(text: string) {
+    const found = await backend.clipboardImages().catch(() => [])
+    if (found.length === 0) {
+      if (text) editor?.chain().focus().insertContent(text).run()
+      return
+    }
+    const files: File[] = []
+    for (const [index, image] of found.entries()) {
+      const bytes = await backend.clipboardImage(index).catch(() => null)
+      if (bytes) files.push(new File([bytes], image.name, { type: image.mime }))
+    }
+    await insertFiles(files)
+  }
+
   async function insertFiles(chosen: File[], at?: number, mention = true) {
     const policy = (await backend.filesInfo().catch(() => null))?.policy
     for (const picked of chosen) {
@@ -378,7 +434,17 @@
     else editor.chain().focus().extendMarkRange('link').setLink({ href }).run()
   }
 
+  let stopDrops: (() => void) | null = null
   onMount(async () => {
+    if (backend.native && !MOBILE)
+      void getCurrentWebview()
+        .onDragDropEvent(({ payload }) => {
+          if (payload.type !== 'drop') return
+          // the system gives device pixels, the page's own size setting zooms it
+          const scale = window.devicePixelRatio
+          void dropFromSystem(payload.position.x / scale, payload.position.y / scale)
+        })
+        .then((stop) => (destroyed ? stop() : (stopDrops = stop)))
     for (const file of await backend.attachmentFiles(noteId)) remember(file)
     window.addEventListener(FILES_CHANGED, lookAgain)
     if (TOUCH) window.addEventListener('resize', keepCaret)
@@ -415,12 +481,19 @@
         scrollMargin: { top: 5, bottom: CLEAR_BELOW, left: 5, right: 5 },
         scrollThreshold: { top: 0, bottom: CLEAR_BELOW, left: 0, right: 0 },
         handlePaste: (view, event) => {
-          const files = [...(event.clipboardData?.files ?? [])]
+          const data = event.clipboardData
+          const files = filesOf(data)
           if (files.length > 0) {
             void insertFiles(files)
             return true
           }
-          const text = event.clipboardData?.getData('text/plain') ?? ''
+          const text = data?.getData('text/plain') ?? ''
+          // a copied image file or picture the page gets only as a path, or not
+          // at all: the app reads it from the system clipboard instead
+          if (backend.native && data && copiedImage(data, text)) {
+            void pasteFromSystem(text)
+            return true
+          }
           // a copy from a note carries its exact content, and a code block keeps text as is
           if (event.clipboardData?.getData('text/html').includes('data-pm-slice')) return false
           if (view.state.selection.$from.parent.type.spec.code) return false
@@ -557,6 +630,7 @@
     window.removeEventListener(FILES_CHANGED, lookAgain)
     window.removeEventListener('resize', keepCaret)
     destroyed = true
+    stopDrops?.()
     editor?.destroy()
   })
 

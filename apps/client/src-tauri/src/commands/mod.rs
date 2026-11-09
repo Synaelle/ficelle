@@ -9,6 +9,7 @@ pub mod clock;
 pub mod dev_report;
 pub mod files;
 pub mod fonts;
+pub mod images;
 pub mod import;
 pub mod links;
 pub mod notes;

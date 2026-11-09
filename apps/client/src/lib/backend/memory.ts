@@ -185,6 +185,11 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       return response.arrayBuffer()
     },
     systemClock24h: async () => null,
+    // the page's own paste event is all the browser has
+    clipboardImages: async () => [],
+    clipboardImage: async () => new ArrayBuffer(0),
+    droppedImages: async () => [],
+    droppedImage: async () => new ArrayBuffer(0),
     appUpdateInstall: async () => {
       throw { kind: 'unsupported', message: 'updates need the app' }
     },
