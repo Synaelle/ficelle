@@ -375,6 +375,43 @@ impl Vault {
     /// [`Error::Invalid`] when already encrypted, file, database or key
     /// store errors.
     pub fn encrypt(&mut self, store: Store, keys: &dyn KeyStore) -> Result<Store> {
+        self.encrypt_keeping(store, |vault, key| {
+            keys.set(&vault.device_key_name(), key.as_bytes())?;
+            vault.meta.device_only = true;
+            Ok(())
+        })
+    }
+
+    /// As [`Vault::encrypt`], the new key wrapped with `password` instead of
+    /// kept by the device: for a device with no key store to keep it in.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Invalid`] when already encrypted or the password is empty,
+    /// file or database errors.
+    pub fn encrypt_with_password(
+        &mut self,
+        store: Store,
+        password: &str,
+        kdf: KdfParams,
+    ) -> Result<Store> {
+        if password.is_empty() {
+            return Err(Error::Invalid("the new password is empty".into()));
+        }
+        self.encrypt_keeping(store, |vault, key| {
+            vault.meta.wrapped_key = Some(WrappedKey::wrap(key, password, kdf)?);
+            vault.meta.device_only = false;
+            Ok(())
+        })
+    }
+
+    /// The work of [`Vault::encrypt`], `keep` storing the key and setting
+    /// how the vault opens before `vault.json` says encrypted.
+    fn encrypt_keeping(
+        &mut self,
+        store: Store,
+        keep: impl FnOnce(&mut Self, &DatabaseKey) -> Result<()>,
+    ) -> Result<Store> {
         if self.is_encrypted() {
             return Err(Error::Invalid("this vault is encrypted already".into()));
         }
@@ -407,8 +444,7 @@ impl Vault {
             }
         }
         // kept before vault.json says encrypted: from then on it is needed
-        keys.set(&self.device_key_name(), key.as_bytes())?;
-        self.meta.device_only = true;
+        keep(self, &key)?;
         self.write_meta()?;
         self.settle_encrypting()?;
         self.unlock_with_key(&key)
@@ -1265,6 +1301,25 @@ mod tests {
                 .encrypt(vault.unlock_with_device(&keys).unwrap(), &keys),
             Err(Error::Invalid(_))
         ));
+    }
+
+    #[test]
+    fn an_unencrypted_vault_is_encrypted_with_a_password_and_no_key_store() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut vault, mut store) = Vault::create(dir.path(), Encryption::Off).unwrap();
+        note(&mut store, "secret plan");
+        let store = vault
+            .encrypt_with_password(store, "a long password", KDF)
+            .unwrap();
+        assert!(vault.is_encrypted() && vault.has_password());
+        assert_eq!(store.search("secret", 5).unwrap().len(), 1);
+        drop(store);
+        let raw = std::fs::read(dir.path().join(DB_FILE)).unwrap();
+        assert!(!raw.windows(6).any(|w| w == b"secret"));
+        let vault = Vault::open(dir.path()).unwrap();
+        assert!(vault.unlock_with_password("wrong").is_err());
+        let store = vault.unlock_with_password("a long password").unwrap();
+        assert_eq!(store.search("secret", 5).unwrap().len(), 1);
     }
 
     fn walk(dir: &Path) -> Vec<PathBuf> {

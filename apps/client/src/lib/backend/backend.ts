@@ -56,9 +56,10 @@ export interface Backend {
     newPassword: string | null,
     pin?: string | null,
   ): Promise<void>
-  /** An old unencrypted vault, encrypted with a key this device keeps until
-   * it is given a password. */
-  vaultEncrypt(): Promise<void>
+  /** An unencrypted vault, encrypted with `password` (no system keychain
+   * needed), or without one with a key this device keeps until it is given
+   * a password. */
+  vaultEncrypt(password: string | null): Promise<void>
   /** A newer version of the app, downloaded and ready, or only found with
    * its download page (`page`). `null`: up to date, or this
    * build does not update itself (dev, preview, the browser). `channel`

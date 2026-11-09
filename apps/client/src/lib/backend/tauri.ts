@@ -30,7 +30,7 @@ export function createTauriBackend(): Backend {
     vaultUnlockBiometric: () => invoke('vault_unlock_biometric'),
     vaultSetWay: (way, password, newPassword, pin) =>
       invoke('vault_set_way', { way, password, newPassword, pin }),
-    vaultEncrypt: () => invoke('vault_encrypt'),
+    vaultEncrypt: (password) => invoke('vault_encrypt', { password }),
     appUpdateCheck: (channel, allowOlder) => invoke('app_update_check', { channel, allowOlder }),
     appUpdateLatest: (channel, allowOlder) => invoke('app_update_latest', { channel, allowOlder }),
     appUpdateInstall: () => invoke('app_update_install'),

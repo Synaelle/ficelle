@@ -367,18 +367,53 @@ pub async fn vault_set_way(
     kept
 }
 
-/// Encrypts an old unencrypted vault, its key kept by this device until the
-/// page gives it a password (`vault_set_way`).
+/// Encrypts an unencrypted vault with `password`, no system keychain needed;
+/// a quick way is added after (`vault_set_way`). Backups made without a
+/// password take it too. Without a password the key is kept by this device
+/// until the page gives it one. A failed try leaves the notes open as they
+/// were.
 #[tauri::command]
-pub async fn vault_encrypt(state: State<'_, AppState>) -> CommandResult<()> {
-    let keys = biometric::device_store().ok_or_else(no_device)?;
+pub async fn vault_encrypt(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    password: Option<String>,
+) -> CommandResult<()> {
+    let password = password.filter(|p| !p.is_empty());
+    // looked up before the session is taken out: a missing one fails here
+    let keys = match password {
+        Some(_) => None,
+        None => Some(biometric::device_store().ok_or_else(no_device)?),
+    };
     let Some(session) = state.session().take() else {
         return Err(CommandError::locked());
     };
     let mut vault = session.vault;
     drop(session.blobs);
-    let store = vault.encrypt(session.store, keys)?;
-    state.open(vault, store)
+    let encrypted = match keys {
+        Some(keys) => vault.encrypt(session.store, keys),
+        None => vault.encrypt_with_password(
+            session.store,
+            password.as_deref().unwrap_or_default(),
+            KdfParams::DEFAULT,
+        ),
+    };
+    match encrypted {
+        Ok(store) => state.open(vault, store)?,
+        Err(e) => {
+            // read again from disk: vault.json says whether it got encrypted
+            let vault = Vault::open(&state.dir)?;
+            if !vault.is_encrypted() {
+                let store = vault.unlock_plain()?;
+                state.open(vault, store)?;
+            }
+            return Err(e.into());
+        }
+    }
+    if let Some(password) = password {
+        // as in vault_set_way: backups out of reach stay as they are
+        let _ = super::backups::protect(app, password).await;
+    }
+    Ok(())
 }
 
 #[tauri::command]

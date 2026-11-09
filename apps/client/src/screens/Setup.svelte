@@ -113,13 +113,18 @@
     void finish(pin)
   }
 
+  let encrypted = false
+
   async function finish(pin: string | null) {
     busy = true
     error = ''
     try {
       if (encrypt) {
-        await backend.vaultEncrypt()
-        await backend.vaultSetWay(way, null, password, pin)
+        // the password first, which needs no system keychain, then the quick
+        // way; a try after a failed quick way finds the notes encrypted
+        if (!encrypted) await backend.vaultEncrypt(password)
+        encrypted = true
+        if (way !== 'password') await backend.vaultSetWay(way, password, null, pin)
       } else await backend.vaultSetWay(way, null, password, pin)
       if (wantRecovery) {
         recoveryCode = await backend.vaultCreateRecovery(password)
