@@ -2,6 +2,7 @@
 <!-- Root: applies display preferences, then shows unlock or the notes. A first
      launch makes the notes, not encrypted, and goes straight to them. -->
 <script lang="ts">
+  import { brand } from '@app/brand'
   import DevReport from './devreport/DevReport.svelte'
   import BetaFeedback from './lib/BetaFeedback.svelte'
   import { autoLock } from './lib/autolock.svelte'
@@ -28,7 +29,7 @@
   import Unlock from './screens/Unlock.svelte'
   import Workspace from './workspace/Workspace.svelte'
 
-  type Stage = 'loading' | 'failed' | 'unlock' | 'upgrade' | 'ready'
+  type Stage = 'loading' | 'failed' | 'elsewhere' | 'unlock' | 'upgrade' | 'ready'
   let stage = $state<Stage>('loading')
   let status = $state<VaultStatus | null>(null)
   /** An old vault the app opened without asking: it gets a password before
@@ -46,7 +47,13 @@
   $effect(() => void applyQuickShortcut(prefs.quickNoteShortcut))
 
   async function start() {
-    status = await backend.vaultStatus()
+    try {
+      status = await backend.vaultStatus()
+    } catch (err) {
+      // another copy of the app has the notes: this one leaves them alone
+      if ((err as { kind?: string })?.kind === 'openElsewhere') return (stage = 'elsewhere')
+      throw err
+    }
     if (!status.exists) return void firstLaunch()
     if (status.unlocked) return (stage = needsPassword(status) ? 'upgrade' : 'ready')
     // the unlock screen asks for Windows Hello, the fingerprint, the PIN or
@@ -116,6 +123,11 @@
     <h1>{t('unlock.failedTitle')}</h1>
     <p role="alert">{t('unlock.failedHelp')}</p>
     <button class="btn primary" onclick={firstLaunch}>{t('unlock.retry')}</button>
+  </main>
+{:else if stage === 'elsewhere'}
+  <main class="failed">
+    <h1>{t('unlock.elsewhereTitle', { app: brand.displayName })}</h1>
+    <p role="alert">{t('unlock.elsewhereHelp', { app: brand.displayName })}</p>
   </main>
 {:else if stage === 'upgrade' && status?.way === 'device'}
   <Setup done={ready} />

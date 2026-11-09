@@ -62,6 +62,7 @@ pub struct VaultStatus {
 
 #[tauri::command]
 pub async fn vault_status(state: State<'_, AppState>) -> CommandResult<VaultStatus> {
+    state.check_alone()?;
     let unlocked = state.session().is_some();
     let guarded = biometric::guarded();
     let biometric_available = guarded.as_ref().is_some_and(GuardedKeyStore::available);
@@ -149,6 +150,7 @@ pub async fn vault_create(
     password: String,
     pin: Option<String>,
 ) -> CommandResult<()> {
+    state.check_alone()?;
     let dir = state.dir.clone();
     if way == Way::Plain {
         // no password, nothing to keep: anyone with the files reads them
@@ -390,6 +392,7 @@ pub async fn vault_lock(state: State<'_, AppState>) -> CommandResult<()> {
 /// Works locked too: a vault that no longer opens can still go.
 #[tauri::command]
 pub async fn vault_reset(state: State<'_, AppState>) -> CommandResult<()> {
+    state.check_alone()?;
     state.close();
     // stale keys would make a new vault look kept already
     let forgotten = match Vault::open(&state.dir) {
