@@ -177,6 +177,12 @@
   flex: none;
   margin-top: 0.15em;
 }
+/* the text takes the rest of the line: empty, it had no width and WebKit
+   drew no text cursor in a new item */
+.prose ul[data-type='taskList'] li > div {
+  flex: 1;
+  min-width: 0;
+}
 .prose ul[data-type='taskList'] input {
   accent-color: var(--color-accent);
 }
