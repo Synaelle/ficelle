@@ -5,6 +5,7 @@
      where they go and can be stopped. -->
 <script lang="ts">
   import { brand } from '@app/brand'
+  import { MOBILE } from '../lib/platform'
   import { onMount } from 'svelte'
   import { backend } from '../lib/backend'
   import type { BackupSnapshot, BackupTarget } from '../lib/backend/types'
@@ -47,6 +48,8 @@
   let looked: string | null = $state(null)
   let looking = $state(false)
   let found = $state(false)
+  /** The folder is there, but the app may not read it. */
+  let unreadable = $state(false)
   let needsPassword = $state(true)
   /** The notes are not encrypted: their backups need no password either. */
   let openDevice = $state(false)
@@ -94,13 +97,15 @@
     looked = null
     if (!path) return
     looking = true
+    unreadable = false
     try {
       const there = await backend.backupsFound({ kind: 'folder', path })
       found = there.found
       needsPassword = there.needsPassword
-    } catch {
+    } catch (err) {
       found = false
       needsPassword = true
+      unreadable = (err as { kind?: string })?.kind === 'unreadable'
     } finally {
       looking = false
       looked = path
@@ -312,7 +317,18 @@
         {#if looking}
           <p class="settings-help" role="status">{t('backups.looking')}</p>
         {:else if looked !== null && looked === folder.trim()}
-          {#if found}
+          {#if unreadable}
+            <p class="settings-help bad" role="status">
+              {t(MOBILE ? 'backups.unreadablePhone' : 'backups.unreadable', {
+                app: brand.displayName,
+              })}
+            </p>
+            <div class="settings-actions">
+              <button class="btn" type="button" onclick={() => open(null)}
+                >{t('common.cancel')}</button
+              >
+            </div>
+          {:else if found}
             <p class="settings-help" role="status">
               {setup === 'restore' ? t('backups.foundTitle') : t('backups.foundStartHelp')}
             </p>

@@ -125,7 +125,16 @@ pub struct Found {
 pub async fn backups_found(app: AppHandle, target: TargetConfig) -> CommandResult<Found> {
     blocking(app, move |_| {
         let opened = target.open()?;
-        let found = opened.get("config").is_ok();
+        let found = match opened.get("config").map_err(app_core::Error::from) {
+            Ok(_) => true,
+            Err(app_core::Error::NotFound(_)) => false,
+            // Android keeps a new install out of the files an earlier one
+            // made: they are there, never "no backups"
+            Err(app_core::Error::Io(e)) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                return Err(unreadable());
+            }
+            Err(e) => return Err(e.into()),
+        };
         let needs_password = found && Repo::open(opened, NO_PASSWORD).is_err();
         Ok(Found {
             found,
@@ -231,6 +240,10 @@ fn check_protected(state: &AppState, config: &BackupConfig) -> CommandResult<()>
         return Err(unprotected());
     }
     Ok(())
+}
+
+fn unreadable() -> CommandError {
+    CommandError::new("unreadable", "the app may not read this folder")
 }
 
 fn unprotected() -> CommandError {
