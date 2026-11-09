@@ -84,14 +84,27 @@ pub(crate) fn snapshot_if_new_session(
     Ok(new_session)
 }
 
-/// Keeps `note` before an edit that empties it, so a note emptied by mistake
-/// can be brought back, and so it is known to have held something.
+/// Keeps `note` before an edit that empties it or clears its title, so what
+/// was cleared by mistake can be brought back, a note is known to have held
+/// something, and links follow its title once a new one is typed.
 pub(crate) fn snapshot_before_emptying(
     conn: &Connection,
     note: &Note,
     now: Timestamp,
 ) -> Result<()> {
     save(conn, note, VersionReason::Edit, now)
+}
+
+/// The latest title the note had in its history, `None` if it never had one.
+pub(crate) fn last_title(conn: &Connection, note: NoteId) -> Result<Option<String>> {
+    Ok(conn
+        .query_row(
+            "SELECT title FROM note_versions WHERE note_id = ?1 AND trim(title) <> ''
+             ORDER BY created_at DESC, id DESC LIMIT 1",
+            [note],
+            |row| row.get(0),
+        )
+        .optional()?)
 }
 
 impl Store {

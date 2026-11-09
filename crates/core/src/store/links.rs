@@ -60,7 +60,8 @@ pub(crate) fn rebuild_link_index(conn: &Connection) -> Result<()> {
 
 /// After a rename, points links that used the old title at the new one.
 /// Skipped when another live note still has the old title, because the
-/// links may well mean that note.
+/// links may well mean that note, and while the new title is empty: it is
+/// being typed, the links follow once it is.
 pub(super) fn follow_rename(
     conn: &Connection,
     renamed: NoteId,
@@ -69,7 +70,8 @@ pub(super) fn follow_rename(
     now: Timestamp,
 ) -> Result<()> {
     let old_key = title_key(old);
-    if old_key.is_empty() || old_key == title_key(new) {
+    let new_key = title_key(new);
+    if old_key.is_empty() || new_key.is_empty() || old_key == new_key {
         return Ok(());
     }
     let still_used: bool = conn.query_row(
@@ -306,6 +308,35 @@ mod tests {
             "[[Old name]] and [[old name#Part|label]] and `[[Old name]]`",
             "the linking note keeps its pre rename text in history"
         );
+    }
+
+    #[test]
+    fn links_follow_a_title_cleared_then_typed_again() {
+        let (mut store, clock) = store();
+        let target = store.create_note(&note("Draft", "")).unwrap();
+        let linker = store
+            .create_note(&note("Links", "see [[Theta]] and [[Theta#Part|label]]"))
+            .unwrap();
+        let retitle = |title: &str| NoteChange {
+            title: Some(title.into()),
+            ..NoteChange::default()
+        };
+        // one editing session: the history keeps "Draft", and "Theta" only
+        // when it is cleared
+        clock.advance(MINUTE);
+        store.update_note(target.id, retitle("Theta")).unwrap();
+        store.update_note(target.id, retitle("")).unwrap();
+        assert_eq!(
+            store.note(linker.id).unwrap().body,
+            "see [[Theta]] and [[Theta#Part|label]]",
+            "an empty title is not followed"
+        );
+        store.update_note(target.id, retitle("Iota")).unwrap();
+        assert_eq!(
+            store.note(linker.id).unwrap().body,
+            "see [[Iota]] and [[Iota#Part|label]]"
+        );
+        assert_eq!(store.backlinks(target.id).unwrap().len(), 1);
     }
 
     #[test]

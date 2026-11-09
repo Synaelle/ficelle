@@ -263,13 +263,21 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
         createdAt: now(),
         reason: 'edit',
       })
-      const oldTitle = current.title
+      // a title cleared to type another one: links follow from the one before
+      const oldTitle =
+        current.title.trim() ||
+        (versions.find((v) => v.noteId === noteId && v.title.trim())?.title ?? '')
       // no other device here, the base of an edit never differs
       const edit: NoteChange = { ...change }
       delete edit.baseTitle
       delete edit.baseBody
       Object.assign(current, edit, { updatedAt: now() })
-      if (change.title !== undefined && key(oldTitle) !== key(change.title)) {
+      if (
+        change.title !== undefined &&
+        key(change.title) &&
+        key(oldTitle) &&
+        key(oldTitle) !== key(change.title)
+      ) {
         for (const other of notes.values()) {
           if (other.id === noteId) continue
           other.body = other.body.replace(/\[\[([^\]\n|#]+)/g, (all, target: string) =>

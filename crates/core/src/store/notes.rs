@@ -166,15 +166,25 @@ impl Store {
             crate::sync::conflict::record_merge(&tx, id, &mine, &theirs, &merged, now)?;
         }
         let saved = history::snapshot_if_new_session(&tx, &current, now)?;
-        if !saved && is_blank(&title, &body) && !is_blank(&current.title, &current.body) {
+        let untitled = |text: &str| text.trim().is_empty();
+        let clears_title = untitled(&title) && !untitled(&current.title);
+        let empties = is_blank(&title, &body) && !is_blank(&current.title, &current.body);
+        if !saved && (clears_title || empties) {
             history::snapshot_before_emptying(&tx, &current, now)?;
         }
+        // a title cleared to type another one: links follow from the title
+        // it had before, kept in its history by the clearing
+        let old_title = if untitled(&current.title) && !untitled(&title) {
+            history::last_title(&tx, id)?.unwrap_or_default()
+        } else {
+            current.title.clone()
+        };
         tx.execute(
             "UPDATE notes SET title = ?2, body = ?3, updated_at = ?4 WHERE id = ?1",
             params![id, title, body, now],
         )?;
         reindex(&tx, id)?;
-        links::follow_rename(&tx, id, &current.title, &title, now)?;
+        links::follow_rename(&tx, id, &old_title, &title, now)?;
         crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
         load_note(&self.conn, id)
     }
