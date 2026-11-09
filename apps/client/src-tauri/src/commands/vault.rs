@@ -339,7 +339,7 @@ pub async fn vault_set_way(
 ) -> CommandResult<()> {
     let dir = state.dir.clone();
     focus(&app);
-    let given = blocking(move || {
+    let (given, kept) = blocking(move || {
         let mut vault = Vault::open(&dir)?;
         if !vault.is_encrypted() {
             return Err(CommandError::new("invalid", "encrypt the vault first"));
@@ -353,8 +353,9 @@ pub async fn vault_set_way(
             vault.set_password(&key, &new_password, KdfParams::DEFAULT)?;
             given = Some(new_password);
         }
-        keep_quick_way(&vault, &key, way, pin.as_deref())?;
-        Ok(given)
+        // the password stays set when the quick way fails: the backups
+        // take it all the same
+        Ok((given, keep_quick_way(&vault, &key, way, pin.as_deref())))
     })
     .await?;
     refresh(&state)?;
@@ -363,7 +364,7 @@ pub async fn vault_set_way(
         // and none are made until they are set up again with a password
         let _ = super::backups::protect(app, password).await;
     }
-    Ok(())
+    kept
 }
 
 /// Encrypts an old unencrypted vault, its key kept by this device until the
