@@ -68,39 +68,6 @@ export interface ReportInput {
   now: Date
 }
 
-const MAX_ERRORS = 20
-const recent: string[] = []
-
-function remember(line: string) {
-  recent.push(`${new Date().toLocaleTimeString('en-GB')} ${line}`)
-  if (recent.length > MAX_ERRORS) recent.shift()
-}
-
-/** Keeps the last errors so a report shows what went wrong before it. */
-export function captureErrors() {
-  const original = console.error.bind(console)
-  console.error = (...args: unknown[]) => {
-    remember(args.map((a) => (a instanceof Error ? (a.stack ?? a.message) : String(a))).join(' '))
-    original(...args)
-  }
-  window.addEventListener('error', (e) =>
-    remember(
-      e.error instanceof Error && e.error.stack
-        ? e.error.stack
-        : `${e.message} at ${e.filename}:${e.lineno}:${e.colno}`,
-    ),
-  )
-  window.addEventListener('unhandledrejection', (e) =>
-    remember(
-      e.reason instanceof Error && e.reason.stack
-        ? e.reason.stack
-        : `unhandled: ${String(e.reason)}`,
-    ),
-  )
-}
-
-export const recentErrors = () => [...recent]
-
 const pad = (n: number) => String(n).padStart(2, '0')
 const stamp = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`

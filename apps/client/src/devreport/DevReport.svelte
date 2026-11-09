@@ -8,16 +8,10 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { modal } from '../lib/modal'
   import { t } from '../lib/i18n.svelte'
+  import { recentLogs } from '../lib/feedback'
   import { prefs } from '../lib/prefs.svelte'
   import { workspace } from '../lib/workspace.svelte'
-  import {
-    phoneFolder,
-    phoneReports,
-    pickPhoneFolder,
-    recentErrors,
-    saveReport,
-    screenshot,
-  } from './report'
+  import { phoneFolder, phoneReports, pickPhoneFolder, saveReport, screenshot } from './report'
 
   let open = $state(false)
   let text = $state('')
@@ -129,7 +123,7 @@
         critical,
         images,
         context: context(),
-        errors: recentErrors(),
+        errors: recentLogs(),
         now: new Date(),
       })
     } catch (err) {
@@ -204,7 +198,8 @@
                 type="button"
                 class="icon-btn remove"
                 aria-label={t('devReport.removeImage')}
-                onclick={() => (images = images.filter((_, j) => j !== i))}>×</button
+                onclick={() => (images = images.filter((_, j) => j !== i))}
+                ><Icon name="close" size={14} /></button
               >
             </figure>
           {/each}
