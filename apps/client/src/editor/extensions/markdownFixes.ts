@@ -125,20 +125,44 @@ export function escapeHtmlLookalikes(text: string): string {
   return text.replace(/&(?=#?\w+;)/g, '\\&').replace(/<(?=[A-Za-z/!?])/g, '\\<')
 }
 
+/**
+ * A link's address as markdown writes it. Upstream writes it bare, so an
+ * address with a space ("My file.pdf") or a lone ")" was read back as
+ * plain text or cut short. Those go between < >, where only < and > need
+ * escaping.
+ */
+export function linkDestination(href: string): string {
+  return /[\s()<>]/.test(href) ? `<${href.replace(/[<>]/g, '\\$&')}>` : href
+}
+
 type JSONLike = { type?: string; marks?: (string | { type: string })[] }
-/** The private parts of the markdown manager this fix replaces, as of 3.32. */
+type LinkNode = { attrs?: { href?: string | null; title?: string | null } }
+interface RenderSpec {
+  renderMarkdown?: (node: LinkNode, helpers: { renderChildren(node: unknown): string }) => string
+}
+/** The private parts of the markdown manager these fixes replace, as of 3.32. */
 interface TextEncoding {
   codeTypes: Set<string>
+  nodeTypeRegistry: Map<string, RenderSpec[]>
   escapeMarkdownSyntax(text: string): string
   encodeTextForMarkdown(text: string, node: JSONLike, parent?: JSONLike): string
 }
 
-/** Markdown extension that writes text with escapeHtmlLookalikes. */
+/** Markdown extension that writes text with escapeHtmlLookalikes, and link
+ * addresses with linkDestination. */
 export const ReadableMarkdown = Markdown.extend({
   onBeforeCreate(event) {
     this.parent?.(event)
     const manager = this.editor.markdown as unknown as TextEncoding | undefined
     if (!manager) return
+    for (const spec of manager.nodeTypeRegistry.get('link') ?? []) {
+      spec.renderMarkdown = (node, helpers) => {
+        const href = linkDestination(node.attrs?.href ?? '')
+        const title = node.attrs?.title?.replace(/"/g, '\\"')
+        const text = helpers.renderChildren(node)
+        return title ? `[${text}](${href} "${title}")` : `[${text}](${href})`
+      }
+    }
     const inCode = (node: JSONLike, parent?: JSONLike) =>
       (parent?.type !== undefined && manager.codeTypes.has(parent.type)) ||
       (node.marks ?? []).some((m) => manager.codeTypes.has(typeof m === 'string' ? m : m.type))

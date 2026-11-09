@@ -140,6 +140,30 @@ function taskJson(markdown: string): unknown {
   return json
 }
 
+describe('link addresses', () => {
+  it('keeps addresses with spaces, brackets and parentheses as links', () => {
+    for (const href of ['My file.pdf', 'Note.md#Some Heading', 'https://x.y/a)b', 'a<b>.md']) {
+      const editor = new Editor({
+        element: document.createElement('div'),
+        extensions: createExtensions(),
+        content: '<p>see <a href="x">word</a></p>',
+      })
+      editor.chain().selectAll().setLink({ href }).run()
+      const saved = editor.getMarkdown()
+      editor.destroy()
+      const again = new Editor({
+        element: document.createElement('div'),
+        extensions: createExtensions(),
+        content: saved,
+        contentType: 'markdown',
+      })
+      expect(again.getHTML(), saved).toContain(`href="${href}"`)
+      expect(again.getMarkdown()).toBe(saved)
+      again.destroy()
+    }
+  })
+})
+
 describe('parsing speed', () => {
   it('grows with the note, never with its square', () => {
     parseTime(SPEED_BLOCK)
