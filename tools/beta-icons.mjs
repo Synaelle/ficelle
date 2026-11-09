@@ -28,7 +28,8 @@ const work = mkdtempSync(join(tmpdir(), 'beta-icons-'))
 function render(svg, out, sizes) {
   const args = ['--filter', '@app/client', 'tauri', 'icon', join(brand, svg), '-o', out]
   if (sizes) args.push('-p', sizes.join(','))
-  const result = spawnSync('pnpm', args, { stdio: 'inherit', shell: true })
+  // pnpm is pnpm.cmd on Windows, which only a shell finds by that name
+  const result = spawnSync('pnpm', args, { stdio: 'inherit', shell: process.platform === 'win32' })
   if (result.status !== 0) {
     console.error(`rendering ${svg} failed`)
     process.exit(1)

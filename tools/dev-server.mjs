@@ -104,7 +104,7 @@ function showMail(raw) {
       .replace(/=([0-9A-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16))),
     'latin1',
   ).toString('utf8')
-  console.log(`\n${bold('📧 mail to ' + header('To'))}  ${subject}\n${body.trim()}\n`)
+  console.log(`\n${bold('mail to ' + header('To'))}  ${subject}\n${body.trim()}\n`)
 }
 
 // pretend sign-on provider: discovery, keys, a sign-in page, signed tokens

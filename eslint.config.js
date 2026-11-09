@@ -12,8 +12,8 @@ export default ts.config(
       '**/target/',
       '**/src-tauri/gen/',
       '**/src/generated/',
-      '.atelier/',
-      '.dev-data/',
+      // local folders kept out of git, whatever their names
+      '.*/',
     ],
   },
   js.configs.recommended,
@@ -23,7 +23,6 @@ export default ts.config(
     languageOptions: {
       globals: {
         ...globals.browser,
-        ...globals.node,
         __APP_VERSION__: 'readonly',
         __APP_BUILD_DATE__: 'readonly',
         __APP_PROTOCOL__: 'readonly',
@@ -31,6 +30,7 @@ export default ts.config(
         __APP_PREVIEW__: 'readonly',
         __APP_DEV_TOOLS__: 'readonly',
         __APP_PORTABLE__: 'readonly',
+        __APP_PLATFORM__: 'readonly',
       },
     },
     rules: {
@@ -44,6 +44,11 @@ export default ts.config(
         })),
       ],
     },
+  },
+  {
+    // build tools and configs run in node, the app's code in a webview
+    files: ['tools/**', '**/*.config.{js,ts}', 'apps/client/vite/**', 'packages/brand/**'],
+    languageOptions: { globals: globals.node },
   },
   {
     files: ['**/*.svelte', '**/*.svelte.ts'],

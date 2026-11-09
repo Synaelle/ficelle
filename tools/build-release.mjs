@@ -15,6 +15,7 @@ import { spawnSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { releaseVersion } from './version.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const preview = process.argv.includes('--preview')
@@ -45,10 +46,7 @@ if (portable) overlays.push('src-tauri/tauri.portable.conf.json')
 if (preview) overlays.push('src-tauri/tauri.preview.conf.json')
 // a beta's knot carries its ribbon (tools/beta-icons.mjs), so a beta is
 // never taken for a stable release either
-const workspaceVersion = readFileSync(join(root, 'Cargo.toml'), 'utf8').match(
-  /\[workspace\.package\][^[]*?\nversion = "([^"]+)"/,
-)?.[1]
-if (!preview && /-beta\.\d+$/.test(workspaceVersion ?? ''))
+if (!preview && /-beta\.\d+$/.test(releaseVersion()))
   overlays.push('src-tauri/tauri.beta.conf.json')
 // Linux: the window takes dropped files itself, as tauri.linux.conf.json says
 // for other builds. Merged last, from the windows of the overlays above, so
@@ -97,8 +95,7 @@ if (result.status !== 0) process.exit(result.status ?? 1)
 
 if (portable) {
   const brand = JSON.parse(readFileSync(join(root, 'packages/brand/brand.json'), 'utf8'))
-  const cargo = readFileSync(join(root, 'Cargo.toml'), 'utf8')
-  const version = cargo.match(/\[workspace\.package\][^[]*?\nversion = "([^"]+)"/)?.[1]
+  const version = releaseVersion()
   const folder = join(root, 'target/release/bundle/portable')
   mkdirSync(folder, { recursive: true })
   const file = join(

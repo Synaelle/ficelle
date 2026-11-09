@@ -31,8 +31,9 @@ export function isRelease() {
   return process.env.APP_RELEASE === '1'
 }
 
-/** Release and preview builds: release settings (updates, no dev tools). A preview
- * still has a name, id and data of its own, see packages/brand. */
+/** Release and preview builds: release settings (updates). A preview keeps the
+ * dev tools and short passwords, it is for testing, and has a name, id and
+ * data of its own, see packages/brand. */
 export function hasReleaseIdentity() {
   return isRelease() || process.env.APP_PREVIEW === '1'
 }
