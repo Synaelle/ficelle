@@ -135,8 +135,13 @@ jobs:
           # which only names versions with a server image
           notes=""
           critical=false
-          gh release download "$TAG" -p releases.json -O releases.json --clobber 2>/dev/null || true
-          if gh release download "$TAG" -p update.json -O update.json --clobber 2>/dev/null; then
+          # only what the draft holds is downloaded, so a failed download stops the job
+          assets=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          if grep -qx releases.json <<< "$assets"; then
+            gh release download "$TAG" -p releases.json -O releases.json --clobber
+          fi
+          if grep -qx update.json <<< "$assets"; then
+            gh release download "$TAG" -p update.json -O update.json --clobber
             notes=$(jq -r '.notes // ""' update.json)
             critical=$(jq '.critical == true' update.json)
             gh release delete-asset "$TAG" update.json --yes
@@ -147,7 +152,8 @@ jobs:
           schema=$(grep -c 'include_str!("db/' crates/core/src/db.rs)
           entry() { jq -n --arg sig "$(cat "$1.sig")" --arg url "$base/$(basename "$1")" '{signature: $sig, url: $url}'; }
           # the one APK holds every Android architecture, listed under each
-          jq -n --arg version "$version" --arg notes "$notes" --argjson critical "$critical"             --argjson schema "$schema" \
+          jq -n --arg version "$version" --arg notes "$notes" --argjson critical "$critical" \
+            --argjson schema "$schema" \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --argjson windows "$(entry "$setup")" \
             --argjson linux "$(entry "$appimage")" \
@@ -173,7 +179,8 @@ jobs:
           if gh release download beta -p latest.json -O held.json --clobber 2>/dev/null; then
             held=$(jq -r .version held.json)
           else
-            gh release view beta > /dev/null 2>&1 || gh release create beta --prerelease --latest=false               --title "Beta channel" --notes "The update list beta apps read, not a release of its own."
+            gh release view beta > /dev/null 2>&1 || gh release create beta --prerelease --latest=false \
+              --title "Beta channel" --notes "The update list beta apps read, not a release of its own."
           fi
           if node tools/version.mjs newer "$version" "$held"; then
             # the servers' signed list too, for servers running a beta
