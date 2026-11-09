@@ -241,6 +241,9 @@ fn yaml_string(text: &str) -> String {
 /// A file or directory name that is valid on Windows, macOS and Linux.
 fn safe_name(raw: &str) -> String {
     const MAX_CHARS: usize = 100;
+    // most file systems allow 255 bytes, and Chinese, Japanese or emoji take
+    // 3 or 4 each: room is left for " (2)" and ".md"
+    const MAX_BYTES: usize = 200;
     const RESERVED: &[&str] = &[
         "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
         "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
@@ -258,7 +261,15 @@ fn safe_name(raw: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
-    let name: String = cleaned.chars().take(MAX_CHARS).collect();
+    let mut bytes = 0;
+    let name: String = cleaned
+        .chars()
+        .take(MAX_CHARS)
+        .take_while(|c| {
+            bytes += c.len_utf8();
+            bytes <= MAX_BYTES
+        })
+        .collect();
     // Windows drops trailing dots and spaces, which would make names collide
     let mut name = name.trim_end_matches(['.', ' ']).trim_start().to_owned();
     let stem = name.split('.').next().unwrap_or("").to_ascii_uppercase();
@@ -391,6 +402,10 @@ mod tests {
         assert_eq!(safe_name("con"), "Untitled con");
         assert_eq!(safe_name("CON.txt"), "Untitled CON.txt");
         assert_eq!(safe_name(&"x".repeat(300)).len(), 100);
+        // three bytes each: cut by bytes, never inside a character
+        let wide = safe_name(&"日本語".repeat(40));
+        assert_eq!(wide.len(), 198);
+        assert!(safe_name(&"🌱".repeat(100)).len() <= 200);
     }
 
     #[test]
