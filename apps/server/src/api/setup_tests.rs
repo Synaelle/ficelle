@@ -38,7 +38,7 @@ fn fresh(strict: bool, public_url: &str) -> (AppState, Router) {
     };
     config.setup.allow_http = !strict;
     config.server.public_url = public_url.into();
-    let state = AppState::new(config, Db::in_memory().unwrap());
+    let state = AppState::for_tests(config, Db::in_memory().unwrap());
     let app = router(state.clone());
     (state, app)
 }
@@ -295,7 +295,7 @@ async fn an_authenticator_app_admin_and_the_lock() {
     assert!(log.iter().any(|e| e == "setup_done"), "{log:?}");
 
     // a restart on the same database stays locked
-    let again = AppState::new(state.config.as_ref().clone(), state.db.clone());
+    let again = AppState::for_tests(state.config.as_ref().clone(), state.db.clone());
     let app = router(again.clone());
     let (status, _) = start(&app, &link(&again)).await;
     assert_eq!(status, StatusCode::GONE);
@@ -500,7 +500,7 @@ async fn a_test_mail_goes_out_at_once() {
     let mut config = state.config.as_ref().clone();
     config.smtp.host = crate::mail::TEST_HOST.into();
     config.smtp.from = "Notes <notes@example.org>".into();
-    let mailing = AppState::new(config, state.db.clone());
+    let mailing = AppState::for_tests(config, state.db.clone());
     let app = router(mailing.clone());
     let (status, body) = call(
         &app,

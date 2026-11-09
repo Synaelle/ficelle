@@ -205,15 +205,7 @@ pub fn address_key(conn: &Connection, ip: IpAddr) -> Result<String, DbError> {
         },
     };
     let hash = mac(&secret, b"feedback address\0", &[&prefix]);
-    Ok(hex(&hash[..16]))
-}
-
-fn hex(bytes: &[u8]) -> String {
-    use std::fmt::Write;
-    bytes.iter().fold(String::new(), |mut s, b| {
-        let _ = write!(s, "{b:02x}");
-        s
-    })
+    Ok(data_encoding::HEXLOWER.encode(&hash[..16]))
 }
 
 /// Reports taken in from `address` since `since`.
@@ -664,7 +656,7 @@ fn message_hash(message: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
-    hex(&Sha256::digest(normal.as_bytes())[..16])
+    data_encoding::HEXLOWER.encode(&Sha256::digest(normal.as_bytes())[..16])
 }
 
 fn blocked(
@@ -900,17 +892,13 @@ pub fn answers(
     secrets: &[String],
 ) -> Result<Vec<app_protocol::feedback::SentReport>, DbError> {
     use app_protocol::feedback::{SentReport, SentState};
-    use std::fmt::Write;
 
     use sha2::{Digest, Sha256};
     let mut out = Vec::new();
     let mut stmt =
         conn.prepare_cached("SELECT status, answer FROM reports WHERE receipt = ?1 LIMIT 1")?;
     for secret in secrets {
-        let mut receipt = String::with_capacity(64);
-        for byte in Sha256::digest(secret.as_bytes()) {
-            let _ = write!(receipt, "{byte:02x}");
-        }
+        let receipt = data_encoding::HEXLOWER.encode(&Sha256::digest(secret.as_bytes()));
         let found: Option<(String, String)> = stmt
             .query_row([&receipt], |r| Ok((r.get(0)?, r.get(1)?)))
             .optional()?;

@@ -195,7 +195,7 @@ mod tests {
         let mut config = Config::default();
         config.server.web_dir = Some(dir.path().to_path_buf());
         config.server.base_path = base.map(str::to_owned);
-        let state = AppState::new(config, Db::in_memory().unwrap());
+        let state = AppState::for_tests(config, Db::in_memory().unwrap());
         state.setup.set_done();
         (dir, app(state))
     }
@@ -333,7 +333,10 @@ mod tests {
 
     #[tokio::test]
     async fn without_a_web_folder_the_page_is_not_there() {
-        let app = app(AppState::new(Config::default(), Db::in_memory().unwrap()));
+        let app = app(AppState::for_tests(
+            Config::default(),
+            Db::in_memory().unwrap(),
+        ));
         assert_eq!(get(&app, "/admin").await.0, StatusCode::NOT_FOUND);
     }
 }

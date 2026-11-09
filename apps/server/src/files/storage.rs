@@ -7,9 +7,11 @@
 //! An upload is written to an incoming object named after its space and
 //! address, then moved into place under its object name once complete.
 
+#[cfg(test)]
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
+#[cfg(test)]
 use std::sync::{Mutex, PoisonError};
 
 /// A file backend.
@@ -174,18 +176,20 @@ impl Storage for LocalDisk {
     }
 }
 
-/// Everything in memory, for tests and a server started without a data
-/// folder.
+/// Everything in memory, for tests.
+#[cfg(test)]
 #[derive(Default)]
 pub struct Memory {
     objects: Mutex<HashMap<String, Vec<u8>>>,
     uploads: Mutex<HashMap<String, Vec<u8>>>,
 }
 
+#[cfg(test)]
 fn not_found() -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::NotFound, "no such file")
 }
 
+#[cfg(test)]
 impl Storage for Memory {
     fn write_incoming(&self, upload: &str, offset: u64, bytes: &[u8]) -> std::io::Result<()> {
         let mut uploads = self.uploads.lock().unwrap_or_else(PoisonError::into_inner);

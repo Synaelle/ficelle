@@ -69,8 +69,16 @@ pub struct AppState {
 }
 
 impl AppState {
-    /// State for a loaded config and an open database.
-    pub fn new(config: Config, db: Db) -> Self {
+    /// State for a loaded config, an open database, the master key, the
+    /// feedback database and where files are stored: everything that holds
+    /// data is given, never made up here.
+    pub fn new(
+        config: Config,
+        db: Db,
+        master: crate::keys::MasterKey,
+        feedback: Db,
+        files: Arc<dyn crate::files::Storage>,
+    ) -> Self {
         Self {
             passwords: Passwords::new(&config.auth),
             rate_limit: RateLimit::new(config.auth.rate_limit_per_minute),
@@ -78,7 +86,7 @@ impl AppState {
             sso: crate::sso::Provider::new(&config).map(Arc::new),
             opaque: Arc::default(),
             live: Arc::default(),
-            files: Arc::new(crate::files::Memory::default()),
+            files,
             files_lock: Arc::default(),
             feedback_reading: Arc::new(tokio::sync::Semaphore::new(
                 crate::feedback::READING_AT_ONCE,
@@ -87,8 +95,8 @@ impl AppState {
                 std::thread::available_parallelism().map_or(2, |n| n.get().clamp(2, 8)),
             )),
             mailer: crate::mail::Mailer::new(&config),
-            master: Arc::new(crate::keys::MasterKey::generate()),
-            feedback: Db::feedback_in_memory().expect("the feedback migrations apply"),
+            master: Arc::new(master),
+            feedback,
             feedback_limit: RateLimit::new(FEEDBACK_CHALLENGES_PER_MINUTE),
             setup: Arc::default(),
             updates: Arc::new(crate::updates::Updates::new(config.updates.clone())),
@@ -96,6 +104,19 @@ impl AppState {
             db,
             clock: Clock::default(),
         }
+    }
+
+    /// State for tests: files in memory, a new master key, feedback in
+    /// memory.
+    #[cfg(test)]
+    pub fn for_tests(config: Config, db: Db) -> Self {
+        Self::new(
+            config,
+            db,
+            crate::keys::MasterKey::generate(),
+            Db::feedback_in_memory().expect("the feedback migrations apply"),
+            Arc::new(crate::files::Memory::default()),
+        )
     }
 }
 
@@ -326,7 +347,7 @@ mod tests {
     use tower::ServiceExt;
 
     fn app(config: Config) -> Router {
-        let state = AppState::new(config, Db::in_memory().unwrap());
+        let state = AppState::for_tests(config, Db::in_memory().unwrap());
         state.setup.set_done();
         router(state)
     }

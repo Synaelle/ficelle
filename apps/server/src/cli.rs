@@ -573,7 +573,7 @@ mod tests {
         let mut config = Config::default();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         config.server.bind = listener.local_addr().unwrap();
-        let app = crate::routes::router(crate::routes::AppState::new(
+        let app = crate::routes::router(crate::routes::AppState::for_tests(
             config.clone(),
             Db::in_memory().unwrap(),
         ))

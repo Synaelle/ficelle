@@ -40,7 +40,10 @@ impl RateLimit {
     /// wait before the next one is allowed.
     pub fn check(&self, ip: IpAddr, now: i64) -> Result<(), u64> {
         let capacity = f64::from(self.per_minute);
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a minute in ms is far below 2^52"
+        )]
         let per_ms = capacity / MINUTE as f64;
         let mut buckets = self.buckets.lock().unwrap_or_else(PoisonError::into_inner);
         if buckets.len() > MAX_BUCKETS {
@@ -51,7 +54,10 @@ impl RateLimit {
             tokens: capacity,
             at: now,
         });
-        #[allow(clippy::cast_precision_loss)]
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "elapsed ms, exact far beyond any uptime"
+        )]
         let refill = (now - bucket.at).max(0) as f64 * per_ms;
         bucket.tokens = (bucket.tokens + refill).min(capacity);
         bucket.at = now;
@@ -59,7 +65,11 @@ impl RateLimit {
             bucket.tokens -= 1.0;
             Ok(())
         } else {
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "a positive wait of at most a minute in seconds"
+            )]
             let wait = ((1.0 - bucket.tokens) / per_ms / 1000.0).ceil() as u64;
             Err(wait.max(1))
         }

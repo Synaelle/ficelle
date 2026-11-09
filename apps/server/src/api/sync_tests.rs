@@ -268,7 +268,7 @@ async fn standard_changes_are_encrypted_at_rest_with_the_master_key() {
         );
     }
     // the same database with another master key cannot read the changes
-    let mut other = AppState::new(crate::config::Config::default(), state.db.clone());
+    let mut other = AppState::for_tests(crate::config::Config::default(), state.db.clone());
     other.master = std::sync::Arc::new(crate::keys::MasterKey::generate());
     let other_app = crate::routes::router(other);
     let (status, _) = call(

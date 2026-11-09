@@ -30,7 +30,9 @@ use sha2::{Digest, Sha256};
 
 use crate::db::DbError;
 use crate::keys::MasterKey;
-pub use storage::{LocalDisk, Memory, Storage};
+#[cfg(test)]
+pub use storage::Memory;
+pub use storage::{LocalDisk, Storage};
 
 /// A file address: 64 lower case hex characters.
 pub fn address_ok(address: &str) -> bool {
@@ -454,18 +456,7 @@ pub fn check_standard(
     if source.read(&mut extra)? != 0 {
         return Ok(false);
     }
-    Ok(hex(&hasher.finalize()) == address)
-}
-
-fn hex(bytes: &[u8]) -> String {
-    use std::fmt::Write as _;
-    bytes
-        .iter()
-        .fold(String::with_capacity(bytes.len() * 2), |mut out, b| {
-            // writing to a String cannot fail
-            let _ = write!(out, "{b:02x}");
-            out
-        })
+    Ok(data_encoding::HEXLOWER.encode(&hasher.finalize()) == address)
 }
 
 /// Records a complete upload: the object (once), the space's reference,
@@ -804,7 +795,7 @@ mod tests {
         let content: Vec<u8> = (0..CHUNK * 3 + 100)
             .map(|i| u8::try_from(i % 241).unwrap())
             .collect();
-        let address = hex(&Sha256::digest(&content));
+        let address = data_encoding::HEXLOWER.encode(&Sha256::digest(&content));
         let total = content.len() as u64;
         // parts of two chunks, then the rest
         let mut stored = Vec::new();
@@ -853,7 +844,7 @@ mod tests {
     #[test]
     fn an_empty_file_is_one_empty_chunk() {
         let master = MasterKey::generate();
-        let address = hex(&Sha256::digest(b""));
+        let address = data_encoding::HEXLOWER.encode(&Sha256::digest(b""));
         let part = Incoming {
             start: 0,
             len: 0,

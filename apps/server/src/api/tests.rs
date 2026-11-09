@@ -31,7 +31,7 @@ pub(super) async fn server_with(config: Config) -> (AppState, Router) {
         },
         ..config
     };
-    let state = AppState::new(config, Db::in_memory().unwrap());
+    let state = AppState::for_tests(config, Db::in_memory().unwrap());
     state.db.call(|c| crate::setup::lock(c)).await.unwrap();
     let app = router(state.clone());
     (state, app)

@@ -8,9 +8,6 @@
 //! The repository's targets are blocking calls: this one runs its own
 //! small runtime, and is used from the server's blocking tasks.
 
-// used by the instance's backups, which come in the next step
-#![cfg_attr(not(test), allow(dead_code))]
-
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 

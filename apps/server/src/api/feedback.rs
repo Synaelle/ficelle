@@ -339,14 +339,6 @@ fn is_reader(c: &Connection, user_id: &str) -> Result<bool, DbError> {
     )? > 0)
 }
 
-fn hex(bytes: &[u8]) -> String {
-    use std::fmt::Write;
-    bytes.iter().fold(String::new(), |mut s, b| {
-        let _ = write!(s, "{b:02x}");
-        s
-    })
-}
-
 /// An admin, a reader, or the read-only token.
 async fn moderator(state: &AppState, headers: &HeaderMap) -> Result<Moderator, Error> {
     let bearer = headers
@@ -360,7 +352,7 @@ async fn moderator(state: &AppState, headers: &HeaderMap) -> Result<Moderator, E
     state
         .db
         .call(move |c| {
-            if read_token(c)?.is_some_and(|t| t.hash == hex(&hash)) {
+            if read_token(c)?.is_some_and(|t| t.hash == data_encoding::HEXLOWER.encode(&hash)) {
                 return Ok(Ok(Moderator { me: None }));
             }
             let Some(me) = store::authenticate(c, &hash, now)? else {
@@ -819,7 +811,7 @@ pub async fn new_token(
     let now = state.clock.now();
     let ip = ip.0.to_string();
     let row = serde_json::to_string(&TokenRow {
-        hash: hex(&hash),
+        hash: data_encoding::HEXLOWER.encode(&hash),
         created_at: now,
     })
     .unwrap_or_default();

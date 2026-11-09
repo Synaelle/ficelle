@@ -121,12 +121,12 @@ impl Db {
         Self::setup(Connection::open_in_memory()?, MIGRATIONS)
     }
 
-    /// A private feedback database in memory, the default until the server
-    /// opens its file, and for tests.
+    /// A private feedback database in memory, for tests.
     ///
     /// # Errors
     ///
     /// Fails only if a migration is broken.
+    #[cfg(test)]
     pub fn feedback_in_memory() -> Result<Self, DbError> {
         Self::setup(Connection::open_in_memory()?, FEEDBACK_MIGRATIONS)
     }

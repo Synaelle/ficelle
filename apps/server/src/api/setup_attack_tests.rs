@@ -38,7 +38,7 @@ fn config() -> Config {
 }
 
 fn fresh() -> (AppState, Router) {
-    let state = AppState::new(config(), Db::in_memory().unwrap());
+    let state = AppState::for_tests(config(), Db::in_memory().unwrap());
     let app = router(state.clone());
     (state, app)
 }
@@ -282,7 +282,7 @@ async fn the_command_line_wins_over_an_open_wizard() {
 async fn a_restart_after_the_lock_opens_no_setup() {
     let dir = tempfile::tempdir().unwrap();
     {
-        let state = AppState::new(config(), Db::open(dir.path()).unwrap());
+        let state = AppState::for_tests(config(), Db::open(dir.path()).unwrap());
         crate::cli::create_admin(
             &state.db,
             &state.config,
@@ -294,7 +294,7 @@ async fn a_restart_after_the_lock_opens_no_setup() {
         .await
         .unwrap();
     }
-    let state = AppState::new(config(), Db::open(dir.path()).unwrap());
+    let state = AppState::for_tests(config(), Db::open(dir.path()).unwrap());
     let app = router(state.clone());
     // even with a link in memory, as a confused start might make
     let token = state.setup.new_link(state.clock.now());

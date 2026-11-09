@@ -183,7 +183,7 @@ mod tests {
     use crate::db::Db;
 
     async fn ip_of(peer: &str, forwarded: Option<&str>) -> IpAddr {
-        let state = AppState::new(Config::default(), Db::in_memory().unwrap());
+        let state = AppState::for_tests(Config::default(), Db::in_memory().unwrap());
         let mut req = axum::http::Request::builder().uri("/");
         if let Some(f) = forwarded {
             req = req.header("x-forwarded-for", f);

@@ -299,10 +299,13 @@ async fn main() {
     );
 
     let files_dir = config.storage.data_dir.join("files");
-    let mut state = AppState::new(config, db);
-    state.master = std::sync::Arc::new(master);
-    state.feedback = feedback;
-    state.files = std::sync::Arc::new(files::LocalDisk::new(files_dir));
+    let state = AppState::new(
+        config,
+        db,
+        master,
+        feedback,
+        std::sync::Arc::new(files::LocalDisk::new(files_dir)),
+    );
     match state.db.call(|c| setup::is_locked(c)).await {
         Ok(true) => state.setup.set_done(),
         Ok(false) if !state.config.setup.admin.is_empty() => {

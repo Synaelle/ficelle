@@ -50,7 +50,9 @@ impl Passwords {
             params,
             dummy: String::new(),
         };
-        passwords.dummy = passwords.hash("not a real password").unwrap_or_default();
+        passwords.dummy = passwords
+            .hash("not a real password")
+            .expect("argon2 parameters are validated with the config");
         passwords
     }
 
