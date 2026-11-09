@@ -52,6 +52,16 @@ describe('parseMarkdownFile', () => {
     })
   })
 
+  it("reads Ficelle's own export back: escapes in titles, commas in tags", () => {
+    const note = parseMarkdownFile(
+      'x.md',
+      '---\nid: 1\ntitle: "Say \\"hi\\" to C:\\\\temp\\nnext"\ntags: ["work, home", "don\'t", \'it\'\'s\']\npinned: false\n---\nBody\n',
+    )
+    expect(note.title).toBe('Say "hi" to C:\\temp\nnext')
+    expect(note.tags).toEqual(['work, home', "don't", "it's"])
+    expect(note.body).toBe('Body\n')
+  })
+
   it('normalises windows line endings and a byte order mark', () => {
     expect(parseMarkdownFile('x.md', '\uFEFF# Title\r\nline\r\n')).toEqual({
       title: 'Title',

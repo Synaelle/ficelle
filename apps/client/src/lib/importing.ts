@@ -3,6 +3,8 @@
 // apart from the body, so a leading front matter title or level one heading
 // becomes the title instead of staying in the text twice.
 
+import { splitInline, unquote } from './import/markdown'
+
 export interface ImportedNote {
   title: string
   body: string
@@ -19,8 +21,6 @@ export function isMarkdownFile(file: { name: string }): boolean {
 const FRONT_MATTER = /^---\n([\s\S]*?)\n---[ \t]*(?:\n|$)/
 const LEADING_HEADING = /^[ \t]*#[ \t]+(.+?)[ \t#]*(?:\n|$)/
 
-const unquote = (value: string) => value.trim().replace(/^(['"])(.*)\1$/, '$2')
-
 /** Reads `title` and `tags` from front matter, only the common simple forms. */
 function readFrontMatter(yaml: string): { title?: string; tags: string[] } {
   const lines = yaml.split('\n')
@@ -36,7 +36,7 @@ function readFrontMatter(yaml: string): { title?: string; tags: string[] } {
     }
     const inline = raw.trim().replace(/^\[(.*)\]$/, '$1')
     if (inline) {
-      tags.push(...inline.split(',').map(unquote))
+      tags.push(...splitInline(inline).map(unquote))
       return
     }
     // block list: following lines that start with a dash
