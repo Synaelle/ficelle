@@ -536,10 +536,17 @@ fn refresh(state: &AppState, api: &Api, worn: &str) -> Result<Tokens, RemoteErro
     }) {
         Ok(session) => {
             let tokens = tokens_of(&session);
-            let _ = state.quietly(|s| s.store.sync_set_tokens(Some(&tokens)));
+            // the server has already retired the old token: unsaved, the
+            // next round would be signed out with no reason given
+            state
+                .quietly(|s| s.store.sync_set_tokens(Some(&tokens)))
+                .map_err(|e| {
+                    RemoteError::Refused(format!("the new sign-in was not saved: {}", e.message()))
+                })?;
             Ok(tokens)
         }
         Err(RemoteError::SignedOut | RemoteError::Refused(_)) => {
+            // tokens left behind are refused again and cleared next round
             let _ = state.quietly(|s| s.store.sync_set_tokens(None));
             Err(RemoteError::SignedOut)
         }
