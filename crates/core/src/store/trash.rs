@@ -33,12 +33,14 @@ fn parent_is_trashed(conn: &Connection, parent: Option<FolderId>) -> Result<bool
 
 /// Live notes with nothing in them, and whether they ever held something
 /// (an emptied note keeps its text in its history). Whitespace alone counts
-/// as nothing, a pinned note was kept on purpose.
+/// as nothing, a pinned note was kept on purpose, and attached files are
+/// something.
 const BLANK_NOTES: &str =
     "SELECT id, EXISTS (SELECT 1 FROM note_versions v WHERE v.note_id = notes.id
          AND (trim(v.title, char(32, 9, 10, 13)) <> '' OR trim(v.body, char(32, 9, 10, 13)) <> ''))
      FROM notes WHERE trashed_at IS NULL AND pinned = 0
-     AND trim(title, char(32, 9, 10, 13)) = '' AND trim(body, char(32, 9, 10, 13)) = ''";
+     AND trim(title, char(32, 9, 10, 13)) = '' AND trim(body, char(32, 9, 10, 13)) = ''
+     AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.note_id = notes.id)";
 
 /// Deletes the blank notes that never held anything and moves the emptied
 /// ones to the trash. Returns how many left the notes.
@@ -495,6 +497,18 @@ mod tests {
             store.list_tags().unwrap().is_empty(),
             "its tag went with it"
         );
+    }
+
+    #[test]
+    fn a_note_holding_only_a_file_is_kept() {
+        let (mut store, _) = store();
+        let note = store.create_note(&NewNote::default()).unwrap();
+        store
+            .add_attachment(note.id, "scan.pdf", "application/pdf", 9, &"a".repeat(64))
+            .unwrap();
+        assert!(!store.discard_if_blank(note.id).unwrap());
+        assert_eq!(store.discard_blank_notes().unwrap(), 0);
+        assert!(store.note(note.id).unwrap().trashed_at.is_none());
     }
 
     #[test]
