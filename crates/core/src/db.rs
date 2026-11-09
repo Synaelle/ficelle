@@ -147,8 +147,8 @@ fn migrate(conn: &Connection) -> Result<()> {
 /// Brings the schema to `target` steps in one transaction: every pending
 /// step's SQL first, then their Rust code in order. The code is today's
 /// (it goes through the store), so it needs today's schema: run after step
-/// 8 alone, it read attachment columns that step 10 adds, and every vault
-/// with notes from before phase 8 failed to open. Anything failing leaves
+/// 8 alone, it read attachment columns that step 10 adds, and every older
+/// vault with notes failed to open. Anything failing leaves
 /// the database as it was.
 fn migrate_to(conn: &Connection, target: usize) -> Result<()> {
     let current: usize = conn

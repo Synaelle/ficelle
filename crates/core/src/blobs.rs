@@ -9,7 +9,7 @@
 //! so the folder does not reveal which known files are present. The hash is
 //! bound to every chunk, so files cannot be swapped unnoticed.
 //!
-//! Files written before phase 8 were sealed whole (format 1): they are still
+//! Files from the first versions were sealed whole (format 1): they are still
 //! read, whole, never written.
 
 use std::collections::HashSet;
@@ -28,7 +28,7 @@ use crate::crypto::random_bytes;
 use crate::error::{Error, Result};
 use crate::export::AttachmentSource;
 
-/// First byte of a file sealed whole, before phase 8.
+/// First byte of a file sealed whole, as the first versions did.
 const FORMAT_V1: u8 = 1;
 const NONCE_LEN: usize = 24;
 const TAG_LEN: usize = 16;
@@ -327,7 +327,7 @@ impl BlobStore {
         }))
     }
 
-    /// A file sealed whole before phase 8, its version byte already read.
+    /// A file sealed whole by the first versions, its version byte already read.
     fn open_v1(&self, mut file: File, sha256: &str) -> Result<Zeroizing<Vec<u8>>> {
         let key = self.key.as_ref().ok_or(Error::Crypto)?;
         let mut raw = Vec::new();
@@ -680,7 +680,7 @@ mod tests {
         let (_dir, _, sealed) = stores();
         let content = b"an old picture";
         let sha = sha256_hex(content);
-        // as phase 2 wrote them
+        // as the first versions wrote them
         let nonce = [3u8; NONCE_LEN];
         let cipher = XChaCha20Poly1305::new_from_slice(&[7u8; 32]).unwrap();
         let body = cipher

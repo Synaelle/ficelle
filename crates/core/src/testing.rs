@@ -60,7 +60,7 @@ const FILES: &[(&str, &str)] = &[
 /// One random change on one device. Invalid ones (moving a folder into
 /// itself, editing a trashed note) are refused by the store and skipped,
 /// as the app would.
-#[allow(
+#[expect(
     clippy::too_many_lines,
     reason = "one arm per kind of change, it reads best as one table"
 )]

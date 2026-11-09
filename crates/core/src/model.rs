@@ -143,7 +143,7 @@ pub struct NoteVersion {
 }
 
 /// Description of a file attached to a note. The file itself is stored
-/// elsewhere, addressed by its hash (phase 8).
+/// elsewhere, addressed by its hash.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Attachment {
