@@ -1,7 +1,7 @@
 #!/bin/bash
 # Installs server-update and its nightly timer for one compose instance, the
 # way updates are meant to come: each night the newer image of the series,
-# its signature checked when cosign is installed, the data copied first, and
+# its signature checked with cosign, the data copied first, and
 # everything put back when the new version does not come up.
 #
 #   sudo bash install-server-update /opt/ficelle
@@ -53,6 +53,6 @@ echo "server-update runs each night for $dir."
 echo "  now:       sudo systemctl start server-update@$unit.service"
 echo "  its lines: journalctl -u 'server-update@$unit'"
 if ! command -v cosign > /dev/null; then
-  echo "cosign is not installed: images are updated without checking their signature."
-  echo "  to check them: https://docs.sigstore.dev/cosign/system_config/installation/"
+  echo "cosign is not installed: no update runs until it is, as an image's signature cannot be checked."
+  echo "  install it: https://docs.sigstore.dev/cosign/system_config/installation/"
 fi

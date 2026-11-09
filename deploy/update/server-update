@@ -3,8 +3,9 @@
 # and puts it back as it was when the new version does not come up:
 #
 #   1. pulls the tag (0.1 takes 0.1.1, 0.1.2... never 0.2), and checks it
-#      was signed by the project's image workflow when cosign is installed
-#      (https://docs.sigstore.dev/cosign/system_config/installation/),
+#      was signed by the project's image workflow with cosign
+#      (https://docs.sigstore.dev/cosign/system_config/installation/);
+#      without cosign it does not update, unless ALLOW_UNSIGNED=1,
 #   2. stops the server and copies its data volume into <folder>/updates/,
 #   3. starts the new image and waits for it to report healthy,
 #   4. if it does not: the copy goes back, the previous image is started
@@ -66,8 +67,11 @@ if command -v cosign > /dev/null; then
     log "$(version "$new") is not signed by $signer, not updating tonight"
     exit 1
   fi
+elif [ "${ALLOW_UNSIGNED:-}" = 1 ]; then
+  log "cosign is not installed, ALLOW_UNSIGNED=1: the image's signature is not checked"
 else
-  log "cosign is not installed, the image's signature is not checked"
+  log "cosign is not installed, not updating: install it, or set ALLOW_UNSIGNED=1 to update unchecked"
+  exit 1
 fi
 
 healthy() { # waits for the running container to report healthy
