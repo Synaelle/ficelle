@@ -319,9 +319,9 @@
         {:else if looked !== null && looked === folder.trim()}
           {#if unreadable}
             <p class="settings-help bad" role="status">
-              {t(MOBILE ? 'backups.unreadablePhone' : 'backups.unreadable', {
-                app: brand.displayName,
-              })}
+              {MOBILE
+                ? t('backups.unreadablePhone', { app: brand.displayName })
+                : t('backups.unreadable', { app: brand.displayName })}
             </p>
             <div class="settings-actions">
               <button class="btn" type="button" onclick={() => open(null)}
