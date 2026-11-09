@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Picks the backend: tauri inside the app, in-memory sample data in a plain
-// browser (pnpm dev:web) so the ui can be worked on without the native shell.
+// Picks the backend: tauri inside the app, in memory in a plain browser. Only
+// dev builds (pnpm dev:web) fill it with the sample notes, so the ui can be
+// worked on without the native shell; the server's admin page gets it empty.
 
 import type { Backend } from './backend'
 import { createMemoryBackend } from './memory'
@@ -19,4 +20,4 @@ const fresh =
 
 export const backend: Backend = inTauri
   ? createTauriBackend()
-  : createMemoryBackend({ seed: !fresh })
+  : createMemoryBackend({ seed: import.meta.env.DEV && !fresh })

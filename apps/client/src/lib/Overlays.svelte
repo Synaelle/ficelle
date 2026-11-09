@@ -4,7 +4,7 @@
      shows a menu only where it has one. -->
 <script lang="ts">
   import { tick } from 'svelte'
-  import { PIN_LENGTH } from './backend'
+  import { PIN_LENGTH } from './backend/types'
   import { t } from './i18n.svelte'
   import Icon from './icons/Icon.svelte'
   import { modal } from './modal'
@@ -264,7 +264,7 @@
     background: var(--color-surface);
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-popover);
-    box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+    box-shadow: var(--shadow-dialog);
   }
   .item {
     width: 100%;

@@ -16,7 +16,7 @@
   import { applyUiSize } from './lib/uiSize'
   import { isBackendError } from './lib/workspace.svelte'
 
-  applyTheme()
+  applyTheme(() => backend.systemClock24h())
   $effect(() => setLocale(prefs.language ?? systemLocale()))
   $effect(() => applyUiSize(prefs.uiSize))
   $effect(() => applyDyslexicFont(prefs.dyslexicFont))
@@ -110,6 +110,9 @@
     font-size: 18px;
     font-weight: 600;
     outline: none;
+  }
+  .title:focus-visible {
+    box-shadow: inset 0 -2px 0 var(--color-accent);
   }
   textarea {
     resize: none;

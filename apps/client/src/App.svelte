@@ -4,7 +4,6 @@
 <script lang="ts">
   import DevReport from './devreport/DevReport.svelte'
   import BetaFeedback from './lib/BetaFeedback.svelte'
-  import { captureErrors } from './devreport/report'
   import { autoLock } from './lib/autolock.svelte'
   import { backend, type VaultStatus } from './lib/backend'
   import { applyDyslexicFont } from './lib/dyslexicFont'
@@ -37,11 +36,10 @@
    * unencrypted on purpose stays so, Security offers to encrypt it. */
   const needsPassword = (s: VaultStatus) => backend.native && s.way === 'device'
 
-  if (__APP_DEV_TOOLS__) captureErrors()
   captureLogs()
   catchErrors()
   persistPrefs()
-  applyTheme()
+  applyTheme(() => backend.systemClock24h())
   $effect(() => setLocale(prefs.language ?? systemLocale()))
   $effect(() => applyUiSize(prefs.uiSize))
   $effect(() => applyDyslexicFont(prefs.dyslexicFont))

@@ -7,7 +7,6 @@ import { builtInThemes, DEFAULT_THEME_ID } from '@app/ui/themes'
 import { ARROWS_FONT } from './fonts'
 import { prefs } from './prefs.svelte'
 import { clock, readSystemClock } from './clock.svelte'
-import { backend } from './backend'
 
 export function currentTheme(): Theme {
   return builtInThemes.find((t) => t.id === DEFAULT_THEME_ID) ?? (builtInThemes[0] as Theme)
@@ -17,15 +16,17 @@ export function currentMode(): Mode {
   return prefs.mode
 }
 
-/** Keeps the page styled. Call once from the root component. */
-export function applyTheme() {
+/** Keeps the page styled. Call once from the root component, with how to
+ * read the system's 12 or 24 hour clock where the page can. */
+export function applyTheme(systemClock24h?: () => Promise<boolean | null>) {
   // 12 or 24 hours: the choice, and the system's clock read now and again
   // when the window comes back, where it may have changed
   $effect(() => {
     clock.choice = prefs.clock
   })
   $effect(() => {
-    const again = () => void readSystemClock(() => backend.systemClock24h())
+    if (!systemClock24h) return
+    const again = () => void readSystemClock(systemClock24h)
     again()
     window.addEventListener('focus', again)
     return () => window.removeEventListener('focus', again)
