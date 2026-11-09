@@ -39,6 +39,14 @@
       "deb": {
         "desktopTemplate": "linux/ficelle-dev.desktop"
       }
+    },
+    "windows": {
+      "nsis": {
+        "languages": [
+          "English",
+          "French"
+        ]
+      }
     }
   }
 }
