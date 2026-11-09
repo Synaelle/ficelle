@@ -1,3 +1,6 @@
 packages:
   - apps/client
   - packages/*
+
+overrides:
+  minimatch: ^11.0.1
