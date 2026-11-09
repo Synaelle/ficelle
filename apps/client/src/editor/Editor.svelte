@@ -29,6 +29,7 @@
   import { looksLikeMarkdown } from './pasteMarkdown'
   import { ATTACHMENTS_CHANGED, setImageLayout, WRAPS, type Wrap } from './extensions/image'
   import type { SuggestEvent } from './extensions/wikiLink'
+  import TableTools from './TableTools.svelte'
   import Toolbar from './Toolbar.svelte'
   import WikiSuggest from './WikiSuggest.svelte'
   import { MOBILE } from '../lib/platform'
@@ -692,6 +693,9 @@
           </button>
         {/each}
       </div>
+    {/if}
+    {#if editor && !readonly}
+      <TableTools {editor} {tick} />
     {/if}
   </div>
   {#if suggest && suggest.phase !== 'key' && suggest.phase !== 'exit'}
