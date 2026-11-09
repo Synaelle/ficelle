@@ -347,6 +347,13 @@
   .saved.bad {
     color: var(--color-danger);
   }
+  /* a phone sideways with its keyboard up leaves a strip: the text being
+     typed gets it, back stays the system's gesture */
+  @media (max-height: 240px) {
+    .narrow header {
+      display: none;
+    }
+  }
   .scroll {
     flex: 1;
     overflow-y: auto;

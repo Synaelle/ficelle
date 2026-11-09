@@ -16,7 +16,7 @@
   import { backups } from '../lib/backups.svelte'
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
-  import { DESKTOP } from '../lib/platform'
+  import { DESKTOP, MOBILE } from '../lib/platform'
   import Icon from '../lib/icons/Icon.svelte'
   import Settings from '../settings/Settings.svelte'
   import AttachmentList from './AttachmentList.svelte'
@@ -38,7 +38,10 @@
   let searchFocus = $state(0)
 
   const NARROW = 720
-  const narrow = $derived(width < NARROW)
+  /** A phone, not a tablet: turned sideways it is wide enough for three
+   * panes, but with the keyboard up the note would have no room left. */
+  const PHONE = MOBILE && Math.min(screen.width, screen.height) < 600
+  const narrow = $derived(width < NARROW || PHONE)
   const showSidebar = $derived(!narrow)
   // the note keeps at least this much room when the list grows
   const NOTE_MIN = 360
