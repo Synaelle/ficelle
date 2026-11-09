@@ -15,6 +15,8 @@
   import { workspace } from '../lib/workspace.svelte'
   import { backups } from '../lib/backups.svelte'
   import { onMount } from 'svelte'
+  import { getCurrentWindow } from '@tauri-apps/api/window'
+  import { DESKTOP } from '../lib/platform'
   import Icon from '../lib/icons/Icon.svelte'
   import Settings from '../settings/Settings.svelte'
   import AttachmentList from './AttachmentList.svelte'
@@ -151,11 +153,20 @@
     return () => void stop.then((unlisten) => unlisten())
   })
 
-  // save before the window goes away
+  // save before the window goes away: beforeunload cannot wait for the save,
+  // so a desktop window holds its close until the save is done, and a phone
+  // saves as the app leaves the screen, where it may be stopped unasked
   $effect(() => {
     const save = () => void workspace.flush()
+    const hidden = () => document.visibilityState === 'hidden' && save()
     window.addEventListener('beforeunload', save)
-    return () => window.removeEventListener('beforeunload', save)
+    document.addEventListener('visibilitychange', hidden)
+    const unlisten = DESKTOP ? getCurrentWindow().onCloseRequested(() => workspace.flush()) : null
+    return () => {
+      window.removeEventListener('beforeunload', save)
+      document.removeEventListener('visibilitychange', hidden)
+      void unlisten?.then((stop) => stop())
+    }
   })
 </script>
 
