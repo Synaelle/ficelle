@@ -53,7 +53,11 @@ const READ_PAIRS: [PaletteKey, PaletteKey][] = [
   ['text', 'surface'],
   ['textMuted', 'bg'],
   ['accentText', 'bg'],
+  // links and accent words inside raised panels and code
+  ['accentText', 'surface2'],
   ['accentOn', 'accent'],
+  // a primary button under the pointer
+  ['accentOn', 'accentPressed'],
   // danger is read as text on the background and as a fill under it
   ['danger', 'bg'],
   // callout titles, written in their colour
@@ -63,14 +67,23 @@ const READ_PAIRS: [PaletteKey, PaletteKey][] = [
   ['textMuted', 'selection'],
 ]
 
+/** Minimum contrast for the edge that shows where a control is (WCAG AA). */
+export const MIN_BOUNDARY_CONTRAST = 3
+
+/** Edges of fields, each must reach MIN_BOUNDARY_CONTRAST. */
+const BOUNDARY_PAIRS: [PaletteKey, PaletteKey][] = [
+  ['borderStrong', 'bg'],
+  ['borderStrong', 'surface'],
+]
+
 /** What in a palette is too hard to read, empty when all of it reads well. */
 export function readabilityProblems(palette: Palette): string[] {
-  return READ_PAIRS.flatMap(([fg, bg]) => {
-    const ratio = contrastRatio(palette[fg], palette[bg])
-    return ratio < MIN_TEXT_CONTRAST
-      ? [`${fg} on ${bg} is ${ratio.toFixed(2)}:1, needs ${MIN_TEXT_CONTRAST}:1`]
-      : []
-  })
+  const check = (pairs: [PaletteKey, PaletteKey][], min: number) =>
+    pairs.flatMap(([fg, bg]) => {
+      const ratio = contrastRatio(palette[fg], palette[bg])
+      return ratio < min ? [`${fg} on ${bg} is ${ratio.toFixed(2)}:1, needs ${min}:1`] : []
+    })
+  return [...check(READ_PAIRS, MIN_TEXT_CONTRAST), ...check(BOUNDARY_PAIRS, MIN_BOUNDARY_CONTRAST)]
 }
 
 /** A dark palette on pure black, for OLED screens: the background turns
@@ -84,7 +97,7 @@ export function pureBlack(palette: Palette): Palette {
     surface: mix(black, palette.surface, 0.55),
     surface2: mix(black, palette.surface2, 0.7),
     border: mix(black, palette.border, 0.85),
-    borderStrong: mix(black, palette.borderStrong, 0.9),
+    borderStrong: mix(black, palette.borderStrong, 0.95),
     selection: mix(black, palette.selection, 0.85),
   }
 }

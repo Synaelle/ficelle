@@ -136,7 +136,7 @@
   }
   .chev {
     display: inline-flex;
-    transition: transform 160ms ease;
+    transition: transform var(--dur-fast) var(--ease-out);
   }
   .chev.open {
     transform: rotate(180deg);

@@ -42,8 +42,7 @@
     settings: SettingsState
     close: () => void
     onlock: () => void
-    /** Opens the import from another app. */
-    /** `true` for this app's own export. */
+    /** Opens the import from another app, `true` for this app's own export. */
     onimport: (ficelle: boolean) => void
     /** Opens restoring a backup from a file. */
     onrestorefile: () => void
@@ -609,6 +608,11 @@
     border-radius: var(--radius-popover);
     background: var(--color-surface-2);
     color: var(--color-text-muted);
+  }
+  /* the field has no box of its own, the bar around it shows the focus */
+  .search:focus-within {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
   }
   .search input {
     flex: 1;

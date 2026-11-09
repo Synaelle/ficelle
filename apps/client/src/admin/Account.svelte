@@ -618,7 +618,7 @@
   }
   .item summary > :global(svg:last-child) {
     color: var(--color-text-muted);
-    transition: transform 0.15s;
+    transition: transform var(--dur-fast) var(--ease-out);
   }
   .item[open] summary > :global(svg:last-child) {
     transform: rotate(90deg);

@@ -50,7 +50,7 @@
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-popover);
     background: var(--color-surface-2);
-    box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+    box-shadow: var(--shadow-popover);
     pointer-events: auto;
   }
   .text {

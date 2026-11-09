@@ -311,7 +311,7 @@
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-window);
-    box-shadow: 0 18px 50px rgb(0 0 0 / 0.28);
+    box-shadow: var(--shadow-dialog);
     animation: card-in 260ms ease-out both;
   }
   /* the PIN pad is tall: a smaller knot and tighter spacing keep it all in

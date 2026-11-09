@@ -84,7 +84,7 @@
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-popover);
     background: var(--color-surface-2);
-    box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
+    box-shadow: var(--shadow-dialog);
   }
   h2 {
     margin: 0;

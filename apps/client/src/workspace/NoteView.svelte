@@ -212,7 +212,7 @@
               <button
                 aria-label={t('note.removeTag', { tag })}
                 onclick={() => note && workspace.setTags(note.tags.filter((x) => x !== tag))}
-                >×</button
+                ><Icon name="close" size={12} /></button
               >
             </span>
           {/each}
@@ -331,7 +331,7 @@
   }
   .saved {
     font-size: 12px;
-    transition: opacity 400ms ease;
+    transition: opacity var(--dur-slow) var(--ease-out);
   }
   .saved.quiet {
     opacity: 0;
@@ -376,10 +376,15 @@
     font-size: 13px;
   }
   .tag button {
+    display: inline-grid;
+    place-items: center;
+    /* 24px, the smallest target a pointer should have to hit */
+    min-width: 24px;
+    min-height: 24px;
     border: 0;
     background: none;
     color: inherit;
-    padding: 0 2px;
+    padding: 0;
   }
   @media (pointer: coarse) {
     .tag {
@@ -401,6 +406,10 @@
     background: transparent;
     font-size: 13px;
     color: var(--color-text-muted);
+  }
+  /* no box around it: a line under it while the keyboard is in it */
+  .tag-input:focus-visible {
+    box-shadow: inset 0 -2px 0 var(--color-accent);
   }
   .source {
     width: 100%;

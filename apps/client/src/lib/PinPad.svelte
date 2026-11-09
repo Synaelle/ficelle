@@ -5,7 +5,7 @@
      sends it, and the dots clear for the next try. -->
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { PIN_LENGTH } from './backend'
+  import { PIN_LENGTH } from './backend/types'
   import { t } from './i18n.svelte'
   import Icon from './icons/Icon.svelte'
 
@@ -135,7 +135,7 @@
     border-color: var(--color-accent);
   }
   .shaking {
-    animation: shake 360ms ease-in-out;
+    animation: shake var(--dur-slow) var(--ease-in-out);
   }
   @keyframes shake {
     20%,

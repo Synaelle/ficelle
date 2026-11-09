@@ -90,19 +90,17 @@
   /* inside the block's corner, 6px in */
   border-radius: min(var(--radius-control), 8px);
   background: transparent;
-  color: var(--color-text-faint);
+  color: var(--color-text-muted);
   font: inherit;
   font-family: var(--font-ui);
   font-size: 12px;
   cursor: pointer;
-  opacity: 0.7;
 }
 .prose .code-block:hover .code-language,
 .prose .code-language:focus-visible {
   border-color: var(--color-border);
   background: var(--color-surface);
   color: var(--color-text-muted);
-  opacity: 1;
 }
 .prose .code-language:disabled {
   cursor: default;
@@ -133,7 +131,7 @@
 .prose .hljs-comment,
 .prose .hljs-quote,
 .prose .hljs-meta {
-  color: var(--color-text-faint);
+  color: var(--color-text-muted);
   font-style: italic;
 }
 .prose .hljs-title,
@@ -367,7 +365,7 @@
   z-index: 60;
   opacity: 0.8;
   border-radius: var(--radius-control);
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
+  box-shadow: var(--shadow-popover);
   pointer-events: none;
 }
 .image-drop {
