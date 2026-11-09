@@ -131,6 +131,9 @@
   function openFound() {
     const restoring = setup === 'restore'
     void act(async () => {
+      // backups made without a password take the notes' one
+      if (!needsPassword && !openDevice && !(await backend.vaultCheckPassword(password)))
+        throw new Error(t('backups.notesPasswordWrong'))
       backups.view = await backend.backupsConnect(target(), password, false, '')
       password = ''
       setup = null
@@ -322,6 +325,16 @@
                   bind:value={password}
                 />
               </label>
+            {:else if !openDevice}
+              <label class="settings-field">
+                {t('backups.notesPassword')}
+                <PasswordField
+                  class="field"
+                  autocomplete="current-password"
+                  bind:value={password}
+                />
+              </label>
+              <p class="settings-help">{t('backups.foundOpenHelp')}</p>
             {/if}
             <div class="settings-actions">
               <button class="btn" type="button" onclick={() => open(null)}
@@ -329,7 +342,7 @@
               >
               <button
                 class="btn primary"
-                disabled={busy || (needsPassword && !password)}
+                disabled={busy || ((needsPassword || !openDevice) && !password)}
                 onclick={openFound}>{busy ? t('backups.connecting') : t('backups.useThem')}</button
               >
             </div>

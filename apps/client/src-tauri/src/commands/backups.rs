@@ -158,12 +158,25 @@ pub async fn backups_connect(
             Some(old) => target.keeping_secrets_of(&old.target),
             None => target,
         };
+        let encrypted = state
+            .session()
+            .as_ref()
+            .is_some_and(|s| s.vault.is_encrypted());
+        if encrypted && password == NO_PASSWORD {
+            return Err(unprotected());
+        }
         let opened = target.open()?;
         if create {
             Repo::init(opened, &password, KdfParams::DEFAULT, now())
                 .map_err(app_core::Error::from)?;
-        } else {
-            Repo::open(opened, &password).map_err(app_core::Error::from)?;
+        } else if let Err(wrong) = Repo::open(opened.clone(), &password) {
+            match Repo::open(opened, NO_PASSWORD) {
+                // made without a password before the notes had one
+                Ok(open) if encrypted => open
+                    .change_password(&password, KdfParams::DEFAULT, now())
+                    .map_err(app_core::Error::from)?,
+                _ => return Err(app_core::Error::from(wrong).into()),
+            }
         }
         let config = BackupConfig {
             target,
@@ -207,8 +220,54 @@ pub async fn backups_disconnect(state: State<'_, AppState>) -> CommandResult<Bac
     view(&state)
 }
 
+/// Backups made without a password on a device whose notes are encrypted
+/// would let anyone who reaches them read the notes: none are made then.
+fn check_protected(state: &AppState, config: &BackupConfig) -> CommandResult<()> {
+    let encrypted = state
+        .session()
+        .as_ref()
+        .is_some_and(|s| s.vault.is_encrypted());
+    if encrypted && config.password == NO_PASSWORD {
+        return Err(unprotected());
+    }
+    Ok(())
+}
+
+fn unprotected() -> CommandError {
+    CommandError::new(
+        "unprotected",
+        "these backups have no password, the notes have one",
+    )
+}
+
+/// Gives backups made without a password the notes' new password, the
+/// earlier backups included: they share their keys. Called when the notes
+/// get a password.
+///
+/// # Errors
+///
+/// When the backups cannot be reached. Runs then stop at
+/// [`check_protected`] until they are set up again.
+pub async fn protect(app: AppHandle, password: String) -> CommandResult<()> {
+    blocking(app, move |state| {
+        let Some(mut config) = state.quietly(|s| s.store.backup_config())? else {
+            return Ok(());
+        };
+        if config.password != NO_PASSWORD {
+            return Ok(());
+        }
+        open(&config)?
+            .change_password(&password, KdfParams::DEFAULT, now())
+            .map_err(app_core::Error::from)?;
+        config.password = password;
+        state.quietly(|s| s.store.set_backup_config(Some(&config)))
+    })
+    .await
+}
+
 fn run(state: &AppState, offset_seconds: i64) -> CommandResult<()> {
     let config = config(state)?;
+    check_protected(state, &config)?;
     let (data, blobs) = state.quietly(|s| Ok((s.store.backup_data()?, s.blobs.clone())))?;
     let repo = open(&config)?;
     let report = app_core::repo::backup_data(&repo, &data, &blobs, &config.host, &now)?;

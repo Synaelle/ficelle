@@ -337,22 +337,31 @@ pub async fn vault_set_way(
 ) -> CommandResult<()> {
     let dir = state.dir.clone();
     focus(&app);
-    blocking(move || {
+    let given = blocking(move || {
         let mut vault = Vault::open(&dir)?;
         if !vault.is_encrypted() {
             return Err(CommandError::new("invalid", "encrypt the vault first"));
         }
         let key = current_key(&vault, password.as_deref())?;
+        let mut given = None;
         if !vault.has_password() {
             let new_password = new_password
                 .filter(|p| !p.is_empty())
                 .ok_or_else(needs_password)?;
             vault.set_password(&key, &new_password, KdfParams::DEFAULT)?;
+            given = Some(new_password);
         }
-        keep_quick_way(&vault, &key, way, pin.as_deref())
+        keep_quick_way(&vault, &key, way, pin.as_deref())?;
+        Ok(given)
     })
     .await?;
-    refresh(&state)
+    refresh(&state)?;
+    if let Some(password) = given {
+        // backups out of reach now (a drive unplugged) stay as they are,
+        // and none are made until they are set up again with a password
+        let _ = super::backups::protect(app, password).await;
+    }
+    Ok(())
 }
 
 /// Encrypts an old unencrypted vault, its key kept by this device until the

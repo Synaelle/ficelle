@@ -444,7 +444,6 @@ fileLeftOut = "Fichiers laissés de côté"
 dropped = "Contenu sans équivalent, laissé de côté"
 encrypted = "Contenu chiffré"
 simplified = "Gardé sous une forme plus simple"
-unreadable = "Éléments illisibles"
 
 [import.alreadyHere]
 one = "{count} note était déjà là, elle a été laissée telle quelle."
@@ -1500,9 +1499,11 @@ latestRestore = "La restaurer"
 sameAsNotes = "Utiliser le mot de passe de mes notes"
 notesPassword = "Le mot de passe de vos notes"
 notesPasswordWrong = "Ce n’est pas le mot de passe de vos notes."
+foundOpenHelp = "Ces sauvegardes n’ont pas de mot de passe. Elles prennent celui de vos notes, celles faites avant aussi."
 sameAsNotesHelp = "Quiconque apprend ce mot de passe unique ouvre à la fois vos notes et vos sauvegardes. Changer plus tard le mot de passe de vos notes ne le change pas pour les sauvegardes faites avant."
 done = "Sauvegardé."
 wrongPassword = "Mot de passe incorrect pour cette sauvegarde."
+unprotected = "Ces sauvegardes n’ont pas de mot de passe, alors que vos notes en ont un maintenant. Arrêtez les sauvegardes et recommencez pour leur en donner un."
 turnOn = "Activer les sauvegardes"
 
 [backups.notes]

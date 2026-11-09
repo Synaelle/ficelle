@@ -45,6 +45,7 @@ export function overdue(view: BackupsView | null, now: number): boolean {
 export function backupError(kind: string | null | undefined, message: string): string {
   if (kind === 'notFound') return t('backups.notThere')
   if (kind === 'wrongPassword') return t('backups.wrongPassword')
+  if (kind === 'unprotected') return t('backups.unprotected')
   return message
 }
 

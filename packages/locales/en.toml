@@ -444,7 +444,6 @@ fileLeftOut = "Files left out"
 dropped = "Content with no equivalent, left out"
 encrypted = "Encrypted content"
 simplified = "Kept in a simpler form"
-unreadable = "Items that could not be read"
 
 [import.alreadyHere]
 one = "{count} note was already here, it was left as it is."
@@ -1500,9 +1499,11 @@ latestRestore = "Restore it"
 sameAsNotes = "Use my notes password"
 notesPassword = "Your notes password"
 notesPasswordWrong = "That is not the password of your notes."
+foundOpenHelp = "These backups have no password. They take your notes password, the ones made before too."
 sameAsNotesHelp = "Anyone who learns this one password opens both your notes and your backups. Changing your notes password later does not change it for the backups made before."
 done = "Backed up."
 wrongPassword = "Wrong password for this backup."
+unprotected = "These backups have no password, but your notes do now. Stop backing up and start again to give them one."
 turnOn = "Turn on backups"
 
 [backups.notes]
