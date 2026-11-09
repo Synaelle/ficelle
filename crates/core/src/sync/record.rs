@@ -298,7 +298,7 @@ pub(super) fn folders(conn: &Connection, docs: &mut Docs, space_id: &str) -> Res
 }
 
 /// `Option` for a lookup that fails with not found.
-trait OptionalNote<T> {
+pub(super) trait OptionalNote<T> {
     fn optional_note(self) -> Result<Option<T>>;
 }
 

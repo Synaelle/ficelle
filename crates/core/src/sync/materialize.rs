@@ -19,7 +19,7 @@ use std::collections::{HashMap, HashSet};
 use loro::{LoroMap, LoroValue, TreeParentId, ValueOrContainer, VersionVector};
 use rusqlite::{Connection, OptionalExtension, params};
 
-use super::record::{bool_of, int_of, node_folder, text_of, value};
+use super::record::{OptionalNote, bool_of, int_of, node_folder, text_of, value};
 use super::{Docs, SPACE, doc_key};
 use crate::blobs::is_sha256_hex;
 use crate::clock::Timestamp;
@@ -367,7 +367,7 @@ pub(super) fn note(
     let updated = int_of(&entry, "updated").unwrap_or(created);
     let tags = tags_of(&entry);
 
-    let current = crate::store::load_note(conn, id).ok();
+    let current = crate::store::load_note(conn, id).optional_note()?;
     let content_changed = match &current {
         Some(row) => {
             if row.title != title || row.body != body {
