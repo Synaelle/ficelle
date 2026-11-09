@@ -7,6 +7,7 @@
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
+  import { overlay, SEPARATOR } from '../lib/overlay.svelte'
   import { shortcutFor } from '../lib/prefs.svelte'
   import { displayBinding, type ActionId } from '../lib/shortcuts'
 
@@ -23,6 +24,7 @@
     action?: ActionId
     run: () => void
     active?: () => boolean
+    disabled?: () => boolean
   }
 
   const chain = () => editor.chain().focus()
@@ -97,9 +99,45 @@
       icon: 'table',
       label: () => t('editor.table'),
       run: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+      // a table holds no table, a Markdown file could not keep it
+      disabled: () => editor.isActive('table'),
     },
     { icon: 'image', label: () => t('editor.image'), run: () => onimage() },
   ]
+
+  // In a table its own tools come first, in reach on a phone without scrolling.
+  const inTable = $derived((void tick, editor.isActive('table')))
+  const tableTools: Tool[] = [
+    {
+      icon: 'rowAbove',
+      label: () => t('editor.rowAbove'),
+      run: () => chain().addRowBefore().run(),
+    },
+    { icon: 'rowBelow', label: () => t('editor.rowBelow'), run: () => chain().addRowAfter().run() },
+    {
+      icon: 'columnLeft',
+      label: () => t('editor.columnLeft'),
+      run: () => chain().addColumnBefore().run(),
+    },
+    {
+      icon: 'columnRight',
+      label: () => t('editor.columnRight'),
+      run: () => chain().addColumnAfter().run(),
+    },
+  ]
+  function removeMenu(button: HTMLElement) {
+    overlay.openMenuBelow(button, [
+      { label: t('editor.deleteRow'), icon: 'trash', run: () => chain().deleteRow().run() },
+      { label: t('editor.deleteColumn'), icon: 'trash', run: () => chain().deleteColumn().run() },
+      SEPARATOR,
+      {
+        label: t('editor.deleteTable'),
+        icon: 'trash',
+        danger: true,
+        run: () => chain().deleteTable().run(),
+      },
+    ])
+  }
 
   // On touch screens the bar scrolls sideways. A faded edge shows that more
   // buttons wait on that side, a cut button alone looks like a layout bug.
@@ -134,12 +172,39 @@
   bind:this={bar}
   onscroll={edges}
 >
+  {#if inTable}
+    {#each tableTools as tool (tool.icon)}
+      <button
+        class="icon-btn"
+        aria-label={tool.label()}
+        title={tool.label()}
+        onmousedown={(e) => e.preventDefault()}
+        onpointerdown={(e) => e.pointerType === 'touch' && e.preventDefault()}
+        onclick={tool.run}
+      >
+        <Icon name={tool.icon} size={17} />
+      </button>
+    {/each}
+    <button
+      class="icon-btn"
+      aria-label={t('editor.tableRemove')}
+      title={t('editor.tableRemove')}
+      aria-haspopup="menu"
+      onmousedown={(e) => e.preventDefault()}
+      onpointerdown={(e) => e.pointerType === 'touch' && e.preventDefault()}
+      onclick={(e) => removeMenu(e.currentTarget)}
+    >
+      <Icon name="trash" size={17} />
+    </button>
+    <span class="sep" aria-hidden="true"></span>
+  {/if}
   {#each tools as tool (tool.icon)}
     <button
       class="icon-btn"
       aria-label={tool.label()}
       title={title(tool)}
       aria-pressed={tool.active ? (void tick, tool.active()) : undefined}
+      disabled={tool.disabled ? (void tick, tool.disabled()) : undefined}
       onmousedown={(e) => e.preventDefault()}
       onpointerdown={(e) => e.pointerType === 'touch' && e.preventDefault()}
       onclick={tool.run}
@@ -165,6 +230,12 @@
   .toolbar :global(.icon-btn) {
     width: 30px;
     height: 30px;
+  }
+  .sep {
+    flex: none;
+    width: 1px;
+    margin: var(--space-1) var(--space-1);
+    background: var(--color-border-strong);
   }
   @media (pointer: coarse) {
     .toolbar {
