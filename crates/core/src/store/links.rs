@@ -58,10 +58,48 @@ pub(crate) fn rebuild_link_index(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// Whether `title` is one links can lead to this note by: not empty, and no
+/// other live note has it.
+pub(super) fn is_own_title(conn: &Connection, id: NoteId, title: &str) -> Result<bool> {
+    let key = title_key(title);
+    if key.is_empty() {
+        return Ok(false);
+    }
+    let taken: bool = conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM notes WHERE title_key = ?1 AND id != ?2 AND trashed_at IS NULL)",
+        params![key, id],
+        |row| row.get(0),
+    )?;
+    Ok(!taken)
+}
+
+/// The title links to the note use: its current one, or, while that is
+/// empty or another note's (the links were left alone then), the latest of
+/// its earlier titles that is its own, kept in its history. Empty if none.
+pub(super) fn linked_title(conn: &Connection, id: NoteId, current: &str) -> Result<String> {
+    if is_own_title(conn, id, current)? {
+        return Ok(current.to_owned());
+    }
+    let titles = {
+        let mut stmt = conn.prepare(
+            "SELECT title FROM note_versions WHERE note_id = ?1 AND trim(title) <> ''
+             ORDER BY created_at DESC, id DESC",
+        )?;
+        stmt.query_map([id], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+    };
+    for title in titles {
+        if is_own_title(conn, id, &title)? {
+            return Ok(title);
+        }
+    }
+    Ok(String::new())
+}
+
 /// After a rename, points links that used the old title at the new one.
 /// Skipped when another live note still has the old title, because the
-/// links may well mean that note, and while the new title is empty: it is
-/// being typed, the links follow once it is.
+/// links may well mean that note, and while the new title is empty or
+/// another note's: the links follow once the note has its own again.
 pub(super) fn follow_rename(
     conn: &Connection,
     renamed: NoteId,
@@ -70,16 +108,10 @@ pub(super) fn follow_rename(
     now: Timestamp,
 ) -> Result<()> {
     let old_key = title_key(old);
-    let new_key = title_key(new);
-    if old_key.is_empty() || new_key.is_empty() || old_key == new_key {
-        return Ok(());
-    }
-    let still_used: bool = conn.query_row(
-        "SELECT EXISTS (SELECT 1 FROM notes WHERE title_key = ?1 AND id != ?2 AND trashed_at IS NULL)",
-        params![old_key, renamed],
-        |row| row.get(0),
-    )?;
-    if still_used {
+    if old_key == title_key(new)
+        || !is_own_title(conn, renamed, old)?
+        || !is_own_title(conn, renamed, new)?
+    {
         return Ok(());
     }
     let sources = {
@@ -337,6 +369,24 @@ mod tests {
             "see [[Iota]] and [[Iota#Part|label]]"
         );
         assert_eq!(store.backlinks(target.id).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn links_never_follow_onto_another_notes_title() {
+        let (mut store, clock) = store();
+        let delta = store.create_note(&note("Delta", "")).unwrap();
+        store.create_note(&note("De", "")).unwrap();
+        let linker = store.create_note(&note("L", "Go to [[Delta]].")).unwrap();
+        let retitle = |title: &str| NoteChange {
+            title: Some(title.into()),
+            ..NoteChange::default()
+        };
+        clock.advance(MINUTE);
+        store.update_note(delta.id, retitle("Del")).unwrap();
+        store.update_note(delta.id, retitle("De")).unwrap();
+        assert_eq!(store.note(linker.id).unwrap().body, "Go to [[Del]].");
+        store.update_note(delta.id, retitle("De 2")).unwrap();
+        assert_eq!(store.note(linker.id).unwrap().body, "Go to [[De 2]].");
     }
 
     #[test]
