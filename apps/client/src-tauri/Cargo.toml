@@ -20,6 +20,7 @@ app-brand.workspace = true
 app-core.workspace = true
 app-e2ee = { path = "../../../crates/e2ee" }
 app-protocol.workspace = true
+app-repo.workspace = true
 # the fingerprint plugin passes data as text, update signatures come as text
 base64 = "0.23.1"
 # checks the app files an update downloads, see commands/updates.rs

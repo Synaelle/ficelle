@@ -47,6 +47,7 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
 pub use error::{Error, Result};
+pub use http::host_of;
 pub use maintain::{CheckReport, Lock, PruneReport};
 pub use s3::{S3Config, S3Target};
 pub use snapshot::{Item, Policy, Snapshot, keep};

@@ -1003,6 +1003,7 @@ dependencies = [
  "app-core",
  "app-e2ee",
  "app-protocol",
+ "app-repo",
  "app-webview-memory",
  "base64 0.23.1",
  "gtk",

@@ -102,17 +102,13 @@ pub fn normalize(address: &str) -> Result<String, &'static str> {
         text.truncate(rest);
     }
     let (scheme, rest) = text.split_once("://").ok_or("invalid")?;
-    let host = match rest.strip_prefix('[') {
-        // an IPv6 address: [::1]:8080
-        Some(v6) => v6.split(']').next().unwrap_or_default(),
-        None => rest.split(['/', ':']).next().unwrap_or_default(),
-    };
+    let host = app_repo::host_of(rest);
     if host.is_empty() || rest.contains(char::is_whitespace) {
         return Err("invalid");
     }
     match scheme {
         "https" => Ok(text),
-        "http" if is_private(host) => Ok(text),
+        "http" if is_private(&host) => Ok(text),
         "http" => Err("insecure"),
         _ => Err("invalid"),
     }
@@ -327,6 +323,9 @@ mod tests {
         assert_eq!(normalize("http://nas.local").unwrap(), "http://nas.local");
         assert_eq!(normalize("http://notes.example.org"), Err("insecure"));
         assert_eq!(normalize("http://8.8.8.8"), Err("insecure"));
+        // the host ends before a query, whatever the query ends with
+        assert_eq!(normalize("http://evil.example?.local"), Err("insecure"));
+        assert_eq!(normalize("http://evil.example#.local"), Err("insecure"));
         assert_eq!(normalize("ftp://x"), Err("invalid"));
         assert_eq!(normalize("https://"), Err("invalid"));
         assert_eq!(normalize("   "), Err("empty"));

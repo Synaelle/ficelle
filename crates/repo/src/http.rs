@@ -24,6 +24,20 @@ pub(crate) fn agent() -> ureq::Agent {
         .into()
 }
 
+/// The host of an address after its `scheme://`, lowercase: what is
+/// before the path, query or fragment, without a `user@` and the port, and
+/// without the brackets of an IPv6 address.
+#[must_use]
+pub fn host_of(rest: &str) -> String {
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host_port = authority.rsplit('@').next().unwrap_or_default();
+    match host_port.strip_prefix('[') {
+        Some(v6) => v6.split(']').next().unwrap_or_default(),
+        None => host_port.split(':').next().unwrap_or_default(),
+    }
+    .to_ascii_lowercase()
+}
+
 /// Whether an S3 or `WebDAV` address may be used: https anywhere but the
 /// link-local and cloud metadata addresses,
 /// plain http only on this machine or a home network, where a NAS often has
@@ -37,13 +51,7 @@ pub(crate) fn place_allowed(url: &str, what: &str) -> Result<()> {
         .trim()
         .split_once("://")
         .ok_or_else(|| Error::Invalid(format!("the {what} address must start with https://")))?;
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
-    let host_port = authority.rsplit('@').next().unwrap_or_default();
-    let host = match host_port.strip_prefix('[') {
-        Some(v6) => v6.split(']').next().unwrap_or_default(),
-        None => host_port.split(':').next().unwrap_or_default(),
-    }
-    .to_ascii_lowercase();
+    let host = host_of(rest);
     let ip = host.parse::<std::net::IpAddr>().ok();
     let link_local = match ip {
         Some(std::net::IpAddr::V4(v4)) => v4.is_link_local(),
