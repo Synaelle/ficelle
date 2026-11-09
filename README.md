@@ -12,8 +12,6 @@
   <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Synaelle/ficelle"><picture><source media="(prefers-color-scheme: dark)" srcset="packages/ui/brand/badges/obtainium-dark.png"><img src="packages/ui/brand/badges/obtainium-light.png" alt="Get it on Obtainium" height="54"></picture></a>
 </p>
 
-<p align="center">The Mac app stays on <a href="../../releases/tag/v0.5.0">0.5.0</a> and is untested, see <a href="docs/mac.md">Ficelle on a Mac</a>.</p>
-
 > [!WARNING]
 > Ficelle is in early development, it is recommended to keep backups of your notes.
 
