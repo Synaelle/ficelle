@@ -3,8 +3,10 @@
 The font of the OpenDyslexic setting, under the SIL Open Font License in
 OFL.txt, by Abbie Gonzalez.
 
-- OpenDyslexic itself is not bundled any more: the apps download it from
-  Fontsource the first time the setting is on (lib/dyslexicFont.ts).
+- OpenDyslexic itself is not bundled any more: the apps download it the
+  first time the setting is on (lib/dyslexicFont.ts), from the project's own
+  host, which mirrors Fontsource, or from Fontsource on jsDelivr when that
+  fails.
 - `opendyslexic-mono-400-normal.woff2` is OpenDyslexic Mono, which has no
   compiled release. It is built with fontmake from
   `sources/opendyslexic-mono/OpenDyslexic-Mono.glyphs` of

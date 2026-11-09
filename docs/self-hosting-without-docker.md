@@ -12,7 +12,7 @@ The commands below are written for Debian and Ubuntu. Other Linux systems with s
 
 ## Build
 
-For now the server is built from source. Ready-made server builds, with an easy way to update them, will come in a later version.
+The server is built from source.
 
 The build needs these, named as Debian and Ubuntu packages, which may differ on other distributions.
 

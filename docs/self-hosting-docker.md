@@ -43,7 +43,7 @@ curl -fsSLO https://raw.githubusercontent.com/Synaelle/ficelle/main/deploy/updat
 sudo bash install-server-update /opt/ficelle
 ```
 
-This installs a nightly timer that pulls the newer image of the series, copies the data first and rolls back if the new version is not healthy. With cosign installed, it also checks the image's signature. A new series (0.3 to 0.4) means changing the tag in `compose.yml` after reading the release notes.
+This installs a nightly timer that pulls the newer image of the series, copies the data first and rolls back if the new version is not healthy. It checks the image's signature with cosign, and does not update until cosign is installed, unless `ALLOW_UNSIGNED=1` is set for the service. A new series (0.3 to 0.4) means changing the tag in `compose.yml` after reading the release notes.
 
 ## Backups
 

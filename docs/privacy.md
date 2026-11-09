@@ -43,7 +43,7 @@ Backups are encrypted when your notes are, see [Backups](backups.md). A Markdown
 
 ## Servers
 
-- Once a day it reads ficelle.synaelle.com's `releases.json` to check for updates, with no version or details. The admin can turn it off.
+- Once a day the server reads ficelle.synaelle.com's `releases.json` to check for updates, with no version or details. The admin can turn it off.
 - Confirmations, sign-in codes and password notices go out through the admin's mail server, only if one is set up.
 - With single sign-on set up, the chosen provider learns you signed in.
 - An admin can report a server issue to ficelle.synaelle.com from the admin page, which sends the server's version and address.
