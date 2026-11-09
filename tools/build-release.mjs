@@ -50,6 +50,24 @@ const workspaceVersion = readFileSync(join(root, 'Cargo.toml'), 'utf8').match(
 )?.[1]
 if (!preview && /-beta\.\d+$/.test(workspaceVersion ?? ''))
   overlays.push('src-tauri/tauri.beta.conf.json')
+// Linux: the window takes dropped files itself, as tauri.linux.conf.json says
+// for other builds. Merged last, from the windows of the overlays above, so
+// their titles stay
+if (process.platform === 'linux') {
+  const windows = overlays
+    .map((file) => JSON.parse(readFileSync(join(root, 'apps/client', file), 'utf8')).app?.windows)
+    .filter(Boolean)
+    .at(-1)
+  if (windows) {
+    const file = join(root, 'target', 'linux-drop.conf.json')
+    mkdirSync(dirname(file), { recursive: true })
+    const app = {
+      windows: windows.map((/** @type {object} */ w) => ({ ...w, dragDropEnabled: true })),
+    }
+    writeFileSync(file, JSON.stringify({ app }))
+    overlays.push(file)
+  }
+}
 if (unsigned) {
   // a file, not the JSON inline: the Windows shell drops its quotes
   const file = join(root, 'target', 'unsigned.conf.json')

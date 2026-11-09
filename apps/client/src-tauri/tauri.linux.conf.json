@@ -1,0 +1,14 @@
+{
+  "app": {
+    "windows": [
+      {
+        "title": "Ficelle Dev",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 400,
+        "minHeight": 480,
+        "dragDropEnabled": true
+      }
+    ]
+  }
+}

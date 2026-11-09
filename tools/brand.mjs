@@ -187,6 +187,12 @@ const linuxBundle = (values) => ({
   linux: { deb: { desktopTemplate: `linux/${values.slug}.desktop` } },
 })
 
+/**
+ * The windows with drops taken by the window, for Linux.
+ * @param {object[]} windows
+ */
+const linuxDrop = (windows) => windows.map((w) => ({ ...w, dragDropEnabled: true }))
+
 /** @param {unknown} value */
 const toJson = (value) => JSON.stringify(value, null, 2) + '\n'
 
@@ -507,6 +513,17 @@ const targets = [
         ...linuxBundle(brand.preview),
       }
       return toJson(conf)
+    },
+  ],
+  [
+    // Linux: the window takes dropped files itself, WebKitGTK gives the page only
+    // their paths. Merged on its own into Linux builds, build-release.mjs adds
+    // the same to the release overlays. Elsewhere the page's drop keeps working,
+    // which dragging notes onto folders needs on Windows
+    'apps/client/src-tauri/tauri.linux.conf.json',
+    () => {
+      const base = JSON.parse(readFileSync(join(root, tauriConf), 'utf8'))
+      return toJson({ app: { windows: linuxDrop(base.app.windows) } })
     },
   ],
   [
