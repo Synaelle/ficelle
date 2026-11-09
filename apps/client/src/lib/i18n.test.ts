@@ -16,6 +16,10 @@ describe('t', () => {
     expect(t('list.count', { count: 0 })).toBe('0 notes')
     expect(t('list.count', { count: 1 })).toBe('1 note')
     expect(t('list.count', { count: 2 })).toBe('2 notes')
+    setLocale('fr')
+    expect(t('list.count', { count: 0 })).toBe('0 note')
+    expect(t('list.count', { count: 1 })).toBe('1 note')
+    expect(t('list.count', { count: 2 })).toBe('2 notes')
   })
 
   it('shows the key when a text is missing everywhere', () => {
@@ -24,7 +28,7 @@ describe('t', () => {
   })
 
   it('falls back to English for a language this build does not have', () => {
-    setLocale('fr' as 'en')
+    setLocale('de' as 'en')
     expect(currentLocale()).toBe('en')
     expect(t('errorReport.lead')).toContain(brand.displayName)
   })

@@ -46,5 +46,6 @@
     color: var(--color-text-muted);
     font-size: 12px;
     line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 </style>

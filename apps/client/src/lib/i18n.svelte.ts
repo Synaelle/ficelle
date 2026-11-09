@@ -6,12 +6,19 @@
 
 import { brand } from '@app/brand'
 import en from '../../../../packages/locales/en.toml'
+import fr from '../../../../packages/locales/fr.toml'
 
-export const LOCALES = [{ code: 'en', name: 'English' }] as const
+export const LOCALES = [
+  { code: 'en', name: 'English' },
+  { code: 'fr', name: 'Français' },
+] as const
+
+/** Where anyone can correct a translation. */
+export const LOCALES_URL = 'https://github.com/Synaelle/ficelle/tree/main/packages/locales'
 
 export type Locale = (typeof LOCALES)[number]['code']
 
-const catalogs: Record<Locale, Record<string, string>> = { en }
+const catalogs: Record<Locale, Record<string, string>> = { en, fr }
 
 /** First supported language of the system, English otherwise. */
 export function systemLocale(): Locale {

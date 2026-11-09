@@ -14,7 +14,7 @@
   import { onBack } from '../lib/back'
   import { modal } from '../lib/modal'
   import { biometricMethod } from '../lib/biometric'
-  import { LOCALES, t, type Locale } from '../lib/i18n.svelte'
+  import { LOCALES, LOCALES_URL, t, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { overlay, type MenuItem } from '../lib/overlay.svelte'
@@ -513,7 +513,10 @@
           <div class="inside"><ArrowPicker /></div>
         </Group>
       {:else if page === 'language'}
-        <Group title={t('settings.language')}>
+        <Group
+          title={t('settings.language')}
+          note={t('settings.languageMachine', { url: LOCALES_URL })}
+        >
           <Row
             label={t('settings.languageSystem')}
             checked={prefs.language === null}

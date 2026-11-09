@@ -24,8 +24,10 @@ use crate::config::{Config, SmtpSecurity};
 /// Languages mails are written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lang {
-    /// English, the default and for now the only one.
+    /// English, the default.
     En,
+    /// French.
+    Fr,
 }
 
 impl Lang {
@@ -42,7 +44,11 @@ impl Lang {
                     .trim()
                     .to_ascii_lowercase()
             })
-            .find_map(|tag| (tag.split('-').next() == Some("en")).then_some(Self::En))
+            .find_map(|tag| match tag.split('-').next() {
+                Some("en") => Some(Self::En),
+                Some("fr") => Some(Self::Fr),
+                _ => None,
+            })
             .unwrap_or(Self::En)
     }
 }
@@ -75,11 +81,14 @@ fn load(source: &str) -> Texts {
 
 static EN: LazyLock<Texts> =
     LazyLock::new(|| load(include_str!("../../../packages/locales/en.toml")));
+static FR: LazyLock<Texts> =
+    LazyLock::new(|| load(include_str!("../../../packages/locales/fr.toml")));
 
 /// A mail text with its `{placeholders}` filled.
 pub fn tr(lang: Lang, key: &str, vars: &[(&str, &str)]) -> String {
     let texts = match lang {
         Lang::En => &*EN,
+        Lang::Fr => &*FR,
     };
     let mut text = texts
         .get(key)
@@ -283,8 +292,9 @@ mod tests {
 
     #[test]
     fn languages_from_the_header() {
-        assert_eq!(Lang::from_header(Some("fr-FR,fr;q=0.9,en;q=0.8")), Lang::En);
+        assert_eq!(Lang::from_header(Some("fr-FR,fr;q=0.9,en;q=0.8")), Lang::Fr);
         assert_eq!(Lang::from_header(Some("de-DE, en;q=0.5")), Lang::En);
+        assert_eq!(Lang::from_header(Some("de-DE, fr-CA;q=0.5")), Lang::Fr);
         assert_eq!(Lang::from_header(None), Lang::En);
     }
 
@@ -292,6 +302,9 @@ mod tests {
     fn texts_come_from_the_locales_with_placeholders_filled() {
         let en = tr(Lang::En, "mail.greeting", &[("name", "Zoé")]);
         assert!(en.contains("Zoé"));
+        let fr = tr(Lang::Fr, "mail.greeting", &[("name", "Zoé")]);
+        assert!(fr.contains("Zoé"));
+        assert_ne!(fr, en);
         assert_eq!(tr(Lang::En, "mail.nope", &[]), "mail.nope");
     }
 
