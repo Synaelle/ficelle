@@ -17,10 +17,9 @@ const RANGES = {
     'U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF',
 }
 
-/** "latin-ext-700-italic" → its subset, weight and style. A variable file,
- * "latin-wght-normal", covers `weights`. */
-export function describeFile(name: string, weights = '100 900') {
-  const match = /^(latin(?:-ext)?)-(\d{3}|wght)-(normal|italic)$/.exec(name)
+/** "latin-ext-700-italic" → its subset, weight and style. */
+export function describeFile(name: string) {
+  const match = /^(latin(?:-ext)?)-(\d{3})-(normal|italic)$/.exec(name)
   if (!match) return null
   const [, subset, weight, style] = match as unknown as [
     string,
@@ -28,26 +27,24 @@ export function describeFile(name: string, weights = '100 900') {
     string,
     string,
   ]
-  return { range: RANGES[subset], weight: weight === 'wght' ? weights : weight, style }
+  return { range: RANGES[subset], weight, style }
 }
 
 /** A font fetched like a listed one, with its own files. */
 export interface FontPack {
-  /** Fontsource id, `:vf` after it for a variable font. */
+  /** Fontsource id. */
   id: string
   family: string
   /** Its files, the first one needed, the others used when they come. */
   files: string[]
-  /** The weights a variable font's files cover. */
-  weights?: string
 }
 
 /** Hands a font's files to the page as `family`. The first must load, a
  * file missing or broken after it leaves the others. */
-async function addFaces(id: string, family: string, names: string[], weights?: string) {
+async function addFaces(id: string, family: string, names: string[]) {
   await Promise.all(
     names.map(async (name, i) => {
-      const file = describeFile(name, weights)
+      const file = describeFile(name)
       if (!file) return
       try {
         const face = new FontFace(family, await backend.fontFile(id, name), {
@@ -89,7 +86,6 @@ export function loadFontPack(
       pack.id,
       family,
       pack.files.filter((name) => files.includes(name)),
-      pack.weights,
     )
     return true
   })()

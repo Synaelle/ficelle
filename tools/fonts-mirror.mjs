@@ -24,7 +24,9 @@ if (!out) {
 }
 
 const CDN = 'https://cdn.jsdelivr.net/fontsource/fonts'
-/** As KNOWN in commands/fonts.rs. */
+/** The Fontsource release mirrored, as FONTSOURCE in commands/fonts.rs. */
+const VERSION = '5.3.0'
+/** As FILES in commands/fonts.rs. */
 const FILES = [
   'latin-400-normal',
   'latin-700-normal',
@@ -34,12 +36,6 @@ const FILES = [
   'latin-ext-700-normal',
   'latin-ext-400-italic',
   'latin-ext-700-italic',
-  'latin-500-normal',
-  'latin-ext-500-normal',
-  'latin-wght-normal',
-  'latin-wght-italic',
-  'latin-ext-wght-normal',
-  'latin-ext-wght-italic',
 ]
 
 const ids = ['opendyslexic']
@@ -52,7 +48,10 @@ async function fetchFile(url) {
   let last
   for (let i = 0; i < 3; i++) {
     try {
-      const response = await fetch(url, { headers: { 'user-agent': 'ficelle' } })
+      const response = await fetch(url, {
+        headers: { 'user-agent': 'ficelle' },
+        signal: AbortSignal.timeout(30_000),
+      })
       if (response.status === 404) return null
       if (!response.ok) throw new Error(`${response.status}`)
       const bytes = Buffer.from(await response.arrayBuffer())
@@ -66,22 +65,16 @@ async function fetchFile(url) {
   throw new Error(`${url}: ${last}`)
 }
 
-// a variable font's files only have wght names, the others only weights
-const wanted = (/** @type {string} */ id) =>
-  FILES.filter((name) => name.includes('-wght-') === id.endsWith(':vf'))
-
 let count = 0
 let bytes = 0
 for (const id of ids) {
-  // the folder a variable font is kept in on the devices too
-  const folder = join(out, id.replace(':vf', '@vf'))
+  const folder = join(out, id)
   mkdirSync(folder, { recursive: true })
-  const names = wanted(id)
   let got = 0
   // a few at a time, jsDelivr is fast
   await Promise.all(
-    names.map(async (name) => {
-      const file = await fetchFile(`${CDN}/${id}@latest/${name}.woff2`)
+    FILES.map(async (name) => {
+      const file = await fetchFile(`${CDN}/${id}@${VERSION}/${name}.woff2`)
       if (!file) return
       writeFileSync(join(folder, `${name}.woff2`), file)
       got += 1

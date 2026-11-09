@@ -18,6 +18,8 @@ use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
 
 const CDN: &str = "https://cdn.jsdelivr.net/fontsource/fonts";
+/// The Fontsource release asked for, the one the project's host mirrors.
+const FONTSOURCE: &str = "5.3.0";
 /// A font file is tens of kilobytes, this is far above any.
 const MAX_FILE: u64 = 4 * 1024 * 1024;
 /// The files asked for each font: latin and its extension, regular, bold and
@@ -33,43 +35,22 @@ pub const FILES: [&str; 8] = [
     "latin-ext-700-italic",
 ];
 
-/// Every file the page may ask for: [`FILES`], the medium weight, and the
-/// variable files (`wght`) of a variable font, whose id ends in `:vf`.
-const KNOWN: [&str; 14] = [
-    "latin-400-normal",
-    "latin-700-normal",
-    "latin-400-italic",
-    "latin-700-italic",
-    "latin-ext-400-normal",
-    "latin-ext-700-normal",
-    "latin-ext-400-italic",
-    "latin-ext-700-italic",
-    "latin-500-normal",
-    "latin-ext-500-normal",
-    "latin-wght-normal",
-    "latin-wght-italic",
-    "latin-ext-wght-normal",
-    "latin-ext-wght-italic",
-];
-
 fn invalid(what: &str) -> CommandError {
     CommandError::new("invalid", format!("not a font {what}"))
 }
 
-/// A Fontsource id: lowercase letters, digits and dashes, `:vf` after it
-/// for a variable font.
+/// A Fontsource id: lowercase letters, digits and dashes.
 fn checked_id(id: &str) -> CommandResult<&str> {
-    let name = id.strip_suffix(":vf").unwrap_or(id);
-    let ok = !name.is_empty()
+    let ok = !id.is_empty()
         && id.len() <= 64
-        && name
+        && id
             .bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-');
     if ok { Ok(id) } else { Err(invalid("id")) }
 }
 
 fn checked_file(name: &str) -> CommandResult<&str> {
-    KNOWN
+    FILES
         .contains(&name)
         .then_some(name)
         .ok_or_else(|| invalid("file"))
@@ -79,7 +60,7 @@ fn checked_file(name: &str) -> CommandResult<&str> {
 /// one a font cannot do without.
 fn checked_files(files: Option<Vec<String>>) -> CommandResult<Vec<String>> {
     let files = files.unwrap_or_else(|| FILES.map(str::to_owned).to_vec());
-    if files.is_empty() || files.len() > KNOWN.len() {
+    if files.is_empty() || files.len() > FILES.len() {
         return Err(invalid("file list"));
     }
     for name in &files {
@@ -88,12 +69,9 @@ fn checked_files(files: Option<Vec<String>>) -> CommandResult<Vec<String>> {
     Ok(files)
 }
 
-/// `fonts/<id>`, `fonts/<id>@vf` for a variable font: a folder name has no `:`.
+/// `fonts/<id>`.
 fn folder(state: &AppState, id: &str) -> CommandResult<PathBuf> {
-    Ok(state
-        .dir
-        .join("fonts")
-        .join(checked_id(id)?.replace(":vf", "@vf")))
+    Ok(state.dir.join("fonts").join(checked_id(id)?))
 }
 
 fn failed(err: impl std::fmt::Display) -> CommandError {
@@ -154,12 +132,12 @@ pub async fn font_download(
             let mirrored = format!(
                 "{}/{}/{name}.woff2",
                 app_brand::FONTS_URL.trim_end_matches('/'),
-                id.replace(":vf", "@vf")
+                id
             );
             let fetched = match fetch(&agent, &mirrored) {
                 Ok(Some(bytes)) if bytes.starts_with(b"wOF2") => Ok(Some(bytes)),
                 // not mirrored, or the host does not answer: Fontsource's own
-                _ => fetch(&agent, &format!("{CDN}/{id}@latest/{name}.woff2")),
+                _ => fetch(&agent, &format!("{CDN}/{id}@{FONTSOURCE}/{name}.woff2")),
             };
             let bytes = match fetched {
                 Ok(Some(bytes)) => bytes,
@@ -217,13 +195,12 @@ pub async fn font_file(
 
 #[cfg(test)]
 mod tests {
-    use super::{FILES, KNOWN, checked_file, checked_files, checked_id};
+    use super::{FILES, checked_file, checked_files, checked_id};
 
     #[test]
     fn only_plain_ids_and_known_files() {
         assert!(checked_id("jetbrains-mono").is_ok());
         assert!(checked_id("source-serif-4").is_ok());
-        assert!(checked_id("literata:vf").is_ok());
         let long = "a".repeat(65);
         for bad in [
             "", "../x", "a/b", "A", "x y", "a.b", ":vf", "a:vf:vf", "a:x", &long,
@@ -233,17 +210,17 @@ mod tests {
         assert!(checked_file("latin-400-normal").is_ok());
         assert!(checked_file("../latin-400-normal").is_err());
         assert!(checked_file("latin-900-normal").is_err());
-        assert!(checked_file("latin-ext-wght-italic").is_ok());
+        assert!(checked_file("latin-ext-wght-italic").is_err());
     }
 
     #[test]
     fn file_lists_default_to_the_usual_files_and_stay_known() {
         assert_eq!(checked_files(None).unwrap(), FILES.to_vec());
-        let wght = vec!["latin-wght-normal".to_owned()];
-        assert_eq!(checked_files(Some(wght.clone())).unwrap(), wght);
+        let one = vec!["latin-700-normal".to_owned()];
+        assert_eq!(checked_files(Some(one.clone())).unwrap(), one);
         assert!(checked_files(Some(vec![])).is_err());
         assert!(checked_files(Some(vec!["latin-400-normal".into(), "x".into()])).is_err());
-        let too_many = vec!["latin-400-normal".to_owned(); KNOWN.len() + 1];
+        let too_many = vec!["latin-400-normal".to_owned(); FILES.len() + 1];
         assert!(checked_files(Some(too_many)).is_err());
     }
 }

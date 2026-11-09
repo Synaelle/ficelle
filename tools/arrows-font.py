@@ -4,17 +4,16 @@ cut out of Noto Sans Math and Noto Sans Symbols 2 (OFL-1.1). The app's own
 fonts have no arrows, so this one stands right behind the chosen font and
 each arrow looks the same on every device.
 
-Writes apps/client/src/styles/arrows/*.woff2, styles/arrows.css (the faces,
-with their unicode-range) and editor/arrows.json (the arrows the picker
-shows: the ones pointing right). Run again only to change the fonts or the arrows:
+Writes apps/client/src/styles/arrows/*.woff2 and styles/arrows.css (the
+faces, with their unicode-range). Run again only to change the fonts or the
+arrows:
 
     pip install fonttools brotli
     python tools/arrows-font.py
-    npx prettier --write apps/client/src/styles/arrows.css apps/client/src/editor/arrows.json
+    npx prettier --write apps/client/src/styles/arrows.css
 """
 
-import json
-import re
+import shutil
 import subprocess
 import tarfile
 import tempfile
@@ -48,23 +47,16 @@ def arrows() -> list[int]:
     return found
 
 
-def points_right(code: int) -> bool:
-    """A single arrow pointing right, the picker's choices for ->."""
-    name = unicodedata.name(chr(code), '')
-    return bool(re.search(r'RIGHTWARDS|RIGHT-POINTING|RIGHT ARROW|RIGHT', name)) and not re.search(
-        r'LEFT|UP|DOWN|NORTH|SOUTH|AND|OVER |ABOVE|BELOW|PAIRED|TWO |TRIPLE|THREE|BARB|HARPOON',
-        name,
-    )
-
 
 def fetch(package: str, into: Path) -> Path:
     """The package's files folder, from npm."""
+    print(f'fetching {package}@{VERSION}', flush=True)
+    # npm is npm.cmd on Windows, which only a shell would find by that name
     subprocess.run(
-        ['npm', 'pack', f'{package}@{VERSION}', '--silent'],
+        [shutil.which('npm') or 'npm', 'pack', f'{package}@{VERSION}'],
         cwd=into,
         check=True,
-        shell=True,
-        stdout=subprocess.DEVNULL,
+        timeout=120,
     )
     # npm names it after the scope too: fontsource-noto-sans-math-5.3.0.tgz
     tgz = next(into.glob('*' + package.split('/')[1] + '-*.tgz'))
@@ -140,18 +132,12 @@ def main() -> None:
                 "}\n"
             )
     drawn_codes = sorted(c for _, _, codes in parts for c in codes)
-    # the font has every arrow (<- and => are typed too), the picker only
-    # those pointing right
-    shown = [c for c in drawn_codes if points_right(c)]
     header = (
         '/* Made by tools/arrows-font.py: every arrow, from Noto Sans Math and\n'
         '   Noto Sans Symbols 2 (OFL-1.1), behind the chosen font. */\n'
     )
     (CLIENT / 'styles' / 'arrows.css').write_text(header + '\n'.join(faces), encoding='utf-8')
-    (CLIENT / 'editor' / 'arrows.json').write_text(
-        json.dumps(''.join(chr(c) for c in shown), ensure_ascii=False) + '\n', encoding='utf-8'
-    )
-    print(f'{len(drawn_codes)} arrows, {len(wanted) - len(drawn_codes)} not in the fonts, {len(shown)} in the picker')
+    print(f'{len(drawn_codes)} arrows, {len(wanted) - len(drawn_codes)} not in the fonts')
 
 
 if __name__ == '__main__':

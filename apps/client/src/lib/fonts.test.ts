@@ -12,10 +12,7 @@ describe('fonts', () => {
     expect(describeFile('latin-ext-400-normal')?.range).toContain('U+0100-02BA')
     expect(describeFile('latin-400-normal')?.range).toContain('U+0000-00FF')
     expect(describeFile('greek-400-normal')).toBeNull()
-    expect(describeFile('latin-wght-italic', '200 900')).toMatchObject({
-      weight: '200 900',
-      style: 'italic',
-    })
+    expect(describeFile('latin-wght-italic')).toBeNull()
   })
 
   it("carries every built-in theme's fonts", () => {
@@ -28,9 +25,8 @@ describe('fonts', () => {
 
   it('asks only for files and ids the app accepts', () => {
     // the same rules as commands/fonts.rs
-    expect(OPENDYSLEXIC.id).toMatch(/^[a-z0-9-]+(:vf)?$/)
-    expect(OPENDYSLEXIC.id.endsWith(':vf')).toBe(!!OPENDYSLEXIC.weights)
+    expect(OPENDYSLEXIC.id).toMatch(/^[a-z0-9-]+$/)
     for (const name of OPENDYSLEXIC.files)
-      expect(name).toMatch(/^latin(-ext)?-(400|500|700|wght)-(normal|italic)$/)
+      expect(name).toMatch(/^latin(-ext)?-(400|700)-(normal|italic)$/)
   })
 })
