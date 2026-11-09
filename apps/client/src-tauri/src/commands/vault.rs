@@ -192,20 +192,20 @@ fn keep_quick_way(
             // sealed first: the other copies go only once this one is kept
             vault.keep_key(key, &guarded)?;
             if let Some(keys) = device {
-                let _ = vault.remove_pin(keys);
-                let _ = vault.forget_on_device(keys);
+                vault.remove_pin(keys)?;
+                vault.forget_on_device(keys)?;
             }
         }
         Way::Pin => {
             let keys = device.ok_or_else(no_device)?;
             let pin = pin.ok_or_else(|| CommandError::new("invalid", "a PIN is needed"))?;
             vault.set_pin(key, pin, keys, KdfParams::DEFAULT)?;
-            let _ = vault.forget_on_device(keys);
+            vault.forget_on_device(keys)?;
             if let Some(guarded) = biometric::guarded() {
-                let _ = vault.forget_on_device(&guarded);
+                vault.forget_on_device(&guarded)?;
             }
         }
-        Way::Password => forget_kept(vault),
+        Way::Password => forget_kept(vault)?,
         Way::Plain | Way::Device => {
             return Err(CommandError::new("invalid", "not a way to choose"));
         }
@@ -300,15 +300,19 @@ fn current_key(vault: &Vault, password: Option<&str>) -> CommandResult<DatabaseK
     Err(needs_password())
 }
 
-/// Copies of the key this device keeps, all of them, the PIN too.
-fn forget_kept(vault: &Vault) {
+/// Copies of the key this device keeps, all of them, the PIN too. Each one
+/// is tried even when another fails; the first failure is returned, so the
+/// page never says a copy is gone when it is not.
+fn forget_kept(vault: &Vault) -> CommandResult<()> {
+    let mut results = Vec::new();
     if let Some(keys) = biometric::device_store() {
-        let _ = vault.forget_on_device(keys);
-        let _ = vault.remove_pin(keys);
+        results.push(vault.forget_on_device(keys));
+        results.push(vault.remove_pin(keys));
     }
     if let Some(guarded) = biometric::guarded() {
-        let _ = vault.forget_on_device(&guarded);
+        results.push(vault.forget_on_device(&guarded));
     }
+    Ok(results.into_iter().collect::<Result<(), _>>()?)
 }
 
 /// The open session's copy of the vault reads `vault.json` again.
@@ -379,10 +383,13 @@ pub async fn vault_lock(state: State<'_, AppState>) -> CommandResult<()> {
 pub async fn vault_reset(state: State<'_, AppState>) -> CommandResult<()> {
     state.close();
     // stale keys would make a new vault look kept already
-    if let Ok(vault) = Vault::open(&state.dir) {
-        forget_kept(&vault);
-    }
-    Ok(Vault::destroy(&state.dir)?)
+    let forgotten = match Vault::open(&state.dir) {
+        Ok(vault) => forget_kept(&vault),
+        Err(_) => Ok(()),
+    };
+    // the notes go even when a key copy would not: the page shows that error
+    Vault::destroy(&state.dir)?;
+    forgotten
 }
 
 #[tauri::command]
@@ -470,7 +477,7 @@ pub async fn vault_recover(
         let mut vault = Vault::open(&dir)?;
         let key = vault.key_with_recovery(&code)?;
         vault.set_password(&key, &new_password, KdfParams::DEFAULT)?;
-        forget_kept(&vault);
+        forget_kept(&vault)?;
         let store = vault.unlock_with_key(&key)?;
         Ok((vault, store))
     })
