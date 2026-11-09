@@ -219,8 +219,10 @@ class Installer(private val activity: Activity) {
       ?.firstOrNull()
       ?: return ""
     val name = "${activity.getString(R.string.app_name).replace(' ', '-')}-$version.apk"
+    val resolver = activity.contentResolver
+    // kept outside the try: an entry left pending after a failure is removed
+    var pending: android.net.Uri? = null
     return try {
-      val resolver = activity.contentResolver
       val values = android.content.ContentValues().apply {
         put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name)
         put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/vnd.android.package-archive")
@@ -229,6 +231,7 @@ class Installer(private val activity: Activity) {
       val uri =
         resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
           ?: return ""
+      pending = uri
       val copied = resolver.openOutputStream(uri)?.use { out ->
         apk.inputStream().use { it.copyTo(out) }
       }
@@ -239,6 +242,7 @@ class Installer(private val activity: Activity) {
       values.clear()
       values.put(android.provider.MediaStore.Downloads.IS_PENDING, 0)
       resolver.update(uri, values, null, null)
+      pending = null
       // the name Android gave it, "(1)" added when one was there already
       val saved = resolver.query(
         uri,
@@ -249,6 +253,8 @@ class Installer(private val activity: Activity) {
       )?.use { if (it.moveToFirst()) it.getString(0) else null } ?: name
       "${android.os.Environment.DIRECTORY_DOWNLOADS}/$saved"
     } catch (e: Exception) {
+      android.util.Log.w("Ficelle", "saving the update to Downloads failed", e)
+      pending?.let { resolver.delete(it, null, null) }
       ""
     }
   }
