@@ -88,7 +88,8 @@ pub async fn check(
 struct Facts {
     admins_without: Vec<String>,
     registration: Registration,
-    backups: Option<crate::backups::BackupConfig>,
+    /// Settings that do not read back are kept as the reason, to be shown.
+    backups: Result<Option<crate::backups::BackupConfig>, String>,
     status: crate::backups::BackupStatus,
     updates: bool,
     secrets_dismissed: bool,
@@ -124,7 +125,10 @@ fn facts(
     Ok(Facts {
         admins_without,
         registration: store::registration(conn)?,
-        backups: crate::backups::config(conn, master)?,
+        backups: match crate::backups::config(conn, master) {
+            Err(crate::db::DbError::Data(why)) => Err(why),
+            read => Ok(read?),
+        },
         status: crate::backups::status(conn)?,
         updates: updates::enabled(conn)?,
         secrets_dismissed: dismissed.is_some(),
@@ -182,8 +186,16 @@ fn set_hidden(conn: &Connection, lines: &[String]) -> Result<(), DbError> {
 fn backups_item(facts: &Facts, now: i64) -> ChecklistItem {
     let status = &facts.status;
     let at = |t: Option<i64>| t.map(|t| t.to_string()).unwrap_or_default();
-    let Some(config) = &facts.backups else {
-        return item("backups", CheckState::Warn, &[("state", "none".into())]);
+    let config = match &facts.backups {
+        Ok(Some(config)) => config,
+        Ok(None) => return item("backups", CheckState::Warn, &[("state", "none".into())]),
+        Err(why) => {
+            return item(
+                "backups",
+                CheckState::Fail,
+                &[("state", "failing".into()), ("error", why.clone())],
+            );
+        }
     };
     let failed = status.last_error.is_some()
         && status.last_run_at.unwrap_or(0) > status.last_success_at.unwrap_or(0);

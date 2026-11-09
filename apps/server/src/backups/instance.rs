@@ -18,7 +18,7 @@ use std::io::Read;
 use std::path::Path;
 
 use app_repo::{Index, Item, Repo, Snapshot, WriteStats, Writer};
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use crate::files::Storage;
@@ -132,9 +132,9 @@ fn run(
             .map_err(|e| e.to_string())?;
         stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
             .map_err(|e| e.to_string())?
-            .filter_map(std::result::Result::ok)
-            .map(|(o, s)| (o, u64::try_from(s).unwrap_or(0)))
-            .collect()
+            .map(|row| row.map(|(o, s)| (o, u64::try_from(s).unwrap_or(0))))
+            .collect::<std::result::Result<_, rusqlite::Error>>()
+            .map_err(|e| e.to_string())?
     };
     let mut stored = 0u64;
     for (object, _) in &objects {
@@ -406,7 +406,8 @@ pub fn person_plan(
                 [username, id.as_str()],
                 |r| r.get(0),
             )
-            .ok();
+            .optional()
+            .map_err(|e| e.to_string())?;
         if taken.is_some() {
             return Err(format!(
                 "{username} is the name of another account now: rename it first"
@@ -424,8 +425,8 @@ pub fn person_plan(
         let objects = stmt
             .query_map([&id], |r| r.get(0))
             .map_err(|e| e.to_string())?
-            .filter_map(std::result::Result::ok)
-            .collect();
+            .collect::<std::result::Result<_, rusqlite::Error>>()
+            .map_err(|e| e.to_string())?;
         Ok((id, objects))
     })();
     let _ = live.execute("DETACH DATABASE snap", []);

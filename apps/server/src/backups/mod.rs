@@ -301,24 +301,28 @@ fn write_setting<T: Serialize>(
 ///
 /// # Errors
 ///
-/// Database errors.
+/// Database errors, and [`DbError::Data`] for settings that are stored but
+/// do not read back (another master key, a shape this version does not
+/// know): backups are then not off, they are broken, and say so.
 pub fn config(conn: &Connection, master: &MasterKey) -> Result<Option<BackupConfig>, DbError> {
     let Some(stored) = read_setting::<serde_json::Value>(conn, "backups")? else {
         return Ok(None);
     };
+    let unreadable = || DbError::Data("the backup settings cannot be read, set them again".into());
     if let Some(sealed) = stored.get("sealed").and_then(|s| s.as_str()) {
-        let opened = base64::engine::general_purpose::STANDARD
+        let bytes = base64::engine::general_purpose::STANDARD
             .decode(sealed)
-            .ok()
-            .and_then(|bytes| master.open_setting("backups", &bytes))
-            .and_then(|text| serde_json::from_slice(&text).ok());
-        return Ok(opened);
+            .map_err(|_| unreadable())?;
+        let text = master
+            .open_setting("backups", &bytes)
+            .ok_or_else(unreadable)?;
+        return serde_json::from_slice(&text)
+            .map(Some)
+            .map_err(|_| unreadable());
     }
-    let plain: Option<BackupConfig> = serde_json::from_value(stored).ok();
-    if let Some(plain) = &plain {
-        set_config(conn, master, Some(plain))?;
-    }
-    Ok(plain)
+    let plain: BackupConfig = serde_json::from_value(stored).map_err(|_| unreadable())?;
+    set_config(conn, master, Some(&plain))?;
+    Ok(Some(plain))
 }
 
 /// Sets or clears the settings, sealed.
@@ -621,8 +625,13 @@ pub fn spawn_schedule(state: AppState) {
                 .db
                 .call(move |c| Ok((config(c, &master)?, status(c)?)))
                 .await;
-            let Ok((Some(config), status)) = looked else {
-                continue;
+            let (config, status) = match looked {
+                Ok((Some(config), status)) => (config, status),
+                Ok((None, _)) => continue,
+                Err(why) => {
+                    tracing::warn!("backups cannot run: {why}");
+                    continue;
+                }
             };
             let Some(period) = config.schedule.period_ms() else {
                 continue;
@@ -784,7 +793,10 @@ mod sealed_tests {
         assert_eq!(back.unwrap().password, "the repository password");
         assert_eq!(resealed.unwrap().password, "the repository password");
         let other = MasterKey::generate();
-        let opened = db.call(move |c| config(c, &other)).await.unwrap();
-        assert!(opened.is_none(), "another key reads nothing");
+        let opened = db.call(move |c| config(c, &other)).await;
+        assert!(
+            matches!(opened, Err(DbError::Data(_))),
+            "another key reads nothing, and says so: {opened:?}"
+        );
     }
 }

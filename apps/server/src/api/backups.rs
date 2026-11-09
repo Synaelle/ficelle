@@ -15,6 +15,7 @@ use crate::backups::{
     self, BackupConfig, BackupStatus, Schedule, ServerTarget,
     instance::{PersonReport, TestRestore},
 };
+use crate::db::DbError;
 use crate::error::Error;
 use crate::routes::AppState;
 use app_repo::{CheckReport, Policy};
@@ -121,7 +122,12 @@ pub async fn connect(
         return Err(Error::invalid("a backup needs a password"));
     }
     let master = state.master.clone();
-    let old = state.db.call(move |c| backups::config(c, &master)).await?;
+    let old = match state.db.call(move |c| backups::config(c, &master)).await {
+        Ok(old) => old,
+        // settings that no longer read back are what this replaces
+        Err(DbError::Data(_)) => None,
+        Err(e) => return Err(e.into()),
+    };
     let target = match &old {
         Some(old) => connect.target.keeping_secrets_of(&old.target),
         None => connect.target,
