@@ -21,6 +21,9 @@ export const PALETTE_KEYS = [
   'danger',
   'success',
   'warning',
+  // callouts: a note and an important one, next to success, warning and danger
+  'info',
+  'important',
   'selection',
 ] as const
 
@@ -53,6 +56,9 @@ const READ_PAIRS: [PaletteKey, PaletteKey][] = [
   ['accentOn', 'accent'],
   // danger is read as text on the background and as a fill under it
   ['danger', 'bg'],
+  // callout titles, written in their colour
+  ['info', 'bg'],
+  ['important', 'bg'],
   // the selected note row keeps its muted snippet and date readable
   ['textMuted', 'selection'],
 ]

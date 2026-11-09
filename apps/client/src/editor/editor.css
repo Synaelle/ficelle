@@ -207,14 +207,32 @@
 }
 .prose .callout {
   padding: var(--space-3) var(--space-4);
-  border-left: 3px solid var(--color-accent);
+  border-left: 3px solid var(--callout);
   border-radius: var(--radius-control);
-  background: var(--color-surface-2);
+  background: color-mix(in srgb, var(--callout) 9%, var(--color-surface));
 }
-.prose .callout[data-title]:not([data-title=''])::before {
-  content: attr(data-title);
+.prose .callout[data-callout='note'] {
+  --callout: var(--color-info);
+}
+.prose .callout[data-callout='tip'] {
+  --callout: var(--color-success);
+}
+.prose .callout[data-callout='important'] {
+  --callout: var(--color-important);
+}
+.prose .callout[data-callout='warning'] {
+  --callout: var(--color-warning);
+}
+.prose .callout[data-callout='caution'],
+.prose .callout[data-callout='danger'] {
+  --callout: var(--color-danger);
+}
+/* its title, or its kind when it has none: "Note", "Warning" */
+.prose .callout::before {
+  content: attr(data-callout);
   display: block;
   margin-bottom: var(--space-1);
+  --callout: var(--color-text-muted);
   font-weight: 600;
 }
 .prose .math {
@@ -228,7 +246,19 @@
   border-radius: var(--radius-control);
 }
 .prose .details-summary {
-  font-weight: 600;
+  color: var(--callout);
+  font-weight: 650;
+  text-transform: capitalize;
+}
+.prose .callout[data-title]:not([data-title=''])::before {
+  content: attr(data-title);
+  text-transform: none;
+}
+.prose .callout > :first-child {
+  margin-top: 0;
+}
+.prose .callout > :last-child {
+  margin-bottom: 0;
 }
 .prose .details-summary::before {
   content: '▾ ';

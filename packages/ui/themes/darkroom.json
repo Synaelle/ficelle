@@ -25,6 +25,8 @@
       "danger": "#FF7A5C",
       "success": "#8DB07A",
       "warning": "#D9A441",
+      "info": "#6FA8E6",
+      "important": "#B796EA",
       "selection": "#3A1915"
     },
     "light": {
@@ -43,6 +45,8 @@
       "danger": "#A3341F",
       "success": "#3D6B35",
       "warning": "#8A5A00",
+      "info": "#245F9E",
+      "important": "#6A45AB",
       "selection": "#F5D5CE"
     }
   },
