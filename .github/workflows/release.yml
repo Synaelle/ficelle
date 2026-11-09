@@ -1,6 +1,6 @@
 name: release
 
-# A release, from its tag: the Windows, Linux and Android apps built at
+# A release, from its tag: the Windows, Linux, Android and Mac apps built at
 # once, each signed for the app updater with the TAURI_SIGNING_PRIVATE_KEY
 # secret, attached to a draft release with one latest.json for all, and
 # only then published. Until then the release is a draft, which neither
@@ -12,11 +12,10 @@ name: release
 #
 # Two channels. A stable tag vX.Y.Z becomes the latest release, the list
 # stable apps read (releases/latest/download/latest.json). A beta tag
-# vX.Y.Z-beta.N is a pre-release, never "latest", and also builds the Mac
-# app, which follows Beta only. Beta apps read the list of the fixed "beta"
-# release, which always holds the newest of either kind: every release
-# newer than what it holds replaces it, so a beta app reaches the stable
-# release too.
+# vX.Y.Z-beta.N is a pre-release, never "latest". Beta apps read the list
+# of the fixed "beta" release, which always holds the newest of either
+# kind: every release newer than what it holds replaces it, so a beta app
+# reaches the stable release too.
 
 on:
   push:
@@ -82,11 +81,10 @@ jobs:
       signed: true
     secrets: inherit
 
-  # only the tag named in the MAC_RELEASE repository variable: the Mac app gets
-  # one release, then major fixes, until a Mac can test it daily
+  # untested for want of a Mac, so a failed Mac build does not hold back the
+  # others: that release then has no Mac files and Macs stay where they are
   mac:
     needs: draft
-    if: vars.MAC_RELEASE == github.ref_name
     uses: ./.github/workflows/mac.yml
     with:
       signed: true
@@ -94,12 +92,10 @@ jobs:
 
   publish:
     needs: [list, windows, linux, android, mac]
-    # the Mac app is skipped for most releases
     if: >-
       ${{ !cancelled() && needs.list.result == 'success'
       && needs.windows.result == 'success' && needs.linux.result == 'success'
-      && needs.android.result == 'success'
-      && contains(fromJSON('["success", "skipped"]'), needs.mac.result) }}
+      && needs.android.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
