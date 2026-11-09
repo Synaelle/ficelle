@@ -20,6 +20,10 @@ import {
 import { isMarkdownFile, parseMarkdownFile } from './importing'
 import { prefs } from './prefs.svelte'
 
+/** The notes in no folder: the view the app opens on, and the one it goes
+ * back to when a filter is turned off or goes away. */
+export const UNFILED: Scope = { kind: 'folder', id: null }
+
 /** Wait after the last keystroke before saving. A pause between words is
  * shorter, a pause to think is longer: one save per thought, not per word. */
 const SAVE_DELAY_MS = 1000
@@ -34,7 +38,7 @@ class Workspace {
   trashedFolders: Folder[] = $state([])
   tags: Tag[] = $state([])
   notes: NoteSummary[] = $state([])
-  scope: Scope = $state({ kind: 'all' })
+  scope: Scope = $state(UNFILED)
   /** Every attachment shows in place of the note list. */
   files = $state(false)
   query = $state('')
@@ -97,10 +101,10 @@ class Workspace {
 
   async refreshTags() {
     this.tags = await backend.listTags()
-    // a tag goes with its last note: viewing it, the list goes back to all notes
+    // a tag goes with its last note: viewing it, the list goes back to the
+    // notes in no folder
     const scope = this.scope
-    if (scope.kind === 'tag' && !this.tags.some((tag) => tag.id === scope.id))
-      this.scope = { kind: 'all' }
+    if (scope.kind === 'tag' && !this.tags.some((tag) => tag.id === scope.id)) this.scope = UNFILED
   }
 
   async refreshNotes() {
@@ -366,7 +370,7 @@ class Workspace {
 
   async trashFolder(id: Id) {
     await backend.trashFolder(id)
-    if (this.scope.kind === 'folder' && this.scope.id === id) this.scope = { kind: 'all' }
+    if (this.scope.kind === 'folder' && this.scope.id === id) this.scope = UNFILED
     await this.load()
   }
 

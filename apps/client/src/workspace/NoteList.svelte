@@ -15,7 +15,7 @@
   import { moveToItems } from '../lib/noteMenu'
   import { overlay, SEPARATOR } from '../lib/overlay.svelte'
   import { prefs } from '../lib/prefs.svelte'
-  import { workspace } from '../lib/workspace.svelte'
+  import { UNFILED, workspace } from '../lib/workspace.svelte'
   import VirtualList from './VirtualList.svelte'
 
   let {
@@ -41,7 +41,8 @@
 
   const title = $derived.by(() => {
     const scope = workspace.scope
-    if (scope.kind === 'folder') return workspace.folderName(scope.id) || t('sidebar.allNotes')
+    if (scope.kind === 'folder')
+      return scope.id === null ? t('sidebar.unfiled') : workspace.folderName(scope.id)
     if (scope.kind === 'tag') return `#${workspace.tagName(scope.id)}`
     if (scope.kind === 'trash') return t('sidebar.trash')
     return t('sidebar.allNotes')
@@ -49,9 +50,11 @@
 
   // on a phone: one select replaces the sidebar
   const scopeValue = $derived(
-    workspace.scope.kind === 'folder' || workspace.scope.kind === 'tag'
-      ? `${workspace.scope.kind}:${workspace.scope.id}`
-      : workspace.scope.kind,
+    workspace.scope.kind === 'folder' && workspace.scope.id === null
+      ? 'unfiled'
+      : workspace.scope.kind === 'folder' || workspace.scope.kind === 'tag'
+        ? `${workspace.scope.kind}:${workspace.scope.id}`
+        : workspace.scope.kind,
   )
   function pickScope(value: string) {
     const [kind, id] = value.split(':') as [string, string]
@@ -62,7 +65,9 @@
           ? { kind: 'tag', id }
           : kind === 'trash'
             ? { kind: 'trash' }
-            : { kind: 'all' }
+            : kind === 'unfiled'
+              ? UNFILED
+              : { kind: 'all' }
     void workspace.setScope(scope)
   }
 
@@ -198,6 +203,7 @@
         value={scopeValue}
         onchange={(e) => pickScope(e.currentTarget.value)}
       >
+        <option value="unfiled">{t('sidebar.unfiled')}</option>
         <option value="all">{t('sidebar.allNotes')}</option>
         {#each workspace.folders as folder (folder.id)}
           <option value="folder:{folder.id}">{folder.name}</option>
@@ -209,12 +215,12 @@
       </select>
     {:else}
       <h1>{title}</h1>
-      {#if workspace.scope.kind === 'folder' || workspace.scope.kind === 'tag'}
+      {#if (workspace.scope.kind === 'folder' && workspace.scope.id !== null) || workspace.scope.kind === 'tag'}
         <button
           class="icon-btn clear"
-          aria-label={t('list.showAll')}
-          title={t('list.showAll')}
-          onclick={() => workspace.setScope({ kind: 'all' })}
+          aria-label={t('list.clearFilter')}
+          title={t('list.clearFilter')}
+          onclick={() => workspace.setScope(UNFILED)}
         >
           <Icon name="close" size={14} />
         </button>
@@ -440,7 +446,13 @@
         {/snippet}
         {#snippet empty()}
           {#if restorable.length === 0}
-            <li class="empty">{trash ? t('list.trashEmpty') : t('list.empty')}</li>
+            <li class="empty">
+              {trash
+                ? t('list.trashEmpty')
+                : workspace.scope.kind === 'folder' && workspace.scope.id === null
+                  ? t('list.unfiledEmpty')
+                  : t('list.empty')}
+            </li>
           {/if}
         {/snippet}
       </VirtualList>

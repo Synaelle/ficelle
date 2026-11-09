@@ -6,7 +6,7 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { noteDropTarget } from '../lib/noteDrag'
   import { overlay, SEPARATOR, type MenuItem } from '../lib/overlay.svelte'
-  import { workspace } from '../lib/workspace.svelte'
+  import { UNFILED, workspace } from '../lib/workspace.svelte'
   import FolderTree from './FolderTree.svelte'
 
   let { parent, depth }: { parent: Id | null; depth: number } = $props()
@@ -86,8 +86,7 @@
         class="tree-item"
         class:active
         aria-current={active ? 'page' : undefined}
-        onclick={() =>
-          workspace.setScope(active ? { kind: 'all' } : { kind: 'folder', id: folder.id })}
+        onclick={() => workspace.setScope(active ? UNFILED : { kind: 'folder', id: folder.id })}
         use:noteDropTarget={(id) => void workspace.move(id, folder.id)}
         ondblclick={() => startRename(folder.id)}
         oncontextmenu={(e) => oncontextmenu(e, folder.id)}

@@ -9,7 +9,7 @@
   import { prefs } from '../lib/prefs.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
-  import { workspace } from '../lib/workspace.svelte'
+  import { UNFILED, workspace } from '../lib/workspace.svelte'
   import FolderTree from './FolderTree.svelte'
 
   let {
@@ -40,8 +40,8 @@
     class:active={!workspace.files && same(workspace.scope, scope)}
     aria-current={!workspace.files && same(workspace.scope, scope) ? 'page' : undefined}
     onclick={() =>
-      // a second click on the active filter goes back to every note
-      workspace.setScope(same(workspace.scope, scope) ? { kind: 'all' } : scope)}
+      // a second click on the active filter goes back to the notes in no folder
+      workspace.setScope(same(workspace.scope, scope) ? UNFILED : scope)}
   >
     <Icon name={icon} size={16} />
     <span class="label">{label}</span>
@@ -51,7 +51,8 @@
 
 <nav class="sidebar" aria-label={t('sidebar.label')} style:width="{prefs.sidebarWidth}px">
   <div class="group">
-    {@render item({ kind: 'all' }, 'inbox', t('sidebar.allNotes'))}
+    {@render item(UNFILED, 'inbox', t('sidebar.unfiled'))}
+    {@render item({ kind: 'all' }, 'allNotes', t('sidebar.allNotes'))}
   </div>
 
   <div class="group">
