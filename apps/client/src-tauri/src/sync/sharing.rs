@@ -8,6 +8,7 @@ use tauri::{AppHandle, Manager};
 
 use super::http::{Api, HttpError};
 use super::sign_in::SignInError;
+use crate::error::CommandError;
 use crate::state::AppState;
 
 pub(super) fn failed(code: &str, message: impl Into<String>) -> SignInError {
@@ -18,8 +19,8 @@ pub(super) fn failed(code: &str, message: impl Into<String>) -> SignInError {
     }
 }
 
-fn vault_error(err: impl std::fmt::Debug) -> SignInError {
-    failed("vault", format!("{err:?}"))
+fn vault_error(err: &CommandError) -> SignInError {
+    failed("vault", err.message())
 }
 
 /// Runs a call to the server with this device's tokens, refreshed once
@@ -30,7 +31,7 @@ pub(super) fn authed<T>(
 ) -> Result<T, SignInError> {
     let link = state
         .quietly(|s| s.store.sync_link())
-        .map_err(vault_error)?
+        .map_err(|e| vault_error(&e))?
         .ok_or_else(|| failed("signedOut", "not signed in"))?;
     let tokens: Tokens = link
         .tokens

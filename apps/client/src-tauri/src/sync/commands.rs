@@ -131,7 +131,7 @@ fn link(
             }
             Ok(())
         })
-        .map_err(|e| invalid("vault", &format!("{e:?}")))?;
+        .map_err(|e| invalid("vault", e.message()))?;
     state.sync.reset();
     state.sync.now();
     emit_status(app);
@@ -272,7 +272,7 @@ pub async fn sync_disconnect(
 ) -> Result<SyncStatus, SignInError> {
     let link = state
         .with(|s| s.store.sync_link())
-        .map_err(|e| invalid("vault", &format!("{e:?}")))?;
+        .map_err(|e| invalid("vault", e.message()))?;
     if let Some(link) = link
         && let Some(tokens) = link.tokens
     {
@@ -286,7 +286,7 @@ pub async fn sync_disconnect(
     }
     state
         .with(|s| s.store.sync_unlink())
-        .map_err(|e| invalid("vault", &format!("{e:?}")))?;
+        .map_err(|e| invalid("vault", e.message()))?;
     state.sync.reset();
     emit_status(&app);
     Ok(state.sync.status(&state))

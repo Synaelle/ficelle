@@ -12,7 +12,7 @@ import org.json.JSONObject
  * Issue reports of dev and preview builds, as window.AppReports. The app's
  * own storage is out of reach of a computer, so reports go to a folder the
  * person picks (a Syncthing folder, say), written through the system's
- * document access. Temporary, until the real feedback feature replaces it.
+ * document access. A dev tool, apart from feedback.
  * Release builds never add it (BuildConfig.DEV_REPORTS).
  */
 class DevReports(

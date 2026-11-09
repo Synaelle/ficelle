@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Temporary issue reports for dev and preview builds, saved as markdown
-//! folders the developer reads directly. Release builds refuse them. Goes
-//! away when the real feedback feature exists.
+//! folders the developer reads directly. Release builds refuse them. A dev
+//! tool, apart from feedback, which sends reports to the server.
 
 use std::fs;
 use std::path::{Path, PathBuf};

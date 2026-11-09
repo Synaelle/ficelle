@@ -46,8 +46,10 @@ fn respond(status: StatusCode, mime: &str, body: Vec<u8>) -> Response<Vec<u8>> {
         .unwrap_or_else(|_| Response::new(Vec::new()))
 }
 
-// the argument types are fixed by the protocol handler signature tauri expects
-#[allow(clippy::needless_pass_by_value)]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "the argument types are fixed by the protocol handler signature tauri expects"
+)]
 pub fn handle<R: Runtime>(
     ctx: UriSchemeContext<'_, R>,
     request: Request<Vec<u8>>,
