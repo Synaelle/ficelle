@@ -25,6 +25,7 @@
   import { isBackendError, workspace } from '../lib/workspace.svelte'
   import { createExtensions } from './extensions'
   import { patchMarkdown, REMOTE } from './patch'
+  import { looksLikeMarkdown } from './pasteMarkdown'
   import { ATTACHMENTS_CHANGED, setImageLayout, WRAPS, type Wrap } from './extensions/image'
   import type { SuggestEvent } from './extensions/wikiLink'
   import Toolbar from './Toolbar.svelte'
@@ -413,10 +414,18 @@
         },
         scrollMargin: { top: 5, bottom: CLEAR_BELOW, left: 5, right: 5 },
         scrollThreshold: { top: 0, bottom: CLEAR_BELOW, left: 0, right: 0 },
-        handlePaste: (_view, event) => {
+        handlePaste: (view, event) => {
           const files = [...(event.clipboardData?.files ?? [])]
-          if (files.length === 0) return false
-          void insertFiles(files)
+          if (files.length > 0) {
+            void insertFiles(files)
+            return true
+          }
+          const text = event.clipboardData?.getData('text/plain') ?? ''
+          // a copy from a note carries its exact content, and a code block keeps text as is
+          if (event.clipboardData?.getData('text/html').includes('data-pm-slice')) return false
+          if (view.state.selection.$from.parent.type.spec.code) return false
+          if (!editor || !looksLikeMarkdown(text)) return false
+          editor.commands.insertContent(text, { contentType: 'markdown' })
           return true
         },
         handleDrop: (view, event) => {
