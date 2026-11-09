@@ -52,10 +52,10 @@ rpassword = "7.5.4"
 
 # the same SQLite build as the core: two builds cannot link into one workspace
 [target.'cfg(target_vendor = "apple")'.dependencies]
-rusqlite = { version = "0.40.2", features = ["bundled-sqlcipher"] }
+rusqlite = { version = "0.41.1", features = ["bundled-sqlcipher"] }
 
 [target.'cfg(not(target_vendor = "apple"))'.dependencies]
-rusqlite = { version = "0.40.2", features = ["bundled-sqlcipher-vendored-openssl"] }
+rusqlite = { version = "0.41.1", features = ["bundled-sqlcipher-vendored-openssl"] }
 
 [dev-dependencies]
 app-repo = { workspace = true, features = ["testing"] }
