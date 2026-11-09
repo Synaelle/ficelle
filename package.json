@@ -17,7 +17,7 @@
     "brand": "node tools/brand.mjs",
     "devtool": "cargo run -q --release -p devtool --",
     "releases": "cargo run -q --release -p devtool -- releases",
-    "icons": "pnpm --filter @app/client tauri icon ../../packages/ui/brand/app-icon.svg",
+    "icons": "node tools/icons.mjs",
     "lint": "eslint . && prettier --check . && pnpm -r check && node tools/brand.mjs --check && node tools/i18n-check.mjs",
     "i18n": "node tools/i18n-check.mjs",
     "format": "prettier --write . && cargo fmt --all",

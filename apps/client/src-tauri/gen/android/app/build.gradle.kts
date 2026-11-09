@@ -133,16 +133,6 @@ if (project.hasProperty("preview")) {
     }
 }
 
-// A beta (a -beta.N versionName, written by android.yml) is the release
-// itself, with the beta ribbon on its knot (src/beta/res, from
-// app-icon-beta.svg and app-icon-android-foreground-beta.svg, rendered by
-// tools/beta-icons.mjs). A preview keeps its own yellow knot.
-if (!project.hasProperty("preview") &&
-    Regex("-beta\\.\\d+$").containsMatchIn(tauriProperties.getProperty("tauri.android.versionName", ""))
-) {
-    android.sourceSets.getByName("release").res.srcDirs("src/beta/res")
-}
-
 // Debug builds install next to the real app, under their own id and name.
 // Set here rather than in buildTypes above: the tauri cli rewrites the debug
 // block at each android build.

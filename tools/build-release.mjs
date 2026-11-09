@@ -44,10 +44,6 @@ const overlays = ['src-tauri/tauri.release.conf.json']
 if (portable) overlays.push('src-tauri/tauri.portable.conf.json')
 // a preview's yellow knot, so it is never taken for the release
 if (preview) overlays.push('src-tauri/tauri.preview.conf.json')
-// a beta's knot carries its ribbon (tools/beta-icons.mjs), so a beta is
-// never taken for a stable release either
-if (!preview && /-beta\.\d+$/.test(releaseVersion()))
-  overlays.push('src-tauri/tauri.beta.conf.json')
 // Linux: the window takes dropped files itself, as tauri.linux.conf.json says
 // for other builds. Merged last, from the windows of the overlays above, so
 // their titles stay
