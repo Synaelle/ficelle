@@ -9,7 +9,7 @@ import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table
 import StarterKit from '@tiptap/starter-kit'
 import { Marked, type marked } from 'marked'
 import { TypedArrows } from './arrows'
-import { Callout } from './callout'
+import { Callout, CalloutKeys } from './callout'
 import { Details, DetailsSummary } from './details'
 import { EmojiShortcode, EmojiTyping } from './emoji'
 import { FootnoteDef, FootnoteRef } from './footnote'
@@ -79,6 +79,7 @@ export function createExtensions(setup: EditorSetup = {}): AnyExtension[] {
     withBoundedStart(Callout),
     withBoundedStart(MathBlock),
     MathInline,
+    CalloutKeys,
     withBoundedStart(Details),
     DetailsSummary,
     withBoundedStart(FootnoteDef),
