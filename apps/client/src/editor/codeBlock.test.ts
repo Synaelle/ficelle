@@ -46,6 +46,22 @@ describe('code block languages', () => {
     }
   })
 
+  it('keeps a markdown sample with its own fence inside the block', () => {
+    const sample = '```js\nlet x = 1\n```'
+    const { editor } = open(`Before\n\n\`\`\`\`md\n${sample}\n\`\`\`\`\n\nAfter\n`)
+    const saved = editor.getMarkdown()
+    expect(saved).toContain(`\`\`\`\`md\n${sample}\n\`\`\`\``)
+    editor.destroy()
+    const again = open(saved).editor
+    expect(again.getJSON().content?.map((block) => block.type)).toEqual([
+      'paragraph',
+      'codeBlock',
+      'paragraph',
+    ])
+    expect(again.getMarkdown()).toBe(saved)
+    again.destroy()
+  })
+
   it('shows the language in the picker, an unknown word as itself', () => {
     const { editor, element } = open('```ts\nlet a = 1\n```\n\n```haskell\nmain = 1\n```\n')
     const pickers = [...element.querySelectorAll<HTMLSelectElement>('select.code-language')]

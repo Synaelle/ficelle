@@ -47,14 +47,22 @@ pub fn title_key(title: &str) -> String {
 /// Byte ranges of the body that are code (fenced blocks and inline spans).
 fn code_ranges(body: &str) -> Vec<Range<usize>> {
     let mut ranges = Vec::new();
-    let mut fence: Option<(usize, &str)> = None;
+    // the opening fence's character and length: as in CommonMark, only a
+    // line of at least as many of the same closes it, so a longer fence
+    // can hold a shorter one as code
+    let mut fence: Option<(usize, char, usize)> = None;
     let mut offset = 0;
     for line in body.split_inclusive('\n') {
         let trimmed = line.trim_start();
-        let marker = ["```", "~~~"].into_iter().find(|m| trimmed.starts_with(m));
+        let marker = ['`', '~'].into_iter().find_map(|c| {
+            let run = trimmed.len() - trimmed.trim_start_matches(c).len();
+            (run >= 3).then_some((c, run))
+        });
         match (fence, marker) {
-            (None, Some(marker)) => fence = Some((offset, marker)),
-            (Some((start, open)), Some(marker)) if marker == open => {
+            (None, Some((c, run))) => fence = Some((offset, c, run)),
+            (Some((start, open, length)), Some((c, run)))
+                if c == open && run >= length && trimmed[run..].trim().is_empty() =>
+            {
                 ranges.push(start..offset + line.len());
                 fence = None;
             }
@@ -63,7 +71,7 @@ fn code_ranges(body: &str) -> Vec<Range<usize>> {
         }
         offset += line.len();
     }
-    if let Some((start, _)) = fence {
+    if let Some((start, ..)) = fence {
         ranges.push(start..body.len());
     }
     ranges
@@ -224,6 +232,12 @@ mod tests {
     #[test]
     fn ignores_code_empty_and_multiline() {
         let body = "```\n[[in fence]]\n```\nuse `[[inline]]` here, ``a ` [[double]]`` too\n[[ ]] [[a\nb]] [[real]]";
+        assert_eq!(targets(body), vec![("real".into(), None, None)]);
+    }
+
+    #[test]
+    fn a_longer_fence_holds_a_shorter_one() {
+        let body = "````md\n```\n[[sample]]\n```\n````\n[[real]]\n```js\n``` x\n[[code]]\n```";
         assert_eq!(targets(body), vec![("real".into(), None, None)]);
     }
 

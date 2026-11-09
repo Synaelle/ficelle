@@ -247,8 +247,21 @@ export interface LanguageCodeBlockOptions {
   plainLabel: () => string
 }
 
+/** A fence longer than any run of backticks in the code, so a line of
+ * ``` in it (a markdown sample) is code, not the end of the block. */
+export function fenceFor(code: string) {
+  const longest = Math.max(0, ...[...code.matchAll(/`+/g)].map((run) => run[0].length))
+  return '`'.repeat(Math.max(3, longest + 1))
+}
+
 /** The code block, with its language picker and colors. */
 export const LanguageCodeBlock = CodeBlock.extend<LanguageCodeBlockOptions>({
+  renderMarkdown: (node, helpers) => {
+    const language = (node.attrs?.language as string | null) || ''
+    const code = node.content ? helpers.renderChildren(node.content) : ''
+    const fence = fenceFor(code)
+    return [`${fence}${language}`, code, fence].join('\n')
+  },
   addOptions() {
     return {
       ...this.parent?.(),
