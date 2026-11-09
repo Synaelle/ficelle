@@ -391,7 +391,10 @@ mod mac_app {
         fs::create_dir(&work).map_err(|e| format!("the update folder: {e}"))?;
         let done = unpack(&work, archive, program).and_then(|new| swap(app, &new, &old));
         let _ = fs::remove_dir_all(&work);
-        let _ = fs::remove_dir_all(&old);
+        // after a failed swap `old` may be the only copy of the app left
+        if done.is_ok() {
+            let _ = fs::remove_dir_all(&old);
+        }
         done
     }
 
@@ -430,8 +433,13 @@ mod mac_app {
     fn swap(app: &Path, new: &Path, old: &Path) -> Result<(), String> {
         fs::rename(app, old).map_err(|e| format!("moving the app aside: {e}"))?;
         if let Err(e) = fs::rename(new, app) {
-            let _ = fs::rename(old, app);
-            return Err(format!("putting the new app in place: {e}"));
+            return Err(match fs::rename(old, app) {
+                Ok(()) => format!("putting the new app in place: {e}"),
+                Err(back) => format!(
+                    "putting the new app in place: {e}, and the app could not be put back, it is at {}: {back}",
+                    old.display()
+                ),
+            });
         }
         Ok(())
     }
