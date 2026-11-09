@@ -6,6 +6,14 @@
 
 <p align="center">A lightweight, private notes app for your computer and your phone.</p>
 
+<p align="center">
+  <a href="https://ficelle.synaelle.com"><picture><source media="(prefers-color-scheme: dark)" srcset="packages/ui/brand/badges/download-dark.png"><img src="packages/ui/brand/badges/download-light.png" alt="Download from the website" height="54"></picture></a>
+  <a href="../../releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset="packages/ui/brand/badges/github-dark.png"><img src="packages/ui/brand/badges/github-light.png" alt="All versions on GitHub" height="54"></picture></a>
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Synaelle/ficelle"><picture><source media="(prefers-color-scheme: dark)" srcset="packages/ui/brand/badges/obtainium-dark.png"><img src="packages/ui/brand/badges/obtainium-light.png" alt="Get it on Obtainium" height="54"></picture></a>
+</p>
+
+<p align="center">The Mac app stays on <a href="../../releases/tag/v0.5.0">0.5.0</a> and is untested, see <a href="docs/mac.md">Ficelle on a Mac</a>.</p>
+
 > [!WARNING]
 > Ficelle is in early development, it is recommended to keep backups of your notes.
 
@@ -14,7 +22,3 @@
 - Notes are Markdown, with a few extras, see [Markdown in notes](docs/markdown.md).
 - Images work like in a word processor.
 - Every note keeps its earlier versions.
-
-# Download
-
-Ficelle for Windows, Linux and Android is in the [latest release](../../releases/latest). The Mac app stays on [0.5.0](../../releases/tag/v0.5.0) and is untested, see [Ficelle on a Mac](docs/mac.md).
