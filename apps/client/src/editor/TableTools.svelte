@@ -6,6 +6,9 @@
      the current cell opens them all as a sheet. -->
 <script lang="ts">
   import type { Editor } from '@tiptap/core'
+  import { Plugin, PluginKey } from '@tiptap/pm/state'
+  import { Decoration, DecorationSet } from '@tiptap/pm/view'
+  import { onMount } from 'svelte'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
@@ -89,6 +92,35 @@
 
   // presses keep the caret in the cell, and the keyboard open on a phone
   const keep = (e: PointerEvent | MouseEvent) => e.preventDefault()
+
+  // on a phone the button sits in the cell: the cell being edited makes room
+  // for it, so a narrow column's text stays readable
+  const roomKey = new PluginKey('tableCellRoom')
+  onMount(() => {
+    if (!MOBILE) return
+    editor.registerPlugin(
+      new Plugin({
+        key: roomKey,
+        props: {
+          decorations: (state) => {
+            const from = state.selection.$from
+            for (let depth = from.depth; depth > 0; depth--) {
+              const node = from.node(depth)
+              if (node.type.name !== 'tableCell' && node.type.name !== 'tableHeader') continue
+              const at = from.before(depth)
+              return DecorationSet.create(state.doc, [
+                Decoration.node(at, at + node.nodeSize, { class: 'cell-with-tools' }),
+              ])
+            }
+            return null
+          },
+        },
+      }),
+    )
+    return () => {
+      if (!editor.isDestroyed) editor.unregisterPlugin(roomKey)
+    }
+  })
 </script>
 
 {#if where && MOBILE}
@@ -158,6 +190,9 @@
     height: 18px;
     margin: 0 var(--space-1);
     background: var(--color-border-strong);
+  }
+  :global(.ProseMirror .cell-with-tools) {
+    padding-right: 36px;
   }
   .cell-btn {
     position: absolute;
