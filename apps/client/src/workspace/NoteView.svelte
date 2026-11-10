@@ -3,6 +3,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import NoteFiles from './NoteFiles.svelte'
+  import RawView from './RawView.svelte'
   import { hour12 } from '../lib/clock.svelte'
   import Editor from '../editor/Editor.svelte'
   import ConflictBanner from './ConflictBanner.svelte'
@@ -116,13 +117,6 @@
     if (!note) return
     const id = note.id
     const items: MenuItem[] = [
-      {
-        label: source ? t('note.rendered') : t('note.source'),
-        icon: 'code',
-        run: () => (source = !source),
-      },
-    ]
-    items.push(
       { label: t('note.history'), icon: 'history', run: () => void showHistory() },
       { label: t('note.moveTo'), icon: 'move', items: moveToItems(id, note.folderId) },
       SEPARATOR,
@@ -132,7 +126,13 @@
         danger: true,
         run: () => void workspace.trash(id),
       },
-    )
+    ]
+    // a phone has no room for the tabs: Raw is a choice in this menu
+    if (narrow)
+      items.unshift(
+        { label: t('note.raw'), icon: 'code', checked: source, run: () => (source = !source) },
+        SEPARATOR,
+      )
     overlay.openMenuBelow(button, items)
   }
 
@@ -241,14 +241,38 @@
           </form>
         </div>
 
+        <!-- the formatted note, or its Markdown to edit as text (on a phone,
+             Raw in the note's menu) -->
+        {#if !narrow}<div class="views" role="tablist" aria-label={t('note.view')}>
+            {#each [false, true] as raw (raw)}
+              <button
+                class="view-tab"
+                class:on={source === raw}
+                role="tab"
+                aria-selected={source === raw}
+                tabindex={source === raw ? 0 : -1}
+                onclick={() => (source = raw)}
+                onkeydown={(e) => {
+                  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+                  e.preventDefault()
+                  source = !source
+                  const tabs = e.currentTarget.parentElement?.querySelectorAll('button')
+                  tabs?.[source ? 1 : 0]?.focus()
+                }}
+              >
+                <Icon name={raw ? 'code' : 'eye'} size={16} />
+                {raw ? t('note.raw') : t('note.preview')}
+              </button>
+            {/each}
+          </div>{/if}
+
         {#if source}
-          <textarea
-            bind:this={sourceArea}
-            class="source"
-            spellcheck="false"
-            aria-label={t('note.source')}
+          <RawView
+            bind:field={sourceArea}
+            label={t('note.rawLabel')}
             value={note.body}
-            oninput={(e) => workspace.edit({ body: e.currentTarget.value })}></textarea>
+            oninput={(body) => workspace.edit({ body })}
+          />
         {:else}
           {#key editorKey}
             <Editor
@@ -395,7 +419,32 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
-    margin: var(--space-2) 0 var(--space-5);
+    margin: var(--space-2) 0 var(--space-3);
+  }
+  .views {
+    display: flex;
+    gap: var(--space-1);
+    margin-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .view-tab {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: 36px;
+    padding: 0 var(--space-3);
+    margin-bottom: -1px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .view-tab.on {
+    color: var(--color-text);
+    border-bottom-color: var(--color-accent);
   }
   .tag {
     display: inline-flex;
@@ -442,18 +491,6 @@
   /* no box around it: a line under it while the keyboard is in it */
   .tag-input:focus-visible {
     box-shadow: inset 0 -2px 0 var(--color-accent);
-  }
-  .source {
-    width: 100%;
-    min-height: 60vh;
-    padding: var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-popover);
-    background: var(--color-bg);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    line-height: 1.6;
-    resize: vertical;
   }
   .backlinks {
     margin-top: var(--space-7);
