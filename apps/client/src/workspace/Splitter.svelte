@@ -84,8 +84,12 @@
       background: var(--color-accent);
     }
   }
+  /* the line alone stayed unpainted on WebKitGTK: the divider shows its own
+     focus ring too */
   .splitter:focus-visible {
-    outline: none;
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+    border-radius: var(--radius-control);
   }
   /* a scrollbar beside it is being dragged (lib/scrollbars.ts): the pointer
      passing over is not for the divider */
