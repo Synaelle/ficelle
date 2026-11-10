@@ -2,7 +2,7 @@
 
 //! Full text search with SQLite FTS5.
 
-use rusqlite::params;
+use rusqlite::{params, params_from_iter};
 
 use super::Store;
 use crate::error::Result;
@@ -21,6 +21,37 @@ fn fts_query(input: &str) -> Option<String> {
     (!terms.is_empty()).then(|| terms.join(" "))
 }
 
+/// Chinese, Japanese and Korean, written without spaces: the index takes a
+/// whole run of them for one word, so only its start would be found.
+fn is_cjk(c: char) -> bool {
+    matches!(u32::from(c),
+        0x3040..=0x30FF | 0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xAC00..=0xD7AF
+        | 0xF900..=0xFAFF | 0xFF66..=0xFF9F | 0x20000..=0x2FA1F)
+}
+
+/// Some text of `body` around the first `term`, marked as the index's
+/// snippets are.
+fn snippet_around(body: &str, term: &str) -> String {
+    const BEFORE: usize = 20;
+    const AFTER: usize = 40;
+    let flat = body.replace(['\n', '\r', '\t'], " ");
+    let Some(at) = flat.find(term) else {
+        return flat.chars().take(BEFORE + AFTER).collect();
+    };
+    let head = &flat[..at];
+    let tail = &flat[at + term.len()..];
+    let skipped = head.chars().count().saturating_sub(BEFORE);
+    let before: String = head.chars().skip(skipped).collect();
+    let after: String = tail.chars().take(AFTER).collect();
+    let open = if skipped > 0 { "…" } else { "" };
+    let close = if tail.chars().count() > AFTER {
+        "…"
+    } else {
+        ""
+    };
+    format!("{open}{before}{MATCH_START}{term}{MATCH_END}{after}{close}")
+}
+
 impl Store {
     /// Searches titles, bodies and tags of live notes. Title matches rank
     /// highest, then tags, then the body. Matching is case and accent
@@ -30,6 +61,9 @@ impl Store {
     ///
     /// Fails only on database errors.
     pub fn search(&self, input: &str, limit: usize) -> Result<Vec<SearchHit>> {
+        if input.chars().any(is_cjk) {
+            return self.search_text(input, limit);
+        }
         let Some(query) = fts_query(input) else {
             return Ok(Vec::new());
         };
@@ -59,6 +93,48 @@ impl Store {
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(hits)
     }
+
+    /// Search for words written in Chinese, Japanese or Korean: every word
+    /// anywhere in the title or the text, titles first, then the latest.
+    fn search_text(&self, input: &str, limit: usize) -> Result<Vec<SearchHit>> {
+        let terms: Vec<&str> = input.split_whitespace().collect();
+        let each = "(instr(lower(title), lower(?)) > 0 OR instr(lower(body), lower(?)) > 0)";
+        let all = vec![each; terms.len()].join(" AND ");
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT id, title, body FROM notes WHERE trashed_at IS NULL AND {all}
+             ORDER BY instr(lower(title), lower(?)) = 0, updated_at DESC LIMIT ?"
+        ))?;
+        let mut values: Vec<rusqlite::types::Value> = terms
+            .iter()
+            .flat_map(|t| [(*t).to_owned().into(), (*t).to_owned().into()])
+            .collect();
+        values.push(terms.first().copied().unwrap_or_default().to_owned().into());
+        values.push(i64::try_from(limit).unwrap_or(i64::MAX).into());
+        let rows = stmt
+            .query_map(params_from_iter(values), |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows
+            .into_iter()
+            .map(|(note_id, title, body)| {
+                let term = terms
+                    .iter()
+                    .find(|t| body.contains(**t))
+                    .copied()
+                    .unwrap_or("");
+                SearchHit {
+                    note_id,
+                    snippet: snippet_around(&body, term),
+                    title,
+                }
+            })
+            .collect())
+    }
 }
 
 #[cfg(test)]
@@ -85,6 +161,31 @@ mod tests {
             Some("\"ab\"* \"OR\"* \"NOT\"*".into())
         );
         assert_eq!(fts_query("   "), None);
+    }
+
+    #[test]
+    fn finds_chinese_and_japanese_words_inside_a_run() {
+        let (mut store, _) = store();
+        let ja = store
+            .create_note(&note("メモ", "今日は日本語のテキストを書いた", &[]))
+            .unwrap();
+        let zh = store
+            .create_note(&note("中文笔记", "我们今天学习中文", &[]))
+            .unwrap();
+        store.trash_note(zh.id).unwrap();
+        let hits = store.search("テキスト", 10).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].note_id, ja.id);
+        assert_eq!(
+            hits[0].snippet,
+            format!("今日は日本語の{MATCH_START}テキスト{MATCH_END}を書いた")
+        );
+        assert_eq!(store.search("日本 書いた", 10).unwrap().len(), 1);
+        assert!(
+            store.search("中文", 10).unwrap().is_empty(),
+            "not the trash"
+        );
+        assert!(store.search("テキスト 无", 10).unwrap().is_empty());
     }
 
     #[test]
