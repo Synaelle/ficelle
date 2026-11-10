@@ -34,13 +34,16 @@ fn parent_is_trashed(conn: &Connection, parent: Option<FolderId>) -> Result<bool
 /// Live notes with nothing in them, and whether they ever held something
 /// (an emptied note keeps its text in its history). Whitespace alone counts
 /// as nothing, a pinned note was kept on purpose, and attached files are
-/// something.
+/// something, so are tags given after the note was made (a note made in a
+/// tag's view starts with that tag).
 const BLANK_NOTES: &str =
     "SELECT id, EXISTS (SELECT 1 FROM note_versions v WHERE v.note_id = notes.id
          AND (trim(v.title, char(32, 9, 10, 13)) <> '' OR trim(v.body, char(32, 9, 10, 13)) <> ''))
      FROM notes WHERE trashed_at IS NULL AND pinned = 0
      AND trim(title, char(32, 9, 10, 13)) = '' AND trim(body, char(32, 9, 10, 13)) = ''
-     AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.note_id = notes.id)";
+     AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.note_id = notes.id)
+     AND NOT (updated_at > created_at
+              AND EXISTS (SELECT 1 FROM note_tags t WHERE t.note_id = notes.id))";
 
 /// Deletes the blank notes that never held anything and moves the emptied
 /// ones to the trash. Returns how many left the notes.
@@ -497,6 +500,22 @@ mod tests {
             store.list_tags().unwrap().is_empty(),
             "its tag went with it"
         );
+    }
+
+    #[test]
+    fn a_note_given_a_tag_is_kept_one_made_with_it_is_not() {
+        let (mut store, clock) = store();
+        let tagged = store.create_note(&NewNote::default()).unwrap();
+        clock.advance(1000);
+        store.set_note_tags(tagged.id, &["fresh".into()]).unwrap();
+        assert!(!store.discard_if_blank(tagged.id).unwrap());
+        let in_view = store
+            .create_note(&NewNote {
+                tags: vec!["scope".into()],
+                ..NewNote::default()
+            })
+            .unwrap();
+        assert!(store.discard_if_blank(in_view.id).unwrap());
     }
 
     #[test]
