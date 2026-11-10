@@ -216,6 +216,11 @@ impl<A: Authenticator, K: KeyStore> KeyStore for GuardedKeyStore<A, K> {
     }
 
     fn delete(&self, name: &str) -> Result<()> {
+        // nothing sealed, nothing of the platform's to remove: asking anyway
+        // fails where the verification is missing (Windows Hello not set up)
+        if !self.contains(name)? {
+            return Ok(());
+        }
         self.inner.delete(&Self::sealed_name(name))?;
         self.auth.remove(name)
     }
@@ -243,6 +248,8 @@ mod tests {
     #[derive(Default)]
     struct FakeAuth {
         refuse: bool,
+        /// Like a device without the verification set up.
+        missing: bool,
     }
 
     impl Authenticator for FakeAuth {
@@ -259,6 +266,9 @@ mod tests {
             Ok(Zeroizing::new(sealed.iter().map(|b| b ^ 0x5a).collect()))
         }
         fn remove(&self, _name: &str) -> Result<()> {
+            if self.missing {
+                return Err(Error::KeyStore("not set up".into()));
+            }
             Ok(())
         }
     }
@@ -279,12 +289,28 @@ mod tests {
     }
 
     #[test]
+    fn forgetting_nothing_sealed_leaves_the_platform_alone() {
+        let inner = MemoryKeyStore::default();
+        let missing = FakeAuth {
+            missing: true,
+            ..FakeAuth::default()
+        };
+        GuardedKeyStore::new(missing, &inner).delete("k").unwrap();
+    }
+
+    #[test]
     fn guarded_store_reports_a_cancelled_prompt() {
         let inner = MemoryKeyStore::default();
         GuardedKeyStore::new(FakeAuth::default(), &inner)
             .set("k", b"secret")
             .unwrap();
-        let refusing = GuardedKeyStore::new(FakeAuth { refuse: true }, &inner);
+        let refusing = GuardedKeyStore::new(
+            FakeAuth {
+                refuse: true,
+                ..FakeAuth::default()
+            },
+            &inner,
+        );
         assert!(matches!(refusing.get("k"), Err(Error::Cancelled)));
     }
 
