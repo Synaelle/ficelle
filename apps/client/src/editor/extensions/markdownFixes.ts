@@ -135,6 +135,66 @@ export function linkDestination(href: string): string {
   return /[\s()<>]/.test(href) ? `<${href.replace(/[<>]/g, '\\$&')}>` : href
 }
 
+/** Chunks a long note is read in, see markdownChunks. */
+const CHUNK = 4096
+
+/**
+ * Long markdown cut where nothing can run on from one part into the next,
+ * to be read part by part. marked cuts the rest of the text after each
+ * block, which WebKit (the Linux and Mac apps) copies every time: a 300 KB
+ * paste took 14 s to read whole, under a second in parts. A cut is a blank
+ * line between two lines that are not indented, outside code, math and
+ * folded sections, before a line that does not start a list item, a quote
+ * or a table row. Notes with reference links (`[x]: url`) are read whole,
+ * their definitions may be anywhere.
+ */
+export function markdownChunks(markdown: string, size = CHUNK): string[] {
+  if (markdown.length <= size * 2 || /^ {0,3}\[[^\]\n]+\]:[ \t]/m.test(markdown)) return [markdown]
+  const lines = markdown.split('\n')
+  const chunks: string[] = []
+  let start = 0
+  let length = 0
+  let fence: string | null = null
+  let math = false
+  let details = 0
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ''
+    length += line.length + 1
+    const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1]
+    if (fence) {
+      const close = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(line)?.[1]
+      if (close && close[0] === fence[0] && close.length >= fence.length) fence = null
+      continue
+    }
+    if (marker) {
+      fence = marker
+      continue
+    }
+    if (line.trim() === '$$') math = !math
+    details +=
+      (line.match(/<details[\s>]/g)?.length ?? 0) - (line.match(/<\/details>/g)?.length ?? 0)
+    const previous = lines[i - 1] ?? ''
+    const next = lines[i + 1]
+    if (
+      length >= size &&
+      line === '' &&
+      !math &&
+      details <= 0 &&
+      previous.trim() !== '' &&
+      !/^\s/.test(previous) &&
+      next !== undefined &&
+      next.trim() !== '' &&
+      !/^(\s|[-*+][ \t]|\d{1,9}[.)][ \t]|>|\|)/.test(next)
+    ) {
+      chunks.push(lines.slice(start, i).join('\n'))
+      start = i + 1
+      length = 0
+    }
+  }
+  chunks.push(lines.slice(start).join('\n'))
+  return chunks
+}
+
 type JSONLike = { type?: string; marks?: (string | { type: string })[] }
 type LinkNode = { attrs?: { href?: string | null; title?: string | null } }
 interface RenderSpec {
@@ -143,6 +203,7 @@ interface RenderSpec {
 /** The private parts of the markdown manager these fixes replace, as of 3.32. */
 interface TextEncoding {
   codeTypes: Set<string>
+  parse(markdown: string): { type: 'doc'; content: unknown[] }
   nodeTypeRegistry: Map<string, RenderSpec[]>
   escapeMarkdownSyntax(text: string): string
   encodeTextForMarkdown(text: string, node: JSONLike, parent?: JSONLike): string
@@ -155,6 +216,12 @@ export const ReadableMarkdown = Markdown.extend({
     this.parent?.(event)
     const manager = this.editor.markdown as unknown as TextEncoding | undefined
     if (!manager) return
+    const parse = manager.parse.bind(manager)
+    manager.parse = (markdown) => {
+      const chunks = markdownChunks(markdown)
+      if (chunks.length === 1) return parse(markdown)
+      return { type: 'doc', content: chunks.flatMap((chunk) => parse(chunk).content) }
+    }
     for (const spec of manager.nodeTypeRegistry.get('link') ?? []) {
       spec.renderMarkdown = (node, helpers) => {
         const href = linkDestination(node.attrs?.href ?? '')
