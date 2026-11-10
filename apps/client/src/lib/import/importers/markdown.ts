@@ -186,12 +186,23 @@ export const markdownImporter: Importer = {
   picks: ['folder', 'file'],
   extensions: ['zip', 'md', 'markdown', 'tar'],
   detect: (source) => (source.entries.some((e) => isMarkdown(e.path)) ? 0.3 : 0),
-  read: (source, report) =>
-    readMarkdownNotes(source, report, {
-      notes: source.entries.map((e) => e.path).filter((p) => isMarkdown(p) && !hidden(p)),
-      skipDir: (dir) => hidden(dir),
-    }),
+  read: (source, report) => {
+    const notes = source.entries
+      .map((e) => e.path)
+      .filter((p) => isMarkdown(p) && !hidden(p) && !inAttachments(p))
+    const skip = (dir: string) => hidden(dir) || inAttachments(`${dir}/`)
+    return readMarkdownNotes(source, report, {
+      notes,
+      skipDir: skip,
+      // empty folders too, which only the export's directories show
+      folders: foldersOf([...notes, ...(source.dirs ?? []).map((dir) => `${dir}/`)], skip),
+    })
+  },
 }
+
+/** Inside an `attachments` directory: a note's attached files, as this app
+ * and many others export them, never notes or folders. */
+const inAttachments = (path: string) => path.split('/').slice(0, -1).includes('attachments')
 
 /** Dot folders (`.obsidian`, `.git`, `.trash`) are an app's own, not notes. */
 export const hidden = (path: string) => path.split('/').some((part) => part.startsWith('.'))

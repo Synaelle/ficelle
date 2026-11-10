@@ -18,6 +18,8 @@ export interface ImportSource {
   /** The file or folder name the person picked. */
   name: string
   entries: SourceEntry[]
+  /** Its directories when the app reads it: empty folders are only there. */
+  dirs?: string[]
   /** Set when the app reads the export: files then go straight from it. */
   nativeId: number | null
   read(path: string): Promise<Uint8Array>

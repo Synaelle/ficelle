@@ -50,6 +50,8 @@ enum Place {
 /// An export opened for reading.
 pub struct Source {
     entries: Vec<Entry>,
+    /// Directories found, with `/`, empty ones included.
+    dirs: Vec<String>,
     places: Vec<Place>,
     /// Entries by path, to read any of thousands without a search.
     index: HashMap<String, usize>,
@@ -174,6 +176,7 @@ impl Source {
     fn empty() -> Self {
         Self {
             entries: Vec::new(),
+            dirs: Vec::new(),
             places: Vec::new(),
             index: HashMap::new(),
             zips: Vec::new(),
@@ -235,6 +238,12 @@ impl Source {
         &self.entries
     }
 
+    /// Every directory, in the order found: an export's empty folders are
+    /// only there.
+    pub fn dirs(&self) -> &[String] {
+        &self.dirs
+    }
+
     fn walk(&mut self, dir: &Path, prefix: &str) -> Result<()> {
         let mut children: Vec<std::fs::DirEntry> = std::fs::read_dir(dir)?
             .filter_map(std::result::Result::ok)
@@ -253,6 +262,7 @@ impl Source {
                 continue;
             }
             if kind.is_dir() {
+                self.dirs.push(path.clone());
                 self.walk(&child.path(), &path)?;
             } else {
                 let meta = child.metadata()?;
@@ -274,6 +284,13 @@ impl Source {
         for index in 0..archive.len() {
             let file = archive.by_index_raw(index).map_err(bad)?;
             if file.is_dir() {
+                if let Some(name) = file.name().ok().and_then(|n| clean(&n)) {
+                    self.dirs.push(if prefix.is_empty() {
+                        name
+                    } else {
+                        format!("{prefix}/{name}")
+                    });
+                }
                 continue;
             }
             let Some(name) = file.name().ok().and_then(|n| clean(&n)) else {

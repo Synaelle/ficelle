@@ -52,6 +52,7 @@ export async function openSource(path: string): Promise<ImportSource> {
   return {
     name: opened.name,
     entries: opened.entries,
+    dirs: opened.dirs,
     nativeId: opened.id,
     read: (entry) => backend.importRead(opened.id, entry),
   }

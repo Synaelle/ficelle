@@ -137,6 +137,27 @@ const VAULT = {
   '.trash/Old.md': 'old',
 }
 
+describe('a Ficelle export brought back', () => {
+  it('keeps empty folders and leaves attached files out of the notes', async () => {
+    const backend = await vault()
+    const source = {
+      ...memorySource('notes.zip', {
+        'Plan.md': '# Plan',
+        'attachments/Notes about it.md': 'an attached file',
+        'attachments 2/Inside.md': '# Inside',
+      }),
+      dirs: ['Work', 'Work/Empty', 'attachments', 'attachments 2'],
+    }
+    const prepared = await prepare(source, markdownImporter, backend)
+    expect(prepared.counts.notes).toBe(2)
+    expect(prepared.model.folders.map((f) => f.key).sort()).toEqual([
+      'Work',
+      'Work/Empty',
+      'attachments 2',
+    ])
+  })
+})
+
 describe('the markdown importer through the pipeline', () => {
   it('detects, previews and writes a folder with links, files, tags and dates', async () => {
     const backend = await vault()

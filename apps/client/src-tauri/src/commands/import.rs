@@ -52,6 +52,8 @@ pub struct Opened {
     /// The export's file or folder name.
     name: String,
     entries: Vec<Entry>,
+    /// Its directories, empty ones included.
+    dirs: Vec<String>,
 }
 
 /// Opens a folder, an archive or a file to import from.
@@ -74,6 +76,7 @@ pub async fn import_open(
         (Source::open(&path)?, name)
     };
     let entries = source.entries().to_vec();
+    let dirs = source.dirs().to_vec();
     let id = imports.next.fetch_add(1, Ordering::Relaxed);
     imports
         .open
@@ -86,7 +89,12 @@ pub async fn import_open(
                 place: None,
             },
         );
-    Ok(Opened { id, name, entries })
+    Ok(Opened {
+        id,
+        name,
+        entries,
+        dirs,
+    })
 }
 
 /// One entry of an open export, as raw bytes.

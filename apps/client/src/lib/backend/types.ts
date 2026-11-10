@@ -336,6 +336,8 @@ export interface ImportOpened {
   id: number
   name: string
   entries: { path: string; size: number; modified: number | null }[]
+  /** Its directories, empty ones included. */
+  dirs: string[]
 }
 
 /** A file of an imported note: an entry of the export, or stored bytes. */

@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use crate::clock::to_rfc3339;
+use crate::clock::{Timestamp, to_rfc3339};
 use crate::error::{Error, Result};
 use crate::id::FolderId;
 use crate::model::{Folder, Note, NoteScope, NoteSort};
@@ -85,9 +85,40 @@ pub fn export_markdown(
         // the folder, a character the system refuses) is renamed in the text
         let renamed = export_attachments(store, &note, &dir, files, &mut names, &mut report)?;
         std::fs::write(&file, render_note(&note, &relink(&note.body, &renamed)))?;
+        set_modified(&file, note.updated_at)?;
         report.notes += 1;
     }
     Ok(report)
+}
+
+/// The directory a note's attached files go in, beside the note.
+const ATTACHMENTS: &str = "attachments";
+
+/// Dates a written file, so another app or an import sees when it changed.
+fn set_modified(path: &Path, at: Timestamp) -> Result<()> {
+    let time = std::time::UNIX_EPOCH
+        + std::time::Duration::from_millis(u64::try_from(at).unwrap_or_default());
+    std::fs::File::options()
+        .write(true)
+        .open(path)?
+        .set_modified(time)?;
+    Ok(())
+}
+
+/// A file's date as a zip entry holds it (no time zone, to the two seconds).
+fn zip_time(time: std::time::SystemTime) -> Option<zip::DateTime> {
+    let since = time.duration_since(std::time::UNIX_EPOCH).ok()?;
+    let at = jiff::Timestamp::from_second(i64::try_from(since.as_secs()).ok()?).ok()?;
+    let day = at.to_zoned(jiff::tz::TimeZone::UTC).datetime();
+    zip::DateTime::from_date_and_time(
+        u16::try_from(day.year()).ok()?,
+        u8::try_from(day.month()).ok()?,
+        u8::try_from(day.day()).ok()?,
+        u8::try_from(day.hour()).ok()?,
+        u8::try_from(day.minute()).ok()?,
+        u8::try_from(day.second()).ok()?,
+    )
+    .ok()
 }
 
 fn create_folder_dirs(
@@ -142,7 +173,7 @@ fn export_attachments(
     if attachments.is_empty() {
         return Ok(renamed);
     }
-    let target = dir.join("attachments");
+    let target = dir.join(ATTACHMENTS);
     std::fs::create_dir_all(&target)?;
     for attachment in attachments {
         match files.read(&attachment.sha256)? {
@@ -155,7 +186,8 @@ fn export_attachments(
                 if written != attachment.file_name {
                     renamed.push((attachment.file_name.clone(), written));
                 }
-                std::fs::write(path, bytes)?;
+                std::fs::write(&path, bytes)?;
+                set_modified(&path, attachment.created_at)?;
                 report.attachments += 1;
             }
             None => report
@@ -289,7 +321,12 @@ impl UsedNames {
     /// Returns a free path for `name` in `dir`, adding ` 2`, ` 3`, ... before
     /// the extension when needed.
     fn claim(&mut self, dir: &Path, name: &str) -> PathBuf {
-        let used = self.0.entry(dir.to_owned()).or_default();
+        // each directory's attached files go to `attachments/`: a folder or
+        // a file of that name would be mixed with them
+        let used = self
+            .0
+            .entry(dir.to_owned())
+            .or_insert_with(|| HashSet::from([ATTACHMENTS.to_owned()]));
         let (stem, ext) = match name.rsplit_once('.') {
             Some((stem, ext)) if !stem.is_empty() => (stem.to_owned(), format!(".{ext}")),
             _ => (name.to_owned(), String::new()),
@@ -358,10 +395,6 @@ pub fn export_markdown_zip_to(
             entries.sort_by_key(std::fs::DirEntry::file_name);
             for entry in entries {
                 let path = entry.path();
-                if path.is_dir() {
-                    dirs.push(path);
-                    continue;
-                }
                 let name = path
                     .strip_prefix(&temp)
                     .map_err(|_| Error::Invalid("export path".into()))?
@@ -369,7 +402,18 @@ pub fn export_markdown_zip_to(
                     .map(|c| c.as_os_str().to_string_lossy().into_owned())
                     .collect::<Vec<_>>()
                     .join("/");
-                zip.start_file(name, options)
+                let dated = match entry.metadata()?.modified().ok().and_then(zip_time) {
+                    Some(time) => options.last_modified_time(time),
+                    None => options,
+                };
+                // every folder has its entry, so an empty one is kept
+                if path.is_dir() {
+                    zip.add_directory(name, dated)
+                        .map_err(|e| Error::Invalid(e.to_string()))?;
+                    dirs.push(path);
+                    continue;
+                }
+                zip.start_file(name, dated)
                     .map_err(|e| Error::Invalid(e.to_string()))?;
                 std::io::copy(&mut std::fs::File::open(&path)?, &mut zip)?;
             }
@@ -502,6 +546,36 @@ mod tests {
             .unwrap();
         assert!(text.ends_with("dig\n"));
         assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn a_zip_keeps_empty_folders_dates_and_attachments_apart() {
+        let (mut store, _) = store();
+        let a = store.create_folder(None, "a").unwrap().id;
+        store.create_folder(Some(a), "b").unwrap();
+        let clashing = store.create_folder(None, "attachments").unwrap().id;
+        store
+            .create_note(&NewNote {
+                folder_id: Some(clashing),
+                title: "Inside".into(),
+                ..NewNote::default()
+            })
+            .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("notes.zip");
+        export_markdown_zip(&store, &out, &NoAttachments).unwrap();
+        let mut zip = zip::ZipArchive::new(std::fs::File::open(&out).unwrap()).unwrap();
+        let names: Vec<String> = zip.file_names().map(|n| n.unwrap().into_owned()).collect();
+        assert!(names.contains(&"a/b/".to_owned()), "{names:?}");
+        assert!(
+            names.contains(&"attachments 2/Inside.md".to_owned()),
+            "{names:?}"
+        );
+        let note = zip.by_name("attachments 2/Inside.md").unwrap();
+        assert!(
+            note.last_modified().unwrap().year() > 1980,
+            "the note's own date"
+        );
     }
 
     #[test]
