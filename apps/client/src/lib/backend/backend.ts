@@ -213,6 +213,10 @@ export interface Backend {
   backupsGet(): Promise<import('./types').BackupsView>
   /** Whether `target` already holds a backup and needs its password, nothing written. */
   backupsFound(target: import('./types').BackupTarget): Promise<import('./types').BackupsFound>
+  /** A phone's backups folder through the system's picker, which lets the app
+   * reach what an earlier install made there: its address, null when the
+   * person backed out. */
+  backupsPickFolder(): Promise<string | null>
   /** Sets backups up: a new repository at `target`, or one there opened with
    * its password. An empty password stands for backups without one. */
   backupsConnect(

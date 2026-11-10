@@ -7,6 +7,8 @@
 mod android_keystore;
 mod biometric;
 mod commands;
+#[cfg(target_os = "android")]
+mod documents;
 mod error;
 #[cfg(windows)]
 mod hello;
@@ -62,7 +64,8 @@ pub fn run() {
     #[cfg(target_os = "android")]
     let builder = builder
         .plugin(tauri_plugin_biometric::init())
-        .plugin(android_keystore::pin_key_plugin());
+        .plugin(android_keystore::pin_key_plugin())
+        .plugin(documents::plugin());
     #[cfg(mobile)]
     let builder = builder.plugin(tauri_plugin_haptics::init());
     #[cfg(desktop)]
@@ -186,6 +189,7 @@ pub fn run() {
             commands::files::export_markdown,
             commands::backups::backups_get,
             commands::backups::backups_found,
+            commands::backups::backups_pick_folder,
             commands::backups::backups_connect,
             commands::backups::backups_settings,
             commands::backups::backups_disconnect,

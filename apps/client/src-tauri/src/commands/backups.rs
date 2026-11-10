@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use app_core::clock::{Clock, SystemClock};
 use app_core::repo::{
     BackupConfig, BackupStatus, CheckReport, KdfParams, NO_PASSWORD, Policy, Repo, Schedule,
-    TargetConfig, TestRestore,
+    Target, TargetConfig, TestRestore,
 };
 use app_core::store::RestoreReport;
 use serde::Serialize;
@@ -97,8 +97,25 @@ fn config(state: &AppState) -> CommandResult<BackupConfig> {
         .ok_or_else(|| CommandError::new("notFound", "backups are not set up"))
 }
 
+/// Opens where backups go. A folder picked on Android is an address, not a
+/// path (documents.rs).
+fn open_target(target: &TargetConfig) -> app_core::Result<std::sync::Arc<dyn Target>> {
+    #[cfg(target_os = "android")]
+    if let TargetConfig::Folder { path } = target
+        && crate::picked::is_document(path)
+    {
+        return Ok(std::sync::Arc::new(
+            crate::documents::DocumentTarget::named(path)?,
+        ));
+    }
+    target.open()
+}
+
 fn open(config: &BackupConfig) -> CommandResult<Repo> {
-    Ok(Repo::open(config.target.open()?, &config.password).map_err(app_core::Error::from)?)
+    Ok(
+        Repo::open(open_target(&config.target)?, &config.password)
+            .map_err(app_core::Error::from)?,
+    )
 }
 
 /// This device's backups.
@@ -124,16 +141,11 @@ pub struct Found {
 #[tauri::command]
 pub async fn backups_found(app: AppHandle, target: TargetConfig) -> CommandResult<Found> {
     blocking(app, move |_| {
-        let opened = target.open()?;
+        let opened = open_target(&target).map_err(readable)?;
         let found = match opened.get("config").map_err(app_core::Error::from) {
             Ok(_) => true,
             Err(app_core::Error::NotFound(_)) => false,
-            // Android keeps a new install out of the files an earlier one
-            // made: they are there, never "no backups"
-            Err(app_core::Error::Io(e)) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-                return Err(unreadable());
-            }
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(readable(e)),
         };
         let needs_password = found && Repo::open(opened, NO_PASSWORD).is_err();
         Ok(Found {
@@ -174,7 +186,7 @@ pub async fn backups_connect(
         if encrypted && password == NO_PASSWORD {
             return Err(unprotected());
         }
-        let opened = target.open()?;
+        let opened = open_target(&target)?;
         if create {
             Repo::init(opened, &password, KdfParams::DEFAULT, now())
                 .map_err(app_core::Error::from)?;
@@ -242,8 +254,33 @@ fn check_protected(state: &AppState, config: &BackupConfig) -> CommandResult<()>
     Ok(())
 }
 
-fn unreadable() -> CommandError {
-    CommandError::new("unreadable", "the app may not read this folder")
+/// Android keeps a new install out of the files an earlier one made: they
+/// are there, never "no backups". The page then asks for the folder in the
+/// system's picker (`backups_pick_folder`).
+fn readable(err: app_core::Error) -> CommandError {
+    match err {
+        app_core::Error::Io(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            CommandError::new("unreadable", "the app may not read this folder")
+        }
+        e => e.into(),
+    }
+}
+
+/// Asks for the phone's backups folder in the system's picker, which lets
+/// the app reach what an earlier install made there. Its address, none when
+/// the person backed out.
+#[tauri::command]
+pub async fn backups_pick_folder(app: AppHandle) -> CommandResult<Option<String>> {
+    blocking(app, |_| {
+        #[cfg(target_os = "android")]
+        return Ok(crate::documents::pick().map_err(app_core::Error::from)?);
+        #[cfg(not(target_os = "android"))]
+        Err(CommandError::new(
+            "unsupported",
+            "only a phone picks its backups folder",
+        ))
+    })
+    .await
 }
 
 fn unprotected() -> CommandError {

@@ -17,7 +17,8 @@ pub const NO_PASSWORD: &str = "ficelle-backup-without-password";
 /// The folder backups get inside the chosen one. A folder the app named
 /// itself (Android's, "Ficelle Preview backups" in a preview build) is
 /// already that folder.
-fn folder_name(chosen: &str) -> String {
+#[must_use]
+pub fn folder_name(chosen: &str) -> String {
     let own = std::path::Path::new(chosen)
         .file_name()
         .and_then(|n| n.to_str())
@@ -29,7 +30,8 @@ fn folder_name(chosen: &str) -> String {
 }
 
 /// What the backups folder holds, for whoever opens it.
-fn readme() -> String {
+#[must_use]
+pub fn readme() -> String {
     let app = app_brand::DISPLAY_NAME;
     format!(
         "These are {app}'s backups of your notes, encrypted with the backup password.\n\n\

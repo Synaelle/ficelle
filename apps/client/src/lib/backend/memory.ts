@@ -601,6 +601,7 @@ ${input.key}`,
       const there = target.kind === 'folder' ? seeded(target.path) : null
       return { found: there !== null, needsPassword: !!there }
     },
+    backupsPickFolder: async () => null,
     backupsConnect: async (target, password, create, host) => {
       if (target.kind === 'folder') {
         const there = seeded(target.path)

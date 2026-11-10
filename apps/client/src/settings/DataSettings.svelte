@@ -112,6 +112,18 @@
     }
   }
 
+  /** A phone's folder an earlier install made: the system's picker lets
+   * this one in. */
+  function allow() {
+    void act(async () => {
+      const picked = await backend.backupsPickFolder()
+      if (picked) {
+        folder = picked
+        await look()
+      }
+    })
+  }
+
   async function chooseFolder() {
     const picked = await pickToOpen({ directory: true, title: t('backups.chooseFolder') })
     if (picked) {
@@ -223,7 +235,7 @@
   function where(): string {
     const place = config?.target
     if (!place) return ''
-    if (place.kind === 'folder') return place.path
+    if (place.kind === 'folder') return shown(place.path)
     if (place.kind === 's3') {
       const host = place.endpoint
         ? place.endpoint.replace(/^https?:\/\//, '').replace(/\/$/, '')
@@ -231,6 +243,14 @@
       return `${place.bucket}${place.prefix ? `/${place.prefix}` : ''}, ${host}`
     }
     return place.url
+  }
+
+  /** A folder picked on a phone is an address: its path as the Files app
+   * shows it (`primary:Documents/Ficelle backups` at the end, encoded). */
+  function shown(path: string): string {
+    if (!path.startsWith('content://')) return path
+    const id = decodeURIComponent(path.slice(path.lastIndexOf('/') + 1))
+    return id.slice(id.indexOf(':') + 1)
   }
 
   /** What is true of the backups now, in a few words. */
@@ -327,6 +347,11 @@
               <button class="btn" type="button" onclick={() => open(null)}
                 >{t('common.cancel')}</button
               >
+              {#if MOBILE}
+                <button class="btn primary" type="button" disabled={busy} onclick={allow}
+                  >{t('backups.allowFolder')}</button
+                >
+              {/if}
             </div>
           {:else if found}
             <p class="settings-help" role="status">

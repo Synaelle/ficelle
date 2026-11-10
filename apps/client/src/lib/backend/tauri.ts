@@ -142,6 +142,7 @@ export function createTauriBackend(): Backend {
 
     backupsGet: () => invoke('backups_get'),
     backupsFound: (target) => invoke('backups_found', { target }),
+    backupsPickFolder: () => invoke('backups_pick_folder'),
     backupsConnect: (target, password, create, host) =>
       invoke('backups_connect', { target, password, create, host }),
     backupsSettings: (schedule, policy) => invoke('backups_settings', { schedule, policy }),

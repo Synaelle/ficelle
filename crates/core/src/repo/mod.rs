@@ -12,7 +12,9 @@ pub use app_repo::{
 mod settings;
 mod vault;
 
-pub use settings::{BackupConfig, BackupStatus, NO_PASSWORD, Schedule, TargetConfig};
+pub use settings::{
+    BackupConfig, BackupStatus, NO_PASSWORD, Schedule, TargetConfig, folder_name, readme,
+};
 pub use vault::{
     RunReport, SnapshotContents, TestRestore, backup_data, backup_vault, fetch_files,
     read_snapshot, restore_vault, test_restore,
