@@ -58,11 +58,12 @@ pub(crate) fn rebuild_link_index(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// Whether `title` is one links can lead to this note by: not empty, and no
-/// other live note has it.
+/// Whether `title` is one links can lead to this note by: not empty, one a
+/// link can hold (`]]`, `[[`, `|` and `#` end or split it), and no other live
+/// note has it.
 pub(super) fn is_own_title(conn: &Connection, id: NoteId, title: &str) -> Result<bool> {
     let key = title_key(title);
-    if key.is_empty() {
+    if key.is_empty() || ["]]", "[[", "|", "#"].iter().any(|bad| key.contains(bad)) {
         return Ok(false);
     }
     let taken: bool = conn.query_row(
@@ -387,6 +388,24 @@ mod tests {
         assert_eq!(store.note(linker.id).unwrap().body, "Go to [[Del]].");
         store.update_note(delta.id, retitle("De 2")).unwrap();
         assert_eq!(store.note(linker.id).unwrap().body, "Go to [[De 2]].");
+    }
+
+    #[test]
+    fn links_wait_while_a_title_cannot_be_linked_to() {
+        let (mut store, clock) = store();
+        let note_ = store.create_note(&note("Epsilon", "")).unwrap();
+        let linker = store.create_note(&note("L", "x [[Epsilon]] y")).unwrap();
+        let retitle = |title: &str| NoteChange {
+            title: Some(title.into()),
+            ..NoteChange::default()
+        };
+        clock.advance(MINUTE);
+        store
+            .update_note(note_.id, retitle("Eps]]ilon|odd#title"))
+            .unwrap();
+        assert_eq!(store.note(linker.id).unwrap().body, "x [[Epsilon]] y");
+        store.update_note(note_.id, retitle("Epsilon odd")).unwrap();
+        assert_eq!(store.note(linker.id).unwrap().body, "x [[Epsilon odd]] y");
     }
 
     #[test]
