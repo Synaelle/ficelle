@@ -13,7 +13,11 @@
 
   const THREAD =
     'M40 340C140 340 210 320 260 250C300 195 320 130 280 110C240 90 195 120 205 175C215 230 280 300 340 325C390 345 430 340 472 340'
-  const OVER = 'M224.2 222C239.8 247.8 262.9 273.4 288.3 293.6'
+  // the thread's second pass, from the bottom of the loop on, drawn again
+  // over the cut thread
+  const SECOND = 'M205 175C215 230 280 300 340 325C390 345 430 340 472 340'
+  // the part of it that crosses the first pass, where the gap is cut
+  const CROSSING = 'M218.9 212.8C234.3 241.7 259.8 271 288.3 293.6'
   const gap = $props.id()
 </script>
 
@@ -30,10 +34,11 @@
 >
   <mask id={gap} maskUnits="userSpaceOnUse" x="-40" y="-70" width="592" height="592">
     <rect x="-40" y="-70" width="592" height="592" fill="white" />
-    <path class="cut" d={OVER} pathLength="1" />
+    <path class="cut" d={CROSSING} pathLength="1" />
+    <path class="cut-end" d={CROSSING} pathLength="1" />
   </mask>
   <g mask="url(#{gap})"><path class="thread" d={THREAD} pathLength="1" /></g>
-  <path class="over" d={OVER} pathLength="1" />
+  <path class="over" d={SECOND} pathLength="1" />
 </svg>
 
 <style>
@@ -51,17 +56,21 @@
     stroke: var(--color-accent);
     stroke-width: 52;
   }
-  .cut {
+  .cut,
+  .cut-end {
     stroke: black;
     stroke-width: 100;
+  }
+  .cut {
     stroke-linecap: butt;
   }
 
   /* One drawn length drives every piece: --head is how far the thread is
-     drawn, --tail how much has let go at the start. The over piece is the
-     part of the thread from 0.6673 to 0.7776 of its length and follows it
-     there, and the gap under it opens and closes with it: the first pass
-     stays whole until the over strand crosses it. */
+     drawn, --tail how much has let go at the start. The second pass starts
+     at 0.6089 of the thread's length and follows it, the crossing runs from
+     0.6552 to 0.7776. The gap is cut behind the thread's end as it crosses,
+     with a round end around its tip, so it opens as an even margin around
+     the strand and the first pass stays whole until the strand reaches it. */
   @property --head {
     syntax: '<number>';
     inherits: true;
@@ -80,11 +89,21 @@
   .thread {
     stroke-dashoffset: calc(1 - var(--head) - var(--tail));
   }
-  .over,
-  .cut {
+  .over {
     stroke-dashoffset: calc(
-      1 - clamp(0, (var(--head) - 0.6673) / 0.1103, 1) -
-        clamp(0, (var(--tail) - 0.6673) / 0.1103, 1)
+      1 - clamp(0, (var(--head) - 0.6089) / 0.3911, 1) -
+        clamp(0, (var(--tail) - 0.6089) / 0.3911, 1)
+    );
+  }
+  .cut {
+    stroke-dashoffset: calc(1 - clamp(0, (var(--head) - 0.6552) / 0.1224, 1));
+  }
+  /* a dot at the thread's end, there only while it crosses */
+  .cut-end {
+    stroke-dasharray: 0 2;
+    stroke-dashoffset: calc(-1 * clamp(0, (var(--head) - 0.6552) / 0.1224, 1));
+    stroke-opacity: calc(
+      clamp(0, (var(--head) - 0.6552) * 10000, 1) * clamp(0, (0.7776 - var(--head)) * 10000, 1)
     );
   }
 
