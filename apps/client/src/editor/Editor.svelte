@@ -432,7 +432,8 @@
     const href = await overlay.askText(t('editor.linkPrompt'), current ?? 'https://')
     if (href === null || !editor) return
     if (href === '') editor.chain().focus().unsetLink().run()
-    else editor.chain().focus().extendMarkRange('link').setLink({ href }).run()
+    else if (!editor.chain().focus().extendMarkRange('link').setLink({ href }).run())
+      toasts.push(t('editor.link'), t('editor.linkRefused'))
   }
 
   let stopDrops: (() => void) | null = null
