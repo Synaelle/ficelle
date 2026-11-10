@@ -214,7 +214,7 @@ emptyTrash = "Vider la corbeille"
 confirmPurge = "Supprimer définitivement cette note ? C’est irréversible."
 confirmEmptyTrash = "Supprimer définitivement tout le contenu de la corbeille ? C’est irréversible."
 clearFilter = "Revenir aux notes sans dossier"
-unfiledEmpty = "Toutes les notes sont dans un dossier. Les nouvelles notes commencent ici."
+unfiledEmpty = "Aucune note hors des dossiers. Les nouvelles notes commencent ici."
 pullToSearch = "Relâchez pour rechercher"
 swipeTrash = "Corbeille"
 
