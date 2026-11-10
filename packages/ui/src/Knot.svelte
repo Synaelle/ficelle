@@ -45,14 +45,15 @@
     fill: none;
     stroke-linecap: round;
   }
+  /* the app icon's proportions (brand/app-icon.svg) */
   .thread,
   .over {
     stroke: var(--color-accent);
-    stroke-width: 40;
+    stroke-width: 52;
   }
   .cut {
     stroke: black;
-    stroke-width: 84;
+    stroke-width: 100;
     stroke-linecap: butt;
   }
 
