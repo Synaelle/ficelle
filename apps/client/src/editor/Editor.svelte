@@ -39,12 +39,16 @@
     noteId,
     markdown,
     onchange,
+    onpending,
     onopenlink,
     readonly = false,
   }: {
     noteId: string
     markdown: string
     onchange: (markdown: string) => void
+    /** Typing waits to be passed on (true), or turned out to change nothing
+     * (false): the header says Saving from the first key. */
+    onpending?: (pending: boolean) => void
     onopenlink: (title: string, heading: string | null) => Promise<boolean>
     /** Shared with this account to read only: shown, never changed. */
     readonly?: boolean
@@ -250,6 +254,7 @@
 
   function scheduleSave() {
     clearTimeout(timer)
+    onpending?.(true)
     timer = setTimeout(save, SERIALIZE_DELAY_MS)
   }
 
@@ -258,10 +263,12 @@
 
   function save() {
     clearTimeout(timer)
-    if (!editor || (opened && editor.state.doc.eq(opened))) return
+    if (!editor) return
+    if (opened && editor.state.doc.eq(opened)) return void onpending?.(false)
     const next = editor.getMarkdown()
     shown = next
     if (next !== markdown) onchange(next)
+    else onpending?.(false)
     // what is saved is the new start: an edit taken back afterwards (a file
     // inserted then removed) differs from it, and is saved too
     opened = editor.state.doc

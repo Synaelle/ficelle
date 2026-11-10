@@ -23,10 +23,14 @@
 
   const note = $derived(workspace.current)
 
+  /** Keys the editor has not passed on yet: already not saved. */
+  let typing = $state(false)
+  const saving = $derived(workspace.dirty || typing)
+
   /** "Saved" shows for a moment after a save, then fades: it is the usual state. */
   let justSaved = $state(false)
   $effect(() => {
-    if (workspace.dirty) {
+    if (saving) {
       justSaved = true
       return
     }
@@ -175,11 +179,11 @@
       <span
         class="saved muted"
         class:bad={workspace.unsaved}
-        class:quiet={!workspace.dirty && !justSaved}
+        class:quiet={!saving && !justSaved}
         aria-live="polite"
         >{workspace.unsaved
           ? t('note.notSaved')
-          : workspace.dirty
+          : saving
             ? t('note.saving')
             : t('note.saved')}</span
       >
@@ -242,7 +246,8 @@
               bind:this={editorRef}
               noteId={note.id}
               markdown={note.body}
-              onchange={(body) => workspace.edit({ body })}
+              onchange={(body) => ((typing = false), workspace.edit({ body }))}
+              onpending={(pending) => (typing = pending)}
               onopenlink={(title, heading) => workspace.openByTitle(title, heading)}
             />
           {/key}
