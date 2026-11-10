@@ -30,6 +30,8 @@
   import Workspace from './workspace/Workspace.svelte'
 
   type Stage = 'loading' | 'failed' | 'elsewhere' | 'unlock' | 'upgrade' | 'ready'
+  /** Why the notes cannot be opened, when it is known, and their folder. */
+  let cannotOpen = $state<{ kind: 'readOnly' | 'vaultDamaged'; folder: string } | null>(null)
   let stage = $state<Stage>('loading')
   let status = $state<VaultStatus | null>(null)
   /** An old vault the app opened without asking: it gets a password before
@@ -50,8 +52,14 @@
     try {
       status = await backend.vaultStatus()
     } catch (err) {
+      const { kind, message } = err as { kind?: string; message?: string }
       // another copy of the app has the notes: this one leaves them alone
-      if ((err as { kind?: string })?.kind === 'openElsewhere') return (stage = 'elsewhere')
+      if (kind === 'openElsewhere') return (stage = 'elsewhere')
+      // a folder that cannot be written or a damaged vault.json: said as such
+      if (kind === 'readOnly' || kind === 'vaultDamaged') {
+        cannotOpen = { kind, folder: message ?? '' }
+        return (stage = 'failed')
+      }
       throw err
     }
     if (!status.exists) return void firstLaunch()
@@ -118,7 +126,22 @@
   void start()
 </script>
 
-{#if stage === 'failed'}
+{#if stage === 'failed' && cannotOpen}
+  <main class="failed">
+    <h1>{t('unlock.failedTitle')}</h1>
+    <p role="alert">
+      {cannotOpen.kind === 'readOnly'
+        ? t('unlock.readOnlyHelp', { app: brand.displayName })
+        : t('unlock.damagedHelp')}
+    </p>
+    <p class="folder">{cannotOpen.folder}</p>
+    <button
+      class="btn primary"
+      onclick={() => ((cannotOpen = null), (stage = 'loading'), void start())}
+      >{t('unlock.retry')}</button
+    >
+  </main>
+{:else if stage === 'failed'}
   <main class="failed">
     <h1>{t('unlock.failedTitle')}</h1>
     <p role="alert">{t('unlock.failedHelp')}</p>
@@ -176,7 +199,14 @@
   }
   .failed p {
     margin: 0;
+    max-width: 52ch;
     color: var(--color-text-muted);
+  }
+  .failed .folder {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+    user-select: text;
   }
   .notes {
     height: 100%;

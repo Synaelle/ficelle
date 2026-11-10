@@ -60,6 +60,15 @@ pub struct VaultStatus {
     pin_tries_left: Option<u8>,
 }
 
+/// Whether the app may write in the vault's folder: a read-only one (a disk
+/// mounted read-only, a full one, a copy without rights) opens nothing.
+fn writable(dir: &std::path::Path) -> bool {
+    let probe = dir.join(".write-check");
+    let made = std::fs::write(&probe, b"").is_ok();
+    let _ = std::fs::remove_file(&probe);
+    made
+}
+
 #[tauri::command]
 pub async fn vault_status(state: State<'_, AppState>) -> CommandResult<VaultStatus> {
     state.check_alone()?;
@@ -81,7 +90,23 @@ pub async fn vault_status(state: State<'_, AppState>) -> CommandResult<VaultStat
             pin_tries_left: None,
         });
     }
-    let vault = Vault::open(&state.dir)?;
+    let vault = match Vault::open(&state.dir) {
+        Ok(vault) => vault,
+        // the page names the folder and says how to put it right
+        Err(app_core::Error::Corrupt(_)) => {
+            return Err(CommandError::new(
+                "vaultDamaged",
+                state.dir.display().to_string(),
+            ));
+        }
+        Err(e) => return Err(e.into()),
+    };
+    if !unlocked && !writable(&state.dir) {
+        return Err(CommandError::new(
+            "readOnly",
+            state.dir.display().to_string(),
+        ));
+    }
     let name = vault.device_key_name();
     let pin_tries_left = device.and_then(|keys| vault.pin_tries_left(keys).ok().flatten());
     let way = if !vault.is_encrypted() {
