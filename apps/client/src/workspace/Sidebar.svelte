@@ -70,10 +70,10 @@
     <FolderTree parent={null} depth={0} />
     {#if addingFolder}
       <form onsubmit={addFolder}>
-        <!-- svelte-ignore a11y_autofocus -->
+        <!-- autofocus would leave the focus on the + button, which keeps it -->
         <input
           class="field"
-          autofocus
+          {@attach (field) => field.focus()}
           placeholder={t('sidebar.folderName')}
           bind:value={newFolderName}
           onblur={() => (addingFolder = false)}
