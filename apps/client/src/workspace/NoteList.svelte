@@ -648,6 +648,8 @@
     font-size: 12px;
     color: var(--color-text-muted);
     opacity: var(--pull, 0);
+    /* it overlaps the search box above the list, which keeps every click */
+    pointer-events: none;
   }
   .row.selected {
     background: var(--color-selection);
