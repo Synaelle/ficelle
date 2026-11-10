@@ -30,7 +30,7 @@
 >
   <mask id={gap} maskUnits="userSpaceOnUse" x="-40" y="-70" width="592" height="592">
     <rect x="-40" y="-70" width="592" height="592" fill="white" />
-    <path class="cut" d={OVER} />
+    <path class="cut" d={OVER} pathLength="1" />
   </mask>
   <g mask="url(#{gap})"><path class="thread" d={THREAD} pathLength="1" /></g>
   <path class="over" d={OVER} pathLength="1" />
@@ -57,10 +57,11 @@
     stroke-linecap: butt;
   }
 
-  /* One drawn length drives both pieces, so the gap stays cut while the
-     thread draws or lets go: --head is how far the thread is drawn, --tail
-     how much has let go at the start. The over piece is the part of the
-     thread from 0.6673 to 0.7776 of its length and follows it there. */
+  /* One drawn length drives every piece: --head is how far the thread is
+     drawn, --tail how much has let go at the start. The over piece is the
+     part of the thread from 0.6673 to 0.7776 of its length and follows it
+     there, and the gap under it opens and closes with it: the first pass
+     stays whole until the over strand crosses it. */
   @property --head {
     syntax: '<number>';
     inherits: true;
@@ -72,13 +73,15 @@
     initial-value: 0;
   }
   .thread,
-  .over {
+  .over,
+  .cut {
     stroke-dasharray: 1 2;
   }
   .thread {
     stroke-dashoffset: calc(1 - var(--head) - var(--tail));
   }
-  .over {
+  .over,
+  .cut {
     stroke-dashoffset: calc(
       1 - clamp(0, (var(--head) - 0.6673) / 0.1103, 1) -
         clamp(0, (var(--tail) - 0.6673) / 0.1103, 1)
