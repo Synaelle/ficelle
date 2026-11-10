@@ -2,6 +2,8 @@
 
 //! Creating, editing, moving and listing notes.
 
+use std::cmp::Ordering;
+
 use rusqlite::params;
 use serde::Deserialize;
 
@@ -277,8 +279,73 @@ impl Store {
             Some(value) => stmt.query_map([value], summary_from_row)?.collect(),
             None => stmt.query_map([], summary_from_row)?.collect(),
         };
-        Ok(rows?)
+        let mut notes = rows?;
+        // SQLite's NOCASE knows a to z only: É came after Z, and 10 before 2
+        if sort == NoteSort::TitleAsc {
+            let pinned = !pinned_first.is_empty();
+            notes.sort_by(|a, b| {
+                let pins = if pinned {
+                    b.pinned.cmp(&a.pinned)
+                } else {
+                    Ordering::Equal
+                };
+                pins.then_with(|| title_order(&a.title, &b.title))
+            });
+        }
+        Ok(notes)
     }
+}
+
+/// Latin letters from U+00C0 (À) to U+017F (ſ), lowercase and without their
+/// accents, in that order.
+const FOLDED: &str = "aaaaaaaceeeeiiiidnooooo×ouuuuytsaaaaaaaceeeeiiiidnooooo÷ouuuuytyaaaaaaccccccccddddeeeeeeeeeegggggggghhhhiiiiiiiiiiiijjkkkllllllllllnnnnnnnnnoooooooorrrrrrssssssssttttttuuuuuuuuuuuuwwyyyzzzzzzs";
+
+/// Titles as people sort them: case and accents aside, numbers by value.
+fn title_order(a: &str, b: &str) -> Ordering {
+    let fold = |text: &str| -> Vec<char> {
+        text.chars()
+            .flat_map(char::to_lowercase)
+            .map(|c| {
+                let at = u32::from(c);
+                (0xC0..0x180)
+                    .contains(&at)
+                    .then(|| FOLDED.chars().nth((at - 0xC0) as usize))
+                    .flatten()
+                    .unwrap_or(c)
+            })
+            .collect()
+    };
+    // a run of digits from `at`: where it ends, and its value as text
+    let number = |text: &[char], mut at: usize| {
+        let start = at;
+        while at < text.len() && text[at].is_ascii_digit() {
+            at += 1;
+        }
+        let value: String = text[start..at].iter().skip_while(|c| **c == '0').collect();
+        (at, value)
+    };
+    let (left, right) = (fold(a), fold(b));
+    let (mut on_left, mut on_right) = (0, 0);
+    while on_left < left.len() && on_right < right.len() {
+        if left[on_left].is_ascii_digit() && right[on_right].is_ascii_digit() {
+            let (left_end, left_value) = number(&left, on_left);
+            let (right_end, right_value) = number(&right, on_right);
+            let by_value = left_value
+                .len()
+                .cmp(&right_value.len())
+                .then_with(|| left_value.cmp(&right_value));
+            if by_value != Ordering::Equal {
+                return by_value;
+            }
+            (on_left, on_right) = (left_end, right_end);
+        } else {
+            match left[on_left].cmp(&right[on_right]) {
+                Ordering::Equal => (on_left, on_right) = (on_left + 1, on_right + 1),
+                other => return other,
+            }
+        }
+    }
+    (left.len() - on_left).cmp(&(right.len() - on_right))
 }
 
 #[cfg(test)]
@@ -287,6 +354,23 @@ mod tests {
     use crate::model::{NoteScope, NoteSort};
     use crate::store::test_support::store;
     use crate::store::{NewNote, NoteChange};
+
+    #[test]
+    fn titles_sort_with_accents_in_place_and_numbers_by_value() {
+        let titles = [
+            "zèbre", "Éclair", "abricot", "école", "Banane", "Ålborg", "éte", "Zoo", "10 items",
+            "2 items",
+        ];
+        let mut sorted = titles;
+        sorted.sort_by(|a, b| super::title_order(a, b));
+        assert_eq!(
+            sorted,
+            [
+                "2 items", "10 items", "abricot", "Ålborg", "Banane", "Éclair", "école", "éte",
+                "zèbre", "Zoo"
+            ]
+        );
+    }
 
     fn titled(title: &str) -> NewNote {
         NewNote {
