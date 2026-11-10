@@ -489,6 +489,12 @@
             return true
           }
           const text = data?.getData('text/plain') ?? ''
+          // a form feed or vertical tab (text copied from a PDF) would be
+          // dropped and run pages together: pasted as line breaks instead
+          if (/[\f\v]/.test(text)) {
+            view.pasteText(text.replace(/[\f\v]/g, '\n'))
+            return true
+          }
           // a copied image file or picture the page gets only as a path, or not
           // at all: the app reads it from the system clipboard instead
           if (backend.native && data && copiedImage(data, text)) {

@@ -191,6 +191,15 @@ impl Store {
 /// meaning in notes, and keeping them out lets search use them as markers.
 pub(crate) fn clean_text(text: &str) -> String {
     text.chars()
+        // a form feed or vertical tab (text copied from a PDF) separates
+        // pages or lines: a line break keeps the words apart
+        .map(|c| {
+            if matches!(c, '\u{b}' | '\u{c}') {
+                '\n'
+            } else {
+                c
+            }
+        })
         .filter(|c| !c.is_control() || matches!(c, '\n' | '\t' | '\r'))
         .collect()
 }
@@ -420,6 +429,10 @@ mod tests {
     #[test]
     fn clean_text_drops_control_characters_but_keeps_lines() {
         assert_eq!(clean_text("a\u{2}b\nc\td\u{7f}"), "ab\nc\td");
+        assert_eq!(
+            clean_text("Page one\u{c}Page two\u{b}end"),
+            "Page one\nPage two\nend"
+        );
     }
 
     #[test]
