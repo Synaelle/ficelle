@@ -32,11 +32,17 @@ pub(super) fn note_tag_names(conn: &Connection, note: NoteId) -> Result<Vec<Stri
 }
 
 fn tag_id_for(conn: &Connection, name: &str, now: Timestamp) -> Result<TagId> {
-    let existing: Option<TagId> = conn
-        .query_row("SELECT id FROM tags WHERE name = ?1", [name], |row| {
-            row.get(0)
-        })
-        .optional()?;
+    // the column's NOCASE folds only a to z: É and é would be two tags, and
+    // the unique index then refuses one of them
+    let key = name.to_lowercase();
+    let mut stmt = conn.prepare("SELECT id, name FROM tags")?;
+    let existing: Option<TagId> = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, TagId>(0)?, row.get::<_, String>(1)?))
+        })?
+        .filter_map(std::result::Result::ok)
+        .find(|(_, other)| other.to_lowercase() == key)
+        .map(|(id, _)| id);
     if let Some(id) = existing {
         return Ok(id);
     }
@@ -167,6 +173,23 @@ mod tests {
     use super::normalize;
     use crate::store::NewNote;
     use crate::store::test_support::store;
+
+    #[test]
+    fn tags_differing_only_by_case_are_one_tag_accents_too() {
+        let (mut store, _) = store();
+        let note = store.create_note(&NewNote::default()).unwrap();
+        store
+            .set_note_tags(
+                note.id,
+                &["été".into(), "ÉTÉ".into(), "Work".into(), "work".into()],
+            )
+            .unwrap();
+        assert_eq!(store.note(note.id).unwrap().tags, ["Work", "été"]);
+        let other = store.create_note(&NewNote::default()).unwrap();
+        store.set_note_tags(other.id, &["ÉTÉ".into()]).unwrap();
+        assert_eq!(store.note(other.id).unwrap().tags, ["été"]);
+        assert_eq!(store.list_tags().unwrap().len(), 2);
+    }
 
     #[test]
     fn normalizes_names() {
