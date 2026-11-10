@@ -452,7 +452,12 @@
   }
 
   let stopDrops: (() => void) | null = null
+  // the table and image bars are placed from the page's boxes: a narrower
+  // or wider note (the window, the pane divider) moves them without a
+  // transaction
+  const resized = new ResizeObserver(() => (tick += 1))
   onMount(async () => {
+    resized.observe(element)
     if (backend.native && !MOBILE)
       void getCurrentWebview()
         .onDragDropEvent(({ payload }) => {
@@ -654,6 +659,7 @@
     window.removeEventListener('resize', keepCaret)
     destroyed = true
     stopDrops?.()
+    resized.disconnect()
     editor?.destroy()
   })
 
