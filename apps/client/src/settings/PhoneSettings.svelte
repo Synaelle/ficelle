@@ -790,11 +790,16 @@
   .tile :global(.icon) {
     color: inherit;
   }
+  /* with a large text size the value gives way first, cut short, and the
+     label wraps if it still has no room: never drawn over each other */
   .label {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
+    overflow-wrap: anywhere;
   }
   .value {
+    flex: 0 10 auto;
+    min-width: 3em;
     max-width: 45%;
     overflow: hidden;
     text-overflow: ellipsis;
