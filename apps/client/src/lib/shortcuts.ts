@@ -3,6 +3,8 @@
 // on Windows and Linux and Cmd on macOS. Users can rebind any action in
 // Settings, the overrides are stored in prefs.
 
+import { t } from './i18n.svelte'
+
 export const ACTIONS = [
   'newNote',
   'search',
@@ -48,9 +50,25 @@ export function bindingOf(event: KeyboardEvent): string | null {
   return parts.join('+')
 }
 
+/** Key names as the keyboard of the app's language writes them. */
+const KEY_NAMES: Record<string, () => string> = {
+  Mod: () => t('keys.ctrl'),
+  Shift: () => t('keys.shift'),
+  Alt: () => t('keys.alt'),
+  Backspace: () => t('keys.backspace'),
+  Delete: () => t('keys.delete'),
+  Enter: () => t('keys.enter'),
+  Escape: () => t('keys.escape'),
+  Space: () => t('keys.space'),
+}
+
 /** Human form of a binding for this platform, for example ⌘N or Ctrl+N. */
 export function displayBinding(binding: string): string {
-  if (!isMac) return binding.replace('Mod', 'Ctrl')
+  if (!isMac)
+    return binding
+      .split('+')
+      .map((part) => KEY_NAMES[part]?.() ?? part)
+      .join('+')
   const symbols: Record<string, string> = { Mod: '⌘', Shift: '⇧', Alt: '⌥', Backspace: '⌫' }
   return binding
     .split('+')

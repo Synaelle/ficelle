@@ -1796,3 +1796,13 @@ stepSignIn = "Open the new app and sign in to your sync server again. Your notes
 stepRestore = "Open the new app and restore your backup from Documents, {folder}."
 stepRestoreCopied = "Open the new app and restore the backup you copied."
 later = "Later"
+
+[keys]
+ctrl = "Ctrl"
+shift = "Shift"
+alt = "Alt"
+backspace = "Backspace"
+delete = "Delete"
+enter = "Enter"
+escape = "Esc"
+space = "Space"

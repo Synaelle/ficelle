@@ -1796,3 +1796,13 @@ stepSignIn = "Ouvrez la nouvelle app et reconnectez-vous à votre serveur de syn
 stepRestore = "Ouvrez la nouvelle app et restaurez votre sauvegarde depuis Documents, {folder}."
 stepRestoreCopied = "Ouvrez la nouvelle app et restaurez la sauvegarde que vous avez copiée."
 later = "Plus tard"
+
+[keys]
+ctrl = "Ctrl"
+shift = "Maj"
+alt = "Alt"
+backspace = "Retour arrière"
+delete = "Suppr"
+enter = "Entrée"
+escape = "Échap"
+space = "Espace"
