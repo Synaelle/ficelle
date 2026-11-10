@@ -4,7 +4,6 @@
      stays closed, it would push the pad up between two taps. The last digit
      sends it, and the dots clear for the next try. -->
 <script lang="ts">
-  import { onMount } from 'svelte'
   import { PIN_LENGTH } from './backend/types'
   import { t } from './i18n.svelte'
   import Icon from './icons/Icon.svelte'
@@ -30,8 +29,10 @@
   /** A phone or tablet: the pad alone, no system keyboard. */
   const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
 
-  onMount(() => {
-    if (!touch) field?.focus()
+  // a disabled field drops the focus while a try is checked: it takes it back
+  // once usable again, so the next try can be typed
+  $effect(() => {
+    if (!disabled && !touch) field?.focus()
   })
 
   $effect(() => {
@@ -46,6 +47,9 @@
     if (pin.length === PIN_LENGTH) {
       const done = pin
       pin = ''
+      // a pasted PIN arrives in one input, so pin stays '' and the field
+      // would keep its digits, its length then refusing the next try
+      if (field) field.value = ''
       onpin(done)
     }
   }
