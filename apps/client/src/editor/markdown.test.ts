@@ -6,7 +6,12 @@ import { Editor } from '@tiptap/core'
 import { TaskList } from '@tiptap/extension-list'
 import { describe, expect, it } from 'vitest'
 import { createExtensions } from './extensions'
-import { TASK_GUARD, taskListExtent, withBoundedStart } from './extensions/markdownFixes'
+import {
+  TASK_GUARD,
+  markdownChunks,
+  taskListExtent,
+  withBoundedStart,
+} from './extensions/markdownFixes'
 import corpus from './fixtures/corpus.md?raw'
 
 function roundTrip(markdown: string): string {
@@ -139,6 +144,51 @@ function taskJson(markdown: string): unknown {
   editor.destroy()
   return json
 }
+
+describe('long notes read in parts', () => {
+  it('reads the same as whole', () => {
+    const long = Array.from({ length: 12 }, () => corpus).join('\n\n')
+    const chunks = markdownChunks(long)
+    expect(chunks.length).toBeGreaterThan(1)
+    expect(chunks.join('\n\n')).toBe(long)
+    const editor = new Editor({
+      element: document.createElement('div'),
+      extensions: createExtensions(),
+    })
+    const manager = editor.markdown as unknown as {
+      parse(md: string): unknown
+      createLexer(): unknown
+    }
+    // the manager's own parse, whole, against the patched one
+    const whole = Object.getPrototypeOf(manager).parse.call(manager, long)
+    expect(manager.parse(long)).toEqual(whole)
+    editor.destroy()
+  })
+
+  it('never cuts inside code, math, folded sections, lists or quotes', () => {
+    const filler = 'word '.repeat(1000)
+    const tricky = [
+      filler,
+      '```\ncode\n\nstill code ' + filler + '\n```',
+      filler,
+      '$$\nx\n\ny ' + filler + '\n$$',
+      filler,
+      '<details>\n<summary>s</summary>\n\ninside ' + filler + '\n</details>',
+      filler,
+      '- a\n\n- b ' + filler,
+      '> q\n\n> r ' + filler,
+    ].join('\n\n')
+    for (const chunk of markdownChunks(tricky, 100)) {
+      expect((chunk.match(/```/g) ?? []).length % 2).toBe(0)
+      expect((chunk.match(/^\$\$$/gm) ?? []).length % 2).toBe(0)
+      expect((chunk.match(/<details>/g) ?? []).length).toBe(
+        (chunk.match(/<\/details>/g) ?? []).length,
+      )
+      expect(chunk.startsWith('- b') || chunk.startsWith('> r')).toBe(false)
+    }
+    expect(markdownChunks('[x]: https://a.b\n\n' + tricky, 100)).toHaveLength(1)
+  })
+})
 
 describe('link addresses', () => {
   it('keeps addresses with spaces, brackets and parentheses as links', () => {
