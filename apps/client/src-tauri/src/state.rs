@@ -26,10 +26,9 @@ pub struct AppState {
     session: Mutex<Option<Session>>,
     /// The sync thread, woken after each command.
     pub sync: crate::sync::Sync,
-    /// Held while the app runs, see [`hold`].
-    _holder: Option<File>,
-    /// Another copy of the app has the notes.
-    elsewhere: bool,
+    /// Held while the app runs, see [`hold`]. An error while another copy
+    /// of the app has the notes.
+    holder: Mutex<Result<Option<File>, ()>>,
 }
 
 /// Locks the vault for this process: two copies of the app on the same notes
@@ -58,22 +57,25 @@ fn hold(dir: &Path) -> Result<Option<File>, ()> {
 
 impl AppState {
     pub fn new(dir: PathBuf) -> Self {
-        let (holder, elsewhere) = match hold(&dir) {
-            Ok(holder) => (holder, false),
-            Err(()) => (None, true),
-        };
         Self {
+            holder: Mutex::new(hold(&dir)),
             dir,
             session: Mutex::new(None),
             sync: crate::sync::Sync::default(),
-            _holder: holder,
-            elsewhere,
         }
     }
 
-    /// Fails when another copy of the app has the notes open.
+    /// Fails when another copy of the app has the notes open. Tries for the
+    /// lock again first, the other copy may have closed since.
     pub fn check_alone(&self) -> CommandResult<()> {
-        if self.elsewhere {
+        let mut holder = self
+            .holder
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if holder.is_err() {
+            *holder = hold(&self.dir);
+        }
+        if holder.is_err() {
             return Err(CommandError::new(
                 "openElsewhere",
                 "the notes are open in another copy of the app",

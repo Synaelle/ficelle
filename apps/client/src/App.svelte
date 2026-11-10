@@ -151,6 +151,9 @@
   <main class="failed">
     <h1>{t('unlock.elsewhereTitle', { app: brand.displayName })}</h1>
     <p role="alert">{t('unlock.elsewhereHelp', { app: brand.displayName })}</p>
+    <button class="btn primary" onclick={() => ((stage = 'loading'), void start())}
+      >{t('unlock.retry')}</button
+    >
   </main>
 {:else if stage === 'upgrade' && status?.way === 'device'}
   <Setup done={ready} />
