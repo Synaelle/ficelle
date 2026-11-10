@@ -80,6 +80,7 @@
   let source = $state(false)
   /** The open editor, for the attachments list to add, mention and remove files. */
   let editorRef: Editor | undefined = $state()
+  let sourceArea: HTMLTextAreaElement | undefined = $state()
   let tagDraft = $state('')
   let titleInput: HTMLInputElement | undefined = $state()
   /** Phones: no spelling popup on the title either, see the editor. */
@@ -216,6 +217,13 @@
           aria-label={t('note.title')}
           value={note.title}
           oninput={(e) => workspace.edit({ title: e.currentTarget.value })}
+          onkeydown={(e) => {
+            // Enter goes on to the text, as in most note apps
+            if (e.key !== 'Enter' || e.isComposing || e.shiftKey) return
+            e.preventDefault()
+            if (source) sourceArea?.focus()
+            else editorRef?.focusStart()
+          }}
         />
         <div class="tags">
           {#each note.tags as tag (tag)}
@@ -235,6 +243,7 @@
 
         {#if source}
           <textarea
+            bind:this={sourceArea}
             class="source"
             spellcheck="false"
             aria-label={t('note.source')}
