@@ -20,3 +20,7 @@
 - Notes are Markdown, with a few extras, see [Markdown in notes](docs/markdown.md).
 - Images work like in a word processor.
 - Every note keeps its earlier versions.
+
+# Building
+
+See [Building Ficelle](docs/building.md).
