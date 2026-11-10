@@ -92,7 +92,7 @@
         oncontextmenu={(e) => oncontextmenu(e, folder.id)}
       >
         <Icon name="folder" size={16} />
-        <span class="name">{folder.name}</span>
+        <span class="name" title={folder.name}>{folder.name}</span>
       </button>
     {/if}
   </div>
@@ -105,6 +105,7 @@
   .row {
     display: flex;
     align-items: center;
+    min-width: 0;
   }
   .toggle {
     width: 16px;
@@ -117,7 +118,13 @@
     background: none;
     color: var(--color-text-muted);
   }
+  /* a long name is cut, never wider than the sidebar */
+  .row .tree-item {
+    flex: 1;
+    min-width: 0;
+  }
   .name {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
