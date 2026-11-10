@@ -44,6 +44,19 @@ const overlays = ['src-tauri/tauri.release.conf.json']
 if (portable) overlays.push('src-tauri/tauri.portable.conf.json')
 // a preview's yellow knot, so it is never taken for the release
 if (preview) overlays.push('src-tauri/tauri.preview.conf.json')
+// the preview overlay brings its own windows, without the portable exe's
+// create: false: tauri would make the window with the system's webview
+// folder (src-tauri/src/portable.rs). Merged after it, with create: false back
+if (portable && preview) {
+  const { windows } = JSON.parse(
+    readFileSync(join(root, 'apps/client/src-tauri/tauri.preview.conf.json'), 'utf8'),
+  ).app
+  const file = join(root, 'target', 'portable-preview.conf.json')
+  mkdirSync(dirname(file), { recursive: true })
+  const app = { windows: windows.map((/** @type {object} */ w) => ({ ...w, create: false })) }
+  writeFileSync(file, JSON.stringify({ app }))
+  overlays.push(file)
+}
 // Linux: the window takes dropped files itself, as tauri.linux.conf.json says
 // for other builds. Merged last, from the windows of the overlays above, so
 // their titles stay
