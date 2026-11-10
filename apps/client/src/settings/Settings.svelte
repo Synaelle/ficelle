@@ -12,6 +12,7 @@
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
+  import { MODES } from '../lib/theme.svelte'
   import {
     applyQuickShortcut,
     DEFAULT_QUICK_SHORTCUT,
@@ -199,6 +200,17 @@
         <div class="settings-body">
           {#if section === 'appearance'}
             <Group>
+              <Row label={t('settings.theme')}>
+                <div class="segmented" role="radiogroup" aria-label={t('settings.theme')}>
+                  {#each MODES as mode (mode)}
+                    <label class:checked={prefs.mode === mode}>
+                      <input type="radio" name="mode" value={mode} bind:group={prefs.mode} />{t(
+                        `settings.theme_${mode}`,
+                      )}
+                    </label>
+                  {/each}
+                </div>
+              </Row>
               <Row label={t('settings.pureBlack')} help={t('settings.pureBlackHelp')}>
                 <Switch
                   label={t('settings.pureBlack')}
@@ -215,13 +227,6 @@
             >
               <Row label={t('settings.uiSize')} help={t('settings.uiSizeHelp')}>
                 <SizePicker />
-              </Row>
-              <Row label={t('settings.lightBackground')} help={t('settings.lightBackgroundHelp')}>
-                <Switch
-                  label={t('settings.lightBackground')}
-                  checked={prefs.mode === 'light'}
-                  onchange={(on) => (prefs.mode = on ? 'light' : 'dark')}
-                />
               </Row>
               <Row label={t('settings.dyslexicFont')}>
                 <Switch label={t('settings.dyslexicFont')} bind:checked={prefs.dyslexicFont} />

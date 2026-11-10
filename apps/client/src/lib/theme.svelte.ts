@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Applies the app's one theme to the page as css variables, dark unless the
-// person turned on the light background in Accessibility.
+// person chose light in Appearance.
 
 import { themeToCssVars, type Mode, type Theme } from '@app/ui/theme'
 import { builtInThemes, DEFAULT_THEME_ID } from '@app/ui/themes'
@@ -11,6 +11,8 @@ import { clock, readSystemClock } from './clock.svelte'
 export function currentTheme(): Theme {
   return builtInThemes.find((t) => t.id === DEFAULT_THEME_ID) ?? (builtInThemes[0] as Theme)
 }
+
+export const MODES: Mode[] = ['dark', 'light']
 
 export function currentMode(): Mode {
   return prefs.mode

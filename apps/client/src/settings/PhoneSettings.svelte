@@ -24,6 +24,7 @@
   import FeedbackSettings from './FeedbackSettings.svelte'
   import TestTools from '../devreport/TestTools.svelte'
   import AboutSettings from './AboutSettings.svelte'
+  import { MODES } from '../lib/theme.svelte'
   import { UI_SIZES } from '../lib/uiSize'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
   import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
@@ -115,7 +116,10 @@
       icon: 'palette',
       label: t('settings.appearance'),
       keywords: t('settings.appearanceKeywords'),
-      value: prefs.mode === 'dark' && prefs.pureBlack ? t('settings.pureBlack') : '',
+      value:
+        prefs.mode === 'dark' && prefs.pureBlack
+          ? t('settings.pureBlack')
+          : t(`settings.theme_${prefs.mode}`),
       run: () => (page = 'appearance'),
     },
     {
@@ -261,7 +265,7 @@
   /** Settings inside the pages, found by their own name: the page they sit
    * on shows as the value, a tap opens it. */
   const inner: [IconName, string, Exclude<Page, 'home'>][] = [
-    ['eye', 'settings.lightBackground', 'accessibility'],
+    ['eye', 'settings.theme', 'appearance'],
     ['backup', 'backups.title', 'notes'],
     ['restore', 'backups.restoreFrom', 'notes'],
     ['import', 'settings.importTitle', 'notes'],
@@ -454,6 +458,15 @@
 
     <div class="groups page">
       {#if page === 'appearance'}
+        <Group title={t('settings.theme')}>
+          {#each MODES as mode (mode)}
+            <Row
+              label={t(`settings.theme_${mode}`)}
+              checked={prefs.mode === mode}
+              onclick={() => (prefs.mode = mode)}
+            />
+          {/each}
+        </Group>
         <Group note={t('settings.pureBlackHelp')}>
           {@render row({
             icon: 'palette',
@@ -472,14 +485,6 @@
               onclick={() => (prefs.uiSize = size)}
             />
           {/each}
-        </Group>
-        <Group note={t('settings.lightBackgroundHelp')}>
-          {@render row({
-            icon: 'eye',
-            label: t('settings.lightBackground'),
-            on: prefs.mode === 'light',
-            run: () => (prefs.mode = prefs.mode === 'light' ? 'dark' : 'light'),
-          })}
         </Group>
         <Group>
           {@render row({
