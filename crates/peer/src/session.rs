@@ -22,8 +22,9 @@ const BATCH: usize = 4 * 1024 * 1024;
 const PING_EVERY: Duration = Duration::from_secs(30);
 /// Nothing at all for this long and the other side is gone.
 const SILENT_FOR: Duration = Duration::from_secs(75);
-/// Writes come in bursts while typing: a round waits for this much quiet.
-pub(crate) const SETTLE: Duration = Duration::from_millis(1500);
+/// Writes come in bursts (an import, a note and its tags): a round starts
+/// this long after the first of them.
+pub(crate) const SETTLE: Duration = Duration::from_millis(500);
 
 /// The other side's hello.
 pub(crate) struct Hello {
