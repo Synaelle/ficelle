@@ -2,8 +2,9 @@
 
 //! Sync with this person's other devices on the same network (`app-peer`),
 //! wired to the open vault. A watcher thread starts and stops the node with
-//! the vault and, on a phone, with the app being in front, and starts a
-//! round when something was written here. The ui hears `local-sync-status`.
+//! the vault and, on a phone, with the app being in front. The node itself
+//! follows what is written here. The ui hears `local-sync-status`, and
+//! `sync-changed` when another device's changes were taken in.
 //!
 //! A vault uses a server or its devices, never both: the commands here
 //! refuse while a server is linked, and signing in refuses while a device
@@ -22,7 +23,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
 
-/// How often the watcher looks for writes and for the vault.
+/// How often the watcher looks for the vault.
 const WATCH_EVERY: Duration = Duration::from_millis(500);
 
 /// The node's view of the app.
@@ -290,30 +291,22 @@ impl Local {
     }
 }
 
-/// Follows the vault and the writes made here.
+/// Follows the vault.
 fn watch(app: &AppHandle) {
     let local = app.state::<Local>();
     let Some(node) = local.node() else { return };
     let mut wanted = false;
-    let mut last_change: Option<i64> = None;
     let mut sent: Option<LocalStatus> = None;
     let mut ticks = 0u32;
     loop {
         let state = app.state::<AppState>();
-        let change = state.quietly(|s| s.store.peer_last_change());
-        let open = change.is_ok();
+        let open = state.session().is_some();
         let now_wanted = open && local.foreground.load(Ordering::SeqCst);
         if now_wanted != wanted {
             wanted = now_wanted;
             #[cfg(target_os = "android")]
             android::multicast(wanted);
             node.set_wanted(wanted);
-        }
-        if let Ok(change) = change {
-            if last_change.is_some() && change != last_change {
-                node.kick();
-            }
-            last_change = change;
         }
         // the code's seconds left, a phone that went away, a device that
         // reconnects: the status is sent again when it differs

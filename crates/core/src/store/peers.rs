@@ -326,6 +326,19 @@ impl Store {
             })?)
     }
 
+    /// A mark that moves with every change made here, and only then:
+    /// changes taken in from another device leave it alone. `None` when
+    /// nothing changed here yet.
+    ///
+    /// # Errors
+    ///
+    /// Database errors.
+    pub fn peer_write_mark(&self) -> Result<Option<i64>> {
+        Ok(self
+            .conn
+            .query_row("SELECT max(seq) FROM sync_outbox", [], |row| row.get(0))?)
+    }
+
     /// The version of each document of the personal space, Loro's encoding.
     ///
     /// # Errors

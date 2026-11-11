@@ -29,6 +29,8 @@ const RETRY_AFTER: Duration = Duration::from_secs(20);
 /// After a device that is not paired here, or on another version.
 const RETRY_STRANGER: Duration = Duration::from_mins(5);
 const TICK: Duration = Duration::from_millis(500);
+/// How often the vault is looked at for something written here.
+const WRITES_EVERY: Duration = Duration::from_millis(250);
 /// A device dials have failed to reach, the way a firewall makes them fail,
 /// for this long: the settings say what to allow.
 pub(crate) const BLOCKED_AFTER: Duration = Duration::from_mins(1);
@@ -271,6 +273,16 @@ impl<H: Host> Shared<H> {
             slot.kicked = None;
         }
         due
+    }
+
+    /// Something was written here: each session starts a round once the
+    /// writing pauses.
+    fn kick(&self) {
+        let mut state = self.lock();
+        let now = Instant::now();
+        for slot in state.sessions.values_mut() {
+            slot.kicked.get_or_insert(now);
+        }
     }
 
     pub(crate) fn take_wants(&self, key: &[u8; 32], id: u64) -> Vec<String> {
@@ -645,6 +657,22 @@ impl<H: Host> Shared<H> {
         }
     }
 
+    /// Follows the writes made here, by the mark the vault keeps of them,
+    /// and starts a round for each. The first look starts one too, so a
+    /// write made just before it is never missed.
+    fn follow_writes(self: &Arc<Self>, generation: u64) {
+        let mut seen: Option<Option<i64>> = None;
+        while self.generation_alive(generation) {
+            if let Ok(mark) = store(&*self.host, |s, _| s.peer_write_mark())
+                && seen != Some(mark)
+            {
+                self.kick();
+                seen = Some(mark);
+            }
+            std::thread::sleep(WRITES_EVERY);
+        }
+    }
+
     fn listen(self: &Arc<Self>, listener: &TcpListener, generation: u64) {
         while self.generation_alive(generation) {
             match listener.accept() {
@@ -807,6 +835,10 @@ impl<H: Host> Shared<H> {
         let _ = std::thread::Builder::new()
             .name("peer-dialer".into())
             .spawn(move || shared.dialer(generation));
+        let shared = self.clone();
+        let _ = std::thread::Builder::new()
+            .name("peer-writes".into())
+            .spawn(move || shared.follow_writes(generation));
         if let Some(receiver) = receiver {
             let shared = self.clone();
             let _ = std::thread::Builder::new()
@@ -889,17 +921,6 @@ impl<H: Host> Node<H> {
     /// Checks whether to run, after something that could change it.
     pub fn refresh(&self) {
         self.shared.refresh();
-    }
-
-    /// Something was written here: each session starts a round once the
-    /// writing pauses.
-    pub fn kick(&self) {
-        let shared = self.shared();
-        let mut state = shared.lock();
-        let now = Instant::now();
-        for slot in state.sessions.values_mut() {
-            slot.kicked.get_or_insert(now);
-        }
     }
 
     /// A round with every connected device now, and a new try for the

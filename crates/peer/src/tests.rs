@@ -147,9 +147,8 @@ fn pairing_by_address_then_notes_and_files_go_both_ways() {
     assert_eq!(keys(&ha).len(), 1);
     assert_eq!(keys(&hb)[0].name, "Desktop");
 
-    // a write on b reaches a while both stay connected
+    // a write on b reaches a while both stay connected, by itself
     let id = note(&hb, "From the phone", "typed on the bus");
-    b.kick();
     until("a has b's note", || has_note(&ha, "From the phone"));
     ha.s(|s, _| {
         s.update_note(
@@ -161,7 +160,6 @@ fn pairing_by_address_then_notes_and_files_go_both_ways() {
         )
     })
     .unwrap();
-    a.kick();
     until("b has a's edit", || {
         hb.s(|s, _| s.note(id)).unwrap().body.contains("at home")
     });
@@ -404,4 +402,110 @@ fn a_device_out_of_reach_the_way_a_firewall_does_it_shows_after_a_minute() {
     ha.s(|s, _| s.peer_forget(&phone)).unwrap();
     a.forget(&phone);
     assert_eq!(a.status().blocked.len(), 1);
+}
+
+type Device = (Node<TestHost>, Arc<TestHost>);
+
+/// Two nodes without discovery, paired, `b` having dialled `a`.
+fn paired() -> (Device, Device) {
+    let (a, ha, _) = hidden_node("Desktop");
+    let (b, hb, _) = hidden_node("Phone");
+    let shown = a.start_pairing().unwrap();
+    b.pair_with_code(&shown.code, Some(&address(&a))).unwrap();
+    until("both say synced", || {
+        let synced = |n: &Node<TestHost>| n.status().live.values().any(|l| *l == Live::Synced);
+        synced(&a) && synced(&b)
+    });
+    ((a, ha), (b, hb))
+}
+
+fn body(host: &TestHost, id: app_core::id::NoteId) -> String {
+    host.s(|s, _| s.note(id))
+        .map(|n| n.body)
+        .unwrap_or_default()
+}
+
+fn edit(host: &TestHost, id: app_core::id::NoteId, body: &str) {
+    host.s(|s, _| {
+        s.update_note(
+            id,
+            NoteChange {
+                body: Some(body.into()),
+                ..NoteChange::default()
+            },
+        )
+    })
+    .unwrap();
+}
+
+#[test]
+fn the_first_change_ever_made_on_a_device_reaches_the_other_by_itself() {
+    let ((_a, ha), (_b, hb)) = paired();
+    // every note so far was written on a: b never changed anything
+    let id = note(&ha, "Shopping", "milk");
+    until("b has the note", || has_note(&hb, "Shopping"));
+    assert_eq!(hb.s(|s, _| s.peer_write_mark()).unwrap(), None);
+    edit(&hb, id, "milk, bread");
+    until("a has b's first edit, a doing nothing", || {
+        body(&ha, id) == "milk, bread"
+    });
+    // and it goes on both ways, each change told once to the app
+    let told = ha.changed.load(Ordering::SeqCst);
+    edit(&hb, id, "milk, bread, eggs");
+    until("a has b's second edit", || {
+        body(&ha, id) == "milk, bread, eggs"
+    });
+    edit(&ha, id, "milk, bread, eggs, salt");
+    until("b has a's edit", || {
+        body(&hb, id) == "milk, bread, eggs, salt"
+    });
+    assert_eq!(ha.changed.load(Ordering::SeqCst), told + 1);
+}
+
+#[test]
+fn a_change_taken_in_does_not_come_back_and_nothing_runs_when_idle() {
+    let ((a, ha), (b, hb)) = paired();
+    let id = note(&ha, "Shopping", "milk");
+    until("b has the note", || has_note(&hb, "Shopping"));
+    edit(&hb, id, "milk, bread");
+    until("a has b's edit", || body(&ha, id) == "milk, bread");
+    // let any round still running end
+    std::thread::sleep(Duration::from_secs(2));
+    let synced_at = |h: &TestHost| h.s(|s, _| s.peer_devices()).unwrap()[0].last_sync_at;
+    let before = (
+        ha.changed.load(Ordering::SeqCst),
+        hb.changed.load(Ordering::SeqCst),
+        ha.s(|s, _| s.peer_write_mark()).unwrap(),
+        hb.s(|s, _| s.peer_write_mark()).unwrap(),
+    );
+    // a round would note a later time
+    let rounds = (synced_at(&ha), synced_at(&hb));
+    std::thread::sleep(Duration::from_secs(3));
+    let after = (
+        ha.changed.load(Ordering::SeqCst),
+        hb.changed.load(Ordering::SeqCst),
+        ha.s(|s, _| s.peer_write_mark()).unwrap(),
+        hb.s(|s, _| s.peer_write_mark()).unwrap(),
+    );
+    assert_eq!(before, after, "something went on while idle");
+    assert_eq!(
+        rounds,
+        (synced_at(&ha), synced_at(&hb)),
+        "a round while idle"
+    );
+    let synced = |n: &Node<TestHost>| n.status().live.values().all(|l| *l == Live::Synced);
+    assert!(synced(&a) && synced(&b));
+}
+
+#[test]
+fn edits_made_on_both_devices_at_once_merge_on_both() {
+    let ((_a, ha), (_b, hb)) = paired();
+    let id = note(&ha, "Trip", "Pack light.\n\nLeave on Monday.");
+    until("b has the note", || has_note(&hb, "Trip"));
+    edit(&ha, id, "Pack light, and a raincoat.\n\nLeave on Monday.");
+    edit(&hb, id, "Pack light.\n\nLeave on Monday at seven.");
+    let merged = "Pack light, and a raincoat.\n\nLeave on Monday at seven.";
+    until("both hold both edits", || {
+        body(&ha, id) == merged && body(&hb, id) == merged
+    });
 }

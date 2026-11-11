@@ -100,6 +100,30 @@ fn notes_tags_and_pins_reach_the_other_device_and_nothing_echoes() {
 }
 
 #[test]
+fn the_write_mark_moves_with_each_change_made_here_and_only_then() {
+    let (mut a, _) = device(1_000_000);
+    let (mut b, _) = device(1_000_000);
+    assert_eq!(b.peer_write_mark().unwrap(), None);
+    let id = note_with(&mut a, "Tomatoes", "Six cedar posts");
+    let on_a = a.peer_write_mark().unwrap();
+    assert!(on_a.is_some());
+    meet(&mut a, &mut b);
+    assert_eq!(
+        b.peer_write_mark().unwrap(),
+        None,
+        "taking changes in is not a change made here"
+    );
+    assert_eq!(a.peer_write_mark().unwrap(), on_a);
+    // the first change ever made on b moves it, and so does the next one,
+    // made within the same millisecond
+    edit_body(&mut b, id, "Six cedar posts, two bags of soil");
+    let first = b.peer_write_mark().unwrap();
+    assert!(first.is_some());
+    edit_body(&mut b, id, "Six cedar posts, three bags of soil");
+    assert!(b.peer_write_mark().unwrap() > first);
+}
+
+#[test]
 fn two_vaults_with_their_own_notes_come_together() {
     let (mut a, _) = device(1_000_000);
     let (mut b, _) = device(2_000_000);
