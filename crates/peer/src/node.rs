@@ -121,6 +121,9 @@ struct Slot {
     /// A round now, without waiting for quiet.
     now: bool,
     stop: bool,
+    /// Another connection with this device was turned away for this one:
+    /// it has to show it still answers.
+    probe: bool,
     /// The address dialled, when this side dialled.
     address: Option<SocketAddr>,
     /// Files opened here that the other device may have, by hash.
@@ -275,6 +278,15 @@ impl<H: Host> Shared<H> {
         due
     }
 
+    pub(crate) fn take_probe(&self, key: &[u8; 32], id: u64) -> bool {
+        let mut state = self.lock();
+        state
+            .sessions
+            .get_mut(key)
+            .filter(|s| s.id == id)
+            .is_some_and(|s| std::mem::take(&mut s.probe))
+    }
+
     /// Something was written here: each session starts a round once the
     /// writing pauses.
     fn kick(&self) {
@@ -345,6 +357,9 @@ impl<H: Host> Shared<H> {
         };
         if let Some(old) = state.sessions.get_mut(&key) {
             if !new_wins {
+                // the device may be dialling again because the connection
+                // kept here died without a word
+                old.probe = true;
                 return None;
             }
             old.stop = true;
@@ -359,6 +374,7 @@ impl<H: Host> Shared<H> {
                 kicked: None,
                 now: false,
                 stop: false,
+                probe: false,
                 address: dialled,
                 wants: Vec::new(),
             },

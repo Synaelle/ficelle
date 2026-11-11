@@ -12,6 +12,7 @@ use app_core::blobs::{BlobStore, sha256_hex};
 use app_core::store::{NewNote, NoteChange, Store};
 
 use crate::session::{Hello, mismatch};
+use crate::wire::{self, Incoming, Msg};
 use crate::{Error, Host, Live, Me, Node, channel};
 
 struct TestHost {
@@ -528,4 +529,108 @@ fn a_change_reaches_a_device_that_only_a_third_one_connects_to() {
         body(&ha, id) == "milk, bread"
     });
     assert_eq!(body(&hb, id), "milk, bread");
+}
+
+/// Pairs `node` with a phone made by hand, whose key sorts after the
+/// node's own: of two connections the phone dials, the node keeps the
+/// first. The phone's secret.
+fn pair_by_hand(node: &Node<TestHost>, host: &TestHost) -> [u8; 32] {
+    // showing a code makes the node's own key
+    node.start_pairing().unwrap();
+    node.cancel_pairing();
+    let own = channel::public_key(&host.s(|s, _| s.peer_secret()).unwrap().unwrap()).unwrap();
+    let (secret, key) = loop {
+        let secret = channel::new_secret().unwrap();
+        let key = channel::public_key(&secret).unwrap();
+        if key > own {
+            break (secret, key);
+        }
+    };
+    host.s(|s, _| s.peer_pair(&key, "Phone", "android", "0.6.0-test"))
+        .unwrap();
+    node.refresh();
+    until("the node runs", || node.status().running);
+    secret
+}
+
+/// A paired device made by hand: dials `node` and says hello, as the
+/// app does, then is whatever the test makes of the channel.
+fn dial_by_hand(node: &Node<TestHost>, host: &TestHost, secret: &[u8; 32]) -> channel::Channel {
+    let key = channel::public_key(&host.s(|s, _| s.peer_secret()).unwrap().unwrap()).unwrap();
+    let stream = TcpStream::connect(address(node)).unwrap();
+    let mut ch = channel::dial_sync(stream, secret, &key).unwrap();
+    ch.send(&wire::encode(&Msg::Hello {
+        name: "Phone".into(),
+        platform: "android".into(),
+        version: "0.6.0-test".into(),
+        min_protocol: app_protocol::local::MIN_PROTOCOL,
+        protocol: app_protocol::local::PROTOCOL,
+        format: app_protocol::local::DATA_FORMAT,
+        port: None,
+    }))
+    .unwrap();
+    ch
+}
+
+/// Whether the node goes on talking on this connection: it sends its
+/// devices, and answers a ping.
+fn answers(ch: &mut channel::Channel) -> bool {
+    if ch.send(&wire::encode(&Msg::Ping)).is_err() {
+        return false;
+    }
+    let end = Instant::now() + Duration::from_secs(3);
+    while Instant::now() < end {
+        match ch.poll() {
+            Ok(Some(message)) => {
+                if matches!(wire::decode(&message), Ok(Incoming::Msg(Msg::Pong))) {
+                    return true;
+                }
+            }
+            Ok(None) => {}
+            Err(_) => return false,
+        }
+    }
+    false
+}
+
+#[test]
+fn a_connection_that_died_without_a_word_gives_way_when_the_device_dials_again() {
+    let (a, ha) = node("Desktop");
+    let secret = pair_by_hand(&a, &ha);
+    // the first connection goes silent, as when the phone leaves the
+    // network: it stays open and never reads or answers again
+    let silent = dial_by_hand(&a, &ha, &secret);
+    until("a has a session with the phone", || {
+        !a.status().live.is_empty()
+    });
+    // the phone is back and dials again: turned away at first, then let in
+    // once the old connection failed to answer
+    until("a talks to the phone on a new connection", || {
+        answers(&mut dial_by_hand(&a, &ha, &secret))
+    });
+    drop(silent);
+}
+
+#[test]
+fn a_connection_that_still_answers_is_kept_when_the_device_dials_twice() {
+    let (a, ha) = node("Desktop");
+    let secret = pair_by_hand(&a, &ha);
+    let mut first = dial_by_hand(&a, &ha, &secret);
+    assert!(answers(&mut first));
+    // quiet for a while, as two devices with nothing to say are
+    std::thread::sleep(Duration::from_secs(6));
+    // a second one is turned away, and the first is asked whether it is
+    // still there
+    let mut second = dial_by_hand(&a, &ha, &secret);
+    assert!(!answers(&mut second));
+    until("a asks the first connection", || {
+        matches!(
+            first.poll().map(|m| m.map(|m| wire::decode(&m))),
+            Ok(Some(Ok(Incoming::Msg(Msg::Ping))))
+        )
+    });
+    first.send(&wire::encode(&Msg::Pong)).unwrap();
+    // it said so, and stays past the time it had to answer
+    std::thread::sleep(Duration::from_secs(6));
+    assert!(answers(&mut first), "the live connection was dropped");
 }

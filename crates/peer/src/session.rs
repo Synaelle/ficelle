@@ -25,6 +25,8 @@ const SILENT_FOR: Duration = Duration::from_secs(75);
 /// Writes come in bursts (an import, a note and its tags): a round starts
 /// this long after the first of them.
 pub(crate) const SETTLE: Duration = Duration::from_millis(500);
+/// A connection asked to show it still answers has this long to.
+const PROBE_FOR: Duration = Duration::from_secs(5);
 
 /// The other side's hello.
 pub(crate) struct Hello {
@@ -131,6 +133,8 @@ struct Session<'a, H: Host> {
     id: u64,
     last_heard: Instant,
     last_said: Instant,
+    /// Since when an answer is awaited, see [`PROBE_FOR`].
+    probing: Option<Instant>,
 }
 
 impl<H: Host> Session<'_, H> {
@@ -272,17 +276,31 @@ impl<H: Host> Session<'_, H> {
             if !wants.is_empty() {
                 self.say(&Msg::Want { files: wants })?;
             }
+            // one heard from a moment ago is there, as when both devices
+            // dial each other at the same time
+            if self.shared.take_probe(&self.key, self.id)
+                && self.probing.is_none()
+                && self.last_heard.elapsed() > PROBE_FOR
+            {
+                self.say(&Msg::Ping)?;
+                self.probing = Some(Instant::now());
+            }
             if self.last_said.elapsed() > PING_EVERY {
                 self.say(&Msg::Ping)?;
             }
             match self.ch.poll()? {
                 Some(message) => {
                     self.last_heard = Instant::now();
+                    self.probing = None;
                     if !self.handle(wire::decode(&message)?)? {
                         return Ok(());
                     }
                 }
-                None if self.last_heard.elapsed() > SILENT_FOR => return Err(Error::Timeout),
+                None if self.last_heard.elapsed() > SILENT_FOR
+                    || self.probing.is_some_and(|at| at.elapsed() > PROBE_FOR) =>
+                {
+                    return Err(Error::Timeout);
+                }
                 None => {}
             }
         }
@@ -300,6 +318,7 @@ pub(crate) fn run<H: Host>(shared: &Shared<H>, ch: Channel, id: u64, starts: boo
         id,
         last_heard: Instant::now(),
         last_said: Instant::now(),
+        probing: None,
     };
     let outcome = session.run(starts);
     session.ch.close();
