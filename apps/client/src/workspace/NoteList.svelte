@@ -179,7 +179,8 @@
       ])
     }
     overlay.openMenu(event, [
-      { label: t('menu.open'), run: () => void workspace.open(note.id) },
+      // a phone opens a note with a tap, the menu only repeats it
+      ...(narrow ? [] : [{ label: t('menu.open'), run: () => void workspace.open(note.id) }]),
       {
         label: note.pinned ? t('note.unpin') : t('note.pin'),
         icon: 'pin',
@@ -344,7 +345,7 @@
           <button
             class="row"
             class:selected={workspace.current?.id === hit.noteId}
-            onclick={() => workspace.open(hit.noteId)}
+            onclick={() => workspace.openFound(hit.noteId)}
           >
             <span class="title">{hit.title || t('note.untitled')}</span>
             <span class="snippet">
