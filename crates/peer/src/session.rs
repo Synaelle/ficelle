@@ -199,6 +199,7 @@ impl<H: Host> Session<'_, H> {
                 let taken = store(&*self.shared.host, |s, _| s.peer_take(&changes))?;
                 if taken > 0 {
                     self.shared.host.changed();
+                    self.shared.pass_on(&self.key);
                 }
                 if last {
                     let wanted = self.wanted()?;

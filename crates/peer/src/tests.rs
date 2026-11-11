@@ -509,3 +509,23 @@ fn edits_made_on_both_devices_at_once_merge_on_both() {
         body(&ha, id) == merged && body(&hb, id) == merged
     });
 }
+
+#[test]
+fn a_change_reaches_a_device_that_only_a_third_one_connects_to() {
+    let (a, ha, _) = hidden_node("Desktop");
+    let (b, hb, _) = hidden_node("Laptop");
+    let (c, hc, _) = hidden_node("Phone");
+    // b pairs with a, then c with b: without discovery a and c learn of
+    // each other but have no address to meet at
+    let shown = a.start_pairing().unwrap();
+    b.pair_with_code(&shown.code, Some(&address(&a))).unwrap();
+    let shown = b.start_pairing().unwrap();
+    c.pair_with_code(&shown.code, Some(&address(&b))).unwrap();
+    let id = note(&ha, "Shopping", "milk");
+    until("c has a's note through b", || has_note(&hc, "Shopping"));
+    edit(&hc, id, "milk, bread");
+    until("a has c's edit through b", || {
+        body(&ha, id) == "milk, bread"
+    });
+    assert_eq!(body(&hb, id), "milk, bread");
+}

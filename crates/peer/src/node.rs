@@ -285,6 +285,18 @@ impl<H: Host> Shared<H> {
         }
     }
 
+    /// Changes came in from one device: the others connected get them
+    /// too, as two of them may not reach each other.
+    pub(crate) fn pass_on(&self, from: &[u8; 32]) {
+        let mut state = self.lock();
+        let now = Instant::now();
+        for (key, slot) in &mut state.sessions {
+            if key != from {
+                slot.kicked.get_or_insert(now);
+            }
+        }
+    }
+
     pub(crate) fn take_wants(&self, key: &[u8; 32], id: u64) -> Vec<String> {
         let mut state = self.lock();
         state
