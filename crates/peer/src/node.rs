@@ -124,8 +124,8 @@ struct Slot {
     /// Another connection with this device was turned away for this one:
     /// it has to show it still answers.
     probe: bool,
-    /// The devices known here changed: this one is told.
-    tell: bool,
+    /// The list of devices this one was last told, see [`State::devices`].
+    told: u64,
     /// The address dialled, when this side dialled.
     address: Option<SocketAddr>,
     /// Files opened here that the other device may have, by hash.
@@ -162,6 +162,8 @@ struct State {
     cooldown: HashMap<(SocketAddr, [u8; 32]), Instant>,
     dialing: HashSet<(SocketAddr, [u8; 32])>,
     discovery_error: Option<String>,
+    /// Grows each time the devices known here change.
+    devices: u64,
     /// Since when dials to a device fail as a firewall makes them fail,
     /// until a connection with it works, either way.
     unreachable: HashMap<[u8; 32], Instant>,
@@ -289,13 +291,16 @@ impl<H: Host> Shared<H> {
             .is_some_and(|s| std::mem::take(&mut s.probe))
     }
 
+    /// Whether the devices known here changed since this session was
+    /// last told of them.
     pub(crate) fn take_tell(&self, key: &[u8; 32], id: u64) -> bool {
         let mut state = self.lock();
+        let devices = state.devices;
         state
             .sessions
             .get_mut(key)
             .filter(|s| s.id == id)
-            .is_some_and(|s| std::mem::take(&mut s.tell))
+            .is_some_and(|s| std::mem::replace(&mut s.told, devices) != devices)
     }
 
     /// A device was paired, learned of or forgotten here: every device
@@ -303,9 +308,7 @@ impl<H: Host> Shared<H> {
     /// where it turned this one away before knowing it.
     pub(crate) fn devices_changed(&self) {
         let mut state = self.lock();
-        for slot in state.sessions.values_mut() {
-            slot.tell = true;
-        }
+        state.devices += 1;
         state.cooldown.clear();
         drop(state);
         self.wake.notify_all();
@@ -391,6 +394,7 @@ impl<H: Host> Shared<H> {
         state.unreachable.remove(&key);
         state.next_id += 1;
         let id = state.next_id;
+        let told = state.devices;
         state.sessions.insert(
             key,
             Slot {
@@ -399,7 +403,7 @@ impl<H: Host> Shared<H> {
                 now: false,
                 stop: false,
                 probe: false,
-                tell: false,
+                told,
                 address: dialled,
                 wants: Vec::new(),
             },
