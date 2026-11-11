@@ -249,6 +249,12 @@ impl Store {
                     device.forgotten_at
                 ],
             )?;
+            // where the other device reaches it, until it answers here
+            changed += tx.execute(
+                "UPDATE peer_devices SET address = ?2
+                 WHERE key = ?1 AND address IS NULL AND ?2 IS NOT NULL",
+                params![device.key, device.address],
+            )?;
         }
         tx.commit()?;
         Ok(changed > 0)

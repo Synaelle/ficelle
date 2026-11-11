@@ -50,6 +50,10 @@ pub(crate) struct Device {
     pub platform: String,
     pub paired_at: i64,
     pub forgotten_at: Option<i64>,
+    /// Where the sender last reached it, for a device that learns of it
+    /// here and cannot find it by discovery.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

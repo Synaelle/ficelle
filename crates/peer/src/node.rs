@@ -124,6 +124,8 @@ struct Slot {
     /// Another connection with this device was turned away for this one:
     /// it has to show it still answers.
     probe: bool,
+    /// The devices known here changed: this one is told.
+    tell: bool,
     /// The address dialled, when this side dialled.
     address: Option<SocketAddr>,
     /// Files opened here that the other device may have, by hash.
@@ -287,6 +289,28 @@ impl<H: Host> Shared<H> {
             .is_some_and(|s| std::mem::take(&mut s.probe))
     }
 
+    pub(crate) fn take_tell(&self, key: &[u8; 32], id: u64) -> bool {
+        let mut state = self.lock();
+        state
+            .sessions
+            .get_mut(key)
+            .filter(|s| s.id == id)
+            .is_some_and(|s| std::mem::take(&mut s.tell))
+    }
+
+    /// A device was paired, learned of or forgotten here: every device
+    /// connected hears of it, and a device just learned of is tried now,
+    /// where it turned this one away before knowing it.
+    pub(crate) fn devices_changed(&self) {
+        let mut state = self.lock();
+        for slot in state.sessions.values_mut() {
+            slot.tell = true;
+        }
+        state.cooldown.clear();
+        drop(state);
+        self.wake.notify_all();
+    }
+
     /// Something was written here: each session starts a round once the
     /// writing pauses.
     fn kick(&self) {
@@ -375,6 +399,7 @@ impl<H: Host> Shared<H> {
                 now: false,
                 stop: false,
                 probe: false,
+                tell: false,
                 address: dialled,
                 wants: Vec::new(),
             },
@@ -593,6 +618,7 @@ impl<H: Host> Shared<H> {
             }));
             return Err(e);
         }
+        self.devices_changed();
         Ok(hello.name)
     }
 
@@ -987,6 +1013,7 @@ impl<H: Host> Node<H> {
             state.live.remove(&key);
             state.unreachable.remove(&key);
         }
+        shared.devices_changed();
         self.refresh();
     }
 

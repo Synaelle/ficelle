@@ -531,6 +531,49 @@ fn a_change_reaches_a_device_that_only_a_third_one_connects_to() {
     assert_eq!(body(&hb, id), "milk, bread");
 }
 
+#[test]
+fn a_device_paired_later_is_learned_of_and_reached_without_the_one_between() {
+    let (a, ha, _) = hidden_node("Desktop");
+    let (b, hb, _) = hidden_node("Laptop");
+    let (c, hc, _) = hidden_node("Phone");
+    let shown = a.start_pairing().unwrap();
+    b.pair_with_code(&shown.code, Some(&address(&a))).unwrap();
+    until("a and b synced", || {
+        a.status().live.values().any(|l| *l == Live::Synced)
+    });
+    // c pairs with b only, while a and b are already connected
+    let shown = b.start_pairing().unwrap();
+    c.pair_with_code(&shown.code, Some(&address(&b))).unwrap();
+    let knows = |h: &TestHost, name: &str| {
+        h.s(|s, _| s.peer_devices())
+            .unwrap()
+            .iter()
+            .any(|d| d.name == name && d.active())
+    };
+    until("a learns of c through b", || knows(&ha, "Phone"));
+    until("c learns of a through b", || knows(&hc, "Desktop"));
+    until("a and c connect", || {
+        a.status().live.len() == 2 && c.status().live.len() == 2
+    });
+    // the one between goes away: a and c go on by themselves
+    b.set_wanted(false);
+    until("b stopped", || !b.status().running);
+    let id = note(&ha, "Shopping", "milk");
+    until("c has a's note without b", || has_note(&hc, "Shopping"));
+    edit(&hc, id, "milk, bread");
+    until("a has c's edit without b", || {
+        body(&ha, id) == "milk, bread"
+    });
+    assert!(!has_note(&hb, "Shopping"));
+    // a device forgotten on one is forgotten by all it is connected to
+    let c_key = hc.s(|s, _| s.peer_secret()).unwrap().unwrap();
+    let c_key = channel::public_key(&c_key).unwrap();
+    ha.s(|s, _| s.peer_forget(&c_key)).unwrap();
+    a.forget(&c_key);
+    b.set_wanted(true);
+    until("b hears c was forgotten", || !knows(&hb, "Phone"));
+}
+
 /// Pairs `node` with a phone made by hand, whose key sorts after the
 /// node's own: of two connections the phone dials, the node keeps the
 /// first. The phone's secret.

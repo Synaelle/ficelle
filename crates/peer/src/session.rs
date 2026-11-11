@@ -104,6 +104,7 @@ fn device_list(devices: &[PeerDevice]) -> Vec<Device> {
             platform: d.platform.clone(),
             paired_at: d.paired_at,
             forgotten_at: d.forgotten_at,
+            address: d.address.clone(),
         })
         .collect()
 }
@@ -117,7 +118,7 @@ fn learned(devices: Vec<Device>) -> Vec<PeerDevice> {
                 name: d.name,
                 platform: d.platform,
                 version: String::new(),
-                address: None,
+                address: d.address,
                 paired_at: d.paired_at,
                 last_sync_at: None,
                 forgotten_at: d.forgotten_at,
@@ -246,17 +247,22 @@ impl<H: Host> Session<'_, H> {
         let own = self.shared.public();
         let list = learned(devices);
         if store(&*self.shared.host, |s, _| s.peer_learn(&list, &own))? {
+            self.shared.devices_changed();
             self.shared.host.status_changed();
         }
         Ok(())
     }
 
-    /// Rounds until one side closes or this session is told to stop.
-    fn run(&mut self, starts: bool) -> Result<(), Error> {
+    fn devices(&mut self) -> Result<(), Error> {
         let devices = store(&*self.shared.host, |s, _| s.peer_devices())?;
         self.say(&Msg::Devices {
             devices: device_list(&devices),
-        })?;
+        })
+    }
+
+    /// Rounds until one side closes or this session is told to stop.
+    fn run(&mut self, starts: bool) -> Result<(), Error> {
+        self.devices()?;
         if starts {
             self.shared.set_live(&self.key, Live::Syncing);
             self.versions(true)?;
@@ -271,6 +277,9 @@ impl<H: Host> Session<'_, H> {
             if self.shared.take_kick(&self.key, self.id) {
                 self.shared.set_live(&self.key, Live::Syncing);
                 self.versions(true)?;
+            }
+            if self.shared.take_tell(&self.key, self.id) {
+                self.devices()?;
             }
             let wants = self.shared.take_wants(&self.key, self.id);
             if !wants.is_empty() {
