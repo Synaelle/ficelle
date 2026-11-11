@@ -17,7 +17,8 @@ use crate::blobs::BlobStore;
 use crate::error::{Error, Result};
 use crate::id::NoteId;
 use crate::store::{
-    BackupAttachment, BackupData, BackupFolder, BackupNote, BackupVersion, RestoreReport, Store,
+    BackupAttachment, BackupData, BackupFolder, BackupNote, BackupTag, BackupVersion,
+    RestoreReport, Store,
 };
 use crate::vault::{Encryption, Vault};
 
@@ -164,6 +165,9 @@ fn run(
     let mut folders = data.folders.clone();
     folders.sort_by_key(|f| f.id.to_string());
     add(&mut writer, "folders".into(), &json(&folders)?)?;
+    if let Some(tags) = &data.tags {
+        add(&mut writer, "tags".into(), &json(tags)?)?;
+    }
 
     for item in note_items(data) {
         add(
@@ -290,6 +294,14 @@ fn snapshot_data(repo: &Repo, index: &Index, snapshot: &Snapshot) -> Result<Back
         .ok_or_else(|| Error::Corrupt("the snapshot has no folders".into()))?;
     data.folders = serde_json::from_slice::<Vec<BackupFolder>>(&read_all(repo, index, folders)?)
         .map_err(|e| Error::Corrupt(format!("folders: {e}")))?;
+    // a snapshot made before tags held tags has none: its folders become tags
+    data.tags = snapshot
+        .item("tags")
+        .map(|item| {
+            serde_json::from_slice::<Vec<BackupTag>>(&read_all(repo, index, item)?)
+                .map_err(|e| Error::Corrupt(format!("tags: {e}")))
+        })
+        .transpose()?;
     for item in snapshot
         .items
         .iter()

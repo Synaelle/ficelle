@@ -24,8 +24,9 @@ use crate::crypto::KdfParams;
 use crate::error::{Error, Result};
 use crate::store::{BackupData, RestoreReport, Store};
 
-/// The format this version writes, and the newest it reads.
-pub const FORMAT: u32 = 1;
+/// The format this version writes, and the newest it reads. 2: folders are
+/// tags, an older app would put the notes back in folders without them.
+pub const FORMAT: u32 = 2;
 
 /// The start of an encrypted backup. A plain one starts like any zip.
 const MAGIC: &[u8; 12] = b"NOTES BACKUP";

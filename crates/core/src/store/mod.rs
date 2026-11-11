@@ -33,7 +33,7 @@ use crate::model::{Note, NoteSummary};
 pub use attachments::{FileKeying, FileUse, Released};
 pub(crate) use attachments::{FileRow, file_rows, free_name, replace_file_rows};
 pub use backup::{
-    BackupAttachment, BackupData, BackupFolder, BackupNote, BackupVersion, RestoreReport,
+    BackupAttachment, BackupData, BackupFolder, BackupNote, BackupTag, BackupVersion, RestoreReport,
 };
 pub use conflicts::{NoteConflict, Resolution};
 pub(crate) use history::save_text as history_save;

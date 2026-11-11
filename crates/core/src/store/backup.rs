@@ -97,12 +97,28 @@ pub struct BackupAttachment {
     pub thumb_sha256: Option<String>,
 }
 
+/// A tag made on its own or with a colour mark.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct BackupTag {
+    /// Its path.
+    pub name: String,
+    /// Kept without any note.
+    pub explicit: bool,
+    /// Its colour mark.
+    pub color: Option<String>,
+}
+
 /// Everything a backup holds but the files' content.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct BackupData {
-    /// Folders.
+    /// Folders, kept for older devices and the way back: a note's folder is
+    /// one of its tags.
     pub folders: Vec<BackupFolder>,
+    /// Tags made on their own and colour marks. `None` in a backup made
+    /// before tags held tags: its folders become tags when restored.
+    pub tags: Option<Vec<BackupTag>>,
     /// Notes.
     pub notes: Vec<BackupNote>,
     /// Versions of notes.
@@ -143,6 +159,24 @@ pub struct RestoreReport {
 /// Notes per transaction when restoring.
 const BATCH: usize = 500;
 
+/// The tags a backup keeps beside its notes': made on their own or coloured.
+fn kept_tags(conn: &rusqlite::Connection) -> Result<Vec<BackupTag>> {
+    let mut stmt = conn.prepare(
+        "SELECT name, explicit, color FROM tags
+         WHERE explicit = 1 OR color IS NOT NULL ORDER BY name",
+    )?;
+    let tags = stmt
+        .query_map([], |r| {
+            Ok(BackupTag {
+                name: r.get(0)?,
+                explicit: r.get(1)?,
+                color: r.get(2)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(tags)
+}
+
 impl Store {
     /// Everything of the vault a backup keeps: folders, notes with their
     /// tags, history, and the descriptions of the files in use.
@@ -151,7 +185,10 @@ impl Store {
     ///
     /// Database errors.
     pub fn backup_data(&self) -> Result<BackupData> {
-        let mut data = BackupData::default();
+        let mut data = BackupData {
+            tags: Some(kept_tags(&self.conn)?),
+            ..BackupData::default()
+        };
         let mut stmt = self.conn.prepare(
             "SELECT id, parent_id, name, position, created_at, updated_at, trashed_at
              FROM folders ORDER BY position, id",
@@ -279,6 +316,14 @@ impl Store {
             ..RestoreReport::default()
         };
         let now = self.now();
+        let paths = folders::path_of(
+            &data
+                .folders
+                .iter()
+                .map(|f| (f.id, f.parent_id, f.name.clone()))
+                .collect::<Vec<_>>(),
+        );
+        self.restore_tags(data, &paths)?;
 
         let present = self.notes_present(&data.notes.iter().map(|n| n.id).collect::<Vec<_>>())?;
         report.skipped = present.len();
@@ -325,7 +370,13 @@ impl Store {
                         space
                     ],
                 )?;
-                tags::replace_note_tags(&tx, note.id, &note.tags, now)?;
+                // in a backup made before tags held tags, a note's folder
+                // becomes one of its tags
+                let mut names = note.tags.clone();
+                if data.tags.is_none() {
+                    names.extend(note.folder_id.and_then(|f| paths.get(&f)).cloned());
+                }
+                tags::replace_note_tags(&tx, note.id, &names, now)?;
                 for v in versions.get(&note.id).into_iter().flatten() {
                     report.versions += tx.execute(
                         "INSERT OR IGNORE INTO note_versions (id, note_id, title, body, created_at, reason)
@@ -361,6 +412,43 @@ impl Store {
             crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
         }
         Ok(report)
+    }
+
+    /// The tags kept without notes and the colour marks of a backup, or for
+    /// one made before tags held tags, a tag for each folder not in the
+    /// trash. A colour set here stays.
+    fn restore_tags(&mut self, data: &BackupData, paths: &HashMap<FolderId, String>) -> Result<()> {
+        let kept: Vec<BackupTag> = match &data.tags {
+            Some(tags) => tags.clone(),
+            None => data
+                .folders
+                .iter()
+                .filter(|f| f.trashed_at.is_none())
+                .filter_map(|f| paths.get(&f.id))
+                .map(|name| BackupTag {
+                    name: name.clone(),
+                    explicit: true,
+                    color: None,
+                })
+                .collect(),
+        };
+        let now = self.now();
+        let tx = self.conn.transaction()?;
+        for tag in kept {
+            let name = tags::normalize(&tag.name);
+            if name.is_empty() {
+                continue;
+            }
+            let id = tags::tag_id_for(&tx, &name, now)?;
+            tx.execute(
+                "UPDATE tags SET explicit = max(explicit, ?2), color = coalesce(color, ?3)
+                 WHERE id = ?1",
+                params![id, tag.explicit, tag.color],
+            )?;
+        }
+        tags::drop_unused_tags(&tx)?;
+        crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
+        Ok(())
     }
 
     /// The folders of a backup missing here, parents first, in one
@@ -431,5 +519,89 @@ impl Store {
         }
         crate::sync::finish(tx, &mut self.docs, now)?;
         Ok(made)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{BackupData, BackupFolder, BackupNote};
+    use crate::id::{FolderId, NoteId};
+    use crate::store::test_support::store;
+
+    fn folder(id: FolderId, parent: Option<FolderId>, name: &str, trashed: bool) -> BackupFolder {
+        BackupFolder {
+            id,
+            parent_id: parent,
+            name: name.into(),
+            position: 0,
+            created_at: 1,
+            updated_at: 1,
+            trashed_at: trashed.then_some(2),
+        }
+    }
+
+    #[test]
+    fn a_backup_from_before_nested_tags_brings_its_folders_back_as_tags() {
+        let (projects, garden, empty, old) = (
+            FolderId::new(),
+            FolderId::new(),
+            FolderId::new(),
+            FolderId::new(),
+        );
+        let note = NoteId::new();
+        let data = BackupData {
+            folders: vec![
+                folder(projects, None, "Projects", false),
+                folder(garden, Some(projects), "Garden", false),
+                folder(empty, None, "Empty", false),
+                folder(old, None, "Old", true),
+            ],
+            tags: None,
+            notes: vec![BackupNote {
+                id: note,
+                folder_id: Some(garden),
+                title: "Beans".into(),
+                body: String::new(),
+                pinned: false,
+                tags: vec!["todo".into()],
+                created_at: 1,
+                updated_at: 1,
+                trashed_at: None,
+            }],
+            ..BackupData::default()
+        };
+        let (mut store, _) = store();
+        store.restore_backup(&data, &|_| false).unwrap();
+        assert_eq!(store.note(note).unwrap().tags, ["Projects/Garden", "todo"]);
+        let names: Vec<String> = store
+            .list_tags()
+            .unwrap()
+            .into_iter()
+            .map(|t| t.name)
+            .collect();
+        assert_eq!(names, ["Empty", "Projects", "Projects/Garden", "todo"]);
+    }
+
+    #[test]
+    fn tags_made_alone_and_colours_come_back_with_a_backup() {
+        let (mut a, _) = store();
+        let later = a.create_tag("Ideas/Later").unwrap();
+        a.set_tag_color(later, Some("blue")).unwrap();
+        let data = a.backup_data().unwrap();
+        let (mut b, _) = store();
+        b.restore_backup(&data, &|_| false).unwrap();
+        let tags: Vec<(String, Option<String>)> = b
+            .list_tags()
+            .unwrap()
+            .into_iter()
+            .map(|t| (t.name, t.color))
+            .collect();
+        assert_eq!(
+            tags,
+            [
+                ("Ideas".into(), None),
+                ("Ideas/Later".into(), Some("blue".into()))
+            ]
+        );
     }
 }
