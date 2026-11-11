@@ -184,15 +184,7 @@ Categories=Office;Utility;
 
 /** @param {{ slug: string }} values */
 const linuxBundle = (values) => ({
-  // what the deb and rpm say about themselves in package managers
-  shortDescription: 'A lightweight, private notes app for your computer and your phone.',
-  homepage: 'https://ficelle.synaelle.com',
-  license: 'AGPL-3.0-or-later',
-  category: 'Productivity',
-  linux: {
-    deb: { desktopTemplate: `linux/${values.slug}.desktop` },
-    rpm: { desktopTemplate: `linux/${values.slug}.desktop` },
-  },
+  linux: { deb: { desktopTemplate: `linux/${values.slug}.desktop` } },
 })
 
 /**

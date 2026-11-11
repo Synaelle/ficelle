@@ -1,10 +1,10 @@
 name: linux
 
-# The Linux AppImage, deb and rpm, built on the oldest supported Ubuntu (its
-# glibc is the oldest the AppImage runs on). release.yml calls it for each
-# release, the AppImage signed for the app updater with the
-# TAURI_SIGNING_PRIVATE_KEY secret, and attaches them. A manual run builds
-# them unsigned from the chosen branch, kept as an artifact for a week.
+# The Linux AppImage, built on the oldest supported Ubuntu (its glibc is the
+# oldest the AppImage runs on). release.yml calls it for each release, signed
+# for the app updater with the TAURI_SIGNING_PRIVATE_KEY secret, and attaches
+# it. A manual run builds an unsigned AppImage of the chosen branch, kept as
+# an artifact for a week.
 
 on:
   workflow_call:
@@ -57,10 +57,10 @@ jobs:
             echo "::error::the TAURI_SIGNING_PRIVATE_KEY secret is missing"
             exit 1
           fi
-          node tools/build-release.mjs -- --bundles appimage,deb,rpm
+          node tools/build-release.mjs -- --bundles appimage
       - name: build, unsigned
         if: ${{ !inputs.signed }}
-        run: node tools/build-release.mjs --unsigned -- --bundles appimage,deb,rpm
+        run: node tools/build-release.mjs --unsigned -- --bundles appimage
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -68,6 +68,4 @@ jobs:
           path: |
             target/release/bundle/appimage/*.AppImage
             target/release/bundle/appimage/*.AppImage.sig
-            target/release/bundle/deb/*.deb
-            target/release/bundle/rpm/*.rpm
           retention-days: 7

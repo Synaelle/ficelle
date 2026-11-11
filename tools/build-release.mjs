@@ -9,7 +9,7 @@
 // --preview too it is a preview's portable exe, Ficelle_preview_x64_portable.exe.
 // --unsigned builds the release without the updater's signed copy, for a
 // test build without the key (the Linux workflow's manual runs).
-// Anything after -- goes to tauri build, like --bundles appimage,deb,rpm.
+// Anything after -- goes to tauri build, like --bundles appimage.
 
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -23,21 +23,6 @@ const portable = process.argv.includes('--portable')
 const unsigned = process.argv.includes('--unsigned')
 const dash = process.argv.indexOf('--')
 const passed = dash > 0 ? process.argv.slice(dash + 1) : []
-// rpm refuses a beta's version (0.6.0-beta.1): a beta's rpm is bundled after
-// the build, from the same program, as 0.6.0 with the release 0.beta.1, which
-// rpm sorts below the stable 0.6.0 (release 1)
-const betaMatch = preview ? null : releaseVersion().match(/^(\d+\.\d+\.\d+)-beta\.(\d+)$/)
-const bundlesAt = passed.indexOf('--bundles')
-const bundles = bundlesAt >= 0 ? (passed[bundlesAt + 1] ?? '').split(',') : []
-const betaRpm = !!betaMatch && bundles.includes('rpm')
-if (betaRpm) {
-  const others = bundles.filter((b) => b !== 'rpm')
-  passed.splice(
-    bundlesAt,
-    2,
-    ...(others.length ? ['--bundles', others.join(',')] : ['--no-bundle']),
-  )
-}
 // a release installer comes with the signed copy the app updater downloads,
 // tauri reads the key from here (the key itself or its file)
 if (!preview && !portable && !unsigned && !process.env.TAURI_SIGNING_PRIVATE_KEY) {
@@ -116,33 +101,6 @@ const result = spawnSync(
   },
 )
 if (result.status !== 0) process.exit(result.status ?? 1)
-
-if (betaMatch && betaRpm) {
-  const file = join(root, 'target', 'beta-rpm.conf.json')
-  writeFileSync(
-    file,
-    JSON.stringify({
-      version: betaMatch[1],
-      bundle: { linux: { rpm: { release: `0.beta.${betaMatch[2]}` } } },
-    }),
-  )
-  // the rpm is no updater file, nothing to sign for it
-  const rpm = spawnSync(
-    'pnpm',
-    [
-      '--filter',
-      '@app/client',
-      'tauri',
-      'bundle',
-      '--bundles',
-      'rpm',
-      '--no-sign',
-      ...[...overlays, file].flatMap((f) => ['--config', f]),
-    ],
-    { stdio: 'inherit', env: { ...process.env, ...channel } },
-  )
-  if (rpm.status !== 0) process.exit(rpm.status ?? 1)
-}
 
 if (portable) {
   const brand = JSON.parse(readFileSync(join(root, 'packages/brand/brand.json'), 'utf8'))

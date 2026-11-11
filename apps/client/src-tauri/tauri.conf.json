@@ -38,9 +38,6 @@
     "linux": {
       "deb": {
         "desktopTemplate": "linux/ficelle-dev.desktop"
-      },
-      "rpm": {
-        "desktopTemplate": "linux/ficelle-dev.desktop"
       }
     },
     "windows": {

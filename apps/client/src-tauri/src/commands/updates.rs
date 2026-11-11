@@ -115,7 +115,7 @@ fn page_only() -> bool {
 }
 
 /// See the Mac's [`page_only`]. On Linux only the AppImage replaces itself,
-/// a package (deb, rpm, the AUR) updates through the system.
+/// a package (the AUR, Flathub) updates through the system.
 #[cfg(not(target_os = "macos"))]
 fn page_only() -> bool {
     crate::portable::PORTABLE
