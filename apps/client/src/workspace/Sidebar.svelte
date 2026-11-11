@@ -7,11 +7,11 @@
   import SyncIcon from './SyncIcon.svelte'
   import type { Scope } from '../lib/backend'
   import { t } from '../lib/i18n.svelte'
-  import { noteDropTarget } from '../lib/noteDrag'
+  import { noteDropTarget, tagDropTarget } from '../lib/noteDrag'
   import { prefs } from '../lib/prefs.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
-  import { UNFILED, workspace } from '../lib/workspace.svelte'
+  import { moveTag, UNFILED, workspace } from '../lib/workspace.svelte'
   import TagTree from './TagTree.svelte'
   import TagsDialog from './TagsDialog.svelte'
 
@@ -66,7 +66,8 @@
   </div>
 
   <div class="group">
-    <div class="heading">
+    <!-- a tag dropped on the heading goes back to the top -->
+    <div class="heading" use:tagDropTarget={(name) => moveTag(name, '')}>
       <span>{t('sidebar.tags')}</span>
       <button class="icon-btn small" aria-label={t('tags.new')} onclick={() => (addingTag = true)}>
         <Icon name="plus" size={14} />

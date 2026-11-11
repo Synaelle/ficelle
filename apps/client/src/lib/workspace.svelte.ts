@@ -31,6 +31,17 @@ export const tagKey = (name: string) => name.toLowerCase()
 export const tagWithin = (name: string, under: string) =>
   tagKey(name) === tagKey(under) || tagKey(name).startsWith(`${tagKey(under)}/`)
 
+/** Moves a dragged tag inside another, or to the top with `into` empty. A
+ * tag dropped on itself or inside itself stays where it is. */
+export function moveTag(name: string, into: string) {
+  const tag = workspace.tags.find((t) => tagKey(t.name) === tagKey(name))
+  if (!tag || (into && tagWithin(into, name))) return
+  const leaf = name.slice(name.lastIndexOf('/') + 1)
+  const target = into ? `${into}/${leaf}` : leaf
+  if (tagKey(target) === tagKey(name)) return
+  void workspace.renameTag(tag.id, target).catch((err) => workspace.report(err))
+}
+
 /** Wait after the last keystroke before saving. A pause between words is
  * shorter, a pause to think is longer: one save per thought, not per word. */
 const SAVE_DELAY_MS = 1000

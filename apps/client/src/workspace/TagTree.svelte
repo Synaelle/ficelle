@@ -5,12 +5,12 @@
   import type { Tag } from '../lib/backend'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
-  import { noteDropTarget } from '../lib/noteDrag'
+  import { noteDropTarget, startTagDrag, tagDropTarget } from '../lib/noteDrag'
   import { overlay, SEPARATOR, type MenuItem } from '../lib/overlay.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import { tagLeaf, tagParent } from '../lib/tagMark.svelte'
   import { TAG_COLORS } from '../lib/backend'
-  import { tagKey, UNFILED, workspace } from '../lib/workspace.svelte'
+  import { moveTag, tagKey, UNFILED, workspace } from '../lib/workspace.svelte'
   import TagTree from './TagTree.svelte'
 
   let {
@@ -124,6 +124,9 @@
         aria-current={active ? 'page' : undefined}
         onclick={() => workspace.setScope(active ? UNFILED : { kind: 'tag', id: tag.id })}
         use:noteDropTarget={(id) => void workspace.addTag(id, tag.name)}
+        use:tagDropTarget={(name) => void moveTag(name, tag.name)}
+        draggable="true"
+        ondragstart={(e) => startTagDrag(e, tag.name)}
         ondblclick={() => {
           renaming = tag.id
           draft = tagLeaf(tag.name)
