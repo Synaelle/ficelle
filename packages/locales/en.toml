@@ -628,6 +628,8 @@ conflicted = "Waits for a decision after a sync"
 
 [sync]
 serverSection = "Sync server"
+useServer = "Use a sync server instead"
+hideServer = "Hide the sync server"
 serverDeprecated = "Server support is deprecated for now and only security fixes are delivered. It made development more complex than it had the right to be. If you don't like this decision, send feedback, I'm more than open to talk about it."
 intro = "Connect to a {appName} server to keep your notes the same on all your devices. Notes stay on this device too and work offline."
 address = "Address, like notes.example.org"
@@ -726,7 +728,7 @@ devicesPaired = "This device syncs with its paired devices. Forget them first to
 
 
 [local]
-intro = "Your devices sync directly with each other when they are on the same network and {appName} is open on both. No account, no server."
+intro = "Your devices sync with each other on the same network while {appName} is open. No account needed."
 thisDevice = "This device"
 name = "Name"
 rename = "Rename this device"

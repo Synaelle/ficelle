@@ -340,37 +340,6 @@
   <p class="settings-help">{t('local.intro')}</p>
 
   {#if local.open}
-    <Group title={t('local.thisDevice')} note={t('local.nameHelp')}>
-      {#if renaming !== null}
-        <form class="field-row rename" onsubmit={rename}>
-          <!-- svelte-ignore a11y_autofocus -->
-          <input
-            class="field"
-            aria-label={t('local.name')}
-            maxlength="60"
-            autofocus
-            bind:value={renaming}
-          />
-          <button class="btn" type="button" onclick={() => (renaming = null)}
-            >{t('common.cancel')}</button
-          >
-          <button class="btn primary" type="submit" disabled={!renaming.trim()}
-            >{t('local.save')}</button
-          >
-        </form>
-      {:else}
-        <Row label={t('local.name')}>
-          <span class="value">{local.name}</span>
-          <button
-            class="icon-btn"
-            aria-label={t('local.rename')}
-            disabled={local.serverLinked}
-            onclick={() => (renaming = local.name)}><Icon name="pencil" size={16} /></button
-          >
-        </Row>
-      {/if}
-    </Group>
-
     <Group
       title={t('local.devices')}
       note={local.serverLinked
@@ -417,11 +386,41 @@
         >{t('local.haveCode')}</button
       >
     </div>
+    <Group>
+      {#if renaming !== null}
+        <form class="field-row rename" onsubmit={rename}>
+          <!-- svelte-ignore a11y_autofocus -->
+          <input
+            class="field"
+            aria-label={t('local.name')}
+            maxlength="60"
+            autofocus
+            bind:value={renaming}
+          />
+          <button class="btn" type="button" onclick={() => (renaming = null)}
+            >{t('common.cancel')}</button
+          >
+          <button class="btn primary" type="submit" disabled={!renaming.trim()}
+            >{t('local.save')}</button
+          >
+        </form>
+      {:else}
+        <Row label={t('local.thisDevice')}>
+          <span class="value">{local.name}</span>
+          <button
+            class="icon-btn"
+            aria-label={t('local.rename')}
+            disabled={local.serverLinked}
+            onclick={() => (renaming = local.name)}><Icon name="pencil" size={16} /></button
+          >
+        </Row>
+      {/if}
+    </Group>
     {#if local.discoveryError && local.running}
       <p class="settings-help">{t('local.discoveryProblem', { error: local.discoveryError })}</p>
     {/if}
     {#if localError}<p class="error" role="alert">{localError}</p>{/if}
-    {#if !linked}<FilesSettings local />{/if}
+    {#if devicesPaired && !linked}<FilesSettings local />{/if}
   {/if}
 {/if}
 
@@ -429,12 +428,11 @@
   <PairDialog mode={pairMode} close={() => (pairMode = null)} />
 {/if}
 
-{#if !viewing}
-  <Group>
-    <Row label={t('sync.serverSection')} onclick={() => (chosen = !serverOpen)}>
-      <span class="chevron" class:open={serverOpen}><Icon name="down" size={16} /></span>
-    </Row>
-  </Group>
+{#if !viewing && !linked}
+  <!-- the server is for people who already have one: kept out of the way -->
+  <button class="server-link" aria-expanded={serverOpen} onclick={() => (chosen = !serverOpen)}
+    >{serverOpen ? t('sync.hideServer') : t('sync.useServer')}</button
+  >
 {/if}
 
 {#if serverOpen && !viewing}
@@ -678,13 +676,19 @@
 {/if}
 
 <style>
-  .chevron {
-    display: grid;
-    color: var(--color-text-faint);
-    transition: transform var(--dur-fast) var(--ease-out);
+  .server-link {
+    justify-self: start;
+    padding: var(--space-2) 0;
+    border: 0;
+    background: none;
+    font-size: 13px;
+    color: var(--color-text-muted);
+    text-decoration: underline;
   }
-  .chevron.open {
-    transform: rotate(180deg);
+  @media (hover: hover) {
+    .server-link:hover {
+      color: var(--color-text);
+    }
   }
   .sync-form {
     display: grid;
