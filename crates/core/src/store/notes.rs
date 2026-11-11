@@ -253,18 +253,39 @@ impl Store {
             NoteSort::CreatedDesc => "created_at DESC",
             NoteSort::TitleAsc => "title COLLATE NOCASE ASC, updated_at DESC",
         };
-        let (filter, value): (&str, Option<String>) = match scope {
-            NoteScope::All => ("trashed_at IS NULL", None),
-            NoteScope::Folder(None) => ("trashed_at IS NULL AND folder_id IS NULL", None),
+        let (filter, values): (String, Vec<String>) = match scope {
+            NoteScope::All => ("trashed_at IS NULL".into(), Vec::new()),
+            NoteScope::Folder(None) => (
+                "trashed_at IS NULL AND folder_id IS NULL".into(),
+                Vec::new(),
+            ),
             NoteScope::Folder(Some(folder)) => (
-                "trashed_at IS NULL AND folder_id = ?1",
-                Some(folder.to_string()),
+                "trashed_at IS NULL AND folder_id = ?1".into(),
+                vec![folder.to_string()],
             ),
-            NoteScope::Tag(tag) => (
-                "trashed_at IS NULL AND id IN (SELECT note_id FROM note_tags WHERE tag_id = ?1)",
-                Some(tag.to_string()),
+            NoteScope::Tag(tag) => {
+                let within: Vec<String> = super::tags::ids_within(&self.conn, tag)?
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect();
+                let marks = vec!["?"; within.len().max(1)].join(", ");
+                (
+                    format!(
+                        "trashed_at IS NULL AND id IN
+                         (SELECT note_id FROM note_tags WHERE tag_id IN ({marks}))"
+                    ),
+                    if within.is_empty() {
+                        vec![String::new()]
+                    } else {
+                        within
+                    },
+                )
+            }
+            NoteScope::Untagged => (
+                "trashed_at IS NULL AND id NOT IN (SELECT note_id FROM note_tags)".into(),
+                Vec::new(),
             ),
-            NoteScope::Trash => ("trashed_at IS NOT NULL", None),
+            NoteScope::Trash => ("trashed_at IS NOT NULL".into(), Vec::new()),
         };
         let pinned_first = if scope == NoteScope::Trash {
             ""
@@ -275,10 +296,9 @@ impl Store {
             "SELECT {NOTE_COLUMNS} FROM notes WHERE {filter} ORDER BY {pinned_first}{order}"
         );
         let mut stmt = self.conn.prepare(&sql)?;
-        let rows: rusqlite::Result<Vec<NoteSummary>> = match value {
-            Some(value) => stmt.query_map([value], summary_from_row)?.collect(),
-            None => stmt.query_map([], summary_from_row)?.collect(),
-        };
+        let rows: rusqlite::Result<Vec<NoteSummary>> = stmt
+            .query_map(rusqlite::params_from_iter(values), summary_from_row)?
+            .collect();
         let mut notes = rows?;
         // SQLite's NOCASE knows a to z only: É came after Z, and 10 before 2
         if sort == NoteSort::TitleAsc {

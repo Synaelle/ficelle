@@ -179,10 +179,7 @@ fn delete_row(conn: &Connection, space_id: &str, note: NoteId) -> Result<()> {
         "DELETE FROM notes WHERE id = ?1 AND space_id = ?2",
         params![note, space_id],
     )?;
-    conn.execute(
-        "DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM note_tags)",
-        [],
-    )?;
+    crate::store::drop_unused_tags(conn)?;
     Ok(())
 }
 
@@ -433,6 +430,8 @@ pub(super) fn note(
 pub(super) struct Touched {
     /// The folder tree.
     pub folders: bool,
+    /// Tags made on their own and colour marks.
+    pub registry: bool,
     /// Notes whose entry changed.
     pub notes: HashSet<NoteId>,
     /// Some note's tags.
@@ -448,6 +447,7 @@ pub(super) fn touched(space: &loro::LoroDoc, before: &loro::Frontiers) -> Option
     let batch = space.diff(before, &after).ok()?;
     let mut out = Touched {
         folders: false,
+        registry: false,
         notes: HashSet::new(),
         tags: false,
     };
@@ -459,6 +459,7 @@ pub(super) fn touched(space: &loro::LoroDoc, before: &loro::Frontiers) -> Option
         };
         match first.as_str() {
             "folders" => out.folders = true,
+            "tags" => out.registry = true,
             "notes" if path.len() == 1 => {
                 // entries added or replaced
                 let loro::event::Diff::Map(map) = diff else {
@@ -498,6 +499,9 @@ pub(super) fn some(
     if touched.tags {
         tag_spellings(conn, docs)?;
     }
+    if touched.registry {
+        registry(conn, docs, space_id, now)?;
+    }
     Ok(())
 }
 
@@ -518,7 +522,53 @@ pub(super) fn all(
     for id in ids {
         note(conn, docs, space_id, id, now)?;
     }
-    tag_spellings(conn, docs)
+    tag_spellings(conn, docs)?;
+    registry(conn, docs, space_id, now)
+}
+
+/// Tags made on their own and colour marks, kept in the person's own space
+/// by the lowercased name.
+pub(super) fn registry(
+    conn: &Connection,
+    docs: &mut Docs,
+    space_id: &str,
+    now: Timestamp,
+) -> Result<()> {
+    if !space_id.is_empty() {
+        return Ok(());
+    }
+    let space = docs.get(conn, &doc_key(space_id, SPACE))?;
+    let map = space.get_map("tags");
+    let mut wanted: HashMap<String, (Option<String>, bool)> = HashMap::new();
+    for key in map.keys() {
+        let Some(ValueOrContainer::Container(loro::Container::Map(entry))) = map.get(&key) else {
+            continue;
+        };
+        let name = text_of(&entry, "name").unwrap_or_else(|| key.to_string());
+        let color = text_of(&entry, "color");
+        let explicit = bool_of(&entry, "explicit");
+        let id = crate::store::tag_id_for(conn, &name, now)?;
+        conn.execute(
+            "UPDATE tags SET color = ?2, explicit = ?3 WHERE id = ?1",
+            params![id, color, explicit],
+        )?;
+        wanted.insert(key.to_lowercase(), (color, explicit));
+    }
+    let marked: Vec<(String, String)> = {
+        let mut stmt =
+            conn.prepare("SELECT id, name FROM tags WHERE explicit = 1 OR color IS NOT NULL")?;
+        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+    };
+    for (id, name) in marked {
+        if !wanted.contains_key(&name.to_lowercase()) {
+            conn.execute(
+                "UPDATE tags SET color = NULL, explicit = 0 WHERE id = ?1",
+                [id],
+            )?;
+        }
+    }
+    crate::store::drop_unused_tags(conn)
 }
 
 /// A tag is unique ignoring case and keeps one spelling. Two devices may

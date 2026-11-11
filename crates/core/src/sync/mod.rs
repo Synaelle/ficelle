@@ -444,6 +444,10 @@ pub(crate) fn flush(conn: &Connection, docs: &mut Docs, now: Timestamp) -> Resul
             folders_in.push(space);
         }
     }
+    if touched.iter().any(|(kind, _, _)| kind == "tags") {
+        record::tags_registry(conn, docs)?;
+        spaces.push("");
+    }
     for (kind, space, id) in &touched {
         if kind != "note" {
             continue;

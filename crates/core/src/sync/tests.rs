@@ -1223,3 +1223,36 @@ mod files {
         assert!(b.referenced_blobs().unwrap().is_empty());
     }
 }
+
+#[test]
+fn tags_made_alone_and_colour_marks_reach_the_other_device() {
+    let (mut a, _) = device(1_000_000);
+    let (mut b, _) = device(1_000_000);
+    let tags = |s: &Store| -> Vec<(String, i64, Option<String>)> {
+        s.list_tags()
+            .unwrap()
+            .into_iter()
+            .map(|t| (t.name, t.note_count, t.color))
+            .collect()
+    };
+    let later = a.create_tag("Ideas/Later").unwrap();
+    a.set_tag_color(later, Some("teal")).unwrap();
+    sync(&mut a, &mut b);
+    assert_eq!(
+        tags(&b),
+        [
+            ("Ideas".into(), 0, None),
+            ("Ideas/Later".into(), 0, Some("teal".into()))
+        ]
+    );
+    let on_b = b
+        .list_tags()
+        .unwrap()
+        .into_iter()
+        .find(|t| t.name == "Ideas")
+        .unwrap();
+    b.delete_tag(on_b.id).unwrap();
+    sync(&mut a, &mut b);
+    assert!(tags(&a).is_empty());
+    assert_eq!(tags(&a), tags(&b));
+}

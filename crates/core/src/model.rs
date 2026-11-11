@@ -86,8 +86,10 @@ pub struct Tag {
     pub id: TagId,
     /// Name as first typed. Names are unique ignoring case.
     pub name: String,
-    /// Live notes (not in the trash) with this tag.
+    /// Live notes (not in the trash) with this tag or a tag it holds.
     pub note_count: i64,
+    /// Its colour mark, if it has one.
+    pub color: Option<String>,
 }
 
 /// Why a version was saved.
@@ -197,8 +199,10 @@ pub enum NoteScope {
     All,
     /// Live notes directly in one folder, or at the top level for `None`.
     Folder(Option<FolderId>),
-    /// Live notes with this tag.
+    /// Live notes with this tag or a tag it holds.
     Tag(TagId),
+    /// Live notes with no tag.
+    Untagged,
     /// Notes in the trash.
     Trash,
 }

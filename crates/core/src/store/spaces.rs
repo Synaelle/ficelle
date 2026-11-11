@@ -111,10 +111,7 @@ pub(super) fn drop_space(conn: &Connection, space: &str) -> Result<()> {
         )?;
         conn.execute("DELETE FROM notes WHERE space_id = ?1", [space])?;
         conn.execute("DELETE FROM folders WHERE space_id = ?1", [space])?;
-        conn.execute(
-            "DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM note_tags)",
-            [],
-        )?;
+        super::tags::drop_unused_tags(conn)?;
         let prefix = format!("{space}/%");
         for table in [
             "sync_docs WHERE id",

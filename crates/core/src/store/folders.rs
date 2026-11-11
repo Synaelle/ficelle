@@ -2,6 +2,8 @@
 
 //! Nested folders.
 
+use std::collections::HashMap;
+
 use rusqlite::{Connection, OptionalExtension, Row, params};
 
 use super::{Store, clean_text};
@@ -33,6 +35,56 @@ pub(super) fn load(conn: &Connection, id: FolderId) -> Result<Folder> {
     )
     .optional()?
     .ok_or(Error::NotFound("folder"))
+}
+
+/// The tag path each folder becomes: its parents' names and its own joined
+/// by `/`. A `/` inside a name becomes `∕` so it stays one level, an empty
+/// name becomes "Folder". Folders are read whatever their space or trash.
+/// Once published this never changes: the conversion, old backups and
+/// notes an older device files in a folder all rely on the same paths.
+pub(crate) fn path_of(rows: &[(FolderId, Option<FolderId>, String)]) -> HashMap<FolderId, String> {
+    let by_id: HashMap<FolderId, (Option<FolderId>, String)> = rows
+        .iter()
+        .map(|(id, parent, name)| {
+            let name = super::tags::normalize(&name.replace('/', "\u{2215}"));
+            (
+                *id,
+                (
+                    *parent,
+                    if name.is_empty() {
+                        "Folder".into()
+                    } else {
+                        name
+                    },
+                ),
+            )
+        })
+        .collect();
+    let mut paths = HashMap::new();
+    for id in by_id.keys() {
+        let mut levels = Vec::new();
+        let mut at = Some(*id);
+        // a loop in a damaged tree stops at this depth
+        while let Some(folder) = at.filter(|_| levels.len() < 64) {
+            let Some((parent, name)) = by_id.get(&folder) else {
+                break;
+            };
+            levels.push(name.as_str());
+            at = *parent;
+        }
+        levels.reverse();
+        paths.insert(*id, levels.join("/"));
+    }
+    paths
+}
+
+/// [`path_of`] every folder of the vault.
+pub(crate) fn paths(conn: &Connection) -> Result<HashMap<FolderId, String>> {
+    let mut stmt = conn.prepare("SELECT id, parent_id, name FROM folders")?;
+    let rows = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(path_of(&rows))
 }
 
 /// Fails unless the folder exists and is not in the trash.

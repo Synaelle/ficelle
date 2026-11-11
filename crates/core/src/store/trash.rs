@@ -76,10 +76,7 @@ fn delete_items(conn: &Connection, notes: &[NoteId], folders: &[FolderId]) -> Re
     for folder in folders {
         conn.execute("DELETE FROM folders WHERE id = ?1", [folder])?;
     }
-    conn.execute(
-        "DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM note_tags)",
-        [],
-    )?;
+    super::tags::drop_unused_tags(conn)?;
     Ok(())
 }
 

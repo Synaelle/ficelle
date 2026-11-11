@@ -57,6 +57,36 @@ fn opt_text(v: Option<String>) -> LoroValue {
     v.map_or(LoroValue::Null, |s| LoroValue::String(s.into()))
 }
 
+/// Tags made on their own and colour marks into the person's own space, by
+/// the lowercased name.
+pub(super) fn tags_registry(conn: &Connection, docs: &mut Docs) -> Result<()> {
+    let space = docs.get(conn, &doc_key("", SPACE))?;
+    let map = space.get_map("tags");
+    let wanted: HashMap<String, (String, Option<String>, bool)> = {
+        let mut stmt = conn.prepare(
+            "SELECT name, color, explicit FROM tags WHERE explicit = 1 OR color IS NOT NULL",
+        )?;
+        stmt.query_map([], |row| {
+            let name: String = row.get(0)?;
+            Ok((name.to_lowercase(), (name, row.get(1)?, row.get(2)?)))
+        })?
+        .collect::<rusqlite::Result<_>>()?
+    };
+    for key in map.keys().map(|k| k.to_string()).collect::<Vec<_>>() {
+        if !wanted.contains_key(&key) {
+            map.delete(&key).map_err(sync_error)?;
+        }
+    }
+    for (key, (name, color, explicit)) in wanted {
+        let entry = map.ensure_mergeable_map(&key).map_err(sync_error)?;
+        put(&entry, "name", LoroValue::String(name.into()))?;
+        put(&entry, "color", opt_text(color))?;
+        put(&entry, "explicit", LoroValue::Bool(explicit))?;
+    }
+    space.commit();
+    Ok(())
+}
+
 /// The map of one note in the space, created on first use.
 pub(super) fn entry(space: &LoroDoc, note: NoteId) -> Result<LoroMap> {
     space

@@ -98,6 +98,11 @@ const MIGRATIONS: &[Migration] = &[
         sql: include_str!("db/018_plain_search.sql"),
         then: Some(crate::store::rebuild_search_index),
     },
+    // each folder becomes a tag holding its notes, then the documents follow
+    Migration {
+        sql: include_str!("db/019_nested_tags.sql"),
+        then: Some(crate::store::convert_folders_to_tags),
+    },
 ];
 
 /// Opens or creates the database at `path`. With a key the file is encrypted
@@ -348,6 +353,126 @@ mod tests {
             )
             .unwrap();
         assert_eq!(left, 0);
+    }
+
+    const FOLDER_IDS: [&str; 8] = [
+        "01a16bcd-5fea-73a0-9044-6dbdccb22860",
+        "01a16bcd-5fea-73a0-9044-6dbdccb22861",
+        "01a16bcd-5fea-73a0-9044-6dbdccb22862",
+        "01a16bcd-5fea-73a0-9044-6dbdccb22863",
+        "01a16bcd-5fea-73a0-9044-6dbdccb22864",
+        "01a16bcd-5fea-73a0-9044-6dbdccb22865",
+        "01a16bcd-5fea-73a0-9044-6dbdccb22866",
+        "01a16bcd-5fea-73a0-9044-6dbdccb22867",
+    ];
+
+    /// A vault of version `from` with nested folders, a "/" in a name, an
+    /// empty and a trashed folder, and a tag named like a folder.
+    fn old_vault_with_folders(path: &std::path::Path, from: usize) {
+        let [
+            projects,
+            garden,
+            slash,
+            empty,
+            old,
+            in_garden,
+            in_old,
+            tagged,
+        ] = FOLDER_IDS;
+        let conn = Connection::open(path).unwrap();
+        migrate_to(&conn, from).unwrap();
+        insert_any(&conn, "folders", &[("id", projects), ("name", "Projects")]);
+        insert_any(
+            &conn,
+            "folders",
+            &[("id", garden), ("parent_id", projects), ("name", "Garden")],
+        );
+        insert_any(&conn, "folders", &[("id", slash), ("name", "Rain/Sun")]);
+        insert_any(&conn, "folders", &[("id", empty), ("name", "Empty")]);
+        insert_any(
+            &conn,
+            "folders",
+            &[("id", old), ("name", "Old"), ("trashed_at", "5")],
+        );
+        insert_any(
+            &conn,
+            "notes",
+            &[("id", in_garden), ("folder_id", garden), ("title", "Beans")],
+        );
+        insert_any(
+            &conn,
+            "notes",
+            &[
+                ("id", in_old),
+                ("folder_id", old),
+                ("title", "Gone"),
+                ("trashed_at", "5"),
+            ],
+        );
+        insert_any(&conn, "notes", &[("id", tagged), ("title", "Plan")]);
+        insert_any(
+            &conn,
+            "tags",
+            &[("id", FOLDER_IDS[0]), ("name", "projects")],
+        );
+        insert_any(
+            &conn,
+            "note_tags",
+            &[("note_id", tagged), ("tag_id", FOLDER_IDS[0])],
+        );
+    }
+
+    #[test]
+    fn folders_become_tags_holding_their_notes_from_any_version() {
+        let [_, _, _, _, _, in_garden, in_old, tagged] = FOLDER_IDS;
+        for from in 1..MIGRATIONS.len() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("old.db");
+            old_vault_with_folders(&path, from);
+
+            let conn = open(&path, None).unwrap_or_else(|e| panic!("from version {from}: {e}"));
+            let tags_of = |note: &str| -> Vec<String> {
+                let mut stmt = conn
+                    .prepare(
+                        "SELECT t.name FROM tags t JOIN note_tags nt ON nt.tag_id = t.id
+                         WHERE nt.note_id = ?1 ORDER BY t.name",
+                    )
+                    .unwrap();
+                stmt.query_map([note], |r| r.get(0))
+                    .unwrap()
+                    .map(|r| r.unwrap())
+                    .collect()
+            };
+            let all = |conn: &Connection| -> Vec<(String, bool)> {
+                let mut stmt = conn
+                    .prepare("SELECT name, explicit FROM tags ORDER BY name")
+                    .unwrap();
+                stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                    .unwrap()
+                    .map(|r| r.unwrap())
+                    .collect()
+            };
+            assert_eq!(tags_of(in_garden), ["Projects/Garden"], "from {from}");
+            assert_eq!(tags_of(in_old), ["Old"], "from {from}");
+            // the tag typed before and the folder of the same name are one
+            assert_eq!(tags_of(tagged), ["projects"], "from {from}");
+            let tags = all(&conn);
+            assert_eq!(
+                tags,
+                [
+                    ("Empty", true),
+                    ("Old", false),
+                    ("projects", true),
+                    ("Projects/Garden", true),
+                    ("Rain\u{2215}Sun", true),
+                ]
+                .map(|(n, e)| (n.to_string(), e)),
+                "from {from}"
+            );
+            // a second run changes nothing
+            crate::store::convert_folders_to_tags(&conn).unwrap();
+            assert_eq!(all(&conn), tags, "from {from}");
+        }
     }
 
     #[test]
