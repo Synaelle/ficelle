@@ -163,8 +163,9 @@ class Workspace {
 
   /**
    * Whether the open note follows other devices' edits as they come in:
-   * the server allows co-editing and the person did not turn it off. The
-   * sync module sets it.
+   * always between the person's own paired devices, and with a server when
+   * it allows co-editing and the person did not turn it off. The sync
+   * module sets it.
    */
   coediting: () => boolean = () => false
 

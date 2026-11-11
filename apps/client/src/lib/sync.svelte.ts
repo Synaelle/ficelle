@@ -6,6 +6,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { backend } from './backend'
+import { localSync } from './localSync.svelte'
 import { prefs } from './prefs.svelte'
 import { workspace } from './workspace.svelte'
 import { protocolRange } from './serverVersion'
@@ -88,8 +89,11 @@ class Sync {
   async start() {
     if (!native || this.started) return
     this.started = true
+    // the person's own devices always follow each other; a server's
+    // admin, and the person, can turn it off
     workspace.coediting = () =>
-      this.status.state !== 'off' && this.status.coediting && prefs.coediting
+      localSync.status.devices.length > 0 ||
+      (this.status.state !== 'off' && this.status.coediting && prefs.coediting)
     await listen<SyncStatus>('sync-status', (event) => {
       this.status = event.payload
     })
