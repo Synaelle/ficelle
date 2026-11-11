@@ -11,6 +11,12 @@
     <!-- going back from a beta to Stable: the system's uninstall screen for this
          app, which asks the person (Android installs no older version over a newer one) -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- local sync with the person's other devices on the same Wi-Fi: Wi-Fi
+         drops the mDNS packets they find each other with unless the app holds
+         a multicast lock, and from Android 17 reaching the local network at
+         all is a permission the app asks for when pairing -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
 
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />

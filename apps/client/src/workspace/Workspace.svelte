@@ -2,6 +2,7 @@
 <!-- Main screen: sidebar, list, note.
      Narrow windows and phones show the list or the note, never both. -->
 <script lang="ts">
+  import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
   import { onBack } from '../lib/back'
   import { currentLocale, t } from '../lib/i18n.svelte'
@@ -54,6 +55,7 @@
     return () => backups.stop()
   })
   void sync.start()
+  void localSync.start()
 
   // On phones back walks out the way the user came in: settings, the note,
   // then the search. Booleans, so switching notes keeps the order.

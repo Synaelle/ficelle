@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Attachments with the server: what the account uses of its storage,
      which files come with each sync, and files the server refused. Shown
-     under the sync settings once connected. -->
+     under the sync settings once connected. With `local`, for sync between
+     devices: only which files come with each sync. -->
 <script lang="ts">
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
@@ -10,6 +11,8 @@
   import { currentLocale, t } from '../lib/i18n.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import { sync } from '../lib/sync.svelte'
+
+  let { local = false }: { local?: boolean } = $props()
 
   interface RefusedFile {
     name: string
@@ -58,28 +61,30 @@
   )
 </script>
 
-{#if info}
-  <Group title={t('files.title')} note={t('files.autoFetchHelp')}>
-    <Row
-      label={info.policy.quotaBytes > 0
-        ? t('files.usedOf', {
-            used: bytes(info.usage.usedBytes),
-            quota: bytes(info.policy.quotaBytes),
-          })
-        : t('files.used', { used: bytes(info.usage.usedBytes) })}
-    >
-      {#if share !== null}
-        <span
-          class="meter"
-          class:full={share >= 90}
-          role="meter"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={share}
-          aria-label={t('files.title')}><span style:width="{share}%"></span></span
-        >
-      {/if}
-    </Row>
+{#if info || local}
+  <Group title={local ? undefined : t('files.title')} note={t('files.autoFetchHelp')}>
+    {#if info}
+      <Row
+        label={info.policy.quotaBytes > 0
+          ? t('files.usedOf', {
+              used: bytes(info.usage.usedBytes),
+              quota: bytes(info.policy.quotaBytes),
+            })
+          : t('files.used', { used: bytes(info.usage.usedBytes) })}
+      >
+        {#if share !== null}
+          <span
+            class="meter"
+            class:full={share >= 90}
+            role="meter"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={share}
+            aria-label={t('files.title')}><span style:width="{share}%"></span></span
+          >
+        {/if}
+      </Row>
+    {/if}
     <Row label={t('files.autoFetch')}>
       <select
         class="field compact"

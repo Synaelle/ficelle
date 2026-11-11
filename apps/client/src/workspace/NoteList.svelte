@@ -4,6 +4,7 @@
 <script lang="ts">
   import { betaFeedback, isBeta, touchScreen } from '../lib/beta.svelte'
   import { hour12 } from '../lib/clock.svelte'
+  import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
   import SyncIcon from './SyncIcon.svelte'
   import { backend, MATCH_END, MATCH_START, type NoteSort, type Scope } from '../lib/backend'
@@ -247,6 +248,11 @@
           onclick={() => onsettings('sync')}
         >
           <SyncIcon state={sync.status.state} size={18} />
+        </button>
+      {:else if narrow && localSync.summary?.state === 'error'}
+        {@const line = t(`local.status.${localSync.summary.key}`, { name: localSync.summary.name })}
+        <button class="icon-btn" aria-label={line} title={line} onclick={() => onsettings('sync')}>
+          <SyncIcon state="error" size={18} />
         </button>
       {/if}
       {#if isBeta && touchScreen}

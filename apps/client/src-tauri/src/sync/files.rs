@@ -20,7 +20,7 @@ use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
 
 /// Files up to this size come with the rounds unless the ui says otherwise.
-const AUTO_FETCH: u64 = 10 * 1024 * 1024;
+pub(super) const AUTO_FETCH: u64 = 10 * 1024 * 1024;
 /// Removed files are cleaned up here this often.
 const CLEAN_EVERY: Duration = Duration::from_hours(6);
 /// How long a removed file is kept here without a server to say.
@@ -203,6 +203,9 @@ pub async fn fetch_attachment(app: AppHandle, sha256: String) -> CommandResult<(
         let blobs = state.quietly(|s| Ok(s.blobs.clone()))?;
         if blobs.has(&sha256).unwrap_or(false) {
             return Ok(());
+        }
+        if !state.quietly(|s| s.store.server_linked())? {
+            return super::local::fetch(&worker, &blobs, &sha256);
         }
         let (mut remote, _) =
             wire(&state).map_err(|e| CommandError::new("offline", e.to_string()))?;

@@ -14,6 +14,7 @@ pub mod feedback;
 pub mod files;
 mod http;
 mod live;
+pub mod local;
 pub mod sharing;
 pub(crate) mod sign_in;
 
@@ -158,6 +159,11 @@ impl Sync {
     /// a server that keeps files.
     pub fn files_policy(&self) -> Option<app_protocol::files::FilesPolicy> {
         self.lock().files.as_ref().map(|info| info.policy.clone())
+    }
+
+    /// Files up to this size come with a sync, larger ones when opened.
+    pub fn auto_fetch(&self) -> u64 {
+        self.lock().auto_fetch.unwrap_or(files::AUTO_FETCH)
     }
 
     /// Asks for a round soon. Cheap, every command calls it.

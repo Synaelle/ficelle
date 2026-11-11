@@ -3,6 +3,7 @@
      icon tiles, the current value on the right, a short note under groups.
      Every row is one tap from the first screen, details open a page. -->
 <script lang="ts">
+  import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
   import SyncSettings from './SyncSettings.svelte'
   import { brand } from '@app/brand'
@@ -221,10 +222,14 @@
 
   const syncRows = $derived<SettingRow[]>([
     {
-      icon: sync.status.state === 'off' ? 'offline' : 'synced',
+      icon: sync.status.state === 'off' && !localSync.summary ? 'offline' : 'synced',
       label: t('settings.sync'),
       keywords: t('settings.syncKeywords'),
-      value: t(`sync.state.${sync.status.state}`),
+      // a device syncs with a server or with its paired devices
+      value:
+        sync.status.state === 'off' && localSync.summary
+          ? t(`local.status.${localSync.summary.key}`, { name: localSync.summary.name })
+          : t(`sync.state.${sync.status.state}`),
       run: () => (page = 'sync'),
     },
   ])

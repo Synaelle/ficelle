@@ -186,6 +186,10 @@ pub async fn sync_sign_in(
     if state.session().is_none() {
         return Err(invalid("locked", "unlock the vault first"));
     }
+    // one way to sync per vault: forget the paired devices first
+    if state.quietly(|s| s.store.devices_paired()).unwrap_or(false) {
+        return Err(invalid("devicesPaired", app_core::store::DEVICES_PAIRED));
+    }
     let address = normalize(&address).map_err(|why| invalid(why, "not a server address"))?;
     let server = address.clone();
     let known_e2ee = state

@@ -65,7 +65,8 @@ pub fn run() {
     let builder = builder
         .plugin(tauri_plugin_biometric::init())
         .plugin(android_keystore::pin_key_plugin())
-        .plugin(documents::plugin());
+        .plugin(documents::plugin())
+        .plugin(sync::local::plugin());
     #[cfg(mobile)]
     let builder = builder.plugin(tauri_plugin_haptics::init());
     #[cfg(desktop)]
@@ -106,8 +107,10 @@ pub fn run() {
             app.manage(AppState::new(dir));
             app.manage(sync::commands::PendingSignIn::default());
             app.manage(commands::import::Imports::default());
+            app.manage(sync::local::Local::default());
             // after manage: the thread reads the state from the handle
             app.state::<AppState>().sync.start(app.handle().clone());
+            app.state::<sync::local::Local>().start(app.handle());
             portable::open_main(app.handle())?;
             // the version after the name in the title bar
             #[cfg(desktop)]
@@ -236,6 +239,15 @@ pub fn run() {
             sync::commands::sync_now,
             sync::commands::sync_viewing,
             sync::commands::sync_disconnect,
+            sync::local::local_sync_status,
+            sync::local::local_sync_set_name,
+            sync::local::local_sync_pair_start,
+            sync::local::local_sync_pair_cancel,
+            sync::local::local_sync_pair_code,
+            sync::local::local_sync_forget,
+            sync::local::local_sync_now,
+            sync::local::local_sync_foreground,
+            sync::local::local_sync_permission,
         ])
         .run(context)
         .expect("failed to start the app");

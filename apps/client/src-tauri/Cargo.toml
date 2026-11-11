@@ -19,6 +19,7 @@ tauri-build.workspace = true
 app-brand.workspace = true
 app-core.workspace = true
 app-e2ee = { path = "../../../crates/e2ee" }
+app-peer = { path = "../../../crates/peer" }
 app-protocol.workspace = true
 app-repo.workspace = true
 # the fingerprint plugin passes data as text, update signatures come as text

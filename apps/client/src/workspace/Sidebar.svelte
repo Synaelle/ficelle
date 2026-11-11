@@ -2,6 +2,7 @@
 <!-- Standard layout only: notes with no tag, all notes, the tag tree,
      trash and settings. -->
 <script lang="ts">
+  import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
   import SyncIcon from './SyncIcon.svelte'
   import type { Scope } from '../lib/backend'
@@ -104,6 +105,11 @@
     {#if sync.status.state !== 'off'}
       <button class="item" onclick={() => onsettings('sync')} title={sync.status.error ?? ''}
         ><SyncIcon state={sync.status.state} />{t(`sync.state.${sync.status.state}`)}</button
+      >
+    {:else if localSync.summary}
+      {@const line = t(`local.status.${localSync.summary.key}`, { name: localSync.summary.name })}
+      <button class="item" onclick={() => onsettings('sync')} title={line}
+        ><SyncIcon state={localSync.summary.state} /><span class="label">{line}</span></button
       >
     {/if}
     <button class="item" onclick={() => onsettings()}
