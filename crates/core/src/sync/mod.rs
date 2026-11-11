@@ -499,11 +499,36 @@ pub(crate) fn flush(conn: &Connection, docs: &mut Docs, now: Timestamp) -> Resul
 ///
 /// As [`flush`], and commit errors.
 pub(crate) fn finish(tx: Transaction<'_>, docs: &mut Docs, now: Timestamp) -> Result<()> {
-    let done = flush(&tx, docs, now).and_then(|()| Ok(tx.commit()?));
+    let done = flush(&tx, docs, now)
+        .and_then(|()| trim_outbox(&tx))
+        .and_then(|()| Ok(tx.commit()?));
     if done.is_err() {
         docs.forget();
     }
     done
+}
+
+/// A vault that syncs with the person's own devices has no server to take
+/// its outbox, and the devices never read it: only the last change stays,
+/// which says when and that something was written here. The account the
+/// vault was linked to before is forgotten with the rest, so a link made
+/// later sends everything, as to a new account.
+fn trim_outbox(conn: &Connection) -> Result<()> {
+    let devices_only: bool = conn.query_row(
+        "SELECT NOT EXISTS (SELECT 1 FROM sync_link)
+             AND EXISTS (SELECT 1 FROM peer_devices
+                 WHERE forgotten_at IS NULL OR forgotten_at < paired_at)",
+        [],
+        |row| row.get(0),
+    )?;
+    if devices_only {
+        conn.execute(
+            "DELETE FROM sync_outbox WHERE seq < (SELECT max(seq) FROM sync_outbox)",
+            [],
+        )?;
+        conn.execute("DELETE FROM vault_meta WHERE key = 'sync_account'", [])?;
+    }
+    Ok(())
 }
 
 /// Builds the documents of a vault from its rows: every folder and note is

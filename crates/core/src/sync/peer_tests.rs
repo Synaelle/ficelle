@@ -363,6 +363,58 @@ fn a_vault_syncs_with_a_server_or_with_its_devices_never_both() {
 }
 
 #[test]
+fn the_outbox_stays_small_with_paired_devices_and_whole_with_a_server_or_alone() {
+    let waiting = |s: &mut Store| s.sync_outbox(usize::MAX).unwrap().len();
+    let write = |s: &mut Store, id: NoteId| {
+        for round in 0..20 {
+            edit_body(s, id, &format!("edit {round}"));
+        }
+    };
+    // alone, or linked to a server: every change waits for the server
+    let (mut alone, _) = device(1_000_000);
+    let id = note_with(&mut alone, "Plan", "start");
+    write(&mut alone, id);
+    let kept = waiting(&mut alone);
+    assert!(kept >= 20);
+    alone.sync_set_link(&link()).unwrap();
+    write(&mut alone, id);
+    assert!(waiting(&mut alone) > 20);
+    // unlinked, the changes made since still wait for that account
+    alone.sync_unlink().unwrap();
+    write(&mut alone, id);
+    let before = waiting(&mut alone);
+    assert!(before > 40);
+
+    // with a device paired only the last change stays, and the mark of
+    // writes goes on moving
+    alone
+        .peer_pair(&[7; 32], "Pixel 8", "android", "0.6.0")
+        .unwrap();
+    let mut marks = Vec::new();
+    for round in 0..5 {
+        edit_body(&mut alone, id, &format!("paired {round}"));
+        assert_eq!(waiting(&mut alone), 1);
+        marks.push(alone.peer_write_mark().unwrap());
+        assert!(alone.peer_last_change().unwrap().is_some());
+    }
+    assert!(marks.windows(2).all(|pair| pair[0] < pair[1]));
+
+    // back to the same account later: it gets everything, the changes
+    // made between included
+    let (mut other, _) = device(1_000_000);
+    alone.peer_forget(&[7; 32]).unwrap();
+    alone.sync_set_link(&link()).unwrap();
+    let out = alone.sync_outbox(usize::MAX).unwrap();
+    let page: Vec<(String, Vec<u8>)> = out
+        .iter()
+        .map(|item| (item.doc_id.clone(), item.bytes.clone()))
+        .collect();
+    other.apply_remote_page(&page).unwrap();
+    assert_eq!(other.note(id).unwrap().body, "paired 4");
+    same(&alone, &other);
+}
+
+#[test]
 fn a_device_list_learned_from_another_device_keeps_the_later_of_pairing_and_forgetting() {
     let (mut a, ca) = device(1_000_000);
     let (mut b, cb) = device(1_000_000);
