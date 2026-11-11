@@ -255,7 +255,7 @@ pub(crate) fn convert_folders_to_tags(conn: &Connection) -> Result<()> {
         stmt.query_map([], |row| row.get(0))?
             .collect::<rusqlite::Result<Vec<_>>>()?
     };
-    // someone who had notes before is told once that folders became tags
+    // someone who had notes or folders is told once that folders became tags
     let had_notes: bool =
         conn.query_row("SELECT EXISTS (SELECT 1 FROM notes)", [], |r| r.get(0))?;
     if had_notes || !folders.is_empty() {
@@ -589,6 +589,13 @@ mod tests {
         store.set_note_tags(beans, &[]).unwrap();
         store.set_note_tags(plan, &[]).unwrap();
         assert!(names(&store).is_empty());
+    }
+
+    #[test]
+    fn a_new_vault_never_gets_the_message() {
+        let (mut store, _) = store();
+        tagged(&mut store, &["Projects"]);
+        assert!(!store.tags_merged().unwrap());
     }
 
     #[test]

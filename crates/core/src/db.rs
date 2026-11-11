@@ -475,6 +475,14 @@ mod tests {
                 .map(|(n, e)| (n.to_string(), e)),
                 "from {from}"
             );
+            let told: bool = conn
+                .query_row(
+                    "SELECT EXISTS (SELECT 1 FROM vault_meta WHERE key = 'tags_merged')",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert!(told, "from {from}: someone with folders is told once");
             // a second run changes nothing
             crate::store::convert_folders_to_tags(&conn).unwrap();
             assert_eq!(all(&conn), tags, "from {from}");

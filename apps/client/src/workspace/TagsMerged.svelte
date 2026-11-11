@@ -10,39 +10,28 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { modal } from '../lib/modal'
   import { prefs } from '../lib/prefs.svelte'
-  import { tagLeaf } from '../lib/tagMark.svelte'
-  import { workspace } from '../lib/workspace.svelte'
-
-  /** How many names each side shows, the picture stays small. */
-  const SHOWN = 5
 
   let open = $state(false)
-  /** The folders at the top before the update. */
-  let folders: string[] = $state([])
 
   onMount(async () => {
-    if (!(await backend.tagsMerged())) return
-    folders = (await backend.listFolders()).filter((f) => f.parentId === null).map((f) => f.name)
-    open = true
+    open = await backend.tagsMerged()
   })
 
-  /** The folders, then the tags that were not folders. */
-  const before = $derived.by(() => {
-    const names = new Set(folders.map((f) => f.toLowerCase()))
-    return [
-      ...folders.map((name) => ({ name, folder: true })),
-      ...workspace.tags
-        .filter((tag) => !tag.name.includes('/') && !names.has(tag.name.toLowerCase()))
-        .map((tag) => ({ name: tag.name, folder: false })),
-    ].slice(0, SHOWN)
-  })
-
-  const now = $derived(
-    workspace.tags
-      .filter((tag) => !tag.name.includes('/'))
-      .slice(0, SHOWN)
-      .map((tag) => tagLeaf(tag.name)),
-  )
+  /** The picture: the same example for everyone, before and now. */
+  const before = [
+    { name: 'exProjects', folder: true, inner: false },
+    { name: 'exGarden', folder: true, inner: true },
+    { name: 'exWork', folder: true, inner: false },
+    { name: 'exTodo', folder: false, inner: false },
+    { name: 'exIdeas', folder: false, inner: false },
+  ]
+  const now = [
+    { name: 'exIdeas', inner: false },
+    { name: 'exProjects', inner: false },
+    { name: 'exGarden', inner: true },
+    { name: 'exTodo', inner: false },
+    { name: 'exWork', inner: false },
+  ]
 
   async function close() {
     open = false
@@ -70,32 +59,36 @@
     >
       <span class="eyebrow">{t('merged.eyebrow')}</span>
       <h2 id="merged-title">{t('merged.title')}</h2>
-      {#if before.length || now.length}
-        <div class="swap" aria-hidden="true">
-          <div class="box">
-            <span class="cap">{t('merged.before')}</span>
-            {#each before as item (item.name + item.folder)}
-              <span class="item">
-                {#if item.folder}<Icon name="folder" size={14} />{:else}<span class="hash">#</span
-                  >{/if}
-                {item.name}
-              </span>
-            {/each}
-          </div>
-          <Icon name="right" size={18} />
-          <div class="box">
-            <span class="cap">{t('merged.now')}</span>
-            {#each now as name (name)}
-              <span class="item"><Icon name="folder" size={14} />{name}</span>
-            {/each}
-          </div>
+      <div class="swap" aria-hidden="true">
+        <div class="box">
+          <span class="cap">{t('merged.before')}</span>
+          {#each before as item (item.name)}
+            <span class="item" class:inner={item.inner}>
+              {#if item.folder}<Icon name="folder" size={14} />{:else}<span class="hash">#</span
+                >{/if}
+              {t(`merged.${item.name}`)}
+            </span>
+          {/each}
         </div>
-      {/if}
+        <Icon name="right" size={18} />
+        <div class="box">
+          <span class="cap">{t('merged.now')}</span>
+          {#each now as item (item.name)}
+            <span class="item" class:inner={item.inner}>
+              {#if prefs.tagMark === 'hash'}<span class="hash">#</span>{:else}<Icon
+                  name={item.name === 'exProjects' ? 'folderOpen' : 'folder'}
+                  size={14}
+                />{/if}
+              {t(`merged.${item.name}`)}
+            </span>
+          {/each}
+        </div>
+      </div>
       <p>{t('merged.body')}</p>
       {#if isBeta}<p class="muted">{t('merged.beta')}</p>{/if}
       <div class="actions">
         <button class="link" onclick={useHash}>{t('merged.hash')}</button>
-        <button class="btn primary" onclick={close}>{t('merged.ok')}</button>
+        <button class="btn primary" data-autofocus onclick={close}>{t('merged.ok')}</button>
       </div>
     </div>
   </div>
@@ -171,6 +164,9 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+  .item.inner {
+    padding-left: 18px;
   }
   .item :global(.icon),
   .hash {
