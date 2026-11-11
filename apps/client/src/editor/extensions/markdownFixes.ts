@@ -85,6 +85,33 @@ export function withBoundedStart<T extends AnyExtension>(
   }) as T
 }
 
+/**
+ * Writes a table with each row as short as it can be. Upstream lines the
+ * columns up with spaces, so one cell typed in rewrites every row: two
+ * devices typing in two cells then each add the same spaces, and both sets
+ * stay when the two are merged. With no such spaces a cell typed in changes
+ * its own row and no other. The empty lines upstream adds around the table
+ * go too.
+ */
+export function withShortRows<T extends AnyExtension>(table: T): T {
+  const render = table.config.renderMarkdown as
+    ((this: unknown, ...args: unknown[]) => string) | undefined
+  if (!render) return table
+  return table.extend({
+    renderMarkdown(this: unknown, ...args: unknown[]) {
+      return render
+        .apply(this, args)
+        .trim()
+        .split('\n')
+        .map((row, index) => {
+          const short = row.replace(/ {2,}\|/g, ' |')
+          return index === 1 ? short.replace(/-{3,}/g, '---') : short
+        })
+        .join('\n')
+    },
+  } as Partial<T['config']>) as T
+}
+
 /** A task item line: "- [ ] text" or "* [x] text". */
 export const TASK_GUARD = /^ {0,3}[-+*][ \t]+\[[ xX]\][ \t]/
 

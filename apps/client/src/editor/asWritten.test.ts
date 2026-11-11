@@ -85,11 +85,30 @@ describe('saving a note written in another form', () => {
     typeAfter(editor, 'rice', ' and beans')
     const saved = asWritten(STORED, before, editor.getMarkdown())
     const rows = saved.split('\n').filter((line) => line.startsWith('|'))
-    expect(rows).toHaveLength(3)
-    expect(new Set(rows.map((row) => row.length)).size).toBe(1)
-    expect(rows[2]).toContain('rice and beans')
+    expect(rows).toEqual(['| item | n |', '| --- | --- |', '| rice and beans | 2 |'])
     expect(saved.replace(/\|.*\|\n/g, '')).toBe(STORED.replace(/\|.*\|\n/g, ''))
     editor.destroy()
+  })
+
+  it('two cells typed in on two devices change one row each', () => {
+    const table = '| item | qty |\n| --- | :---: |\n| rice | 2 |\n| beans | |\n| a \\| b | 3 |'
+    const one = editorWith(table)
+    const two = editorWith(table)
+    expect(one.getMarkdown()).toBe(table)
+    typeAfter(one, 'rice', ' basmati, the long grain kind')
+    typeAfter(two, 'beans', ' b0')
+    const changed = (editor: Editor) =>
+      editor
+        .getMarkdown()
+        .trimEnd()
+        .split('\n')
+        .filter((line, at) => line !== table.split('\n')[at])
+    expect(changed(one)).toEqual(['| rice basmati, the long grain kind | 2 |'])
+    expect(changed(two)).toEqual(['| beans b0 | |'])
+    // a table lined up with spaces, as older versions wrote it, reads the same
+    const padded = editorWith('| item  | qty |\n| ----- | :-: |\n| rice  | 2   |\n| beans |     |')
+    expect(padded.getMarkdown()).toBe(table.split('\n').slice(0, 4).join('\n'))
+    for (const editor of [one, two, padded]) editor.destroy()
   })
 
   it('a note already in the editor form is saved as the editor writes it', () => {

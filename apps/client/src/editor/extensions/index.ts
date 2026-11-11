@@ -21,6 +21,7 @@ import {
   TASK_GUARD,
   taskListExtent,
   withBoundedStart,
+  withShortRows,
 } from './markdownFixes'
 import { MathBlock, MathInline } from './math'
 import { WikiLink, type WikiLinkOptions } from './wikiLink'
@@ -69,7 +70,7 @@ export function createExtensions(setup: EditorSetup = {}): AnyExtension[] {
     ),
     setup.autoLists === false ? withoutTypingRule(BulletList) : BulletList,
     setup.autoLists === false ? withoutTypingRule(OrderedList) : OrderedList,
-    withBoundedStart(Table, undefined).configure({ resizable: false }),
+    withShortRows(withBoundedStart(Table, undefined)).configure({ resizable: false }),
     TableRow,
     // one line of text per cell, all a Markdown table can hold: no table, list
     // or quote inside a cell, which the file could not keep
