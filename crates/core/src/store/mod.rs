@@ -48,7 +48,7 @@ pub use spaces::{Item, LocalSpace, RootNote, SpaceRoots, WaitingMember};
 pub use sync::{NewLink, SyncLink, Taken, Tokens};
 pub use tags::TAG_COLORS;
 pub(crate) use tags::replace_note_tags as replace_tags;
-pub(crate) use tags::{convert_folders_to_tags, drop_unused_tags, tag_id_for};
+pub(crate) use tags::{convert_folders_to_tags, drop_unused_tags, key as tag_key, tag_id_for};
 pub use trash::TRASH_RETENTION;
 
 /// Local note storage.

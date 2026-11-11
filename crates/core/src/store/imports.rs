@@ -227,6 +227,13 @@ impl Store {
             }
             written.push((note.key.clone(), id));
         }
+        // the import's folders are tags: each note gets its folder's path
+        let mut placed: Vec<FolderId> = vec![place.root];
+        placed.extend(made.values().chain(place.folders.values()));
+        tags::tags_from_folders(&tx, &placed, now)?;
+        for (_, id) in &written {
+            reindex(&tx, *id)?;
+        }
         crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
         place.folders.extend(made);
         Ok(written)
@@ -313,7 +320,8 @@ mod tests {
             (old.created_at, old.updated_at),
             (1_500_000_000_000, 1_600_000_000_000)
         );
-        assert_eq!(old.tags, ["work"]);
+        // the import's folders are tags too
+        assert_eq!(old.tags, ["Notion, 27 Oct 2026/Projects/Folder", "work"]);
         assert!(old.pinned);
         let gone = store.note(written[1].1).unwrap();
         assert_eq!(gone.folder_id, Some(root));

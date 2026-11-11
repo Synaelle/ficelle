@@ -2,7 +2,8 @@
 
 //! Export to a plain folder of markdown files that any editor can open.
 //!
-//! - The folder tree becomes directories.
+//! - The tag tree becomes directories. A note goes in the directory of its
+//!   first tag, with all its tags in its front matter.
 //! - Each note becomes `<title>.md`, with YAML front matter for the id,
 //!   title, tags, pin and dates.
 //! - Attachments go to an `attachments/` directory next to their note, so a
@@ -15,9 +16,8 @@ use std::path::{Path, PathBuf};
 
 use crate::clock::{Timestamp, to_rfc3339};
 use crate::error::{Error, Result};
-use crate::id::FolderId;
-use crate::model::{Folder, Note, NoteScope, NoteSort};
-use crate::store::Store;
+use crate::model::{Note, NoteScope, NoteSort};
+use crate::store::{Store, tag_key};
 
 /// Where attachment content comes from, by SHA-256.
 pub trait AttachmentSource {
@@ -71,13 +71,14 @@ pub fn export_markdown(
 
     let mut report = ExportReport::default();
     let mut names = UsedNames::default();
-    let folder_dirs = create_folder_dirs(store, out, &mut names, &mut report)?;
+    let tag_dirs = create_tag_dirs(store, out, &mut names, &mut report)?;
 
     for summary in store.list_notes(NoteScope::All, NoteSort::TitleAsc)? {
         let note = store.note(summary.id)?;
         let dir = note
-            .folder_id
-            .and_then(|f| folder_dirs.get(&f))
+            .tags
+            .first()
+            .and_then(|t| tag_dirs.get(&tag_key(t)))
             .cloned()
             .unwrap_or_else(|| out.to_owned());
         let file = names.claim(&dir, &format!("{}.md", safe_name(&note.title)));
@@ -121,43 +122,29 @@ fn zip_time(time: std::time::SystemTime) -> Option<zip::DateTime> {
     .ok()
 }
 
-fn create_folder_dirs(
+/// A directory for every tag, by its lowercased path. Tags come parents
+/// first, so a tag's directory goes in its parent's.
+fn create_tag_dirs(
     store: &Store,
     out: &Path,
     names: &mut UsedNames,
     report: &mut ExportReport,
-) -> Result<HashMap<FolderId, PathBuf>> {
-    let folders = store.list_folders()?;
-    let by_id: HashMap<FolderId, &Folder> = folders.iter().map(|f| (f.id, f)).collect();
-    let mut dirs = HashMap::new();
-    for folder in &folders {
-        let dir = dir_for(folder.id, &by_id, out, names, &mut dirs);
+) -> Result<HashMap<String, PathBuf>> {
+    let mut tags: Vec<String> = store.list_tags()?.into_iter().map(|t| t.name).collect();
+    tags.sort_by_key(|t| t.matches('/').count());
+    let mut dirs: HashMap<String, PathBuf> = HashMap::new();
+    for tag in tags {
+        let (parent, name) = tag.rsplit_once('/').unwrap_or(("", &tag));
+        let parent = dirs
+            .get(&tag_key(parent))
+            .cloned()
+            .unwrap_or_else(|| out.to_owned());
+        let dir = names.claim(&parent, &safe_name(name));
         std::fs::create_dir_all(&dir)?;
         report.folders += 1;
+        dirs.insert(tag_key(&tag), dir);
     }
     Ok(dirs)
-}
-
-/// Directory for a folder, creating parent entries first. Parents are
-/// resolved on demand, so the order of the folder list does not matter.
-fn dir_for(
-    id: FolderId,
-    by_id: &HashMap<FolderId, &Folder>,
-    out: &Path,
-    names: &mut UsedNames,
-    dirs: &mut HashMap<FolderId, PathBuf>,
-) -> PathBuf {
-    if let Some(dir) = dirs.get(&id) {
-        return dir.clone();
-    }
-    let folder = by_id[&id];
-    let parent = folder
-        .parent_id
-        .filter(|p| by_id.contains_key(p))
-        .map_or_else(|| out.to_owned(), |p| dir_for(p, by_id, out, names, dirs));
-    let dir = names.claim(&parent, &safe_name(&folder.name));
-    dirs.insert(id, dir.clone());
-    dir
 }
 
 fn export_attachments(
@@ -527,10 +514,9 @@ mod tests {
     #[test]
     fn exports_into_one_zip_without_leaving_files_behind() {
         let (mut store, _) = store();
-        let folder = store.create_folder(None, "Garden").unwrap().id;
         store
             .create_note(&NewNote {
-                folder_id: Some(folder),
+                tags: vec!["Garden".into()],
                 title: "Beds".into(),
                 body: "dig".into(),
                 ..NewNote::default()
@@ -551,12 +537,10 @@ mod tests {
     #[test]
     fn a_zip_keeps_empty_folders_dates_and_attachments_apart() {
         let (mut store, _) = store();
-        let a = store.create_folder(None, "a").unwrap().id;
-        store.create_folder(Some(a), "b").unwrap();
-        let clashing = store.create_folder(None, "attachments").unwrap().id;
+        store.create_tag("a/b").unwrap();
         store
             .create_note(&NewNote {
-                folder_id: Some(clashing),
+                tags: vec!["attachments".into()],
                 title: "Inside".into(),
                 ..NewNote::default()
             })
@@ -581,21 +565,19 @@ mod tests {
     #[test]
     fn exports_tree_front_matter_and_attachments() {
         let (mut store, _) = store();
-        let projects = store.create_folder(None, "Projects").unwrap();
-        let garden = store.create_folder(Some(projects.id), "Garden").unwrap();
         let note = store
             .create_note(&NewNote {
-                folder_id: Some(garden.id),
                 title: "Tomato trellis plan".into(),
                 body: "![vines](attachments/vines.png)".into(),
-                tags: vec!["garden".into()],
+                tags: vec!["Projects/Garden".into(), "Seeds".into()],
                 pinned: true,
+                ..NewNote::default()
             })
             .unwrap();
         store
             .create_note(&NewNote {
                 title: "Tomato trellis plan".into(),
-                folder_id: Some(garden.id),
+                tags: vec!["Projects/Garden".into()],
                 ..NewNote::default()
             })
             .unwrap();
@@ -623,7 +605,7 @@ mod tests {
         let out = dir.path().join("export");
         let report = export_markdown(&store, &out, &OneFile).unwrap();
         assert_eq!(report.notes, 3);
-        assert_eq!(report.folders, 2);
+        assert_eq!(report.folders, 3);
         assert_eq!(report.attachments, 1);
         assert_eq!(
             report.missing_attachments,
@@ -633,7 +615,7 @@ mod tests {
         let garden_dir = out.join("Projects").join("Garden");
         let text = std::fs::read_to_string(garden_dir.join("Tomato trellis plan.md")).unwrap();
         assert!(text.starts_with(&format!(
-            "---\nid: {}\ntitle: \"Tomato trellis plan\"\ntags: [\"garden\"]\npinned: true\n",
+            "---\nid: {}\ntitle: \"Tomato trellis plan\"\ntags: [\"Projects/Garden\", \"Seeds\"]\npinned: true\n",
             note.id
         )));
         assert!(text.ends_with("---\n\n![vines](attachments/vines.png)\n"));

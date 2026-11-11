@@ -198,6 +198,35 @@ pub(super) fn ids_within(conn: &Connection, id: TagId) -> Result<Vec<TagId>> {
         .collect())
 }
 
+/// Each folder's notes get its path as a tag, a folder not in the trash
+/// stays as a tag made on its own. The search entries of the notes are left
+/// to the caller.
+pub(crate) fn tags_from_folders(
+    conn: &Connection,
+    folders: &[FolderId],
+    now: Timestamp,
+) -> Result<()> {
+    let paths = super::folders::paths(conn)?;
+    for &folder in folders {
+        let Some(path) = paths.get(&folder) else {
+            continue;
+        };
+        let tag = tag_id_for(conn, path, now)?;
+        conn.execute(
+            "UPDATE tags SET origin_folder = coalesce(origin_folder, ?2),
+                 explicit = max(explicit, (SELECT trashed_at IS NULL FROM folders WHERE id = ?2))
+             WHERE id = ?1",
+            params![tag, folder],
+        )?;
+        conn.execute(
+            "INSERT OR IGNORE INTO note_tags (note_id, tag_id)
+             SELECT id, ?2 FROM notes WHERE folder_id = ?1",
+            params![folder, tag],
+        )?;
+    }
+    drop_unused_tags(conn)
+}
+
 /// Folders become tags, once, when a vault takes the nested tags: each
 /// folder's notes get its path as a tag, folders with no note stay as tags
 /// made on their own. `folder_id` stays set, the documents keep telling older
@@ -221,31 +250,12 @@ pub(crate) fn convert_folders_to_tags(conn: &Connection) -> Result<()> {
             conn.execute("DELETE FROM tags WHERE id = ?1", [id])?;
         }
     }
-    let folders: Vec<(FolderId, bool)> = {
-        let mut stmt = conn.prepare("SELECT id, trashed_at IS NOT NULL FROM folders")?;
-        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+    let folders: Vec<FolderId> = {
+        let mut stmt = conn.prepare("SELECT id FROM folders")?;
+        stmt.query_map([], |row| row.get(0))?
             .collect::<rusqlite::Result<Vec<_>>>()?
     };
-    let paths = super::folders::paths(conn)?;
-    for (folder, trashed) in folders {
-        let Some(path) = paths.get(&folder) else {
-            continue;
-        };
-        let tag = tag_id_for(conn, path, now)?;
-        conn.execute(
-            "UPDATE tags SET origin_folder = coalesce(origin_folder, ?2) WHERE id = ?1",
-            params![tag, folder.to_string()],
-        )?;
-        if !trashed {
-            conn.execute("UPDATE tags SET explicit = 1 WHERE id = ?1", [tag])?;
-        }
-        conn.execute(
-            "INSERT OR IGNORE INTO note_tags (note_id, tag_id)
-             SELECT id, ?2 FROM notes WHERE folder_id = ?1",
-            params![folder, tag],
-        )?;
-    }
-    drop_unused_tags(conn)?;
+    tags_from_folders(conn, &folders, now)?;
     super::rebuild_search_index(conn)?;
     conn.execute(
         "INSERT OR IGNORE INTO sync_touched (kind, space, id) SELECT 'note', space_id, id FROM notes",
