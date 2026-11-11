@@ -202,6 +202,26 @@ fn three_wrong_codes_and_the_code_is_gone() {
 }
 
 #[test]
+fn wrong_codes_sent_at_once_still_get_three_tries() {
+    let (a, _ha) = node("Desktop");
+    let shown = a.start_pairing().unwrap();
+    let wrong = if shown.code == "000000" {
+        "111111"
+    } else {
+        "000000"
+    };
+    let tryers: Vec<_> = (0..8).map(|i| node(&format!("Phone {i}"))).collect();
+    std::thread::scope(|scope| {
+        for (b, _) in &tryers {
+            scope.spawn(|| b.pair_with_code(wrong, Some(&address(&a))));
+        }
+    });
+    // the ones arriving while a try is checked are turned away unchecked
+    let checked = a.shared.codes_checked();
+    assert!(checked <= 3, "{checked} codes were checked");
+}
+
+#[test]
 fn a_device_not_paired_gets_nothing() {
     let (a, ha) = node("Desktop");
     let (b, _hb) = node("Phone");

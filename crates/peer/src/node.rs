@@ -103,6 +103,11 @@ struct Pairing {
     code: String,
     until: Instant,
     tries: u8,
+    /// A pairing handshake is under way: others wait their turn.
+    busy: bool,
+    /// Codes checked, for the tests.
+    #[cfg(test)]
+    checked: u8,
     failed: Option<&'static str>,
     paired: Option<String>,
 }
@@ -478,26 +483,47 @@ impl<H: Host> Shared<H> {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn codes_checked(&self) -> u8 {
+        self.lock().pairing.as_ref().map_or(0, |p| p.checked)
+    }
+
     fn answer_pairing(self: &Arc<Self>, stream: TcpStream, secret: &[u8; 32]) {
+        // one try at a time, counted before the code is checked: tries
+        // arriving together cannot all read the code before one fails
         let code = {
-            let state = self.lock();
-            match &state.pairing {
-                Some(p) if p.failed.is_none() && p.paired.is_none() && Instant::now() < p.until => {
+            let mut state = self.lock();
+            match state.pairing.as_mut() {
+                Some(p)
+                    if !p.busy
+                        && p.tries > 0
+                        && p.failed.is_none()
+                        && p.paired.is_none()
+                        && Instant::now() < p.until =>
+                {
+                    p.busy = true;
+                    p.tries -= 1;
+                    #[cfg(test)]
+                    {
+                        p.checked += 1;
+                    }
                     p.code.clone()
                 }
                 _ => return,
             }
         };
-        let Ok(mut ch) = channel::answer_pairing(stream, secret, &code) else {
-            if let Some(p) = self.lock().pairing.as_mut() {
-                p.tries = p.tries.saturating_sub(1);
-                if p.tries == 0 {
-                    p.failed = Some("tooManyTries");
-                }
+        let answered = channel::answer_pairing(stream, secret, &code);
+        if let Some(p) = self.lock().pairing.as_mut() {
+            p.busy = false;
+            if answered.is_err() && p.tries == 0 {
+                p.failed = Some("tooManyTries");
             }
+        }
+        let Ok(mut ch) = answered else {
             self.host.status_changed();
             return;
         };
+
         if let Ok(name) = self.pair(&mut ch) {
             if let Some(p) = self.lock().pairing.as_mut() {
                 p.paired = Some(name);
@@ -929,6 +955,9 @@ impl<H: Host> Node<H> {
             code,
             until: Instant::now() + CODE_FOR,
             tries: TRIES,
+            busy: false,
+            #[cfg(test)]
+            checked: 0,
             failed: None,
             paired: None,
         });
