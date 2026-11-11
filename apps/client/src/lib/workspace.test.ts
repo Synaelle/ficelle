@@ -165,4 +165,222 @@ describe('changes from another device', () => {
     await workspace.remoteChanged()
     expect(workspace.current).toBeNull()
   })
+
+  it('an edit of a note trashed elsewhere never lands in the next note opened', async () => {
+    workspace.coediting = () => false
+    const other = await create({ title: 'Other', body: 'kept' })
+    const note = await create({ title: 'Old', body: 'x' })
+    workspace.edit({ title: 'Old, renamed' })
+    await backend.trashNote(note.id)
+    await workspace.remoteChanged()
+    expect(workspace.current).toBeNull()
+    expect(workspace.dirty).toBe(false)
+    await workspace.open(other.id)
+    workspace.edit({ body: 'kept, and more' })
+    await workspace.flush()
+    expect(await backend.getNote(other.id)).toMatchObject({
+      title: 'Other',
+      body: 'kept, and more',
+    })
+  })
+
+  it('a title, tags and a pin changed elsewhere show in the open note', async () => {
+    workspace.coediting = () => true
+    const note = await create({ title: 'Plan', body: 'one' })
+    await backend.updateNote(note.id, { title: 'Plan for May' })
+    await backend.setPinned(note.id, true)
+    await workspace.remoteChanged()
+    expect(workspace.current).toMatchObject({ title: 'Plan for May', pinned: true })
+    expect(workspace.notes.find((n) => n.id === note.id)).toMatchObject({
+      title: 'Plan for May',
+      pinned: true,
+    })
+    // tagged, it leaves the list of notes with no tag
+    await backend.setNoteTags(note.id, ['garden'])
+    await workspace.remoteChanged()
+    expect(workspace.current?.tags).toEqual(['garden'])
+    expect(workspace.tags.map((t) => t.name)).toContain('garden')
+    expect(workspace.notes.some((n) => n.id === note.id)).toBe(false)
+  })
+
+  it('changes arriving together are taken in one after the other, the last one too', async () => {
+    workspace.coediting = () => true
+    const note = await create({ title: 'Plan', body: 'one' })
+    const get = backend.getNote
+    let reading = 0
+    let most = 0
+    backend.getNote = async (id) => {
+      most = Math.max(most, ++reading)
+      // the first read is slow: the store moves on while it runs
+      if (most === 1 && reading === 1)
+        await backend.updateNote(note.id, { body: 'one\ntwo\nthree' })
+      const read = await get(id)
+      reading--
+      return read
+    }
+    try {
+      await backend.updateNote(note.id, { body: 'one\ntwo' })
+      const first = workspace.remoteChanged()
+      const second = workspace.remoteChanged()
+      await Promise.all([first, second])
+      await first
+    } finally {
+      backend.getNote = get
+    }
+    expect(most).toBe(1)
+    expect(workspace.current?.body).toBe('one\ntwo\nthree')
+  })
+
+  it('keys the editor still holds when a change arrives are kept, and merged by their save', async () => {
+    workspace.coediting = () => true
+    const note = await create({ title: 'Draft', body: 'start' })
+    const sent: NoteChange[] = []
+    const update = backend.updateNote
+    // the store merges an edit made from an older text, as the real one does
+    backend.updateNote = async (id, change) => {
+      sent.push(change)
+      const stored = (await backend.getNote(id)).body
+      const merged = change.baseBody !== undefined && change.baseBody !== stored
+      return update(id, merged ? { body: `${change.body} + ${stored}` } : change)
+    }
+    let held: string | null = null
+    workspace.serializeEditor = () => {
+      if (held !== null) workspace.edit({ body: held })
+      held = null
+    }
+    try {
+      await update(note.id, { body: 'elsewhere' })
+      const get = backend.getNote
+      // typed while the changed note is read
+      backend.getNote = async (id) => {
+        const read = await get(id)
+        if (sent.length === 0) held = 'start, typed'
+        return read
+      }
+      try {
+        await workspace.remoteChanged()
+      } finally {
+        backend.getNote = get
+      }
+      expect(workspace.current?.body, 'the typing stays in the editor').toBe('start, typed')
+      await workspace.flush()
+      expect(sent).toEqual([{ body: 'start, typed', baseBody: 'start' }])
+      expect(workspace.current?.body).toBe('start, typed + elsewhere')
+      expect((await backend.getNote(note.id)).body).toBe('start, typed + elsewhere')
+    } finally {
+      backend.updateNote = update
+      workspace.serializeEditor = null
+    }
+  })
+
+  it('keys typed while a merged save was on its way are not replaced by the merge', async () => {
+    workspace.coediting = () => true
+    await create({ title: 'Draft', body: 'start' })
+    const sent: NoteChange[] = []
+    const update = backend.updateNote
+    let held: string | null = null
+    workspace.serializeEditor = () => {
+      if (held !== null) workspace.edit({ body: held })
+      held = null
+    }
+    backend.updateNote = async (id, change) => {
+      sent.push(change)
+      const saved = await update(id, { body: change.body })
+      if (sent.length > 1) return saved
+      // typed while the save was on its way
+      held = `${change.body} and on`
+      return { ...saved, body: `elsewhere ${change.body}` }
+    }
+    try {
+      workspace.edit({ body: 'start more' })
+      await workspace.flush()
+      expect(workspace.current?.body).toBe('start more and on')
+      expect(workspace.dirty).toBe(true)
+      await workspace.flush()
+      expect(sent.at(-1)).toEqual({ body: 'start more and on', baseBody: 'start more' })
+    } finally {
+      backend.updateNote = update
+      workspace.serializeEditor = null
+    }
+  })
+
+  it('saves go one at a time, each from the text the one before stored', async () => {
+    workspace.coediting = () => false
+    await create({ title: 'Draft', body: 'start' })
+    const sent: NoteChange[] = []
+    const update = backend.updateNote
+    let running = 0
+    let most = 0
+    backend.updateNote = async (id, change) => {
+      sent.push(change)
+      most = Math.max(most, ++running)
+      await new Promise((done) => setTimeout(done, 20))
+      const saved = await update(id, change)
+      running--
+      return saved
+    }
+    try {
+      workspace.edit({ body: 'start one' })
+      const first = workspace.flush()
+      workspace.edit({ body: 'start one two' })
+      const second = workspace.flush()
+      await Promise.all([first, second])
+    } finally {
+      backend.updateNote = update
+    }
+    expect(most).toBe(1)
+    expect(sent).toEqual([
+      { body: 'start one', baseBody: 'start' },
+      { body: 'start one two', baseBody: 'start one' },
+    ])
+    expect(workspace.dirty).toBe(false)
+  })
+
+  it('a change arriving while a save is on its way shows once the save is done', async () => {
+    workspace.coediting = () => true
+    const note = await create({ title: 'Draft', body: 'start' })
+    const update = backend.updateNote
+    let release = () => {}
+    const held = new Promise<void>((done) => (release = done))
+    backend.updateNote = async (id, change) => {
+      const saved = await update(id, change)
+      await held
+      return saved
+    }
+    try {
+      workspace.edit({ body: 'start, mine' })
+      const save = workspace.flush()
+      // the other device's change lands after the save reached the store
+      await update(note.id, { body: 'start, mine\ntheirs' })
+      const followed = workspace.remoteChanged()
+      release()
+      await Promise.all([save, followed])
+    } finally {
+      backend.updateNote = update
+    }
+    expect(workspace.current?.body).toBe('start, mine\ntheirs')
+    expect(workspace.dirty).toBe(false)
+  })
+
+  it('saving a title leaves the text the body started from alone', async () => {
+    workspace.coediting = () => false
+    const note = await create({ title: 'Draft', body: 'start' })
+    const sent: NoteChange[] = []
+    const update = backend.updateNote
+    backend.updateNote = (id, change) => {
+      sent.push(change)
+      return update(id, change)
+    }
+    try {
+      // another device rewrote the body, the open note still shows the old one
+      await update(note.id, { body: 'changed elsewhere' })
+      workspace.edit({ title: 'Draft two' })
+      await workspace.flush()
+      workspace.edit({ body: 'start and more' })
+      await workspace.flush()
+      expect(sent.at(-1)).toEqual({ body: 'start and more', baseBody: 'start' })
+    } finally {
+      backend.updateNote = update
+    }
+  })
 })

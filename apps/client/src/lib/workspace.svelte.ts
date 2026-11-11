@@ -86,6 +86,11 @@ class Workspace {
    * so an edit made elsewhere in the meantime is merged, not overwritten. */
   private base: { title: string; body: string } | null = null
   private timer: ReturnType<typeof setTimeout> | undefined
+  /** The save on its way to the store, one at a time. */
+  private saving: Promise<void> | null = null
+  /** Changes from another device are being taken in, and more came since. */
+  private following = false
+  private followAgain = false
 
   async load() {
     await Promise.all([this.refreshTagsAndNotes(), this.refreshConflicts()])
@@ -180,12 +185,31 @@ class Workspace {
   /** Changes from another device were taken in. Lists follow. The open
    * note follows too when co-editing is on (an edit waiting is saved first,
    * the save merges both). With it off the open note stays as shown and
-   * edits merge when saved. */
+   * edits merge when saved. Changes arriving while this runs are taken in
+   * right after, in order, never two at once. */
   async remoteChanged() {
+    if (this.following) {
+      this.followAgain = true
+      return
+    }
+    this.following = true
+    try {
+      do {
+        this.followAgain = false
+        await this.follow()
+      } while (this.followAgain)
+    } finally {
+      this.following = false
+    }
+  }
+
+  private async follow() {
     await this.load()
+    if (this.hits) await this.search(this.query)
     const note = this.current
     if (!note) return
-    if (this.coediting() && this.dirty) await this.flush()
+    const follows = this.coediting()
+    if (follows) await this.flush()
     let fresh: Note | null
     try {
       fresh = await backend.getNote(note.id)
@@ -194,14 +218,22 @@ class Workspace {
     }
     if (this.current?.id !== note.id) return
     if (!fresh || fresh.trashedAt) {
+      clearTimeout(this.timer)
+      this.pending = {}
+      this.dirty = false
+      this.unsaved = false
       this.show(null)
       return
     }
     this.current.pinned = fresh.pinned
     this.current.tags = fresh.tags
     this.current.folderId = fresh.folderId
-    const textChanged = fresh.title !== note.title || fresh.body !== note.body
-    if (textChanged && this.coediting() && !this.dirty) this.adopt(fresh)
+    if (!follows) return
+    // keys typed while the note was read stay: the editor shows them, and
+    // their save, made from the text they started from, brings the merge
+    this.serializeEditor?.()
+    if (this.dirty || this.saving) return
+    if (fresh.title !== this.current.title || fresh.body !== this.current.body) this.adopt(fresh)
   }
 
   /**
@@ -290,13 +322,27 @@ class Workspace {
    * short pause, so a flush asks it first (lock, close). */
   serializeEditor: (() => void) | null = null
 
-  /** Saves a queued edit now. Called before leaving a note and on close. */
+  /** Saves a queued edit now. Called before leaving a note and on close.
+   * A save still on its way ends first: the next one starts from what it
+   * stored, so the same typing is never merged twice. */
   async flush() {
     this.serializeEditor?.()
     clearTimeout(this.timer)
+    while (this.saving) await this.saving
+    if (!this.current || Object.keys(this.pending).length === 0) return
+    const save = this.save()
+    this.saving = save
+    try {
+      await save
+    } finally {
+      this.saving = null
+    }
+  }
+
+  private async save() {
     const note = this.current
     const change = this.pending
-    if (!note || Object.keys(change).length === 0) return
+    if (!note) return
     this.pending = {}
     const base = this.base
     const sent: NoteChange = { ...change }
@@ -305,6 +351,9 @@ class Workspace {
     try {
       const saved = await backend.updateNote(note.id, sent)
       if (this.current?.id === saved.id) {
+        // keys typed during the save are queued now, not after the editor's
+        // own pause: text put in the editor below never replaces them
+        this.serializeEditor?.()
         const merged =
           (change.title !== undefined && saved.title !== change.title) ||
           (change.body !== undefined && saved.body !== change.body)
@@ -314,13 +363,13 @@ class Workspace {
           this.current.updatedAt = saved.updatedAt
           this.dirty = false
         }
-        if (!merged) this.base = { title: saved.title, body: saved.body }
         // another device's edit came in while this one was typed: with
         // co-editing the editor takes in the merge of both
-        else if (!queued && this.coediting()) this.adopt(saved)
+        if (merged && !queued && this.coediting()) this.adopt(saved)
         // otherwise the editor goes on from the text it sent, which the
-        // server holds merged now: the next save is that text's change,
-        // never the same typing merged a second time
+        // store holds merged now: the next save is that text's change,
+        // never the same typing merged a second time. What was not sent
+        // keeps the text it started from, whatever the store holds
         else if (base)
           this.base = {
             title: change.title ?? base.title,
