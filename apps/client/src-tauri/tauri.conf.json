@@ -38,6 +38,9 @@
     "linux": {
       "deb": {
         "desktopTemplate": "linux/ficelle-dev.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/ficelle-dev.desktop"
       }
     },
     "windows": {
@@ -47,6 +50,10 @@
           "French"
         ]
       }
-    }
+    },
+    "shortDescription": "A lightweight, private notes app for your computer and your phone.",
+    "homepage": "https://ficelle.synaelle.com",
+    "license": "AGPL-3.0-or-later",
+    "category": "Productivity"
   }
 }

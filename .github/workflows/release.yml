@@ -114,8 +114,10 @@ jobs:
           setup=$(find out -name '*-setup.exe' | head -1)
           portable=$(find out -name '*_portable.exe' | head -1)
           appimage=$(find out -name '*.AppImage' | head -1)
+          deb=$(find out -name '*.deb' | head -1)
+          rpm=$(find out -name '*.rpm' | head -1)
           apk=$(find out -name '*.apk' | head -1)
-          for file in "$setup" "$portable" "$appimage" "$apk"; do test -f "$file"; done
+          for file in "$setup" "$portable" "$appimage" "$deb" "$rpm" "$apk"; do test -f "$file"; done
           # the Mac app, when built: the .dmg to download, the archive it updates from
           mapfile -t dmgs < <(find out -name '*.dmg')
           macapp=$(find out -name '*.app.tar.gz' | head -1)
@@ -162,7 +164,7 @@ jobs:
             > latest.json
           cat latest.json
           # the signatures travel in latest.json, not on the release page
-          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$apk" "${dmgs[@]}" "${macfiles[@]}" latest.json --clobber
+          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$deb" "$rpm" "$apk" "${dmgs[@]}" "${macfiles[@]}" latest.json --clobber
           case "$TAG" in
             *-beta.*) gh release edit "$TAG" --draft=false --prerelease --latest=false ;;
             *) gh release edit "$TAG" --draft=false --latest ;;

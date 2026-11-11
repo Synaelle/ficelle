@@ -22,8 +22,15 @@
       "icons-preview/icon.icns",
       "icons-preview/icon.ico"
     ],
+    "shortDescription": "A lightweight, private notes app for your computer and your phone.",
+    "homepage": "https://ficelle.synaelle.com",
+    "license": "AGPL-3.0-or-later",
+    "category": "Productivity",
     "linux": {
       "deb": {
+        "desktopTemplate": "linux/ficelle-preview.desktop"
+      },
+      "rpm": {
         "desktopTemplate": "linux/ficelle-preview.desktop"
       }
     }
