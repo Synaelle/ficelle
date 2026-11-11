@@ -488,6 +488,28 @@ describe('changes from another device', () => {
     expect(workspace.dirty).toBe(false)
   })
 
+  it('a note read just before a save ended is read again, not shown as it was', async () => {
+    workspace.coediting = () => true
+    const note = await create({ title: 'Draft', body: 'start' })
+    const get = backend.getNote
+    let reads = 0
+    // the first read answers late, with the text from before the save
+    backend.getNote = async (id) => {
+      const read = await get(id)
+      if (reads++ > 0 || id !== note.id) return read
+      workspace.edit({ body: 'start, typed and saved meanwhile' })
+      await workspace.flush()
+      return read
+    }
+    try {
+      await workspace.remoteChanged()
+    } finally {
+      backend.getNote = get
+    }
+    expect(workspace.current?.body).toBe('start, typed and saved meanwhile')
+    expect(reads).toBeGreaterThan(1)
+  })
+
   it('saving a title leaves the text the body started from alone', async () => {
     workspace.coediting = () => false
     const note = await create({ title: 'Draft', body: 'start' })

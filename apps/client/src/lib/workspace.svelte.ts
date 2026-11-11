@@ -103,6 +103,8 @@ class Workspace {
   private editedSince: number | null = null
   /** When the open note was last typed in. */
   private editedAt = 0
+  /** Grows when a save starts and when it ends. */
+  private saves = 0
   /** The save on its way to the store, one at a time. */
   private saving: Promise<void> | null = null
   /** Changes from another device are being taken in, and more came since. */
@@ -284,6 +286,7 @@ class Workspace {
     if (!note) return
     const follows = this.coediting()
     if (follows) await this.flush()
+    const saves = this.saves
     let fresh: Note | null
     try {
       fresh = await backend.getNote(note.id)
@@ -291,6 +294,12 @@ class Workspace {
       fresh = null
     }
     if (this.current?.id !== note.id) return
+    // a save made while the note was read: what was read may be the text
+    // from before it, which would take the saved words out of the editor
+    if (this.saves !== saves) {
+      this.followAgain = true
+      return
+    }
     if (fresh?.trashedAt) {
       // what was typed so far goes into the note in the trash
       await this.flush()
@@ -438,8 +447,9 @@ class Workspace {
     const sent: NoteChange = { ...change }
     if (base && change.title !== undefined) sent.baseTitle = base.title
     if (base && change.body !== undefined) sent.baseBody = base.body
+    this.saves++
     try {
-      const saved = await this.store(note.id, sent)
+      const saved = await this.store(note.id, sent).finally(() => this.saves++)
       if (this.current?.id === saved.id) {
         // keys typed during the save are queued now, not after the editor's
         // own pause: text put in the editor below never replaces them
