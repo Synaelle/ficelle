@@ -1,0 +1,20 @@
+# Template of the AUR package ficelle-bin, filled for each stable release by
+# tools/aur/update.mjs (@VERSION@ and @SHA256@). It repacks the release's .deb
+# and uses the system's WebKitGTK, as the deb does.
+pkgname=ficelle-bin
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='A lightweight, private notes app for your computer and your phone'
+arch=('x86_64')
+url='https://ficelle.synaelle.com'
+license=('AGPL-3.0-or-later')
+depends=('webkit2gtk-4.1' 'gtk3' 'libsoup3' 'glib2' 'cairo' 'gdk-pixbuf2' 'openssl' 'hicolor-icon-theme')
+provides=('ficelle')
+conflicts=('ficelle')
+options=('!strip' '!debug')
+source=("Ficelle_${pkgver}_amd64.deb::https://github.com/Synaelle/ficelle/releases/download/v${pkgver}/Ficelle_${pkgver}_amd64.deb")
+sha256sums=('@SHA256@')
+
+package() {
+  bsdtar -xf data.tar.* -C "$pkgdir"
+}
