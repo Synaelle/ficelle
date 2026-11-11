@@ -26,6 +26,10 @@ jobs:
         # a stuck package mirror fails the step instead of holding the run for an hour
         timeout-minutes: 10
         run: |
+          # the runners' Azure mirror stalls at times: Ubuntu's own archive instead
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            echo "http://archive.ubuntu.com/ubuntu/" | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+          fi
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
             librsvg2-dev libxdo-dev libssl-dev file
