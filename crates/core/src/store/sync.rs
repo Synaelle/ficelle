@@ -213,6 +213,10 @@ impl Store {
         if link.kind == AccountKind::E2ee && link.master_key.is_none() {
             return Err(Error::Invalid("an e2ee account needs its key".into()));
         }
+        // one way to sync per vault: a server, or the person's own devices
+        if self.devices_paired()? {
+            return Err(Error::Invalid(super::DEVICES_PAIRED.into()));
+        }
         let now = self.now();
         let key = link_key(&link.server, &link.account_id);
         let tx = self.conn.transaction()?;

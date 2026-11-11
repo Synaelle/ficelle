@@ -25,6 +25,8 @@ pub mod engine;
 mod engine_tests;
 pub mod files;
 mod materialize;
+#[cfg(test)]
+mod peer_tests;
 mod record;
 #[cfg(test)]
 mod tests;

@@ -103,6 +103,10 @@ const MIGRATIONS: &[Migration] = &[
         sql: include_str!("db/019_nested_tags.sql"),
         then: Some(crate::store::convert_folders_to_tags),
     },
+    Migration {
+        sql: include_str!("db/020_peers.sql"),
+        then: None,
+    },
 ];
 
 /// Opens or creates the database at `path`. With a key the file is encrypted
@@ -425,7 +429,8 @@ mod tests {
     #[test]
     fn folders_become_tags_holding_their_notes_from_any_version() {
         let [_, _, _, _, _, in_garden, in_old, tagged] = FOLDER_IDS;
-        for from in 1..MIGRATIONS.len() {
+        // every version written before step 19, which converts the folders
+        for from in 1..19 {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("old.db");
             old_vault_with_folders(&path, from);

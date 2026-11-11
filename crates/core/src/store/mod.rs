@@ -15,6 +15,7 @@ mod history;
 mod imports;
 mod links;
 mod notes;
+mod peers;
 mod search;
 mod spaces;
 mod sync;
@@ -43,6 +44,7 @@ pub use imports::{ImportBatch, ImportFile, ImportFolder, ImportNote, ImportPlace
 pub use links::LinkSuggestion;
 pub(crate) use links::rebuild_link_index;
 pub use notes::{NewNote, NoteChange};
+pub use peers::{DEVICES_PAIRED, PeerDevice, SERVER_LINKED};
 pub(crate) use reindex as reindex_note;
 pub use spaces::{Item, LocalSpace, RootNote, SpaceRoots, WaitingMember};
 pub use sync::{NewLink, SyncLink, Taken, Tokens};
