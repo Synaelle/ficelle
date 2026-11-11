@@ -12,7 +12,8 @@
   import { pullDown, swipeRow } from '../lib/gestures'
   import { thud } from '../lib/haptics'
   import { startNoteDrag } from '../lib/noteDrag'
-  import { moveToItems } from '../lib/noteMenu'
+  import { tagItems } from '../lib/noteMenu'
+  import { tagLabel, tagLeaf, tagParent } from '../lib/tagMark.svelte'
   import { overlay, SEPARATOR } from '../lib/overlay.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import { UNFILED, workspace } from '../lib/workspace.svelte'
@@ -37,37 +38,47 @@
   })
 
   const trash = $derived(workspace.scope.kind === 'trash')
-  const restorable = $derived(workspace.trashedFolders)
+
+  /** The tag shown, with the tags it holds. */
+  const shownTag = $derived.by(() => {
+    const scope = workspace.scope
+    return scope.kind === 'tag' ? workspace.tags.find((tag) => tag.id === scope.id) : undefined
+  })
+  const holdsTags = $derived(
+    !!shownTag &&
+      workspace.tags.some(
+        (tag) => tagParent(tag.name).toLowerCase() === shownTag.name.toLowerCase(),
+      ),
+  )
+  /** The levels above the tag shown, dimmed before its name. */
+  const titleParent = $derived.by(() => {
+    const parent = shownTag ? tagParent(shownTag.name) : ''
+    if (!parent) return prefs.tagMark === 'hash' && shownTag ? '#' : ''
+    return prefs.tagMark === 'hash' ? `#${parent}/` : `${tagLabel(parent)} › `
+  })
 
   const title = $derived.by(() => {
     const scope = workspace.scope
-    if (scope.kind === 'folder')
-      return scope.id === null ? t('sidebar.unfiled') : workspace.folderName(scope.id)
-    if (scope.kind === 'tag') return `#${workspace.tagName(scope.id)}`
+    if (shownTag) return tagLeaf(shownTag.name)
+    if (scope.kind === 'untagged') return t('sidebar.untagged')
     if (scope.kind === 'trash') return t('sidebar.trash')
     return t('sidebar.allNotes')
   })
 
   // on a phone: one select replaces the sidebar
   const scopeValue = $derived(
-    workspace.scope.kind === 'folder' && workspace.scope.id === null
-      ? 'unfiled'
-      : workspace.scope.kind === 'folder' || workspace.scope.kind === 'tag'
-        ? `${workspace.scope.kind}:${workspace.scope.id}`
-        : workspace.scope.kind,
+    workspace.scope.kind === 'tag' ? `tag:${workspace.scope.id}` : workspace.scope.kind,
   )
   function pickScope(value: string) {
     const [kind, id] = value.split(':') as [string, string]
     const scope: Scope =
-      kind === 'folder'
-        ? { kind: 'folder', id }
-        : kind === 'tag'
-          ? { kind: 'tag', id }
-          : kind === 'trash'
-            ? { kind: 'trash' }
-            : kind === 'unfiled'
-              ? UNFILED
-              : { kind: 'all' }
+      kind === 'tag'
+        ? { kind: 'tag', id }
+        : kind === 'trash'
+          ? { kind: 'trash' }
+          : kind === 'untagged'
+            ? UNFILED
+            : { kind: 'all' }
     void workspace.setScope(scope)
   }
 
@@ -154,15 +165,12 @@
     run()
   }
 
-  function moveFromSwipe(event: MouseEvent, note: { id: string; folderId: string | null }) {
-    overlay.openMenuBelow(event.currentTarget as HTMLElement, moveToItems(note.id, note.folderId))
+  function tagsFromSwipe(event: MouseEvent, note: { id: string; tags: string[] }) {
+    overlay.openMenuBelow(event.currentTarget as HTMLElement, tagItems(note.id, note.tags))
     swiped = null
   }
 
-  function noteMenu(
-    event: MouseEvent,
-    note: { id: string; pinned: boolean; folderId: string | null; spaceId: string },
-  ) {
+  function noteMenu(event: MouseEvent, note: { id: string; pinned: boolean; tags: string[] }) {
     if (trash) {
       return overlay.openMenu(event, [
         { label: t('list.restore'), icon: 'restore', run: () => void workspace.restore(note.id) },
@@ -176,7 +184,12 @@
         icon: 'pin',
         run: () => void workspace.togglePin(note.id, !note.pinned),
       },
-      { label: t('note.moveTo'), icon: 'move', items: moveToItems(note.id, note.folderId) },
+      {
+        label: t('note.tags'),
+        icon: 'tag',
+        disabled: workspace.tags.length === 0,
+        items: tagItems(note.id, note.tags),
+      },
       SEPARATOR,
       {
         label: t('note.trash'),
@@ -203,19 +216,16 @@
         value={scopeValue}
         onchange={(e) => pickScope(e.currentTarget.value)}
       >
-        <option value="unfiled">{t('sidebar.unfiled')}</option>
+        <option value="untagged">{t('sidebar.untagged')}</option>
         <option value="all">{t('sidebar.allNotes')}</option>
-        {#each workspace.folders as folder (folder.id)}
-          <option value="folder:{folder.id}">{folder.name}</option>
-        {/each}
         {#each workspace.tags as tag (tag.id)}
-          <option value="tag:{tag.id}">#{tag.name}</option>
+          <option value="tag:{tag.id}">{tagLabel(tag.name)}</option>
         {/each}
         <option value="trash">{t('sidebar.trash')}</option>
       </select>
     {:else}
-      <h1>{title}</h1>
-      {#if (workspace.scope.kind === 'folder' && workspace.scope.id !== null) || workspace.scope.kind === 'tag'}
+      <h1><span class="dim">{titleParent}</span>{title}</h1>
+      {#if workspace.scope.kind === 'tag'}
         <button
           class="icon-btn clear"
           aria-label={t('list.clearFilter')}
@@ -256,7 +266,7 @@
       {/if}
       {#if trash}
         <!-- only when there is something to empty, an icon on narrow screens -->
-        {#if workspace.notes.length > 0 || workspace.trashedFolders.length > 0}
+        {#if workspace.notes.length > 0}
           {#if narrow}
             <button
               class="icon-btn danger"
@@ -292,6 +302,9 @@
       {/if}
     </div>
   </header>
+  {#if holdsTags && !narrow}
+    <p class="inner">{t('list.withInner', { count: workspace.notes.length })}</p>
+  {/if}
 
   <div class="tools">
     <label class="search">
@@ -339,22 +352,6 @@
         {/snippet}
       </VirtualList>
     {:else}
-      {#if restorable.length > 0}
-        <ul class="trashed-folders" aria-label={t('list.trashedFolders')}>
-          {#each restorable as folder (folder.id)}
-            <li>
-              <Icon name="folder" size={16} />
-              <span class="name">{folder.name}</span>
-              <button
-                class="icon-btn"
-                aria-label={t('list.restoreFolder', { name: folder.name })}
-                title={t('list.restoreFolder', { name: folder.name })}
-                onclick={() => workspace.restoreFolder(folder.id)}><Icon name="restore" /></button
-              >
-            </li>
-          {/each}
-        </ul>
-      {/if}
       <VirtualList items={listed} key={(note) => note.id} label={t('list.label')}>
         {#snippet row(note)}
           <div
@@ -389,9 +386,9 @@
                 <button
                   class="move"
                   tabindex={swiped === note.id ? 0 : -1}
-                  onclick={(e) => moveFromSwipe(e, note)}
+                  onclick={(e) => tagsFromSwipe(e, note)}
                 >
-                  <Icon name="move" />{t('note.moveTo')}
+                  <Icon name="tag" />{t('note.tags')}
                 </button>
                 <button
                   class="trash"
@@ -423,7 +420,15 @@
                   >{/if}
                 <span class="name">{note.title || t('note.untitled')}</span>
               </span>
-              <span class="snippet">{note.snippet}</span>
+              <span class="snippet"
+                ><!-- the tags lead the preview's line: rows keep one height -->{#each note.tags as tag (tag)}
+                  {@const color = workspace.tags.find((o) => o.name === tag)?.color}
+                  <span class="row-tag"
+                    >{tagLabel(tag)}{#if color}<span class="tag-mark" data-color={color}
+                      ></span>{/if}</span
+                  >
+                {/each}{note.snippet}</span
+              >
               <span class="date">{when(note.updatedAt)}</span>
             </button>
             {#if trash}
@@ -445,15 +450,13 @@
           </div>
         {/snippet}
         {#snippet empty()}
-          {#if restorable.length === 0}
-            <li class="empty">
-              {trash
-                ? t('list.trashEmpty')
-                : workspace.scope.kind === 'folder' && workspace.scope.id === null
-                  ? t('list.unfiledEmpty')
-                  : t('list.empty')}
-            </li>
-          {/if}
+          <li class="empty">
+            {trash
+              ? t('list.trashEmpty')
+              : workspace.scope.kind === 'untagged'
+                ? t('list.untaggedEmpty')
+                : t('list.empty')}
+          </li>
         {/snippet}
       </VirtualList>
     {/if}
@@ -676,6 +679,24 @@
     display: inline-flex;
     color: var(--color-accent);
   }
+  .row-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .inner {
+    margin: 0;
+    padding: 0 var(--space-4) var(--space-2);
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+  h1 .dim {
+    font-weight: 400;
+    color: var(--color-text-muted);
+  }
   .snippet {
     grid-column: 1 / -1;
     color: var(--color-text-muted);
@@ -710,28 +731,6 @@
   }
   .swipe:has(.row-actions) .row {
     padding-right: 96px;
-  }
-  .trashed-folders {
-    flex: none;
-    max-height: 40%;
-    overflow-y: auto;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border-bottom: 1px solid var(--color-border);
-  }
-  .trashed-folders li {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
-  }
-  .trashed-folders .name {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .empty {
     padding: var(--space-6) var(--space-3);

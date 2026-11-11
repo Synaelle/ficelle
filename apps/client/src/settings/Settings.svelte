@@ -13,6 +13,7 @@
   import type { IconName } from '../lib/icons/sets'
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
   import { MODES } from '../lib/theme.svelte'
+  import { TAG_MARKS } from '../lib/tagMark.svelte'
   import {
     applyQuickShortcut,
     DEFAULT_QUICK_SHORTCUT,
@@ -217,6 +218,22 @@
                   disabled={prefs.mode === 'light'}
                   bind:checked={prefs.pureBlack}
                 />
+              </Row>
+            </Group>
+            <Group title={t('settings.tags')}>
+              <Row label={t('settings.tagMark')} help={t('settings.tagMarkHelp')}>
+                <div class="segmented" role="radiogroup" aria-label={t('settings.tagMark')}>
+                  {#each TAG_MARKS as mark (mark)}
+                    <label class:checked={prefs.tagMark === mark}>
+                      <input
+                        type="radio"
+                        name="tagMark"
+                        value={mark}
+                        bind:group={prefs.tagMark}
+                      />{t(`settings.tagMark_${mark}`)}
+                    </label>
+                  {/each}
+                </div>
               </Row>
             </Group>
           {:else if section === 'accessibility'}

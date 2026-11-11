@@ -17,6 +17,7 @@ import {
   type NoteVersion,
   type Scope,
   type Tag,
+  type TagColor,
 } from './types'
 
 /** The memory backend, with what tests read back. */
@@ -26,6 +27,16 @@ export type MemoryBackend = Backend & {
 }
 
 const key = (title: string) => title.trim().toLowerCase()
+/** A tag as the app keeps it: levels joined by `/`, each without `#`. */
+const cleanTag = (name: string) =>
+  name
+    .split('/')
+    .map((p) => p.trim().replace(/^#+/, '').split(/\s+/).filter(Boolean).join(' '))
+    .filter(Boolean)
+    .join('/')
+/** `name` is `under` or a tag it holds. */
+const within = (name: string, under: string) =>
+  key(name) === key(under) || key(name).startsWith(`${key(under)}/`)
 const linkTargets = (body: string) =>
   [...body.replace(/```[\s\S]*?```|`[^`\n]*`/g, '').matchAll(/\[\[([^\]\n|#]+)/g)].map((m) =>
     key(m[1] ?? ''),
@@ -59,8 +70,9 @@ function preview(title: string, body: string): string {
 }
 
 function summary(note: Note): NoteSummary {
-  const { id, folderId, title, body, pinned, updatedAt, createdAt, spaceId } = note
+  const { id, folderId, title, body, pinned, updatedAt, createdAt, spaceId, tags } = note
   return {
+    tags: [...tags],
     id,
     folderId,
     title,
@@ -78,6 +90,8 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
   let encrypted = false
   const notes = new Map<Id, Note>()
   const folders = new Map<Id, Folder>()
+  /** Tags made on their own and colour marks, by lowercased path. */
+  const tagMarks = new Map<string, { name: string; color: TagColor | null }>()
   const versions: NoteVersion[] = []
   const sentFeedback: import('./types').FeedbackDraft[] = []
   const attachments = new Map<Id, Attachment & { url: string }>()
@@ -99,9 +113,7 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
   if (options.seed) {
     exists = true
     unlocked = true
-    const data = sampleData(now())
-    data.folders.forEach((f) => folders.set(f.id, f))
-    data.notes.forEach((n) => notes.set(n.id, n))
+    sampleData(now()).notes.forEach((n) => notes.set(n.id, n))
   }
 
   // backups: a folder whose path holds "unreachable" fails, as an unplugged drive
@@ -222,11 +234,15 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
 
     listNotes: async (scope: Scope, sort) => {
       const tagName = scope.kind === 'tag' ? scope.id : null
+      if (scope.kind === 'untagged')
+        return [...notes.values()]
+          .filter((n) => n.trashedAt === null && n.tags.length === 0)
+          .map(summary)
       const list = [...notes.values()].filter((n) => {
         if (scope.kind === 'trash') return n.trashedAt !== null
         if (n.trashedAt !== null) return false
         if (scope.kind === 'folder') return n.folderId === scope.id
-        if (tagName) return n.tags.some((t) => key(t) === key(tagName))
+        if (tagName) return n.tags.some((t) => within(t, tagName))
         return true
       })
       const order: Record<typeof sort, (a: Note, b: Note) => number> = {
@@ -296,7 +312,9 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       return noteId
     },
     setNoteTags: async (noteId, tags) => {
-      note(noteId).tags = [...new Set(tags.map((t) => t.replace(/^#/, '').trim()).filter(Boolean))]
+      const seen = new Map<string, string>()
+      for (const t of tags.map(cleanTag).filter(Boolean)) if (!seen.has(key(t))) seen.set(key(t), t)
+      note(noteId).tags = [...seen.values()]
     },
     trashNote: async (noteId) => {
       note(noteId).trashedAt = now()
@@ -371,17 +389,61 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     },
 
     listTags: async () => {
-      const counts = new Map<string, Tag>()
-      for (const n of notes.values()) {
-        if (n.trashedAt !== null) continue
-        for (const t of n.tags) {
-          const tag = counts.get(key(t)) ?? { id: t, name: t, noteCount: 0 }
-          tag.noteCount += 1
-          counts.set(key(t), tag)
-        }
+      const names = new Map<string, string>()
+      const add = (name: string) => {
+        const levels = name.split('/')
+        levels.forEach((_, i) => {
+          const level = levels.slice(0, i + 1).join('/')
+          if (!names.has(key(level))) names.set(key(level), level)
+        })
       }
-      return [...counts.values()].sort((a, b) => a.name.localeCompare(b.name))
+      for (const n of notes.values()) n.tags.forEach(add)
+      for (const mark of tagMarks.values()) add(mark.name)
+      const live = [...notes.values()].filter((n) => n.trashedAt === null)
+      return [...names.values()]
+        .map((name): Tag => ({
+          id: name,
+          name,
+          noteCount: live.filter((n) => n.tags.some((t) => within(t, name))).length,
+          color: tagMarks.get(key(name))?.color ?? null,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
     },
+    createTag: async (name) => {
+      const clean = cleanTag(name)
+      if (!clean) throw { kind: 'invalid', message: 'a tag needs a name' }
+      const mark = tagMarks.get(key(clean))
+      tagMarks.set(key(clean), { name: mark?.name ?? clean, color: mark?.color ?? null })
+      return clean
+    },
+    renameTag: async (tagId, name) => {
+      const clean = cleanTag(name)
+      if (!clean) throw { kind: 'invalid', message: 'a tag needs a name' }
+      if (key(clean) !== key(tagId) && within(clean, tagId))
+        throw { kind: 'invalid', message: 'a tag cannot go inside itself' }
+      const moved = (t: string) => (within(t, tagId) ? clean + t.slice(tagId.length) : t)
+      for (const n of notes.values()) {
+        const seen = new Map<string, string>()
+        for (const t of n.tags.map(moved)) if (!seen.has(key(t))) seen.set(key(t), t)
+        n.tags = [...seen.values()]
+      }
+      for (const [k, mark] of [...tagMarks]) {
+        if (!within(mark.name, tagId)) continue
+        tagMarks.delete(k)
+        tagMarks.set(key(moved(mark.name)), { ...mark, name: moved(mark.name) })
+      }
+    },
+    setTagColor: async (tagId, color) => {
+      const mark = tagMarks.get(key(tagId))
+      if (color) tagMarks.set(key(tagId), { name: mark?.name ?? tagId, color })
+      else if (mark) tagMarks.set(key(tagId), { ...mark, color: null })
+    },
+    deleteTag: async (tagId) => {
+      for (const n of notes.values()) n.tags = n.tags.filter((t) => !within(t, tagId))
+      for (const [k, mark] of [...tagMarks]) if (within(mark.name, tagId)) tagMarks.delete(k)
+    },
+    tagsMerged: async () => false,
+    tagsMergedSeen: async () => {},
     listVersions: async (noteId) => versions.filter((v) => v.noteId === noteId),
     restoreVersion: async (versionId) => {
       const version = versions.find((v) => v.id === versionId)

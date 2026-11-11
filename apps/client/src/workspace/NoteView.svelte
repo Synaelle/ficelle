@@ -12,7 +12,8 @@
   import { backend, type NoteSummary, type NoteVersion } from '../lib/backend'
   import { currentLocale, t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
-  import { moveToItems } from '../lib/noteMenu'
+  import { tagItems } from '../lib/noteMenu'
+  import { tagLabel } from '../lib/tagMark.svelte'
   import { overlay, SEPARATOR } from '../lib/overlay.svelte'
   import Knot from '@app/ui/Knot.svelte'
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
@@ -118,7 +119,12 @@
     const id = note.id
     const items: MenuItem[] = [
       { label: t('note.history'), icon: 'history', run: () => void showHistory() },
-      { label: t('note.moveTo'), icon: 'move', items: moveToItems(id, note.folderId) },
+      {
+        label: t('note.tags'),
+        icon: 'tag',
+        disabled: workspace.tags.length === 0,
+        items: tagItems(id, note.tags),
+      },
       SEPARATOR,
       {
         label: t('note.trash'),
@@ -176,7 +182,7 @@
           <Icon name="back" />
         </button>
       {/if}
-      <span class="where muted">{workspace.folderName(note.folderId)}</span>
+      <span class="where"></span>
       <span
         class="saved muted"
         class:bad={workspace.unsaved}
@@ -227,8 +233,11 @@
         />
         <div class="tags">
           {#each note.tags as tag (tag)}
+            {@const color = workspace.tags.find((o) => o.name === tag)?.color}
             <span class="tag">
-              #{tag}
+              {#if prefs.tagMark === 'folder'}<Icon name="folder" size={12} />{/if}
+              {tagLabel(tag)}
+              {#if color}<span class="tag-mark" data-color={color}></span>{/if}
               <button
                 aria-label={t('note.removeTag', { tag })}
                 onclick={() => note && workspace.setTags(note.tags.filter((x) => x !== tag))}
@@ -237,7 +246,16 @@
             </span>
           {/each}
           <form onsubmit={addTag}>
-            <input class="tag-input" placeholder={t('note.addTag')} bind:value={tagDraft} />
+            <input
+              class="tag-input"
+              placeholder={t('note.addTag')}
+              aria-label={t('note.addTag')}
+              list="tag-choices"
+              bind:value={tagDraft}
+            />
+            <datalist id="tag-choices">
+              {#each workspace.tags as tag (tag.id)}<option value={tag.name}></option>{/each}
+            </datalist>
           </form>
         </div>
 
@@ -449,12 +467,13 @@
   .tag {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 6px;
     padding: 1px var(--space-2);
     border-radius: var(--radius-chip);
     background: var(--color-surface-2);
     color: var(--color-text-muted);
-    font-size: 13px;
+    font-family: var(--font-mono);
+    font-size: 12px;
   }
   .tag button {
     display: inline-grid;

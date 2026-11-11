@@ -5,6 +5,7 @@
   import { brand } from '@app/brand'
   import DevReport from './devreport/DevReport.svelte'
   import BetaFeedback from './lib/BetaFeedback.svelte'
+  import TagsMerged from './workspace/TagsMerged.svelte'
   import { autoLock } from './lib/autolock.svelte'
   import { backend, type VaultStatus } from './lib/backend'
   import { applyDyslexicFont } from './lib/dyslexicFont'
@@ -164,6 +165,7 @@
     <Workspace onlock={lock} {lockable} />
   </div>
   <BetaFeedback />
+  <TagsMerged />
 {/if}
 
 <Overlays />

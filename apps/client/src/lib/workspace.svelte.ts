@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// What the main screen shows: folders, tags, the note list for the current
+// What the main screen shows: tags, the note list for the current
 // scope, search results and the open note. Components read these fields and
 // call the methods, all storage goes through the backend.
 
 import {
   backend,
   type BackendError,
-  type Folder,
   type Id,
   type Note,
   type NoteChange,
@@ -16,13 +15,21 @@ import {
   type Scope,
   type SearchHit,
   type Tag,
+  type TagColor,
 } from './backend'
 import { isMarkdownFile, parseMarkdownFile } from './importing'
 import { prefs } from './prefs.svelte'
 
-/** The notes in no folder: the view the app opens on, and the one it goes
+/** The notes with no tag: the view the app opens on, and the one it goes
  * back to when a filter is turned off or goes away. */
-export const UNFILED: Scope = { kind: 'folder', id: null }
+export const UNFILED: Scope = { kind: 'untagged' }
+
+/** What makes two tag names one tag. */
+export const tagKey = (name: string) => name.toLowerCase()
+
+/** `name` is `under` or one of the tags it holds. */
+export const tagWithin = (name: string, under: string) =>
+  tagKey(name) === tagKey(under) || tagKey(name).startsWith(`${tagKey(under)}/`)
 
 /** Wait after the last keystroke before saving. A pause between words is
  * shorter, a pause to think is longer: one save per thought, not per word. */
@@ -36,9 +43,6 @@ export function isBackendError(err: unknown): err is BackendError {
 }
 
 class Workspace {
-  folders: Folder[] = $state([])
-  /** Folders the trash can bring back, read while the trash is shown. */
-  trashedFolders: Folder[] = $state([])
   tags: Tag[] = $state([])
   notes: NoteSummary[] = $state([])
   scope: Scope = $state(UNFILED)
@@ -73,7 +77,7 @@ class Workspace {
   private timer: ReturnType<typeof setTimeout> | undefined
 
   async load() {
-    await Promise.all([this.refreshFolders(), this.refreshTagsAndNotes(), this.refreshConflicts()])
+    await Promise.all([this.refreshTagsAndNotes(), this.refreshConflicts()])
   }
 
   async refreshTagsAndNotes() {
@@ -101,21 +105,16 @@ class Workspace {
     await this.load()
   }
 
-  async refreshFolders() {
-    this.folders = await backend.listFolders()
-  }
-
   async refreshTags() {
     this.tags = await backend.listTags()
     // a tag goes with its last note: viewing it, the list goes back to the
-    // notes in no folder
+    // notes with no tag
     const scope = this.scope
     if (scope.kind === 'tag' && !this.tags.some((tag) => tag.id === scope.id)) this.scope = UNFILED
   }
 
   async refreshNotes() {
     this.notes = await backend.listNotes(this.scope, prefs.sort)
-    this.trashedFolders = this.scope.kind === 'trash' ? await backend.listTrashedFolders() : []
   }
 
   async setScope(scope: Scope) {
@@ -149,11 +148,6 @@ class Workspace {
   replace(note: Note) {
     this.show(note)
     this.revision++
-  }
-
-  /** The folder new notes go into: the one shown. */
-  private newNoteFolder(): Id | null {
-    return this.scope.kind === 'folder' ? this.scope.id || null : null
   }
 
   /**
@@ -236,9 +230,8 @@ class Workspace {
   async create(initial: { title?: string; body?: string }, open: false): Promise<Note>
   async create(initial: { title?: string; body?: string } = {}, open = true) {
     if (open && !(await this.leave())) return null
-    const folderId = this.newNoteFolder()
     const tags = this.scope.kind === 'tag' ? [this.tagName(this.scope.id)] : []
-    const note = await backend.createNote({ ...initial, folderId, tags })
+    const note = await backend.createNote({ ...initial, tags })
     if (open) {
       this.fresh = note.id
       this.show(note)
@@ -256,14 +249,13 @@ class Workspace {
     const markdown = files.filter(isMarkdownFile)
     if (markdown.length < files.length) this.error = 'notMarkdown'
     if (markdown.length === 0) return
-    const folderId = this.newNoteFolder()
     const scopeTags = this.scope.kind === 'tag' ? [this.tagName(this.scope.id)] : []
     try {
       let last: Note | null = null
       for (const file of markdown) {
         const { title, body, tags } = parseMarkdownFile(file.name, await file.text())
         const allTags = [...new Set([...scopeTags, ...tags])]
-        last = await backend.createNote({ title, body, folderId, tags: allTags })
+        last = await backend.createNote({ title, body, tags: allTags })
       }
       this.show(last)
     } catch (err) {
@@ -340,10 +332,20 @@ class Workspace {
 
   async setTags(tags: string[]) {
     if (!this.current) return
-    await backend.setNoteTags(this.current.id, tags)
-    const fresh = await backend.getNote(this.current.id)
-    if (this.current?.id === fresh.id) this.current.tags = fresh.tags
+    await this.setNoteTags(this.current.id, tags)
+  }
+
+  async setNoteTags(id: Id, tags: string[]) {
+    await backend.setNoteTags(id, tags)
+    if (this.current?.id === id) this.current.tags = (await backend.getNote(id)).tags
     await this.refreshTagsAndNotes()
+  }
+
+  /** Gives a note one more tag, a note dropped on a tag for example. */
+  async addTag(id: Id, name: string) {
+    const note = await backend.getNote(id)
+    if (note.tags.some((t) => tagKey(t) === tagKey(name))) return
+    await this.setNoteTags(id, [...note.tags, name])
   }
 
   async togglePin(id: Id, pinned: boolean) {
@@ -372,41 +374,38 @@ class Workspace {
     await this.refreshNotes()
   }
 
-  async move(id: Id, folder: Id | null) {
-    await backend.moveNote(id, folder)
-    if (this.current?.id === id) this.current.folderId = folder
-    await this.refreshNotes()
+  /** Makes a tag that stays without notes, returning its id. */
+  async createTag(name: string) {
+    const id = await backend.createTag(name)
+    await this.refreshTags()
+    return id
   }
 
-  async createFolder(parent: Id | null, name: string) {
-    const folder = await backend.createFolder(parent, name)
-    await this.refreshFolders()
-    return folder
+  /** Renames a tag or moves it with a path; the notes follow. */
+  async renameTag(id: Id, name: string) {
+    await backend.renameTag(id, name)
+    await this.reloadTagged()
   }
 
-  async renameFolder(id: Id, name: string) {
-    await backend.renameFolder(id, name)
-    await this.refreshFolders()
+  async setTagColor(id: Id, color: TagColor | null) {
+    await backend.setTagColor(id, color)
+    await this.refreshTags()
   }
 
-  async trashFolder(id: Id) {
-    await backend.trashFolder(id)
-    if (this.scope.kind === 'folder' && this.scope.id === id) this.scope = UNFILED
-    await this.load()
+  /** Takes a tag and the tags it holds off every note. */
+  async deleteTag(id: Id) {
+    await backend.deleteTag(id)
+    await this.reloadTagged()
   }
 
-  /** Brings a folder back with everything that went to the trash with it. */
-  async restoreFolder(id: Id) {
-    await backend.restoreFolder(id)
-    await this.load()
+  /** After a tag changed on many notes: the list, the open note's tags. */
+  private async reloadTagged() {
+    if (this.current) this.current.tags = (await backend.getNote(this.current.id)).tags
+    await this.refreshTagsAndNotes()
   }
 
   tagName(id: Id): string {
     return this.tags.find((t) => t.id === id)?.name ?? ''
-  }
-
-  folderName(id: Id | null): string {
-    return this.folders.find((f) => f.id === id)?.name ?? ''
   }
 
   report(err: unknown) {

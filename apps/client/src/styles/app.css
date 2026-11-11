@@ -469,3 +469,29 @@ details.settings-group:not([open]) {
   background: var(--color-bg);
   box-shadow: inset 3px 0 0 var(--color-border-strong);
 }
+
+/* a tag's colour mark, muted beside its name */
+.tag-mark {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 1px;
+}
+.tag-mark[data-color='red'] {
+  background: #c2564a;
+}
+.tag-mark[data-color='amber'] {
+  background: #c49a3c;
+}
+.tag-mark[data-color='green'] {
+  background: #7d9e68;
+}
+.tag-mark[data-color='blue'] {
+  background: #6a93c4;
+}
+.tag-mark[data-color='purple'] {
+  background: #9b82c6;
+}
+.tag-mark[data-color='grey'] {
+  background: var(--color-text-muted);
+}

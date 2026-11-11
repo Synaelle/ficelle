@@ -8,7 +8,7 @@ describe('t', () => {
   it('fills placeholders and the app name', () => {
     setLocale('en')
     expect(t('errorReport.lead')).toContain(brand.displayName)
-    expect(t('folders.confirmTrash', { name: 'Garden' })).toContain('Garden')
+    expect(t('tags.newInside', { name: 'Garden' })).toContain('Garden')
   })
 
   it('chooses plural forms with the rules of the language', () => {

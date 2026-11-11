@@ -2,23 +2,22 @@
 // Menu items shared by the note list and the open note.
 
 import type { Id } from './backend'
-import { t } from './i18n.svelte'
 import type { MenuItem } from './overlay.svelte'
-import { workspace } from './workspace.svelte'
+import { tagLabel } from './tagMark.svelte'
+import { tagKey, workspace } from './workspace.svelte'
 
-/** Folders to move a note to, the current one checked. */
-export function moveToItems(id: Id, current: Id | null): MenuItem[] {
-  return [
-    {
-      label: t('note.noFolder'),
-      checked: current === null,
-      run: () => void workspace.move(id, null),
-    },
-    ...workspace.folders.map((folder) => ({
-      label: folder.name,
-      icon: 'folder' as const,
-      checked: current === folder.id,
-      run: () => void workspace.move(id, folder.id),
-    })),
-  ]
+/** Every tag, the note's own checked: picking one adds or takes it off. */
+export function tagItems(id: Id, own: string[]): MenuItem[] {
+  const has = new Set(own.map(tagKey))
+  return workspace.tags.map((tag) => ({
+    label: tagLabel(tag.name),
+    checked: has.has(tagKey(tag.name)),
+    run: () =>
+      void workspace.setNoteTags(
+        id,
+        has.has(tagKey(tag.name))
+          ? own.filter((t) => tagKey(t) !== tagKey(tag.name))
+          : [...own, tag.name],
+      ),
+  }))
 }

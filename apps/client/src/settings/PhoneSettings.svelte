@@ -25,6 +25,7 @@
   import TestTools from '../devreport/TestTools.svelte'
   import AboutSettings from './AboutSettings.svelte'
   import { MODES } from '../lib/theme.svelte'
+  import { TAG_MARKS } from '../lib/tagMark.svelte'
   import { UI_SIZES } from '../lib/uiSize'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
   import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
@@ -475,6 +476,15 @@
             disabled: prefs.mode === 'light',
             run: () => (prefs.pureBlack = !prefs.pureBlack),
           })}
+        </Group>
+        <Group title={t('settings.tagMark')} note={t('settings.tagMarkHelp')}>
+          {#each TAG_MARKS as mark (mark)}
+            <Row
+              label={t(`settings.tagMark_${mark}`)}
+              checked={prefs.tagMark === mark}
+              onclick={() => (prefs.tagMark = mark)}
+            />
+          {/each}
         </Group>
       {:else if page === 'accessibility'}
         <Group title={t('settings.uiSize')} note={t('settings.uiSizeHelp')}>

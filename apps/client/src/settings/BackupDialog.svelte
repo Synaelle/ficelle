@@ -118,7 +118,7 @@
     error = null
     try {
       restored = await backend.backupRestore(path, needsPassword ? password : null)
-      await Promise.all([workspace.refreshFolders(), workspace.refreshTagsAndNotes()])
+      await Promise.all([workspace.refreshTagsAndNotes()])
     } catch (err) {
       error = errorText(err)
     } finally {

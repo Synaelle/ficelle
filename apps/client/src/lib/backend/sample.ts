@@ -2,7 +2,7 @@
 // The design sample notes, for the browser preview. Same content as the
 // devtool seed (crates/devtool/src/seed.rs).
 
-import type { Folder, Note } from './types'
+import type { Note } from './types'
 
 const DAY = 86_400_000
 
@@ -25,28 +25,10 @@ posts = 6
 \`\`\`
 `
 
-export function sampleData(now: number): { folders: Folder[]; notes: Note[] } {
-  const folder = (id: string, name: string, parentId: string | null, position: number): Folder => ({
-    id,
-    parentId,
-    name,
-    position,
-    createdAt: now - 30 * DAY,
-    updatedAt: now - 30 * DAY,
-    trashedAt: null,
-    spaceId: '',
-  })
-  const folders = [
-    folder('f-inbox', 'Inbox', null, 0),
-    folder('f-journal', 'Journal', null, 1),
-    folder('f-projects', 'Projects', null, 2),
-    folder('f-garden', 'Garden', 'f-projects', 0),
-    folder('f-kitchen', 'Kitchen', 'f-projects', 1),
-    folder('f-reading', 'Reading', null, 3),
-  ]
+export function sampleData(now: number): { notes: Note[] } {
   let age = 12
   const note = (
-    folderId: string,
+    place: string | null,
     title: string,
     body: string,
     tags: string[],
@@ -55,11 +37,11 @@ export function sampleData(now: number): { folders: Folder[]; notes: Note[] } {
     age -= 2
     return {
       id: `n-${age}`,
-      folderId,
+      folderId: null,
       title,
       body,
       pinned,
-      tags,
+      tags: place ? [place, ...tags] : tags,
       createdAt: now - age * DAY,
       updatedAt: now - age * DAY,
       trashedAt: null,
@@ -67,35 +49,35 @@ export function sampleData(now: number): { folders: Folder[]; notes: Note[] } {
     }
   }
   const notes = [
-    note('f-reading', 'Reading list, autumn', 'The Overstory, Piranesi, La Horde du Contrevent.', [
+    note('Reading', 'Reading list, autumn', 'The Overstory, Piranesi, La Horde du Contrevent.', [
       'ideas',
     ]),
     note(
-      'f-inbox',
+      null,
       'Ideas for the shed',
       'Pegboard wall, a shelf for seed trays, hooks for the long tools.',
       ['ideas'],
     ),
     note(
-      'f-journal',
+      'Journal',
       'Sync design scratch',
       'What happens when a folder moves twice offline? Both moves stay in history.',
       ['work'],
     ),
     note(
-      'f-inbox',
+      null,
       'Call with Inès',
       'She can lend the long ladder on Saturday. Ask about the [[Tomato trellis plan]].',
       ['todo'],
     ),
     note(
-      'f-kitchen',
+      'Projects/Kitchen',
       'Pain au levain',
       'Levain at 100% hydration, 500 g flour, 350 g water, 10 g salt.',
       ['recettes'],
       true,
     ),
-    note('f-garden', 'Tomato trellis plan', TRELLIS, ['todo', 'garden'], true),
+    note('Projects/Garden', 'Tomato trellis plan', TRELLIS, ['todo'], true),
   ]
-  return { folders, notes }
+  return { notes }
 }

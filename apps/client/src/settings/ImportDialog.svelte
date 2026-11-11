@@ -120,7 +120,7 @@
         progress: (done, total) => (progress = { done, total }),
       })
       stage = 'done'
-      await Promise.all([workspace.refreshFolders(), workspace.refreshTagsAndNotes()])
+      await Promise.all([workspace.refreshTagsAndNotes()])
     } catch (err) {
       error = errorText(err)
       stage = 'preview'

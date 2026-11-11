@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Standard layout only: all notes, folders, tags, trash and settings. -->
+<!-- Standard layout only: notes with no tag, all notes, the tag tree,
+     trash and settings. -->
 <script lang="ts">
   import { sync } from '../lib/sync.svelte'
   import SyncIcon from './SyncIcon.svelte'
@@ -10,7 +11,8 @@
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { UNFILED, workspace } from '../lib/workspace.svelte'
-  import FolderTree from './FolderTree.svelte'
+  import TagTree from './TagTree.svelte'
+  import TagsDialog from './TagsDialog.svelte'
 
   let {
     onsettings,
@@ -21,16 +23,23 @@
   const same = (a: Scope, b: Scope) =>
     a.kind === b.kind && ('id' in a ? a.id : null) === ('id' in b ? b.id : null)
 
-  // the important tag has its own place above, not twice
+  let newTagName = $state('')
+  let addingTag = $state(false)
+  let managing = $state(false)
+  /** Tags folded in the tree, by lowercased path. */
+  let collapsed: Record<string, boolean> = $state({})
 
-  let newFolderName = $state('')
-  let addingFolder = $state(false)
-
-  async function addFolder(event: SubmitEvent) {
+  async function addTag(event: SubmitEvent) {
     event.preventDefault()
-    if (newFolderName.trim()) await workspace.createFolder(null, newFolderName)
-    newFolderName = ''
-    addingFolder = false
+    const name = newTagName
+    newTagName = ''
+    addingTag = false
+    if (!name.trim()) return
+    try {
+      await workspace.createTag(name)
+    } catch (err) {
+      workspace.report(err)
+    }
   }
 </script>
 
@@ -40,7 +49,7 @@
     class:active={!workspace.files && same(workspace.scope, scope)}
     aria-current={!workspace.files && same(workspace.scope, scope) ? 'page' : undefined}
     onclick={() =>
-      // a second click on the active filter goes back to the notes in no folder
+      // a second click on the active filter goes back to the notes with no tag
       workspace.setScope(same(workspace.scope, scope) ? UNFILED : scope)}
   >
     <Icon name={icon} size={16} />
@@ -51,45 +60,34 @@
 
 <nav class="sidebar" aria-label={t('sidebar.label')} style:width="{prefs.sidebarWidth}px">
   <div class="group">
-    {@render item(UNFILED, 'inbox', t('sidebar.unfiled'))}
+    {@render item(UNFILED, 'inbox', t('sidebar.untagged'))}
     {@render item({ kind: 'all' }, 'allNotes', t('sidebar.allNotes'))}
   </div>
 
   <div class="group">
-    <!-- dropping a note on the heading takes it out of its folder -->
-    <div class="heading" use:noteDropTarget={(id) => void workspace.move(id, null)}>
-      <span>{t('sidebar.folders')}</span>
-      <button
-        class="icon-btn small"
-        aria-label={t('sidebar.newFolder')}
-        onclick={() => (addingFolder = true)}
-      >
+    <div class="heading">
+      <span>{t('sidebar.tags')}</span>
+      <button class="icon-btn small" aria-label={t('tags.new')} onclick={() => (addingTag = true)}>
         <Icon name="plus" size={14} />
       </button>
     </div>
-    <FolderTree parent={null} depth={0} />
-    {#if addingFolder}
-      <form onsubmit={addFolder}>
+    <TagTree parent="" depth={0} bind:collapsed />
+    {#if addingTag}
+      <form onsubmit={addTag}>
         <!-- autofocus would leave the focus on the + button, which keeps it -->
         <input
           class="field"
           {@attach (field) => field.focus()}
-          placeholder={t('sidebar.folderName')}
-          bind:value={newFolderName}
-          onblur={() => (addingFolder = false)}
+          placeholder={t('tags.name')}
+          bind:value={newTagName}
+          onblur={() => (addingTag = false)}
         />
       </form>
     {/if}
+    {#if workspace.tags.length}
+      <button class="manage" onclick={() => (managing = true)}>{t('tags.manage')}</button>
+    {/if}
   </div>
-
-  {#if workspace.tags.length}
-    <div class="group">
-      <div class="heading"><span>{t('sidebar.tags')}</span></div>
-      {#each workspace.tags as tag (tag.id)}
-        {@render item({ kind: 'tag', id: tag.id }, 'tag', tag.name, tag.noteCount)}
-      {/each}
-    </div>
-  {/if}
 
   <div class="spacer"></div>
   <div class="group">
@@ -118,6 +116,10 @@
     {/if}
   </div>
 </nav>
+
+{#if managing}
+  <TagsDialog close={() => (managing = false)} />
+{/if}
 
 <style>
   .sidebar {
@@ -190,5 +192,18 @@
   }
   form {
     padding: var(--space-1) var(--space-2);
+  }
+  .manage {
+    justify-self: start;
+    padding: var(--space-1) var(--space-2);
+    border: 0;
+    background: none;
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+  @media (hover: hover) {
+    .manage:hover {
+      color: var(--color-text);
+    }
   }
 </style>

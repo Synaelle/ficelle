@@ -19,6 +19,7 @@ import type {
   Scope,
   SearchHit,
   Tag,
+  TagColor,
   VaultStatus,
   VaultWay,
   AppUpdate,
@@ -138,6 +139,16 @@ export interface Backend {
   restoreFolder(id: Id): Promise<void>
 
   listTags(): Promise<Tag[]>
+  /** A tag kept without notes, with every tag above it. */
+  createTag(name: string): Promise<Id>
+  /** Renames a tag or moves it with a path, the tags it holds go along. */
+  renameTag(id: Id, name: string): Promise<void>
+  setTagColor(id: Id, color: TagColor | null): Promise<void>
+  /** Takes a tag and the tags it holds off every note. */
+  deleteTag(id: Id): Promise<void>
+  /** This vault's folders became tags and the person was not told yet. */
+  tagsMerged(): Promise<boolean>
+  tagsMergedSeen(): Promise<void>
   listVersions(id: Id): Promise<NoteVersion[]>
   /** What a note waits for after a sync, null when nothing. */
   noteConflict(id: Id): Promise<NoteConflict | null>

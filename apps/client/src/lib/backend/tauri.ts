@@ -84,6 +84,12 @@ export function createTauriBackend(): Backend {
     restoreFolder: (id) => invoke('restore_folder', { id }),
 
     listTags: () => invoke('list_tags'),
+    createTag: (name) => invoke('create_tag', { name }),
+    renameTag: (id, name) => invoke('rename_tag', { id, name }),
+    setTagColor: (id, color) => invoke('set_tag_color', { id, color }),
+    deleteTag: (id) => invoke('delete_tag', { id }),
+    tagsMerged: () => invoke('tags_merged'),
+    tagsMergedSeen: () => invoke('tags_merged_seen'),
     listVersions: (id) => invoke('list_versions', { id }),
     restoreVersion: (id) => invoke('restore_version', { id }),
     noteConflict: (id) => invoke('note_conflict', { id }),

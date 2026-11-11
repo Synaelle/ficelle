@@ -5,6 +5,8 @@
 export const ICON_NAMES = [
   'newNote',
   'folder',
+  'folderOpen',
+  'hash',
   'tag',
   'pin',
   'search',
@@ -94,6 +96,8 @@ export type IconName = (typeof ICON_NAMES)[number]
 export const LUCIDE: Record<IconName, string> = {
   newNote: 'square-pen',
   folder: 'folder',
+  folderOpen: 'folder-open',
+  hash: 'hash',
   tag: 'tag',
   pin: 'pin',
   search: 'search',
@@ -181,6 +185,8 @@ export const LUCIDE: Record<IconName, string> = {
 export const PHOSPHOR: Record<IconName, string> = {
   newNote: 'note-pencil',
   folder: 'folder',
+  folderOpen: 'folder-open',
+  hash: 'hash',
   tag: 'tag',
   pin: 'push-pin',
   search: 'magnifying-glass',

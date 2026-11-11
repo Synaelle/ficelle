@@ -29,6 +29,8 @@ export interface NoteSummary {
   createdAt: Timestamp
   /** As `Note.spaceId`. */
   spaceId: string
+  /** Its tags, by name. */
+  tags: string[]
 }
 
 export interface Folder {
@@ -43,11 +45,20 @@ export interface Folder {
   spaceId: string
 }
 
+/** A tag. Its name is its path, a tag holding tags is `projects` above
+ * `projects/garden`. */
 export interface Tag {
   id: Id
   name: string
+  /** Live notes with this tag or a tag it holds. */
   noteCount: number
+  /** Its colour mark, one of TAG_COLORS. */
+  color: TagColor | null
 }
+
+/** The colour marks a tag can have, drawn muted. */
+export const TAG_COLORS = ['red', 'amber', 'green', 'blue', 'purple', 'grey'] as const
+export type TagColor = (typeof TAG_COLORS)[number]
 
 export interface NoteVersion {
   id: Id
@@ -134,7 +145,11 @@ export interface LinkSuggestion {
 export type NoteSort = 'updatedDesc' | 'createdDesc' | 'titleAsc'
 
 export type Scope =
-  { kind: 'all' } | { kind: 'folder'; id: Id | null } | { kind: 'tag'; id: Id } | { kind: 'trash' }
+  | { kind: 'all' }
+  | { kind: 'folder'; id: Id | null }
+  | { kind: 'tag'; id: Id }
+  | { kind: 'untagged' }
+  | { kind: 'trash' }
 
 export interface NewNote {
   folderId?: Id | null
