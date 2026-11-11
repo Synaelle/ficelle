@@ -1236,13 +1236,13 @@ fn tags_made_alone_and_colour_marks_reach_the_other_device() {
             .collect()
     };
     let later = a.create_tag("Ideas/Later").unwrap();
-    a.set_tag_color(later, Some("teal")).unwrap();
+    a.set_tag_color(later, Some("green")).unwrap();
     sync(&mut a, &mut b);
     assert_eq!(
         tags(&b),
         [
             ("Ideas".into(), 0, None),
-            ("Ideas/Later".into(), 0, Some("teal".into()))
+            ("Ideas/Later".into(), 0, Some("green".into()))
         ]
     );
     let on_b = b

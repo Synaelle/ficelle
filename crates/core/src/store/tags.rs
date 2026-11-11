@@ -255,6 +255,15 @@ pub(crate) fn convert_folders_to_tags(conn: &Connection) -> Result<()> {
         stmt.query_map([], |row| row.get(0))?
             .collect::<rusqlite::Result<Vec<_>>>()?
     };
+    // someone who had notes before is told once that folders became tags
+    let had_notes: bool =
+        conn.query_row("SELECT EXISTS (SELECT 1 FROM notes)", [], |r| r.get(0))?;
+    if had_notes || !folders.is_empty() {
+        conn.execute(
+            "INSERT OR REPLACE INTO vault_meta (key, value) VALUES ('tags_merged', x'01')",
+            [],
+        )?;
+    }
     tags_from_folders(conn, &folders, now)?;
     super::rebuild_search_index(conn)?;
     conn.execute(
@@ -269,11 +278,34 @@ pub(crate) fn convert_folders_to_tags(conn: &Connection) -> Result<()> {
 }
 
 /// Colour marks a tag may have, the interface draws them muted.
-pub const TAG_COLORS: &[&str] = &[
-    "red", "orange", "yellow", "green", "teal", "blue", "purple", "grey",
-];
+pub const TAG_COLORS: &[&str] = &["red", "amber", "green", "blue", "purple", "grey"];
 
 impl Store {
+    /// Whether this vault's folders became tags and the person has not been
+    /// told yet.
+    ///
+    /// # Errors
+    ///
+    /// Database errors.
+    pub fn tags_merged(&self) -> Result<bool> {
+        Ok(self.conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM vault_meta WHERE key = 'tags_merged')",
+            [],
+            |r| r.get(0),
+        )?)
+    }
+
+    /// The person has seen that folders became tags.
+    ///
+    /// # Errors
+    ///
+    /// Database errors.
+    pub fn tags_merged_seen(&mut self) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM vault_meta WHERE key = 'tags_merged'", [])?;
+        Ok(())
+    }
+
     /// Replaces the tags of a note. Unknown names create tags, tags left with
     /// no note are removed.
     ///
@@ -569,9 +601,9 @@ mod tests {
         );
         let n = tagged(&mut store, &["Reading"]);
         let reading = tag(&store, "Reading");
-        store.set_tag_color(reading.id, Some("teal")).unwrap();
+        store.set_tag_color(reading.id, Some("green")).unwrap();
         store.set_note_tags(n, &[]).unwrap();
-        assert_eq!(tag(&store, "Reading").color.as_deref(), Some("teal"));
+        assert_eq!(tag(&store, "Reading").color.as_deref(), Some("green"));
         assert!(store.set_tag_color(reading.id, Some("neon")).is_err());
         store.set_tag_color(reading.id, None).unwrap();
         assert!(names(&store).iter().all(|(n, _)| n != "Reading"));

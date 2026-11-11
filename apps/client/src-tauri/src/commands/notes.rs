@@ -18,6 +18,7 @@ pub enum Scope {
     All,
     Folder { id: Option<FolderId> },
     Tag { id: TagId },
+    Untagged,
     Trash,
 }
 
@@ -27,6 +28,7 @@ impl From<Scope> for NoteScope {
             Scope::All => Self::All,
             Scope::Folder { id } => Self::Folder(id),
             Scope::Tag { id } => Self::Tag(id),
+            Scope::Untagged => Self::Untagged,
             Scope::Trash => Self::Trash,
         }
     }
@@ -162,6 +164,41 @@ pub async fn restore_folder(state: State<'_, AppState>, id: FolderId) -> Command
 #[tauri::command]
 pub async fn list_tags(state: State<'_, AppState>) -> CommandResult<Vec<Tag>> {
     state.with(|s| s.store.list_tags())
+}
+
+#[tauri::command]
+pub async fn create_tag(state: State<'_, AppState>, name: String) -> CommandResult<TagId> {
+    state.with(|s| s.store.create_tag(&name))
+}
+
+#[tauri::command]
+pub async fn rename_tag(state: State<'_, AppState>, id: TagId, name: String) -> CommandResult<()> {
+    state.with(|s| s.store.rename_tag(id, &name))
+}
+
+#[tauri::command]
+pub async fn set_tag_color(
+    state: State<'_, AppState>,
+    id: TagId,
+    color: Option<String>,
+) -> CommandResult<()> {
+    state.with(|s| s.store.set_tag_color(id, color.as_deref()))
+}
+
+#[tauri::command]
+pub async fn delete_tag(state: State<'_, AppState>, id: TagId) -> CommandResult<()> {
+    state.with(|s| s.store.delete_tag(id))
+}
+
+/// Whether to tell the person once that their folders became tags.
+#[tauri::command]
+pub async fn tags_merged(state: State<'_, AppState>) -> CommandResult<bool> {
+    state.with(|s| s.store.tags_merged())
+}
+
+#[tauri::command]
+pub async fn tags_merged_seen(state: State<'_, AppState>) -> CommandResult<()> {
+    state.with(|s| s.store.tags_merged_seen())
 }
 
 #[tauri::command]
