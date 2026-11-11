@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use crate::clock::{MINUTE, ManualClock};
 use crate::id::NoteId;
+use crate::model::{NoteScope, NoteSort};
 use crate::store::{NewLink, NewNote, NoteChange, PeerDevice, Store, Tokens};
 use crate::testing::{Rng, random_change, view};
 use app_protocol::e2ee::AccountKind;
@@ -342,4 +343,58 @@ fn a_device_list_learned_from_another_device_keeps_the_later_of_pairing_and_forg
     a.peer_pair(&[3; 32], "Tablet", "android", "0.6.1").unwrap();
     b.peer_learn(&a.peer_devices().unwrap(), &own_b).unwrap();
     assert!(tablet(&b).active());
+}
+
+#[test]
+fn devices_moving_from_a_server_to_local_sync_keep_one_copy_of_each_note() {
+    // the server's relay, as the server sync tests do it
+    fn relay(from: &mut Store, to: &mut Store) {
+        let out = from.sync_outbox(usize::MAX).unwrap();
+        let page: Vec<(String, Vec<u8>)> = out
+            .iter()
+            .map(|item| (item.doc_id.clone(), item.bytes.clone()))
+            .collect();
+        to.apply_remote_page(&page).unwrap();
+        if let Some(last) = out.last() {
+            from.sync_ack(last.seq).unwrap();
+        }
+    }
+    let (mut a, _) = device(1_000_000);
+    let (mut b, _) = device(1_000_000);
+    a.sync_set_link(&link()).unwrap();
+    b.sync_set_link(&link()).unwrap();
+    let shared = note_with(&mut a, "Plan", "both have it");
+    a.set_note_tags(shared, &["Projects/Garden".into()])
+        .unwrap();
+    note_with(&mut b, "Groceries", "from the phone");
+    relay(&mut a, &mut b);
+    relay(&mut b, &mut a);
+    relay(&mut a, &mut b);
+    same(&a, &b);
+
+    // both leave the server, each edits on its own, then they pair
+    a.sync_unlink().unwrap();
+    b.sync_unlink().unwrap();
+    edit_body(&mut a, shared, "both have it, edited on the computer");
+    note_with(&mut b, "Call Inès", "made while apart");
+    a.peer_pair(&[7; 32], "Phone", "android", "0.6.0").unwrap();
+    b.peer_pair(&[8; 32], "Desktop", "linux", "0.6.0").unwrap();
+    meet(&mut a, &mut b);
+    same(&a, &b);
+
+    let titles: Vec<String> = a
+        .list_notes(NoteScope::All, NoteSort::TitleAsc)
+        .unwrap()
+        .into_iter()
+        .map(|n| n.title)
+        .collect();
+    assert_eq!(
+        titles,
+        ["Call Inès", "Groceries", "Plan"],
+        "a note came twice"
+    );
+    assert_eq!(
+        b.note(shared).unwrap().body,
+        "both have it, edited on the computer"
+    );
 }
