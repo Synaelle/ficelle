@@ -7,7 +7,7 @@ import { Editor } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
 import { describe, expect, it } from 'vitest'
 import { createExtensions } from './extensions'
-import { patchMarkdown, REMOTE } from './patch'
+import { patchMarkdown, patchTransaction, REMOTE } from './patch'
 
 function editorWith(markdown: string) {
   const updates: boolean[] = []
@@ -119,6 +119,62 @@ describe('remote text in the editor', () => {
       expect(editor.getMarkdown(), incoming).toBe(reads)
       editor.destroy()
     }
+  })
+
+  it('text changed above and under the caret at once leaves it where it is', () => {
+    const { editor } = editorWith('alpha line\n\nbravo line\n\ncharlie line')
+    caretAfter(editor, 'bravo line')
+    editor.commands.insertContent(' tb0')
+    expect(
+      patchMarkdown(editor, 'alpha line ta0 ta1\n\nbravo line tb0\n\ncharlie line tc0 tc1'),
+    ).toBe(true)
+    editor.commands.insertContent(' tb1')
+    expect(editor.getMarkdown()).toBe(
+      'alpha line ta0 ta1\n\nbravo line tb0 tb1\n\ncharlie line tc0 tc1',
+    )
+    // and with the caret's own line changed too, before the caret
+    patchMarkdown(editor, 'new first\n\nalpha\n\nBravo line tb0 tb1\n\ncharlie\n\n- a\n- b')
+    editor.commands.insertContent(' tb2')
+    expect(editor.getMarkdown().trimEnd()).toBe(
+      'new first\n\nalpha\n\nBravo line tb0 tb1 tb2\n\ncharlie\n\n- a\n- b',
+    )
+    editor.destroy()
+  })
+
+  it('items changed around the caret in a list, and cells in a table, leave it where it is', () => {
+    const { editor } = editorWith('- one\n- two\n- three\n\n| a | b |\n| --- | --- |\n| c | d |')
+    caretAfter(editor, 'two')
+    patchMarkdown(editor, '- one!\n- two\n- three!\n- four\n\n| a | b |\n| --- | --- |\n| c | d |')
+    editor.commands.insertContent(' mine')
+    caretAfter(editor, 'c')
+    patchMarkdown(
+      editor,
+      '- one!\n- two mine\n- three!\n- four\n\n| a2 | b |\n| --- | --- |\n| c | d2 |\n| e | f |',
+    )
+    editor.commands.insertContent('!')
+    expect(editor.getMarkdown().trimEnd()).toBe(
+      '- one!\n- two mine\n- three!\n- four\n\n| a2 | b |\n| --- | --- |\n| c! | d2 |\n| e | f |',
+    )
+    editor.destroy()
+  })
+
+  it('any text becomes any other', () => {
+    const texts = [
+      '# Plan\n\nfirst\n\nsecond',
+      'first\n\n- a\n- b\n\nsecond\n\nthird',
+      '> quote\n\n```js\ncode\n```\n\nfirst',
+      'only',
+      '- [ ] task\n- [x] done\n\n| a | b |\n| --- | --- |\n| c | d |\n\nsecond',
+      'second\n\nfirst\n\nsecond\n\nfirst',
+    ]
+    for (const from of texts)
+      for (const to of texts) {
+        const { editor } = editorWith(from)
+        const next = editor.schema.nodeFromJSON(editor.markdown?.parse(to))
+        const tr = patchTransaction(editor.state.tr, editor.state.doc, next)
+        expect((tr?.doc ?? editor.state.doc).eq(next), `${from} to ${to}`).toBe(true)
+        editor.destroy()
+      }
   })
 
   it('undo takes back the own edit, not the remote one', () => {

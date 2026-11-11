@@ -4,7 +4,7 @@
 // device's edit lands like a paste somewhere else in the note.
 
 import { Extension, type Editor } from '@tiptap/core'
-import type { Node as PMNode, Slice } from '@tiptap/pm/model'
+import type { Fragment, Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey, type Transaction } from '@tiptap/pm/state'
 
 /** Set on the transaction, so the editor does not save it back as an edit. */
@@ -66,30 +66,74 @@ export const TypedHere = Extension.create({
   ],
 })
 
-/** Whether `slice` put in `doc` at `at` gives `next`. */
-function reads(doc: PMNode, at: number, slice: Slice, next: PMNode) {
-  try {
-    return doc.replace(at, at, slice).eq(next)
-  } catch {
-    return false
-  }
-}
-
-/** What differs between two documents: `doc` from `start` to `endA` is
- * `next` from `start` to `endB`. */
+/** One change: `doc` from `start` to `endA` becomes `next` from `startB`
+ * to `endB`. */
 interface Change {
   start: number
   endA: number
+  startB: number
   endB: number
 }
 
-/** Where `doc` and `next` differ, null when they are the same. `typed` is
- * the text typed here, see [`TypedHere`]. */
-function changed(doc: PMNode, next: PMNode, typed: Typed[] = []): Change | null {
-  let start = doc.content.findDiffStart(next.content)
-  if (start === null) return null
-  const end = doc.content.findDiffEnd(next.content)
-  if (!end) return null
+/** Blocks lined up in a table of at most this many cells, else the whole
+ * stretch that differs is one change. */
+const TOO_MANY = 250_000
+
+/** Two texts that are mostly one another: what they start and end with
+ * alike is at least half of the shorter. */
+function alike(a: string, b: string) {
+  const least = Math.min(a.length, b.length)
+  let head = 0
+  while (head < least && a[head] === b[head]) head++
+  let tail = 0
+  while (tail < least - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++
+  return (head + tail) * 2 >= least
+}
+
+/**
+ * The children of `a` and `b` that go together, in order, as pairs of
+ * indexes, between the first and last that differ: the same block, or one
+ * of the same kind whose text is mostly the same (a paragraph another
+ * device typed in, a row with a cell changed).
+ */
+function sameBlocks(a: Fragment, b: Fragment, head: number, tail: number): [number, number][] {
+  const rows = a.childCount - head - tail
+  const columns = b.childCount - head - tail
+  if (rows === 0 || columns === 0 || rows * columns > TOO_MANY) return []
+  const text = (from: Fragment, count: number) =>
+    Array.from({ length: count }, (_, at) => from.child(head + at).textContent)
+  const inA = text(a, rows)
+  const inB = text(b, columns)
+  const together = (r: number, c: number) => {
+    const [one, other] = [a.child(head + r), b.child(head + c)]
+    return one.eq(other) || (one.sameMarkup(other) && alike(inA[r] as string, inB[c] as string))
+  }
+  const width = columns + 1
+  const run = new Uint16Array((rows + 1) * width)
+  for (let r = rows - 1; r >= 0; r--)
+    for (let c = columns - 1; c >= 0; c--)
+      run[r * width + c] = together(r, c)
+        ? (run[(r + 1) * width + c + 1] as number) + 1
+        : Math.max(run[(r + 1) * width + c] as number, run[r * width + c + 1] as number)
+  const pairs: [number, number][] = []
+  let r = 0
+  let c = 0
+  while (r < rows && c < columns) {
+    if (together(r, c)) pairs.push([head + r++, head + c++])
+    else if ((run[(r + 1) * width + c] as number) >= (run[r * width + c + 1] as number)) r++
+    else c++
+  }
+  return pairs
+}
+
+/** The one change between two runs of text and marks, `a` at `at` in the
+ * document and `b` at `atB` in the next one. `typed` is the text typed
+ * here, see [`TypedHere`]. */
+function textChange(a: PMNode, b: PMNode, at: number, atB: number, typed: Typed[]): Change[] {
+  let start = a.content.findDiffStart(b.content)
+  if (start === null) return []
+  const end = a.content.findDiffEnd(b.content)
+  if (!end) return []
   let { a: endA, b: endB } = end
   // a change inside repeated text can make the two ends cross
   const overlap = start - Math.min(endA, endB)
@@ -100,20 +144,91 @@ function changed(doc: PMNode, next: PMNode, typed: Typed[] = []): Change | null 
   // text put in where the same letters follow (" bravo" before " alpha") is
   // found as late as it can be, inside the word typed here. When it reads
   // the same put in before that word, it goes there
-  const at = start
-  const inside = start === endA && typed.find(({ from, to }) => from < at && at < to)
-  if (inside) {
-    const back = start - inside.from
-    const slice = next.slice(inside.from, endB - back)
-    if (reads(doc, inside.from, slice, next)) {
-      start = endA = inside.from
+  const found = at + start
+  const inside = start === endA && typed.find(({ from, to }) => from < found && found < to)
+  if (inside && inside.from >= at) {
+    const back = found - inside.from
+    const put = b.slice(start - back, endB - back)
+    let reads = false
+    try {
+      reads = a.replace(start - back, start - back, put).eq(b)
+    } catch {
+      // not a place this text can go
+    }
+    if (reads) {
+      start -= back
+      endA = start
       endB -= back
     }
   }
-  return { start, endA, endB }
+  return [{ start: at + start, endA: at + endA, startB: atB + start, endB: atB + endB }]
 }
 
-const remote = (tr: Transaction) => tr.setMeta(REMOTE, true).setMeta('addToHistory', false)
+/**
+ * What differs between `a` and `b`, block by block, so text that changed
+ * above the caret and text that changed under it are two changes, with the
+ * caret left alone between them. `at` and `atB` are where the content of
+ * each starts.
+ */
+function changes(a: PMNode, b: PMNode, at: number, atB: number, typed: Typed[]): Change[] {
+  if (a.inlineContent || b.inlineContent)
+    return a.inlineContent && b.inlineContent
+      ? textChange(a, b, at, atB, typed)
+      : [{ start: at, endA: at + a.content.size, startB: atB, endB: atB + b.content.size }]
+  const least = Math.min(a.childCount, b.childCount)
+  let head = 0
+  while (head < least && a.child(head).eq(b.child(head))) head++
+  let tail = 0
+  while (
+    tail < least - head &&
+    a.child(a.childCount - 1 - tail).eq(b.child(b.childCount - 1 - tail))
+  )
+    tail++
+  const pairs = sameBlocks(a.content, b.content, head, tail)
+  pairs.push([a.childCount - tail, b.childCount - tail])
+  // where each child starts
+  const starts = (node: PMNode, from: number) => {
+    const list = [from]
+    node.forEach((child) => list.push((list.at(-1) as number) + child.nodeSize))
+    return list
+  }
+  const inA = starts(a, at)
+  const inB = starts(b, atB)
+  const out: Change[] = []
+  let i = head
+  let j = head
+  /** Child `x` becomes child `y`: what changed inside, when they are of a kind. */
+  const inside = (x: number, y: number) => {
+    const [was, now] = [a.child(x), b.child(y)]
+    if (was.eq(now)) return
+    if (!was.isLeaf && was.sameMarkup(now))
+      out.push(...changes(was, now, (inA[x] as number) + 1, (inB[y] as number) + 1, typed))
+    else
+      out.push({
+        start: inA[x] as number,
+        endA: inA[x + 1] as number,
+        startB: inB[y] as number,
+        endB: inB[y + 1] as number,
+      })
+  }
+  for (const [nextI, nextJ] of pairs) {
+    // the blocks with nothing to go with: taken one for one, in order (a
+    // table that grew is still that table), the rest taken out or put in
+    const both = Math.min(nextI - i, nextJ - j)
+    for (let k = 0; k < both; k++) inside(i + k, j + k)
+    if (nextI - i !== nextJ - j)
+      out.push({
+        start: inA[i + both] as number,
+        endA: inA[nextI] as number,
+        startB: inB[j + both] as number,
+        endB: inB[nextJ] as number,
+      })
+    if (nextI < a.childCount - tail) inside(nextI, nextJ)
+    i = nextI + 1
+    j = nextJ + 1
+  }
+  return out
+}
 
 /** The transaction turning `doc` into `next`, null when they are the same.
  * `typed` is the text typed here, see [`TypedHere`]. */
@@ -123,54 +238,25 @@ export function patchTransaction(
   next: PMNode,
   typed: Typed[] = [],
 ): Transaction | null {
-  const change = changed(doc, next, typed)
-  if (!change) return null
-  return remote(tr.replace(change.start, change.endA, next.slice(change.start, change.endB)))
-}
-
-const read = (editor: Editor, markdown: string) => {
-  const parsed = editor.markdown?.parse(markdown)
-  return parsed ? editor.schema.nodeFromJSON(parsed) : null
-}
-
-/**
- * The editor holds what its Markdown cannot: a space just typed at the end
- * of a line, an empty line just made. Changing the document into `next`
- * would take those away under the caret and send it elsewhere. This is the
- * change from the note as its Markdown reads to `next`, made beside them.
- * `false` when there is nothing to change, null when the other device
- * changed that very place.
- */
-function besideTyping(editor: Editor, next: PMNode): Transaction | false | null {
-  const doc = editor.state.doc
-  const saved = read(editor, editor.getMarkdown())
-  if (!saved) return null
-  const theirs = changed(saved, next)
-  if (!theirs) return false
-  const mine = changed(doc, saved)
-  if (!mine) return null
-  const slice = next.slice(theirs.start, theirs.endB)
-  if (theirs.endA <= mine.start)
-    return remote(editor.state.tr.replace(theirs.start, theirs.endA, slice))
-  if (theirs.start < mine.endB) return null
-  const moved = mine.endA - mine.endB
-  return remote(editor.state.tr.replace(theirs.start + moved, theirs.endA + moved, slice))
+  const list = changes(doc, next, 0, 0, typed)
+  if (list.length === 0) return null
+  // from the last one back, so the places of the earlier ones hold
+  for (const { start, endA, startB, endB } of list.reverse())
+    tr.replace(start, endA, next.slice(startB, endB))
+  return tr.setMeta(REMOTE, true).setMeta('addToHistory', false)
 }
 
 /** Shows `markdown` in the editor, changing only what differs. */
 export function patchMarkdown(editor: Editor, markdown: string): boolean {
-  const next = read(editor, markdown)
-  if (!next) return false
-  const { doc, selection } = editor.state
-  const typed = typedKey.getState(editor.state)
-  const change = changed(doc, next, typed)
-  if (!change) return false
-  // the caret is in what would be replaced: not before a look at whether
-  // that is only text the Markdown does not hold
-  const atCaret = selection.to >= change.start && selection.from <= change.endA
-  const beside = atCaret ? besideTyping(editor, next) : null
-  if (beside === false) return false
-  const tr = beside ?? patchTransaction(editor.state.tr, doc, next, typed)
+  const parsed = editor.markdown?.parse(markdown)
+  if (!parsed) return false
+  const next = editor.schema.nodeFromJSON(parsed)
+  const tr = patchTransaction(
+    editor.state.tr,
+    editor.state.doc,
+    next,
+    typedKey.getState(editor.state),
+  )
   if (!tr) return false
   editor.view.dispatch(tr)
   return true
