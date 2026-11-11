@@ -2,7 +2,8 @@
 <!-- What the open note asks after a sync: a merge of two rewrites of the
      same passage (compare, then keep this device's, the other's, both, or
      the merge), or an edit made elsewhere while the note was deleted here.
-     Every choice keeps the rest in the note's history. -->
+     Every choice keeps the rest in the note's history. It also says when
+     another device moved the note to the trash while it was typed in here. -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
@@ -69,6 +70,14 @@
         <button class="btn" onclick={() => keep('merged')}>{t('common.ok')}</button>
       </div>
     {/if}
+  </div>
+{:else if note?.trashedAt}
+  <div class="banner" role="status">
+    <Icon name="trash" size={18} />
+    <p>{t('note.trashedOpen')}</p>
+    <div class="buttons">
+      <button class="btn primary" onclick={restore}>{t('conflict.restore')}</button>
+    </div>
   </div>
 {/if}
 

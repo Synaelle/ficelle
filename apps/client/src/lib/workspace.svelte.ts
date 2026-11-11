@@ -55,6 +55,10 @@ const SAVE_DELAY_MS = 1000
  * devices follow it while it goes on, and less is lost if the app stops. */
 const SAVE_AT_MOST_MS = 2500
 
+/** A note typed in this recently stays open when another device moves it
+ * to the trash: the keys on their way must land somewhere. */
+const TYPING_MS = 10_000
+
 /** Wait before trying a save that failed again. */
 const RETRY_DELAY_MS = 5000
 
@@ -97,6 +101,8 @@ class Workspace {
   private timer: ReturnType<typeof setTimeout> | undefined
   /** When the edit waiting to be saved began. */
   private editedSince: number | null = null
+  /** When the open note was last typed in. */
+  private editedAt = 0
   /** The save on its way to the store, one at a time. */
   private saving: Promise<void> | null = null
   /** Changes from another device are being taken in, and more came since. */
@@ -183,6 +189,7 @@ class Workspace {
 
   private show(note: Note | null) {
     if (this.conflict?.noteId !== note?.id) this.conflict = null
+    if (this.current?.id !== note?.id) this.editedAt = 0
     this.current = note
     this.base = note ? { title: note.title, body: note.body } : null
   }
@@ -284,11 +291,15 @@ class Workspace {
       fresh = null
     }
     if (this.current?.id !== note.id) return
-    if (!fresh || fresh.trashedAt) {
-      // what was typed since goes into the note in the trash, and the note
-      // stays open while that could not be saved
-      if (fresh) await this.flush()
-      if (this.current?.id !== note.id || (fresh && this.unsaved)) return
+    if (fresh?.trashedAt) {
+      // what was typed so far goes into the note in the trash
+      await this.flush()
+      if (this.current?.id !== note.id) return
+    }
+    // gone for good, or in the trash with nobody typing in it: it closes.
+    // A note being typed in stays open, in the trash, and says so
+    const typing = this.dirty || this.unsaved || Date.now() - this.editedAt < TYPING_MS
+    if (!fresh || (fresh.trashedAt && !this.current.trashedAt && !typing)) {
       clearTimeout(this.timer)
       this.pending = {}
       this.editedSince = null
@@ -298,6 +309,7 @@ class Workspace {
       if (fresh) toasts.push(fresh.title.trim() || t('note.untitled'), t('note.trashedElsewhere'))
       return
     }
+    this.current.trashedAt = fresh.trashedAt
     this.current.pinned = fresh.pinned
     this.current.tags = fresh.tags
     this.current.folderId = fresh.folderId
@@ -389,6 +401,7 @@ class Workspace {
     this.dirty = true
     clearTimeout(this.timer)
     const now = Date.now()
+    this.editedAt = now
     this.editedSince ??= now
     const left = this.editedSince + SAVE_AT_MOST_MS - now
     this.timer = setTimeout(() => void this.flush(), Math.max(0, Math.min(SAVE_DELAY_MS, left)))

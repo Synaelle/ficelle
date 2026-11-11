@@ -245,21 +245,26 @@ describe('changes from another device', () => {
     expect((await backend.getNote(note.id)).body).toBe('start, mine')
   })
 
-  it('a note trashed elsewhere closes', async () => {
-    const note = await create({ title: 'Old', body: 'x' })
+  it('a note trashed elsewhere that nobody types in closes and says so', async () => {
+    const note = await create({ title: 'Idle', body: 'x' })
     await backend.trashNote(note.id)
     await workspace.remoteChanged()
     expect(workspace.current).toBeNull()
+    expect(toasts.list.at(-1)).toMatchObject({ from: 'Idle' })
   })
 
-  it('typing not saved yet when the note is trashed elsewhere is kept in it', async () => {
+  it('a note trashed elsewhere while typed in stays open and keeps the typing', async () => {
     for (const follows of [true, false]) {
       workspace.coediting = () => follows
       workspace.error = null
       const note = await create({ title: 'Old', body: 'start' })
       workspace.edit({ body: 'start, typed' })
       // the editor still holds the last keys
-      workspace.serializeEditor = () => workspace.edit({ body: 'start, typed, last keys' })
+      let held: string | null = 'start, typed, last keys'
+      workspace.serializeEditor = () => {
+        if (held !== null) workspace.edit({ body: held })
+        held = null
+      }
       try {
         await backend.trashNote(note.id)
         // the save on its way is refused first, as the store refuses it
@@ -268,12 +273,22 @@ describe('changes from another device', () => {
       } finally {
         workspace.serializeEditor = null
       }
-      expect(workspace.current).toBeNull()
       expect(workspace.error).toBeNull()
+      expect(workspace.current?.id).toBe(note.id)
+      expect(workspace.current?.trashedAt).not.toBeNull()
+      expect(workspace.dirty).toBe(false)
+      expect((await backend.getNote(note.id)).body).toBe('start, typed, last keys')
+      // the keys that follow are saved in it too, through later changes
+      workspace.edit({ body: 'start, typed, last keys, and on' })
+      await workspace.remoteChanged()
+      expect(workspace.current?.id).toBe(note.id)
       const kept = await backend.getNote(note.id)
       expect(kept.trashedAt).not.toBeNull()
-      expect(kept.body).toBe('start, typed, last keys')
-      expect(toasts.list.at(-1)).toMatchObject({ from: 'Old' })
+      expect(kept.body).toBe('start, typed, last keys, and on')
+      // restored elsewhere, it is a note like any other again
+      await backend.restoreNote(note.id)
+      await workspace.remoteChanged()
+      expect(workspace.current?.trashedAt).toBeNull()
     }
   })
 
@@ -284,7 +299,6 @@ describe('changes from another device', () => {
     workspace.edit({ title: 'Old, renamed' })
     await backend.trashNote(note.id)
     await workspace.remoteChanged()
-    expect(workspace.current).toBeNull()
     expect(workspace.dirty).toBe(false)
     await workspace.open(other.id)
     workspace.edit({ body: 'kept, and more' })
@@ -293,6 +307,7 @@ describe('changes from another device', () => {
       title: 'Other',
       body: 'kept, and more',
     })
+    expect((await backend.getNote(note.id)).title).toBe('Old, renamed')
   })
 
   it('a title, tags and a pin changed elsewhere show in the open note', async () => {

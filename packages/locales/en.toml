@@ -238,7 +238,8 @@ version_beforeRestore = "Before a restore"
 restore = "Restore"
 restoreConfirm = "Restore the text of {when}? The note as it is now stays in its history."
 trash = "Move to trash"
-trashedElsewhere = "Moved to the trash on another device. What you typed is kept in it."
+trashedElsewhere = "Moved to the trash on another device."
+trashedOpen = "This note was moved to the trash on another device. What you type is still saved in it."
 
 tags = "Tags"
 
