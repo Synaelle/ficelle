@@ -14,6 +14,19 @@ pub const PROTOCOL_VERSION: u32 = 1;
 /// Oldest protocol version this build still understands.
 pub const MIN_PROTOCOL_VERSION: u32 = 1;
 
+/// Direct sync between a person's devices on the same network.
+pub mod local {
+    /// Version of what two devices say to each other. Bump on any breaking
+    /// change of the messages.
+    pub const PROTOCOL: u32 = 1;
+    /// Oldest version this build still speaks.
+    pub const MIN_PROTOCOL: u32 = 1;
+    /// Shape of the documents. Grows when an older app would misread them:
+    /// two devices sync only on the same level, the older one asks for an
+    /// update.
+    pub const DATA_FORMAT: u32 = 1;
+}
+
 /// Request header carrying the client's protocol version. Every api call
 /// sends it, except `GET /api/v1/info`, which a client reads first to learn
 /// whether it can talk to the server at all.

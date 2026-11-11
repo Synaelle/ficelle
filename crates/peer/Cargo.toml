@@ -1,0 +1,29 @@
+[package]
+name = "app-peer"
+version.workspace = true
+description = "Direct sync between one person's devices on the same network: discovery, pairing with a code, an encrypted channel"
+license = "AGPL-3.0-or-later"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+app-brand = { workspace = true }
+app-core = { workspace = true, default-features = false }
+app-protocol = { workspace = true }
+base64 = "0.23.1"
+getrandom = "0.4.3"
+mdns-sd = { version = "0.21.7", default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = "0.11.1"
+# Noise_IK and Noise_XXpsk0 over 25519, ChaChaPoly and BLAKE2s only, no other ciphers built
+snow = { version = "0.10.0", default-features = false, features = ["std", "use-chacha20poly1305", "use-blake2", "use-curve25519", "use-getrandom"] }
+spake2 = "0.4.0"
+thiserror = "2.0.21"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[lints]
+workspace = true
