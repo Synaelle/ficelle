@@ -54,6 +54,8 @@ pub struct NoteSummary {
     pub created_at: Timestamp,
     /// The space it belongs to, empty for the personal space.
     pub space_id: String,
+    /// Its tags, by name.
+    pub tags: Vec<String>,
 }
 
 /// A folder. Folders nest without limit.

@@ -300,6 +300,19 @@ impl Store {
             .query_map(rusqlite::params_from_iter(values), summary_from_row)?
             .collect();
         let mut notes = rows?;
+        let mut tagged: std::collections::HashMap<NoteId, Vec<String>> =
+            std::collections::HashMap::new();
+        let mut stmt = self.conn.prepare(
+            "SELECT nt.note_id, t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id
+             ORDER BY t.name COLLATE NOCASE",
+        )?;
+        for row in stmt.query_map([], |r| Ok((r.get::<_, NoteId>(0)?, r.get(1)?)))? {
+            let (note, name) = row?;
+            tagged.entry(note).or_default().push(name);
+        }
+        for note in &mut notes {
+            note.tags = tagged.remove(&note.id).unwrap_or_default();
+        }
         // SQLite's NOCASE knows a to z only: É came after Z, and 10 before 2
         if sort == NoteSort::TitleAsc {
             let pinned = !pinned_first.is_empty();

@@ -241,6 +241,7 @@ fn summary_from_row(row: &Row<'_>) -> rusqlite::Result<NoteSummary> {
         created_at: row.get(5)?,
         updated_at: row.get(6)?,
         space_id: row.get(8)?,
+        tags: Vec::new(),
     })
 }
 
