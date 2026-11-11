@@ -24,3 +24,7 @@
 # Building
 
 See [Building Ficelle](docs/building.md).
+
+# Contributing
+
+Translations, fixes and help with iOS and macOS are welcome, see [Contributing](CONTRIBUTING.md).
