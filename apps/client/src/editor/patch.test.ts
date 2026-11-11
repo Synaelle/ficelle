@@ -67,6 +67,40 @@ describe('remote text in the editor', () => {
     editor.destroy()
   })
 
+  it('undo keeps a word another device put right before the word typed here', () => {
+    const { editor } = editorWith('one\n\ntwo\n\nthree')
+    caretAfter(editor, 'two')
+    for (const key of ' alpha') editor.commands.insertContent(key)
+    // the other device's caret sat at the end of "two" when " alpha" arrived
+    patchMarkdown(editor, 'one\n\ntwo bravo alpha\n\nthree')
+    expect(editor.getMarkdown()).toBe('one\n\ntwo bravo alpha\n\nthree')
+    while (editor.can().undo()) editor.commands.undo()
+    expect(editor.getMarkdown()).toBe('one\n\ntwo bravo\n\nthree')
+    editor.commands.redo()
+    expect(editor.getMarkdown()).toContain('two bravo alpha')
+    editor.destroy()
+  })
+
+  it('undo keeps words another device put after, and before in another paragraph', () => {
+    const { editor } = editorWith('one\n\ntwo\n\nthree')
+    caretAfter(editor, 'two')
+    for (const key of ' alpha') editor.commands.insertContent(key)
+    patchMarkdown(editor, 'one bravo\n\ntwo alpha\n\nthree')
+    patchMarkdown(editor, 'one bravo\n\ntwo alpha charlie\n\nthree')
+    while (editor.can().undo()) editor.commands.undo()
+    expect(editor.getMarkdown()).toBe('one bravo\n\ntwo charlie\n\nthree')
+    editor.destroy()
+  })
+
+  it('text another device typed inside a word typed here goes where it was typed', () => {
+    const { editor } = editorWith('start')
+    caretAfter(editor, 'start')
+    for (const key of ' abcdef') editor.commands.insertContent(key)
+    patchMarkdown(editor, 'start abcXYZdef')
+    expect(editor.getMarkdown()).toBe('start abcXYZdef')
+    editor.destroy()
+  })
+
   it('undo takes back the own edit, not the remote one', () => {
     const { editor } = editorWith('mine')
     caretAfter(editor, 'mine')

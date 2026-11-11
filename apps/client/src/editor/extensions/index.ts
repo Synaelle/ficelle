@@ -24,6 +24,7 @@ import {
 } from './markdownFixes'
 import { MathBlock, MathInline } from './math'
 import { WikiLink, type WikiLinkOptions } from './wikiLink'
+import { TypedHere } from '../patch'
 
 export interface EditorSetup {
   resolveSrc?: (src: string) => string
@@ -97,6 +98,7 @@ export function createExtensions(setup: EditorSetup = {}): AnyExtension[] {
       addKeyboardShortcuts: () => setup.keys ?? {},
     }),
     ...(setup.placeholder ? [emptyNoteHint(setup.placeholder)] : []),
+    TypedHere,
   ]
 }
 
