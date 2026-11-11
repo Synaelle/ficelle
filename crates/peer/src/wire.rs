@@ -64,6 +64,10 @@ pub(crate) enum Msg {
         min_protocol: u32,
         protocol: u32,
         format: u32,
+        /// The port the sender listens on, so a device it dialled can dial
+        /// it back at that address later.
+        #[serde(default)]
+        port: Option<u16>,
     },
     /// Every device the sender knows, forgotten ones too.
     Devices {

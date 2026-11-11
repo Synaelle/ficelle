@@ -136,6 +136,8 @@ pub struct LocalDevice {
     state: &'static str,
     /// The other version, or why it failed.
     detail: Option<String>,
+    /// Seen but out of reach for a while: a firewall may be in the way.
+    blocked: bool,
 }
 
 /// Where local sync stands.
@@ -149,6 +151,8 @@ pub struct LocalStatus {
     /// A server is linked: local sync is off.
     server_linked: bool,
     running: bool,
+    /// The port this device listens on, for a firewall rule.
+    port: Option<u16>,
     discovery_error: Option<String>,
     pairing: Option<PairingView>,
     devices: Vec<LocalDevice>,
@@ -205,7 +209,14 @@ impl Local {
             platform: platform().into(),
             version: app_brand::VERSION.into(),
         };
-        let node = Node::new(Arc::new(LocalHost { app: app.clone() }), me);
+        let host = Arc::new(LocalHost { app: app.clone() });
+        // debug builds can run as on a network that drops multicast, to test
+        // reaching paired devices at the addresses kept
+        let node = if cfg!(debug_assertions) && std::env::var_os("APP_NO_DISCOVERY").is_some() {
+            Node::without_discovery(host, me)
+        } else {
+            Node::new(host, me)
+        };
         if self.node.set(node).is_err() {
             return;
         }
@@ -232,6 +243,7 @@ impl Local {
                 name: default_name(),
                 server_linked: false,
                 running: false,
+                port: None,
                 discovery_error: None,
                 pairing: None,
                 devices: Vec::new(),
@@ -254,6 +266,7 @@ impl Local {
                     None => ("away", None),
                 };
                 LocalDevice {
+                    blocked: live.as_ref().is_some_and(|l| l.blocked.contains(&key)),
                     key,
                     name: d.name,
                     platform: d.platform,
@@ -269,6 +282,7 @@ impl Local {
             name: name.unwrap_or_else(default_name),
             server_linked,
             running: live.as_ref().is_some_and(|l| l.running),
+            port: live.as_ref().and_then(|l| l.port),
             discovery_error: live.as_ref().and_then(|l| l.discovery_error.clone()),
             pairing: live.and_then(|l| l.pairing).map(PairingView::from),
             devices,

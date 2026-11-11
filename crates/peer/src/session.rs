@@ -33,6 +33,7 @@ pub(crate) struct Hello {
     pub min_protocol: u32,
     pub protocol: u32,
     pub format: u32,
+    pub port: Option<u16>,
 }
 
 /// Sends this device's hello and reads the other's.
@@ -46,6 +47,7 @@ pub(crate) fn hellos<H: Host>(shared: &Shared<H>, ch: &mut Channel) -> Result<He
         min_protocol: MIN_PROTOCOL,
         protocol: PROTOCOL,
         format: DATA_FORMAT,
+        port: shared.port(),
     }))?;
     match wire::decode(&ch.recv()?)? {
         Incoming::Msg(Msg::Hello {
@@ -55,6 +57,7 @@ pub(crate) fn hellos<H: Host>(shared: &Shared<H>, ch: &mut Channel) -> Result<He
             min_protocol,
             protocol,
             format,
+            port,
         }) => Ok(Hello {
             name,
             platform,
@@ -62,6 +65,7 @@ pub(crate) fn hellos<H: Host>(shared: &Shared<H>, ch: &mut Channel) -> Result<He
             min_protocol,
             protocol,
             format,
+            port,
         }),
         Incoming::Msg(Msg::Bye { reason }) if reason == "server" => Err(Error::Handshake(
             "the other device syncs with a server".into(),
@@ -302,8 +306,9 @@ pub(crate) fn run<H: Host>(shared: &Shared<H>, ch: Channel, id: u64, starts: boo
 
 /// After the hellos: refuses a device on another version, else notes what
 /// it said. `Err` with the state to show when the two cannot sync.
-/// `dialled` is the address this device reached the other on, kept to try
-/// first next time.
+/// The address it answers on is kept, to dial it there when discovery
+/// does not find it (multicast blocked): the one this device dialled, or,
+/// when the other dialled in, its address with the port its hello gave.
 pub(crate) fn check_hello<H: Host>(
     shared: &Shared<H>,
     ch: &mut Channel,
@@ -311,7 +316,13 @@ pub(crate) fn check_hello<H: Host>(
     dialled: Option<std::net::SocketAddr>,
 ) -> Result<(), Live> {
     let key = ch.remote_key;
-    let address = dialled.map(|a| a.to_string());
+    let address = dialled
+        .or_else(|| {
+            let port = hello.port?;
+            ch.peer_address()
+                .map(|a| std::net::SocketAddr::new(a.ip(), port))
+        })
+        .map(|a| a.to_string());
     let _ = store(&*shared.host, |s, _| {
         s.peer_seen(
             &key,

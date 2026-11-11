@@ -251,6 +251,7 @@ fn pairing_is_refused_while_a_server_is_linked() {
 #[test]
 fn devices_on_different_data_formats_say_who_updates() {
     let hello = |format, protocol| Hello {
+        port: None,
         name: "Other".into(),
         platform: "linux".into(),
         version: "9.9.9".into(),
@@ -288,4 +289,99 @@ fn a_large_message_crosses_in_many_frames() {
     let big: Vec<u8> = (0..3_000_000u32).map(|i| (i % 251) as u8).collect();
     ch.send(&big).unwrap();
     assert_eq!(server.join().unwrap(), big);
+}
+
+/// A node that never uses discovery, on a port of its own that stays the
+/// same when it starts again.
+fn hidden_node(name: &str) -> (Node<TestHost>, Arc<TestHost>, u16) {
+    let host = TestHost::new(name);
+    let me = Me {
+        platform: "linux".into(),
+        version: "0.6.0-test".into(),
+    };
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    let node = Node::with_port(host.clone(), me, "", port);
+    node.set_wanted(true);
+    (node, host, port)
+}
+
+fn kept_address(host: &TestHost) -> Option<String> {
+    host.s(|s, _| s.peer_devices()).unwrap()[0].address.clone()
+}
+
+#[test]
+fn a_device_discovery_cannot_see_is_reached_at_the_address_it_answered_on() {
+    let (a, ha, _) = hidden_node("Desktop");
+    let (b, hb, port_b) = hidden_node("Laptop");
+    let shown = a.start_pairing().unwrap();
+    b.pair_with_code(&shown.code, Some(&address(&a))).unwrap();
+    // b dialled a: a learned b's address from b's hello, with b's port
+    until("a kept b's address", || {
+        kept_address(&ha).as_deref() == Some(&format!("127.0.0.1:{port_b}"))
+    });
+    // b's own way back to a is broken, so only a dialling b can join them
+    let b_view_of_a = hb.s(|s, _| s.peer_devices()).unwrap()[0].clone();
+    hb.s(|s, _| {
+        s.peer_seen(
+            &b_view_of_a.key,
+            &b_view_of_a.name,
+            &b_view_of_a.platform,
+            &b_view_of_a.version,
+            Some("127.0.0.1:1"),
+            false,
+        )
+    })
+    .unwrap();
+    a.set_wanted(false);
+    until("a stopped", || !a.status().running);
+    let id = note(&ha, "Written while apart", "no multicast here");
+    a.set_wanted(true);
+    until("b has a's note, a having dialled b", || {
+        has_note(&hb, "Written while apart")
+    });
+    assert!(hb.s(|s, _| s.note(id)).is_ok());
+}
+
+#[test]
+fn a_device_out_of_reach_the_way_a_firewall_does_it_shows_after_a_minute() {
+    let (a, ha) = node("Desktop");
+    let laptop = [7u8; 32];
+    let phone = [8u8; 32];
+    ha.s(|s, _| {
+        s.peer_pair(&laptop, "Work laptop", "linux", "0.6.0")?;
+        s.peer_pair(&phone, "Pixel 8", "android", "0.6.0")
+    })
+    .unwrap();
+    // running, as it is while it dials them
+    a.refresh();
+    until("a runs", || a.status().running);
+    let shared = &a.shared;
+    let kept: std::net::SocketAddr = "192.0.2.1:47822".parse().unwrap();
+    let refused = std::io::Error::from(std::io::ErrorKind::ConnectionRefused);
+    let silent = std::io::Error::from(std::io::ErrorKind::TimedOut);
+    // refused at a kept address: the app is just closed there
+    shared.failed_like_a_firewall(kept, laptop, &refused);
+    assert!(!shared.unreachable_for(laptop, Duration::ZERO));
+    // a phone that does not answer at a kept address is in a pocket
+    shared.failed_like_a_firewall(kept, phone, &silent);
+    assert!(!shared.unreachable_for(phone, Duration::ZERO));
+    // no answer at all from a computer: a firewall dropping the connection
+    shared.failed_like_a_firewall(kept, laptop, &silent);
+    assert!(a.status().blocked.is_empty(), "not before a minute");
+    assert!(shared.unreachable_for(laptop, crate::node::BLOCKED_AFTER));
+    assert_eq!(a.status().blocked, vec!["07".repeat(32)]);
+    // the phone announced by discovery but refusing: the app is open there
+    let announced: std::net::SocketAddr = "192.0.2.2:47822".parse().unwrap();
+    shared.announce(announced);
+    shared.failed_like_a_firewall(announced, phone, &refused);
+    assert!(shared.unreachable_for(phone, crate::node::BLOCKED_AFTER));
+    assert_eq!(a.status().blocked.len(), 2);
+    // forgetting a device takes its hint away
+    ha.s(|s, _| s.peer_forget(&phone)).unwrap();
+    a.forget(&phone);
+    assert_eq!(a.status().blocked.len(), 1);
 }

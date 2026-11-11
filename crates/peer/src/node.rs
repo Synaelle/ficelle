@@ -29,6 +29,9 @@ const RETRY_AFTER: Duration = Duration::from_secs(20);
 /// After a device that is not paired here, or on another version.
 const RETRY_STRANGER: Duration = Duration::from_mins(5);
 const TICK: Duration = Duration::from_millis(500);
+/// A device dials have failed to reach, the way a firewall makes them fail,
+/// for this long: the settings say what to allow.
+pub(crate) const BLOCKED_AFTER: Duration = Duration::from_mins(1);
 
 /// Where a sync with one device stands. A device with none is not
 /// connected now.
@@ -86,6 +89,9 @@ pub struct Status {
     pub pairing: Option<PairingStatus>,
     /// Per device key (hex), how the sync with it stands.
     pub live: HashMap<String, Live>,
+    /// Device keys (hex) seen but out of reach for a while, as when a
+    /// firewall on one of the two drops the connection.
+    pub blocked: Vec<String>,
 }
 
 struct Identity {
@@ -144,6 +150,9 @@ struct State {
     cooldown: HashMap<(SocketAddr, [u8; 32]), Instant>,
     dialing: HashSet<(SocketAddr, [u8; 32])>,
     discovery_error: Option<String>,
+    /// Since when dials to a device fail as a firewall makes them fail,
+    /// until a connection with it works, either way.
+    unreachable: HashMap<[u8; 32], Instant>,
 }
 
 pub(crate) struct Shared<H: Host> {
@@ -158,7 +167,7 @@ pub(crate) struct Shared<H: Host> {
 
 /// The local sync of this device. Cheap to clone.
 pub struct Node<H: Host> {
-    shared: Arc<Shared<H>>,
+    pub(crate) shared: Arc<Shared<H>>,
 }
 
 impl<H: Host> Clone for Node<H> {
@@ -311,6 +320,7 @@ impl<H: Host> Shared<H> {
             }
             old.stop = true;
         }
+        state.unreachable.remove(&key);
         state.next_id += 1;
         let id = state.next_id;
         state.sessions.insert(
@@ -325,6 +335,71 @@ impl<H: Host> Shared<H> {
             },
         );
         Some(id)
+    }
+
+    /// Moves the first failure toward a device back in time, as if dials
+    /// had failed for that long.
+    #[cfg(test)]
+    pub(crate) fn unreachable_for(&self, key: [u8; 32], long: Duration) -> bool {
+        let mut state = self.lock();
+        let Some(since) = state.unreachable.get_mut(&key) else {
+            return false;
+        };
+        *since -= long;
+        true
+    }
+
+    /// Discovery found a Ficelle at `address`, for tests.
+    #[cfg(test)]
+    pub(crate) fn announce(&self, address: SocketAddr) {
+        self.lock().found.insert(
+            address.to_string(),
+            Found {
+                addresses: vec![address],
+                pairing: false,
+            },
+        );
+    }
+
+    /// The port this device listens on, while it runs.
+    pub(crate) fn port(&self) -> Option<u16> {
+        self.lock().running.as_ref().map(|r| r.port)
+    }
+
+    /// Notes a dial that failed the way a firewall makes it fail: no answer
+    /// at all, or a refusal from an address discovery just announced (the
+    /// app is open there, yet its port refuses). A refusal at a remembered
+    /// address only means the app is closed. A phone at a remembered address
+    /// is left out: in a pocket it stops answering, by design.
+    pub(crate) fn failed_like_a_firewall(
+        &self,
+        address: SocketAddr,
+        key: [u8; 32],
+        err: &std::io::Error,
+    ) {
+        let announced = self
+            .lock()
+            .found
+            .values()
+            .any(|f| f.addresses.contains(&address));
+        let silent = matches!(
+            err.kind(),
+            std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+        );
+        let refused = err.kind() == std::io::ErrorKind::ConnectionRefused;
+        let phone = || {
+            store(&*self.host, |s, _| s.peer_devices()).is_ok_and(|devices| {
+                devices
+                    .iter()
+                    .any(|d| d.key == key && d.platform == "android")
+            })
+        };
+        if (announced && (silent || refused)) || (silent && !phone()) {
+            self.lock()
+                .unreachable
+                .entry(key)
+                .or_insert_with(Instant::now);
+        }
     }
 
     fn secret(&self) -> Option<[u8; 32]> {
@@ -468,6 +543,10 @@ impl<H: Host> Shared<H> {
             // another device, or not one that knows this one
             Err(Error::Handshake(_) | Error::Closed | Error::Timeout) => {
                 self.cool(address, key, RETRY_STRANGER);
+            }
+            Err(Error::Io(err)) => {
+                self.failed_like_a_firewall(address, key, &err);
+                self.cool(address, key, RETRY_AFTER);
             }
             Err(_) => self.cool(address, key, RETRY_AFTER),
         }
@@ -665,9 +744,13 @@ impl<H: Host> Shared<H> {
         if listener.set_nonblocking(true).is_err() {
             return;
         }
-        let (mdns, discovery_error) = match ServiceDaemon::new() {
-            Ok(mdns) => (Some(mdns), None),
-            Err(e) => (None, Some(e.to_string())),
+        let (mdns, discovery_error) = if self.service.is_empty() {
+            (None, None)
+        } else {
+            match ServiceDaemon::new() {
+                Ok(mdns) => (Some(mdns), None),
+                Err(e) => (None, Some(e.to_string())),
+            }
         };
         let receiver = mdns.as_ref().and_then(|m| m.browse(&self.service).ok());
         let generation = {
@@ -688,6 +771,7 @@ impl<H: Host> Shared<H> {
             state.running = Some(running);
             state.found.clear();
             state.cooldown.clear();
+            state.unreachable.clear();
         }
         let shared = self.clone();
         let _ = std::thread::Builder::new()
@@ -723,18 +807,33 @@ impl<H: Host> Shared<H> {
     }
 }
 
+/// This build's mDNS service type and the port it listens on: release,
+/// preview and dev builds never meet, and each has a port a firewall rule
+/// can name.
+fn identity() -> (&'static str, u16) {
+    match app_brand::SLUG {
+        "ficelle" => ("_ficelle._tcp.local.", 47_821),
+        "ficelle-preview" => ("_ficelle-preview._tcp.local.", 47_823),
+        _ => ("_ficelle-dev._tcp.local.", 47_822),
+    }
+}
+
 impl<H: Host> Node<H> {
     /// A node, not running yet: see [`Self::set_wanted`].
     pub fn new(host: Arc<H>, me: Me) -> Self {
-        let (service, preferred_port) = match app_brand::SLUG {
-            "ficelle" => ("_ficelle._tcp.local.", 47_821),
-            "ficelle-preview" => ("_ficelle-preview._tcp.local.", 47_823),
-            _ => ("_ficelle-dev._tcp.local.", 47_822),
-        };
-        Self::with_port(host, me, service, preferred_port)
+        let (service, port) = identity();
+        Self::with_port(host, me, service, port)
     }
 
-    /// A node on a service type and port of its own, for tests.
+    /// As [`Self::new`] with no discovery at all, as on a network that drops
+    /// multicast: paired devices are only reached at the addresses kept.
+    /// For tests.
+    pub fn without_discovery(host: Arc<H>, me: Me) -> Self {
+        Self::with_port(host, me, "", identity().1)
+    }
+
+    /// A node on a service type and port of its own, for tests. An empty
+    /// service type turns discovery off.
     pub fn with_port(host: Arc<H>, me: Me, service: &str, preferred_port: u16) -> Self {
         Self {
             shared: Arc::new(Shared {
@@ -811,6 +910,7 @@ impl<H: Host> Node<H> {
                 slot.stop = true;
             }
             state.live.remove(&key);
+            state.unreachable.remove(&key);
         }
         self.refresh();
     }
@@ -978,6 +1078,14 @@ impl<H: Host> Node<H> {
                         .filter(|k| !state.live.contains_key(*k))
                         .map(|k| (hex(k), Live::Syncing)),
                 )
+                .collect(),
+            blocked: state
+                .unreachable
+                .iter()
+                .filter(|(k, since)| {
+                    !state.sessions.contains_key(*k) && now.duration_since(**since) >= BLOCKED_AFTER
+                })
+                .map(|(k, _)| hex(k))
                 .collect(),
         }
     }
