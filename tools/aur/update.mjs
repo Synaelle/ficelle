@@ -5,7 +5,7 @@
 //
 //   node tools/aur/update.mjs <version> <folder>
 //
-// The checksum comes from the release's own .deb, downloaded from GitHub.
+// The checksum comes from the release's own AppImage, downloaded from GitHub.
 // Betas are refused: the AUR package follows stable releases only.
 
 import { createHash } from 'node:crypto'
@@ -24,8 +24,8 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) {
 }
 
 const here = dirname(fileURLToPath(import.meta.url))
-const deb = `Ficelle_${version}_amd64.deb`
-const url = `https://github.com/Synaelle/ficelle/releases/download/v${version}/${deb}`
+const appimage = `Ficelle_${version}_amd64.AppImage`
+const url = `https://github.com/Synaelle/ficelle/releases/download/v${version}/${appimage}`
 const response = await fetch(url, { signal: AbortSignal.timeout(120_000) })
 if (!response.ok) {
   console.error(`${url}: ${response.status}`)
@@ -62,6 +62,7 @@ const lines = [
   ...values(field('conflicts')).map((v) => `\tconflicts = ${v}`),
   ...values(field('options')).map((v) => `\toptions = ${v}`),
   ...values(field('source')).map((v) => `\tsource = ${v}`),
+  ...values(field('noextract')).map((v) => `\tnoextract = ${v}`),
   `\tsha256sums = ${sha256}`,
   '',
   `pkgname = ${field('pkgname')}`,

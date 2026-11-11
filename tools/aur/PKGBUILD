@@ -1,6 +1,7 @@
 # Template of the AUR package ficelle-bin, filled for each stable release by
-# tools/aur/update.mjs (@VERSION@ and @SHA256@). It repacks the release's .deb
-# and uses the system's WebKitGTK, as the deb does.
+# tools/aur/update.mjs (@VERSION@ and @SHA256@). It takes the program, its
+# launcher and icons out of the release's AppImage and uses the system's
+# WebKitGTK instead of the copy the AppImage carries.
 pkgname=ficelle-bin
 pkgver=@VERSION@
 pkgrel=1
@@ -12,9 +13,20 @@ depends=('webkit2gtk-4.1' 'gtk3' 'libsoup3' 'glib2' 'cairo' 'gdk-pixbuf2' 'opens
 provides=('ficelle')
 conflicts=('ficelle')
 options=('!strip' '!debug')
-source=("Ficelle_${pkgver}_amd64.deb::https://github.com/Synaelle/ficelle/releases/download/v${pkgver}/Ficelle_${pkgver}_amd64.deb")
+noextract=("Ficelle_${pkgver}_amd64.AppImage")
+source=("Ficelle_${pkgver}_amd64.AppImage::https://github.com/Synaelle/ficelle/releases/download/v${pkgver}/Ficelle_${pkgver}_amd64.AppImage")
 sha256sums=('@SHA256@')
 
+prepare() {
+  chmod +x "Ficelle_${pkgver}_amd64.AppImage"
+  "./Ficelle_${pkgver}_amd64.AppImage" --appimage-extract >/dev/null
+}
+
 package() {
-  bsdtar -xf data.tar.* -C "$pkgdir"
+  cd squashfs-root/usr
+  # the program finds its libraries in ../lib, the system's once installed
+  install -Dm755 bin/ficelle "$pkgdir/usr/bin/ficelle"
+  install -Dm644 share/applications/Ficelle.desktop "$pkgdir/usr/share/applications/Ficelle.desktop"
+  # one by one: the AppImage keeps its folders private (700)
+  find share/icons -type f -exec install -Dm644 {} "$pkgdir/usr/{}" \;
 }
