@@ -2,6 +2,7 @@
 
 import { brand } from '@app/brand'
 import { describe, expect, it } from 'vitest'
+import fr from '../../../../packages/locales/fr.toml'
 import { currentLocale, setLocale, t } from './i18n.svelte'
 
 describe('t', () => {
@@ -20,6 +21,20 @@ describe('t', () => {
     expect(t('list.count', { count: 0 })).toBe('0 note')
     expect(t('list.count', { count: 1 })).toBe('1 note')
     expect(t('list.count', { count: 2 })).toBe('2 notes')
+  })
+
+  it('shows English, with English plurals, for a text not translated yet', () => {
+    const kept = { one: fr['list.count.one'] ?? '', other: fr['list.count.other'] ?? '' }
+    delete fr['list.count.one']
+    delete fr['list.count.other']
+    try {
+      setLocale('fr')
+      expect(t('list.count', { count: 0 })).toBe('0 notes')
+      expect(t('list.count', { count: 1 })).toBe('1 note')
+    } finally {
+      fr['list.count.one'] = kept.one
+      fr['list.count.other'] = kept.other
+    }
   })
 
   it('shows the key when a text is missing everywhere', () => {

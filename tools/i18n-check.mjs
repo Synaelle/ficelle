@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Lists translation problems. English (en.toml) is the reference.
-// Fails on: keys missing from a language, placeholders that differ from
-// English, and keys used in the code that English lacks.
-// Warns on: keys no code uses, and keys a language has but English does not.
+// Fails on: placeholders that differ from English, and keys used in the code
+// that English lacks.
+// Warns on: keys a language has not translated yet (the app shows the English
+// text meanwhile), keys no code uses, and keys a language has but English
+// does not.
 //
 // Code usage is found from t('a.b') calls, and tr(lang, "a.b") in the server's
 // rust. A template like t(`errors.${kind}`) marks every key under errors. as
@@ -68,7 +70,7 @@ for (const key of Object.keys(english)) {
 for (const [code, strings] of Object.entries(locales)) {
   if (code === 'en') continue
   for (const [key, text] of Object.entries(english)) {
-    if (!(key in strings)) errors.push(`${code}: missing ${key}`)
+    if (!(key in strings)) warnings.push(`${code}: not translated yet: ${key}`)
     else if (placeholders(text).join() !== placeholders(strings[key] ?? '').join())
       errors.push(`${code}: placeholders differ from English in ${key}`)
   }

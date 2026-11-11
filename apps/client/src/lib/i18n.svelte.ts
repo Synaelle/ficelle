@@ -49,16 +49,20 @@ export function currentLocale(): Locale {
 type Vars = Record<string, string | number>
 
 function lookup(key: string, vars: Vars): string | undefined {
-  // a language saved by an older version may be gone
-  const tables = [catalogs[state.locale] ?? catalogs.en, catalogs.en]
+  // a language saved by an older version may be gone; a text not translated
+  // yet comes in English, its plural chosen by English rules
+  const tables: [Locale, Record<string, string>][] = [
+    catalogs[state.locale] ? [state.locale, catalogs[state.locale]] : ['en', catalogs.en],
+    ['en', catalogs.en],
+  ]
   if (typeof vars.count === 'number') {
-    const form = new Intl.PluralRules(state.locale).select(vars.count)
-    for (const table of tables) {
+    for (const [locale, table] of tables) {
+      const form = new Intl.PluralRules(locale).select(vars.count)
       const text = table[`${key}.${form}`] ?? table[`${key}.other`]
       if (text !== undefined) return text
     }
   }
-  for (const table of tables) {
+  for (const [, table] of tables) {
     if (table[key] !== undefined) return table[key]
   }
   return undefined
