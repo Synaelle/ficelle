@@ -51,6 +51,10 @@ export function moveTag(name: string, into: string) {
  * shorter, a pause to think is longer: one save per thought, not per word. */
 const SAVE_DELAY_MS = 1000
 
+/** Typing with no such pause is saved this often all the same: the other
+ * devices follow it while it goes on, and less is lost if the app stops. */
+const SAVE_AT_MOST_MS = 2500
+
 /** Wait before trying a save that failed again. */
 const RETRY_DELAY_MS = 5000
 
@@ -91,6 +95,8 @@ class Workspace {
    * so an edit made elsewhere in the meantime is merged, not overwritten. */
   private base: { title: string; body: string } | null = null
   private timer: ReturnType<typeof setTimeout> | undefined
+  /** When the edit waiting to be saved began. */
+  private editedSince: number | null = null
   /** The save on its way to the store, one at a time. */
   private saving: Promise<void> | null = null
   /** Changes from another device are being taken in, and more came since. */
@@ -246,6 +252,7 @@ class Workspace {
       if (this.current?.id !== note.id || (fresh && this.unsaved)) return
       clearTimeout(this.timer)
       this.pending = {}
+      this.editedSince = null
       this.dirty = false
       this.unsaved = false
       this.show(null)
@@ -342,7 +349,10 @@ class Workspace {
     Object.assign(this.pending, change)
     this.dirty = true
     clearTimeout(this.timer)
-    this.timer = setTimeout(() => void this.flush(), SAVE_DELAY_MS)
+    const now = Date.now()
+    this.editedSince ??= now
+    const left = this.editedSince + SAVE_AT_MOST_MS - now
+    this.timer = setTimeout(() => void this.flush(), Math.max(0, Math.min(SAVE_DELAY_MS, left)))
   }
 
   /** The open editor's own save: it turns typing into markdown after a
@@ -371,6 +381,7 @@ class Workspace {
     const change = this.pending
     if (!note) return
     this.pending = {}
+    this.editedSince = null
     const base = this.base
     const sent: NoteChange = { ...change }
     if (base && change.title !== undefined) sent.baseTitle = base.title

@@ -57,6 +57,9 @@
 
   /** Idle time before the document is turned back into markdown. */
   const SERIALIZE_DELAY_MS = 250
+  /** Typing with no such pause is turned into markdown this often all the
+   * same, so it is saved and reaches the other devices while it goes on. */
+  const SERIALIZE_AT_MOST_MS = 2000
   /** Phones and tablets, where the system spells and selects. */
   const PHONE = MOBILE
   /** Touch screens have the toolbar fixed over the bottom of the note: the
@@ -253,10 +256,16 @@
     return Object.fromEntries(actions.map((a) => [tiptapKey(shortcutFor(a)), () => run(a)]))
   }
 
+  /** When the typing not passed on yet began. */
+  let typingSince: number | null = null
+
   function scheduleSave() {
     clearTimeout(timer)
     onpending?.(true)
-    timer = setTimeout(save, SERIALIZE_DELAY_MS)
+    const now = performance.now()
+    typingSince ??= now
+    const left = typingSince + SERIALIZE_AT_MOST_MS - now
+    timer = setTimeout(save, Math.max(0, Math.min(SERIALIZE_DELAY_MS, left)))
   }
 
   /** The markdown the editor shows: what it opened with, sent, or took in. */
@@ -287,6 +296,7 @@
 
   function save() {
     clearTimeout(timer)
+    typingSince = null
     if (!editor) return
     if (opened && editor.state.doc.eq(opened)) return void onpending?.(false)
     const now = editor.getMarkdown()

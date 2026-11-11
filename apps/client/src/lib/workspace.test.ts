@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Runs on the in-memory backend, the one a plain browser gets.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { backend, type NoteChange } from './backend'
 import { toasts } from './toast.svelte'
 import { workspace } from './workspace.svelte'
@@ -48,6 +48,30 @@ describe('blank notes', () => {
     await workspace.open(blank.id)
     expect(await ids()).toContain(blank.id)
     expect(workspace.current?.id).toBe(blank.id)
+  })
+})
+
+describe('typing without a pause', () => {
+  it('is saved while it goes on', async () => {
+    workspace.coediting = () => false
+    const note = await create({ title: 'Long', body: '' })
+    vi.useFakeTimers()
+    try {
+      let text = ''
+      // a key every 400 ms: never the second of quiet a save waits for
+      for (let key = 0; key < 20; key++) {
+        text += 'x'
+        workspace.edit({ body: text })
+        await vi.advanceTimersByTimeAsync(400)
+      }
+      const stored = (await backend.getNote(note.id)).body
+      expect(stored.length).toBeGreaterThanOrEqual(12)
+      expect(stored.length).toBeLessThan(20)
+    } finally {
+      vi.useRealTimers()
+    }
+    await workspace.flush()
+    expect((await backend.getNote(note.id)).body).toBe('x'.repeat(20))
   })
 })
 
