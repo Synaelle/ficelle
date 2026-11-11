@@ -21,6 +21,8 @@ export interface LocalDevice {
   state: DeviceState
   /** The other version, or why it failed. */
   detail: string | null
+  /** Seen but out of reach for a while: a firewall may be in the way. */
+  blocked: boolean
 }
 
 export interface Pairing {
@@ -40,6 +42,8 @@ export interface LocalStatus {
   /** A server is linked here: local sync is off. */
   serverLinked: boolean
   running: boolean
+  /** The port this device listens on, for a firewall rule. */
+  port: number | null
   discoveryError: string | null
   pairing: Pairing | null
   devices: LocalDevice[]
@@ -60,6 +64,7 @@ const EMPTY: LocalStatus = {
   name: '',
   serverLinked: false,
   running: false,
+  port: null,
   discoveryError: null,
   pairing: null,
   devices: [],

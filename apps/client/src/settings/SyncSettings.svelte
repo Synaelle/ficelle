@@ -23,6 +23,7 @@
   import { localSync, type LocalDevice } from '../lib/localSync.svelte'
   import FilesSettings from './FilesSettings.svelte'
   import PairDialog from './PairDialog.svelte'
+  import { LINUX, MAC, WINDOWS } from '../lib/platform'
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'
@@ -249,6 +250,23 @@
     })
 </script>
 
+{#snippet firewall(device: LocalDevice)}
+  <div class="firewall" role="note">
+    <p>{t('local.blocked.lead', { name: device.name })}</p>
+    {#if WINDOWS}
+      <p class="muted">{t('local.blocked.windows')}</p>
+    {:else if LINUX}
+      <p class="muted">{t('local.blocked.linux', { port: local.port ?? '' })}</p>
+      <code>sudo ufw allow {local.port}/tcp<br />sudo ufw allow 5353/udp</code>
+    {:else if MAC}
+      <p class="muted">{t('local.blocked.macos')}</p>
+    {:else}
+      <p class="muted">{t('local.blocked.phone')}</p>
+    {/if}
+    <p class="muted">{t('local.blocked.other', { name: device.name })}</p>
+  </div>
+{/snippet}
+
 {#if !localSync.available}
   <p class="settings-help">{t('errors.unsupported')}</p>
 {:else if viewing}
@@ -275,6 +293,7 @@
       </div>
     </div>
   {/if}
+  {#if viewing.blocked}{@render firewall(viewing)}{/if}
   <Group title={t('local.device.versions')}>
     <Row label={t('local.device.thisDevice')}><span class="value mono">{__APP_VERSION__}</span></Row
     >
@@ -378,13 +397,18 @@
             <span
               class="device-state"
               class:ok={device.state === 'synced'}
-              class:warn={device.state === 'needsUpdate' || device.state === 'updateThis'}
+              class:warn={device.state === 'needsUpdate' ||
+                device.state === 'updateThis' ||
+                device.blocked}
               class:bad={device.state === 'failed'}>{deviceLine(device)}</span
             >
           </Row>
         {/each}
       {/if}
     </Group>
+    {#each local.devices.filter((d) => d.blocked) as device (device.key)}
+      {@render firewall(device)}
+    {/each}
     <div class="settings-buttons start">
       <button class="btn primary" disabled={local.serverLinked} onclick={() => (pairMode = 'show')}
         ><Icon name="plus" size={16} />{t('local.pair')}</button
@@ -768,5 +792,26 @@
   }
   .mono {
     font-family: var(--font-mono);
+  }
+  .firewall {
+    display: grid;
+    gap: var(--space-2);
+    max-width: 640px;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-window);
+    background: var(--color-surface-2);
+  }
+  .firewall p {
+    margin: 0;
+  }
+  .firewall code {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-control);
+    background: var(--color-bg);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+    user-select: all;
   }
 </style>

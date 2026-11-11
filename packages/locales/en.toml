@@ -818,6 +818,14 @@ serverLinked = "This device syncs with a server. Disconnect from it first."
 locked = "Unlock your notes first."
 other = "Something went wrong, try again."
 
+[local.blocked]
+lead = "{name} could not be reached for a while. If it is on and on this network, a firewall on one of the two devices may be in the way."
+windows = "On this computer, allow {appName} when Windows asks, or mark this Wi-Fi as a private network in the network settings."
+linux = "On this computer, allow TCP port {port} and UDP port 5353. With ufw:"
+macos = "On this computer, allow {appName} in System Settings, Network, Firewall."
+phone = "Check that both devices are on the same Wi-Fi, and that the network lets devices see each other."
+other = "Check the same on {name}."
+
 [local.status]
 synced = "Synced"
 syncing = "Syncing with {name}"
