@@ -26,12 +26,22 @@ ficelle.synaelle.com keeps reports 180 days, unless one is kept to follow a bug.
 
 ## Sync
 
-Sync only talks to the server you sign in to. That server sees your username, your email if you add one, your devices (named after the computer, like "Ficelle on DESKTOP-1234"), and when each one syncs.
+A device syncs either directly with your other devices or through a server, never both.
+
+### Between your devices
+
+Local sync talks only to the devices you paired, on your own network, over an encrypted connection. Nothing goes through the internet. While the app is open it announces itself on the network with a random name and the version of its sync, so your other devices can find it, never your name or the device's name.
+
+If a computer's firewall blocks it, allow Ficelle on private networks when Windows asks. On Linux, open TCP port 47821 and UDP port 5353, for example `sudo ufw allow 47821/tcp` and `sudo ufw allow 5353/udp`.
+
+### Through a server
+
+Sync through a server only talks to the server you sign in to. That server sees your username, your email if you add one, your devices (named after the computer, like "Ficelle on DESKTOP-1234"), and when each one syncs.
 
 What it can read depends on the account.
 
 - With a standard account, notes and files are encrypted on the server's disk, but the server holds the key. Whoever runs the server can read them.
-- With an end-to-end encrypted account, notes, titles, folders, tags and files are encrypted on your device. The server cannot read them. It still sees how many notes and files there are, their sizes and when they change. Your password never reaches it.
+- With an end-to-end encrypted account, notes, titles, tags and files are encrypted on your device. The server cannot read them. It still sees how many notes and files there are, their sizes and when they change. Your password never reaches it.
 
 The server keeps a log of sign-ins, failures and account changes with the network address, 365 days by default. It keeps no log of other requests. Each admin can change these lengths, see their server's privacy page.
 
