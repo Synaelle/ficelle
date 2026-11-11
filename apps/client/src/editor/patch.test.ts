@@ -101,6 +101,26 @@ describe('remote text in the editor', () => {
     editor.destroy()
   })
 
+  it('a space just typed at the end of a line stays, with the caret, when text arrives elsewhere', () => {
+    // the space is saved, but Markdown read back has none at the end of a
+    // line: the other device's text, read, comes without it
+    for (const [incoming, reads] of [
+      ['one\n\ntwo \n\nthree and more', 'one\n\ntwo next\n\nthree and more'],
+      ['zero\n\none\n\ntwo \n\nthree', 'zero\n\none\n\ntwo next\n\nthree'],
+      ['one\n\ntwo and \n\nthree', 'one\n\ntwo and next\n\nthree'],
+      ['one\n\ntwo \n\nthree', 'one\n\ntwo next\n\nthree'],
+    ] as const) {
+      const { editor } = editorWith('one\n\ntwo\n\nthree')
+      caretAfter(editor, 'two')
+      editor.commands.insertContent(' ')
+      expect(editor.getMarkdown()).toBe('one\n\ntwo \n\nthree')
+      patchMarkdown(editor, incoming)
+      editor.commands.insertContent('next')
+      expect(editor.getMarkdown(), incoming).toBe(reads)
+      editor.destroy()
+    }
+  })
+
   it('undo takes back the own edit, not the remote one', () => {
     const { editor } = editorWith('mine')
     caretAfter(editor, 'mine')

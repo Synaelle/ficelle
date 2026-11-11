@@ -75,14 +75,17 @@ function reads(doc: PMNode, at: number, slice: Slice, next: PMNode) {
   }
 }
 
-/** The transaction turning `doc` into `next`, null when they are the same.
- * `typed` is the text typed here, see [`TypedHere`]. */
-export function patchTransaction(
-  tr: Transaction,
-  doc: PMNode,
-  next: PMNode,
-  typed: Typed[] = [],
-): Transaction | null {
+/** What differs between two documents: `doc` from `start` to `endA` is
+ * `next` from `start` to `endB`. */
+interface Change {
+  start: number
+  endA: number
+  endB: number
+}
+
+/** Where `doc` and `next` differ, null when they are the same. `typed` is
+ * the text typed here, see [`TypedHere`]. */
+function changed(doc: PMNode, next: PMNode, typed: Typed[] = []): Change | null {
   let start = doc.content.findDiffStart(next.content)
   if (start === null) return null
   const end = doc.content.findDiffEnd(next.content)
@@ -107,23 +110,67 @@ export function patchTransaction(
       endB -= back
     }
   }
-  return tr
-    .replace(start, endA, next.slice(start, endB))
-    .setMeta(REMOTE, true)
-    .setMeta('addToHistory', false)
+  return { start, endA, endB }
+}
+
+const remote = (tr: Transaction) => tr.setMeta(REMOTE, true).setMeta('addToHistory', false)
+
+/** The transaction turning `doc` into `next`, null when they are the same.
+ * `typed` is the text typed here, see [`TypedHere`]. */
+export function patchTransaction(
+  tr: Transaction,
+  doc: PMNode,
+  next: PMNode,
+  typed: Typed[] = [],
+): Transaction | null {
+  const change = changed(doc, next, typed)
+  if (!change) return null
+  return remote(tr.replace(change.start, change.endA, next.slice(change.start, change.endB)))
+}
+
+const read = (editor: Editor, markdown: string) => {
+  const parsed = editor.markdown?.parse(markdown)
+  return parsed ? editor.schema.nodeFromJSON(parsed) : null
+}
+
+/**
+ * The editor holds what its Markdown cannot: a space just typed at the end
+ * of a line, an empty line just made. Changing the document into `next`
+ * would take those away under the caret and send it elsewhere. This is the
+ * change from the note as its Markdown reads to `next`, made beside them.
+ * `false` when there is nothing to change, null when the other device
+ * changed that very place.
+ */
+function besideTyping(editor: Editor, next: PMNode): Transaction | false | null {
+  const doc = editor.state.doc
+  const saved = read(editor, editor.getMarkdown())
+  if (!saved) return null
+  const theirs = changed(saved, next)
+  if (!theirs) return false
+  const mine = changed(doc, saved)
+  if (!mine) return null
+  const slice = next.slice(theirs.start, theirs.endB)
+  if (theirs.endA <= mine.start)
+    return remote(editor.state.tr.replace(theirs.start, theirs.endA, slice))
+  if (theirs.start < mine.endB) return null
+  const moved = mine.endA - mine.endB
+  return remote(editor.state.tr.replace(theirs.start + moved, theirs.endA + moved, slice))
 }
 
 /** Shows `markdown` in the editor, changing only what differs. */
 export function patchMarkdown(editor: Editor, markdown: string): boolean {
-  const parsed = editor.markdown?.parse(markdown)
-  if (!parsed) return false
-  const next = editor.schema.nodeFromJSON(parsed)
-  const tr = patchTransaction(
-    editor.state.tr,
-    editor.state.doc,
-    next,
-    typedKey.getState(editor.state),
-  )
+  const next = read(editor, markdown)
+  if (!next) return false
+  const { doc, selection } = editor.state
+  const typed = typedKey.getState(editor.state)
+  const change = changed(doc, next, typed)
+  if (!change) return false
+  // the caret is in what would be replaced: not before a look at whether
+  // that is only text the Markdown does not hold
+  const atCaret = selection.to >= change.start && selection.from <= change.endA
+  const beside = atCaret ? besideTyping(editor, next) : null
+  if (beside === false) return false
+  const tr = beside ?? patchTransaction(editor.state.tr, doc, next, typed)
   if (!tr) return false
   editor.view.dispatch(tr)
   return true
