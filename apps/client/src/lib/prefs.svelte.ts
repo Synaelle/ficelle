@@ -19,6 +19,8 @@ export interface Prefs {
   pureBlack: boolean
   /** The mark beside each tag: a folder, or # as other apps write tags. */
   tagMark: 'folder' | 'hash'
+  /** Phones: a short vibration when a swipe on a note acts. */
+  haptics: boolean
   /** null follows the system language. */
   language: Locale | null
   sort: NoteSort
@@ -81,6 +83,7 @@ export const DEFAULT_PREFS: Prefs = {
   mode: 'dark',
   pureBlack: false,
   tagMark: 'folder',
+  haptics: false,
   language: null,
   sort: 'updatedDesc',
   shortcuts: {},

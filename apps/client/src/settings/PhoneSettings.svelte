@@ -503,6 +503,14 @@
         </Group>
         <Group>
           {@render row({
+            icon: 'pin',
+            label: t('settings.haptics'),
+            on: prefs.haptics,
+            run: () => (prefs.haptics = !prefs.haptics),
+          })}
+        </Group>
+        <Group>
+          {@render row({
             icon: 'textStyle',
             label: t('settings.dyslexicFont'),
             on: prefs.dyslexicFont,
