@@ -6,7 +6,6 @@
 use std::sync::Arc;
 
 use app_core::clock::{Clock, DAY, MINUTE, ManualClock, SystemClock};
-use app_core::id::FolderId;
 use app_core::store::{NewNote, NoteChange, Store};
 
 const TRELLIS: &str = "Six cedar posts along the south bed, jute twine strung between them. Same setup as last year but tighter spacing. See [[Garden log 2025]] for what went wrong.
@@ -53,32 +52,18 @@ impl Rng {
     }
 }
 
-struct Folders {
-    inbox: FolderId,
-    journal: FolderId,
-    garden: FolderId,
-    kitchen: FolderId,
-    reading: FolderId,
-}
-
-fn folders(store: &mut Store) -> app_core::Result<Folders> {
-    let projects = store.create_folder(None, "Projects")?;
-    Ok(Folders {
-        inbox: store.create_folder(None, "Inbox")?.id,
-        journal: store.create_folder(None, "Journal")?.id,
-        garden: store.create_folder(Some(projects.id), "Garden")?.id,
-        kitchen: store.create_folder(Some(projects.id), "Kitchen")?.id,
-        reading: store.create_folder(None, "Reading")?.id,
-    })
-}
-
-fn note(folder: FolderId, title: &str, body: &str, tags: &[&str], pinned: bool) -> NewNote {
+/// A sample note, its first tag the place it sits, as a folder did.
+fn note(place: Option<&str>, title: &str, body: &str, tags: &[&str], pinned: bool) -> NewNote {
     NewNote {
-        folder_id: Some(folder),
         title: title.into(),
         body: body.into(),
-        tags: tags.iter().map(|t| (*t).to_owned()).collect(),
+        tags: place
+            .into_iter()
+            .chain(tags.iter().copied())
+            .map(str::to_owned)
+            .collect(),
         pinned,
+        ..NewNote::default()
     }
 }
 
@@ -87,49 +72,48 @@ pub fn seed(store: &mut Store, generated: usize) -> app_core::Result<usize> {
     // dates spread over the last weeks so sorting and history look real
     let clock = Arc::new(ManualClock::new(SystemClock.now() - 21 * DAY));
     store.set_clock(clock.clone());
-    let f = folders(store)?;
 
     let samples = [
         note(
-            f.reading,
+            Some("Reading"),
             "Reading list, autumn",
             "The Overstory, Piranesi, La Horde du Contrevent.",
             &["ideas"],
             false,
         ),
         note(
-            f.inbox,
+            None,
             "Ideas for the shed",
             "Pegboard wall, a shelf for seed trays, hooks for the long tools.",
             &["ideas"],
             false,
         ),
         note(
-            f.journal,
+            Some("Journal"),
             "Sync design scratch",
             "What happens when a folder moves twice offline? Both moves stay in history.",
             &["work"],
             false,
         ),
         note(
-            f.inbox,
+            None,
             "Call with Inès",
             "She can lend the long ladder on Saturday. Ask about the seed trays.",
             &["todo"],
             false,
         ),
         note(
-            f.kitchen,
+            Some("Projects/Kitchen"),
             "Pain au levain",
             "Levain at 100% hydration, 500 g flour, 350 g water, 10 g salt. Été comme hiver, 4 h de pointage.",
             &["recettes"],
             true,
         ),
         note(
-            f.garden,
+            Some("Projects/Garden"),
             "Tomato trellis plan",
             "Six cedar posts along the south bed, jute twine between them.",
-            &["todo", "garden"],
+            &["todo"],
             true,
         ),
     ];
@@ -151,7 +135,13 @@ pub fn seed(store: &mut Store, generated: usize) -> app_core::Result<usize> {
         }
     }
 
-    let targets = [f.inbox, f.journal, f.garden, f.kitchen, f.reading];
+    let targets = [
+        None,
+        Some("Journal"),
+        Some("Projects/Garden"),
+        Some("Projects/Kitchen"),
+        Some("Reading"),
+    ];
     let mut rng = Rng(0x9E37_79B9_7F4A_7C15);
     for i in 0..generated {
         clock.advance(MINUTE);
@@ -160,9 +150,9 @@ pub fn seed(store: &mut Store, generated: usize) -> app_core::Result<usize> {
             .map(|_| rng.pick(WORDS))
             .collect::<Vec<_>>()
             .join(" ");
-        let folder = targets[i % targets.len()];
+        let place = targets[i % targets.len()];
         store.create_note(&note(
-            folder,
+            place,
             &title,
             &body,
             &[rng.pick(&["todo", "ideas", "work"])],
