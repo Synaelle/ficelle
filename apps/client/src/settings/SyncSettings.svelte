@@ -351,7 +351,7 @@
       title={t('local.devices')}
       note={local.serverLinked
         ? t('local.oneWay')
-        : devicesPaired
+        : local.devices.some((d) => d.platform === 'android')
           ? t('local.phoneHelp')
           : undefined}
     >

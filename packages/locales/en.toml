@@ -773,12 +773,12 @@ updateThisHelp = "{name} has a newer {appName}, and its notes are in a form this
 forget = "Forget this device"
 forgetButton = "Forget"
 forgetConfirm = "Forget {name}"
-forgetHelp = "It stops syncing with all your devices. The notes stay on both. To sync again, pair it again."
+forgetHelp = "Your devices stop syncing with it. The notes stay on every device. To sync with it again, pair it again."
 
 [local.pairing]
 title = "Pair a device"
 starting = "Getting ready…"
-typeOn = "On the other device, open Settings, Sync, I have a code, and type"
+typeOn = "On the other device, open Settings, Sync, I have a code, and type this code:"
 waiting = "Waiting for the other device"
 left = "{time} left"
 sameNetwork = "Both need to be on the same network."
@@ -835,6 +835,7 @@ syncing = "Syncing with {name}"
 waiting = "Waiting for {name}"
 needsUpdate = "{name} needs an update"
 updateThis = "Update to sync with {name}"
+unreachable = "Cannot reach {name}"
 
 [settings.phone]
 groupLook = "Look and writing"

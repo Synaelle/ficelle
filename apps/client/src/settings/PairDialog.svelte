@@ -101,6 +101,8 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby="pair-title"
+    tabindex="-1"
+    data-autofocus
     use:modal={{ onclose: closeIfIdle }}
   >
     <header>
@@ -241,6 +243,10 @@
     place-items: center;
     padding: var(--space-4);
     background: rgb(0 0 0 / 0.5);
+  }
+  /* the dialog itself takes the focus as it opens, its close button not */
+  .dialog:focus {
+    outline: none;
   }
   .dialog {
     width: min(460px, 100%);

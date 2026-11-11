@@ -75,7 +75,7 @@ const native = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 /** What the sidebar says: the state its icon draws, and the device it is about. */
 export interface LocalSummary {
   state: SyncState
-  key: 'synced' | 'syncing' | 'waiting' | 'needsUpdate' | 'updateThis'
+  key: 'synced' | 'syncing' | 'waiting' | 'needsUpdate' | 'updateThis' | 'unreachable'
   name: string
 }
 
@@ -108,6 +108,8 @@ class LocalSync {
     if (updateThis) return { state: 'error', key: 'updateThis', name: updateThis.name }
     const needs = first('needsUpdate')
     if (needs) return { state: 'error', key: 'needsUpdate', name: needs.name }
+    const unreachable = devices.find((d) => d.blocked)
+    if (unreachable) return { state: 'offline', key: 'unreachable', name: unreachable.name }
     const syncing = first('syncing')
     if (syncing) return { state: 'syncing', key: 'syncing', name: syncing.name }
     const waiting = first('waiting')
