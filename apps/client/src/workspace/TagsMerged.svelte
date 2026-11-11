@@ -87,7 +87,11 @@
       <p>{t('merged.body')}</p>
       {#if isBeta}<p class="muted">{t('merged.beta')}</p>{/if}
       <div class="actions">
-        <button class="link" onclick={useHash}>{t('merged.hash')}</button>
+        {#if prefs.tagMark !== 'hash'}
+          <button class="link" onclick={useHash}>{t('merged.hash')}</button>
+        {:else}
+          <span></span>
+        {/if}
         <button class="btn primary" data-autofocus onclick={close}>{t('merged.ok')}</button>
       </div>
     </div>
