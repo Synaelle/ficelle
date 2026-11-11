@@ -278,20 +278,16 @@
    * What is saved for the editor's Markdown `now`: the lines the person left
    * alone stay as the note has them, when it is written in another form than
    * the editor's (imported, typed as raw text). Kept only when it reads as
-   * the same note, first with single lines kept, then whole blocks.
+   * the same note.
    */
   function written(current: Editor, now: string) {
     if (!opened) return now
     openedText ??= current.markdown?.serialize(opened.toJSON()) ?? now
     if (openedText === markdown) return now
-    const reads = now.trimEnd()
-    for (const line of [true, false]) {
-      const kept = asWritten(markdown, openedText, now, line)
-      if (kept === now) return now
-      const parsed = current.markdown?.parse(kept)
-      if (parsed && current.markdown?.serialize(parsed).trimEnd() === reads) return kept
-    }
-    return now
+    const kept = asWritten(markdown, openedText, now)
+    if (kept === now) return now
+    const parsed = current.markdown?.parse(kept)
+    return parsed && current.markdown?.serialize(parsed).trimEnd() === now.trimEnd() ? kept : now
   }
 
   function save() {

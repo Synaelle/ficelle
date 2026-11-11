@@ -50,17 +50,25 @@ function lineUp(from: string[], to: string[]): Int32Array | null {
   return at
 }
 
+/** How many empty lines `lines` starts with, or ends with when `end`. A
+ * block of empty lines only counts as starting with them. */
+function empty(lines: string[], end: number) {
+  let count = 0
+  while (count < lines.length && lines[end ? lines.length - 1 - count : count] === '') count++
+  return count === lines.length && end ? 0 : count
+}
+
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((l, i) => l === b[i])
 
 /**
  * The text to save. `stored` is the note as it is kept, `before` the
  * editor's own Markdown for that same text, `now` the editor's Markdown
- * with what the person changed. Lines changed keep the editor's form,
- * every other line stays as stored. With `line`, so do lines next to a
- * changed one (the other items of a list): two forms can then sit side by
- * side, and the caller checks that the text still reads the same.
+ * with what the person changed. A block the person changed (the lines
+ * between two lines left alone, a list or a table whole) takes the editor's
+ * form, every other line stays as stored. The caller checks that the text
+ * still reads the same.
  */
-export function asWritten(stored: string, before: string, now: string, line = true): string {
+export function asWritten(stored: string, before: string, now: string): string {
   if (stored === before || before === now) return before === now ? stored : now
   const base = before.split('\n')
   const kept = stored.split('\n')
@@ -90,24 +98,16 @@ export function asWritten(stored: string, before: string, now: string, line = tr
       if (more > 0 && same(here.slice(more), was)) out.push(...here.slice(0, more), ...typed)
       else if (more > 0 && same(here.slice(0, was.length), was))
         out.push(...typed, ...here.slice(was.length))
-      else if (line && more === 0) {
-        // as many lines stored as the editor had: taken as the same
-        // lines, those the person left alone stay as stored
-        let head = 0
-        while (head < was.length && head < typed.length && was[head] === typed[head]) head++
-        let tail = 0
-        while (
-          tail < was.length - head &&
-          tail < typed.length - head &&
-          was[was.length - 1 - tail] === typed[typed.length - 1 - tail]
-        )
-          tail++
+      else {
+        // the empty lines around a changed block, when the person left
+        // them as they were, stay as many as stored
+        const [above, under] = [0, 1].map((end) => empty(was, end) === empty(typed, end))
         out.push(
-          ...here.slice(0, head),
-          ...typed.slice(head, typed.length - tail),
-          ...here.slice(here.length - tail),
+          ...(above ? here.slice(0, empty(here, 0)) : []),
+          ...typed.slice(above ? empty(typed, 0) : 0, typed.length - (under ? empty(typed, 1) : 0)),
+          ...(under ? here.slice(here.length - empty(here, 1)) : []),
         )
-      } else out.push(...typed)
+      }
     }
     if (next >= base.length) break
     out.push(kept[keptTo] as string)

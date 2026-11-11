@@ -79,6 +79,19 @@ describe('saving a note written in another form', () => {
     two.destroy()
   })
 
+  it('a table cell typed in rewrites the table whole, and nothing else', () => {
+    const editor = editorWith(STORED)
+    const before = editor.getMarkdown()
+    typeAfter(editor, 'rice', ' and beans')
+    const saved = asWritten(STORED, before, editor.getMarkdown())
+    const rows = saved.split('\n').filter((line) => line.startsWith('|'))
+    expect(rows).toHaveLength(3)
+    expect(new Set(rows.map((row) => row.length)).size).toBe(1)
+    expect(rows[2]).toContain('rice and beans')
+    expect(saved.replace(/\|.*\|\n/g, '')).toBe(STORED.replace(/\|.*\|\n/g, ''))
+    editor.destroy()
+  })
+
   it('a note already in the editor form is saved as the editor writes it', () => {
     const editor = editorWith('# Plan\n\n- a\n- b')
     const before = editor.getMarkdown()
@@ -90,11 +103,8 @@ describe('saving a note written in another form', () => {
 
   it('lines removed and added around kept ones', () => {
     expect(asWritten('a\n\n\nb\nc', 'a\n\nb\nc', 'a\n\nc\nd')).toBe('a\n\n\nc\nd')
-    expect(asWritten('* a\n* b', '- a\n- b', '- a\n- b\n- c')).toBe('* a\n* b\n- c')
-    expect(asWritten('* a\n* b', '- a\n- b', '- a\n- b\n- c', false)).toBe('- a\n- b\n- c')
-    expect(asWritten('* a\n\npara', '- a\n\npara', '- a\n- c\n\npara', false)).toBe(
-      '- a\n- c\n\npara',
-    )
+    expect(asWritten('* a\n* b', '- a\n- b', '- a\n- b\n- c')).toBe('- a\n- b\n- c')
+    expect(asWritten('* a\n\npara', '- a\n\npara', '- a\n- c\n\npara')).toBe('- a\n- c\n\npara')
     expect(asWritten('x', 'x', '')).toBe('')
     expect(asWritten('', '', 'new')).toBe('new')
   })
