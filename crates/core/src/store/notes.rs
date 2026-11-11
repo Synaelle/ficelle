@@ -45,6 +45,9 @@ pub struct NoteChange {
     pub base_title: Option<String>,
     /// The body the edit started from, as [`Self::base_title`].
     pub base_body: Option<String>,
+    /// The note may be in the trash: it was open here when another device
+    /// put it there, and what was typed meanwhile is kept in it.
+    pub in_trash: bool,
 }
 
 /// No title and no text, as the trash's blank notes are: spaces, tabs and
@@ -125,7 +128,7 @@ impl Store {
         let now = self.now();
         let tx = self.conn.transaction()?;
         let current = load_note(&tx, id)?;
-        if current.trashed_at.is_some() {
+        if current.trashed_at.is_some() && !change.in_trash {
             return Err(Error::Invalid(
                 "restore the note from the trash before editing it".into(),
             ));

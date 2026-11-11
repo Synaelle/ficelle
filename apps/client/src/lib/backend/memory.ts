@@ -272,6 +272,8 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     },
     updateNote: async (noteId, change) => {
       const current = note(noteId)
+      if (current.trashedAt !== null && !change.inTrash)
+        throw { kind: 'invalid', message: 'restore the note from the trash before editing it' }
       versions.unshift({
         id: id(),
         noteId,
@@ -288,6 +290,7 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       const edit: NoteChange = { ...change }
       delete edit.baseTitle
       delete edit.baseBody
+      delete edit.inTrash
       Object.assign(current, edit, { updatedAt: now() })
       if (
         change.title !== undefined &&

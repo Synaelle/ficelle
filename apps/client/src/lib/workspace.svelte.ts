@@ -17,8 +17,10 @@ import {
   type Tag,
   type TagColor,
 } from './backend'
+import { t } from './i18n.svelte'
 import { isMarkdownFile, parseMarkdownFile } from './importing'
 import { prefs } from './prefs.svelte'
+import { toasts } from './toast.svelte'
 
 /** The notes with no tag: the view the app opens on, and the one it goes
  * back to when a filter is turned off or goes away. */
@@ -238,11 +240,16 @@ class Workspace {
     }
     if (this.current?.id !== note.id) return
     if (!fresh || fresh.trashedAt) {
+      // what was typed since goes into the note in the trash, and the note
+      // stays open while that could not be saved
+      if (fresh) await this.flush()
+      if (this.current?.id !== note.id || (fresh && this.unsaved)) return
       clearTimeout(this.timer)
       this.pending = {}
       this.dirty = false
       this.unsaved = false
       this.show(null)
+      if (fresh) toasts.push(fresh.title.trim() || t('note.untitled'), t('note.trashedElsewhere'))
       return
     }
     this.current.pinned = fresh.pinned
@@ -369,7 +376,7 @@ class Workspace {
     if (base && change.title !== undefined) sent.baseTitle = base.title
     if (base && change.body !== undefined) sent.baseBody = base.body
     try {
-      const saved = await backend.updateNote(note.id, sent)
+      const saved = await this.store(note.id, sent)
       if (this.current?.id === saved.id) {
         // keys typed during the save are queued now, not after the editor's
         // own pause: text put in the editor below never replaces them
@@ -408,6 +415,18 @@ class Workspace {
         this.timer = setTimeout(() => void this.flush(), RETRY_DELAY_MS)
       }
       this.report(err)
+    }
+  }
+
+  /** Stores an edit of the open note, in the trash too when another device
+   * moved the note there while it was typed. */
+  private async store(id: Id, sent: NoteChange) {
+    try {
+      return await backend.updateNote(id, sent)
+    } catch (err) {
+      if (!isBackendError(err) || err.kind !== 'invalid') throw err
+      if (!(await backend.getNote(id)).trashedAt) throw err
+      return backend.updateNote(id, { ...sent, inTrash: true })
     }
   }
 

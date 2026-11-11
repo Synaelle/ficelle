@@ -2,6 +2,7 @@
 // Runs on the in-memory backend, the one a plain browser gets.
 import { describe, expect, it } from 'vitest'
 import { backend, type NoteChange } from './backend'
+import { toasts } from './toast.svelte'
 import { workspace } from './workspace.svelte'
 
 /** A note made and opened, as the New note button does. */
@@ -164,6 +165,31 @@ describe('changes from another device', () => {
     await backend.trashNote(note.id)
     await workspace.remoteChanged()
     expect(workspace.current).toBeNull()
+  })
+
+  it('typing not saved yet when the note is trashed elsewhere is kept in it', async () => {
+    for (const follows of [true, false]) {
+      workspace.coediting = () => follows
+      workspace.error = null
+      const note = await create({ title: 'Old', body: 'start' })
+      workspace.edit({ body: 'start, typed' })
+      // the editor still holds the last keys
+      workspace.serializeEditor = () => workspace.edit({ body: 'start, typed, last keys' })
+      try {
+        await backend.trashNote(note.id)
+        // the save on its way is refused first, as the store refuses it
+        await workspace.flush()
+        await workspace.remoteChanged()
+      } finally {
+        workspace.serializeEditor = null
+      }
+      expect(workspace.current).toBeNull()
+      expect(workspace.error).toBeNull()
+      const kept = await backend.getNote(note.id)
+      expect(kept.trashedAt).not.toBeNull()
+      expect(kept.body).toBe('start, typed, last keys')
+      expect(toasts.list.at(-1)).toMatchObject({ from: 'Old' })
+    }
   })
 
   it('an edit of a note trashed elsewhere never lands in the next note opened', async () => {

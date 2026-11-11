@@ -196,6 +196,34 @@ fn a_note_deleted_on_one_device_and_edited_on_the_other_comes_back() {
 }
 
 #[test]
+fn typing_in_a_note_another_device_trashed_meanwhile_is_kept_in_the_trash() {
+    let (mut a, _) = device(1_000_000);
+    let (mut b, _) = device(1_000_000);
+    let id = note_with(&mut a, "Trip", "Pack light.");
+    meet(&mut a, &mut b);
+    b.trash_note(id).unwrap();
+    meet(&mut a, &mut b);
+    let typed = |in_trash| NoteChange {
+        body: Some("Pack light, and a raincoat.".into()),
+        base_body: Some("Pack light.".into()),
+        in_trash,
+        ..NoteChange::default()
+    };
+    assert!(a.update_note(id, typed(false)).is_err());
+    a.update_note(id, typed(true)).unwrap();
+    meet(&mut a, &mut b);
+    for device in [&a, &b] {
+        let note = device.note(id).unwrap();
+        assert!(note.trashed_at.is_some());
+        assert_eq!(note.body, "Pack light, and a raincoat.");
+    }
+    b.restore_note(id).unwrap();
+    meet(&mut a, &mut b);
+    assert_eq!(a.note(id).unwrap().body, "Pack light, and a raincoat.");
+    same(&a, &b);
+}
+
+#[test]
 fn files_a_device_lacks_are_listed_with_their_hash() {
     let (mut a, _) = device(1_000_000);
     let (mut b, _) = device(1_000_000);

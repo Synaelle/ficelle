@@ -166,6 +166,9 @@ export interface NoteChange {
   baseTitle?: string
   /** The body the edit started from, as `baseTitle`. */
   baseBody?: string
+  /** The note may be in the trash: another device put it there while it was
+   * open here, what was typed meanwhile is kept in it. */
+  inTrash?: boolean
 }
 
 export interface VaultStatus {
