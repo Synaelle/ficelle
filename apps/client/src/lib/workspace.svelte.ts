@@ -27,6 +27,9 @@ export const UNFILED: Scope = { kind: 'untagged' }
 /** What makes two tag names one tag. */
 export const tagKey = (name: string) => name.toLowerCase()
 
+/** How many tags hold this one. */
+const tagDepth = (name: string) => name.split('/').length - 1
+
 /** `name` is `under` or one of the tags it holds. */
 export const tagWithin = (name: string, under: string) =>
   tagKey(name) === tagKey(under) || tagKey(name).startsWith(`${tagKey(under)}/`)
@@ -145,6 +148,23 @@ class Workspace {
   async search(query: string) {
     this.query = query
     this.hits = query.trim() ? await backend.search(query, 50) : null
+  }
+
+  /** A search result picked: the list moves to where the note lives, its most
+   * nested tag, or the notes with no tag. */
+  async openFound(id: Id) {
+    if (!(await this.leave(id))) return
+    const note = await backend.getNote(id)
+    const deepest = note.tags
+      .map((name) => this.tags.find((tag) => tagKey(tag.name) === tagKey(name)))
+      .filter((tag) => tag !== undefined)
+      .reduce<Tag | undefined>(
+        (best, tag) => (!best || tagDepth(tag.name) > tagDepth(best.name) ? tag : best),
+        undefined,
+      )
+    await this.setScope(deepest ? { kind: 'tag', id: deepest.id } : UNFILED)
+    this.show(note)
+    await this.refreshConflicts()
   }
 
   async open(id: Id | null) {

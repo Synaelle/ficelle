@@ -384,3 +384,27 @@ describe('changes from another device', () => {
     }
   })
 })
+
+describe('a search result picked', () => {
+  it('moves the list to its most nested tag', async () => {
+    const note = await backend.createNote({
+      title: 'Tomatoes',
+      tags: ['work', 'projects/garden/beds', 'projects'],
+    })
+    await workspace.load()
+    await workspace.openFound(note.id)
+    const scope = workspace.scope
+    expect(scope.kind === 'tag' && workspace.tags.find((t) => t.id === scope.id)?.name).toBe(
+      'projects/garden/beds',
+    )
+    expect(workspace.current?.id).toBe(note.id)
+    expect(workspace.notes.map((n) => n.id)).toContain(note.id)
+  })
+
+  it('with no tag, to the notes with no tag', async () => {
+    const note = await backend.createNote({ title: 'Loose' })
+    await workspace.openFound(note.id)
+    expect(workspace.scope).toEqual({ kind: 'untagged' })
+    expect(workspace.current?.id).toBe(note.id)
+  })
+})
