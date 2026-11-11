@@ -14,11 +14,17 @@ describe('isMarkdownFile', () => {
 })
 
 describe('parseMarkdownFile', () => {
+  it('keeps the pin of a note exported by Ficelle', () => {
+    const text = '---\ntitle: "Roadmap"\ntags: ["work"]\npinned: true\n---\n\nplan\n'
+    expect(parseMarkdownFile('Roadmap.md', text).pinned).toBe(true)
+  })
+
   it('uses the file name when there is no heading', () => {
     expect(parseMarkdownFile('Garden log.md', 'Some text\n')).toEqual({
       title: 'Garden log',
       body: 'Some text\n',
       tags: [],
+      pinned: false,
     })
   })
 
@@ -40,6 +46,7 @@ describe('parseMarkdownFile', () => {
       title: 'Trip plan',
       body: '# Day one\nGo',
       tags: ['travel', '2026'],
+      pinned: false,
     })
   })
 
@@ -49,6 +56,7 @@ describe('parseMarkdownFile', () => {
       title: 'Note',
       body: 'body',
       tags: ['one', 'two'],
+      pinned: false,
     })
   })
 
@@ -67,6 +75,7 @@ describe('parseMarkdownFile', () => {
       title: 'Title',
       body: 'line\n',
       tags: [],
+      pinned: false,
     })
   })
 })

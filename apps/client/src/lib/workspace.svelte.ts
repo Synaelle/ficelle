@@ -264,9 +264,9 @@ class Workspace {
     try {
       let last: Note | null = null
       for (const file of markdown) {
-        const { title, body, tags } = parseMarkdownFile(file.name, await file.text())
+        const { title, body, tags, pinned } = parseMarkdownFile(file.name, await file.text())
         const allTags = [...new Set([...scopeTags, ...tags])]
-        last = await backend.createNote({ title, body, tags: allTags })
+        last = await backend.createNote({ title, body, tags: allTags, pinned })
       }
       this.show(last)
     } catch (err) {

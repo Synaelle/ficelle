@@ -9,6 +9,8 @@ export interface ImportedNote {
   title: string
   body: string
   tags: string[]
+  /** Front matter's `pinned: true`, as Ficelle's own export writes it. */
+  pinned: boolean
 }
 
 const MARKDOWN_FILE = /\.(md|markdown|mdown|mkd)$/i
@@ -21,15 +23,20 @@ export function isMarkdownFile(file: { name: string }): boolean {
 const FRONT_MATTER = /^---\n([\s\S]*?)\n---[ \t]*(?:\n|$)/
 const LEADING_HEADING = /^[ \t]*#[ \t]+(.+?)[ \t#]*(?:\n|$)/
 
-/** Reads `title` and `tags` from front matter, only the common simple forms. */
-function readFrontMatter(yaml: string): { title?: string; tags: string[] } {
+/** Reads `title`, `tags` and `pinned` from front matter, only the common simple forms. */
+function readFrontMatter(yaml: string): { title?: string; tags: string[]; pinned: boolean } {
   const lines = yaml.split('\n')
   let title: string | undefined
+  let pinned = false
   const tags: string[] = []
   lines.forEach((line, i) => {
-    const field = /^(title|tags):(.*)$/.exec(line)
+    const field = /^(title|tags|pinned):(.*)$/.exec(line)
     if (!field) return
     const [, key, raw = ''] = field
+    if (key === 'pinned') {
+      pinned = raw.trim() === 'true'
+      return
+    }
     if (key === 'title') {
       title = unquote(raw) || undefined
       return
@@ -46,19 +53,21 @@ function readFrontMatter(yaml: string): { title?: string; tags: string[] } {
       tags.push(unquote(entry[1] ?? ''))
     }
   })
-  return { title, tags: tags.map((tag) => tag.replace(/^#/, '')).filter(Boolean) }
+  return { title, tags: tags.map((tag) => tag.replace(/^#/, '')).filter(Boolean), pinned }
 }
 
 export function parseMarkdownFile(fileName: string, text: string): ImportedNote {
   let body = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
   let title: string | undefined
   let tags: string[] = []
+  let pinned = false
 
   const front = FRONT_MATTER.exec(body)
   if (front) {
     const meta = readFrontMatter(front[1] ?? '')
     title = meta.title
     tags = meta.tags
+    pinned = meta.pinned
     body = body.slice(front[0].length)
   }
   if (!title) {
@@ -69,5 +78,5 @@ export function parseMarkdownFile(fileName: string, text: string): ImportedNote 
     }
   }
   title ??= fileName.replace(MARKDOWN_FILE, '')
-  return { title: title.trim(), body: body.replace(/^\n+/, ''), tags }
+  return { title: title.trim(), body: body.replace(/^\n+/, ''), tags, pinned }
 }
