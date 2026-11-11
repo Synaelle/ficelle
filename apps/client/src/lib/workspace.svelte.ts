@@ -231,8 +231,47 @@ class Workspace {
     }
   }
 
+  /**
+   * The tag being viewed is gone after another device's changes: where its
+   * notes went, when the tag or one holding it was renamed or moved there.
+   * Read from a note that was in the list, by the tag it has now in place
+   * of the one it had.
+   */
+  private async renamedTag(viewed: string, listed: NoteSummary[], known: Set<string>) {
+    for (const was of listed.slice(0, 20)) {
+      let note: Note
+      try {
+        note = await backend.getNote(was.id)
+      } catch {
+        continue
+      }
+      for (const old of was.tags.filter((name) => tagWithin(name, viewed))) {
+        // what the note's tag holds below the one viewed moved with it
+        const below = tagKey(old).slice(tagKey(viewed).length)
+        for (const name of note.tags) {
+          if (known.has(tagKey(name)) || !tagKey(name).endsWith(below)) continue
+          const now = tagKey(name).slice(0, tagKey(name).length - below.length)
+          const tag = this.tags.find((t) => tagKey(t.name) === now)
+          if (tag) return tag
+        }
+      }
+    }
+    return null
+  }
+
   private async follow() {
+    const scope = this.scope
+    const viewed = scope.kind === 'tag' ? this.tagName(scope.id) : ''
+    const listed = this.notes
+    const known = new Set(this.tags.map((tag) => tagKey(tag.name)))
     await this.load()
+    if (scope.kind === 'tag' && viewed && !this.tags.some((tag) => tag.id === scope.id)) {
+      const tag = await this.renamedTag(viewed, listed, known)
+      if (tag && this.scope.kind === 'untagged') {
+        this.scope = { kind: 'tag', id: tag.id }
+        await this.refreshNotes()
+      }
+    }
     if (this.hits) await this.search(this.query)
     const note = this.current
     if (!note) return

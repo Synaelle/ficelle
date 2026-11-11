@@ -51,6 +51,67 @@ describe('blank notes', () => {
   })
 })
 
+describe('a tag renamed on another device', () => {
+  /** As a sync does it: the notes change tags, the old tag goes. */
+  async function retag(from: string, to: string) {
+    for (const note of await backend.listNotes({ kind: 'all' }, 'updatedDesc')) {
+      const tags = note.tags.map((name) =>
+        name === from || name.startsWith(`${from}/`) ? to + name.slice(from.length) : name,
+      )
+      if (tags.join() !== note.tags.join()) await backend.setNoteTags(note.id, tags)
+    }
+    for (const tag of await backend.listTags())
+      if ((tag.name === from || tag.name.startsWith(`${from}/`)) && tag.noteCount === 0)
+        await backend.deleteTag(tag.id)
+  }
+  const viewing = () => {
+    const scope = workspace.scope
+    return scope.kind === 'tag' ? workspace.tagName(scope.id) : scope.kind
+  }
+  async function view(name: string) {
+    await workspace.load()
+    const tag = workspace.tags.find((t) => t.name === name)
+    if (!tag) throw new Error(`no tag ${name}`)
+    await workspace.setScope({ kind: 'tag', id: tag.id })
+  }
+
+  it('the list follows the tag holding the one viewed', async () => {
+    const note = await backend.createNote({ title: 'Roadmap', tags: ['work/projects'] })
+    await view('work/projects')
+    await workspace.open(note.id)
+    await retag('work', 'job')
+    await workspace.remoteChanged()
+    expect(viewing()).toBe('job/projects')
+    expect(workspace.notes.map((n) => n.id)).toEqual([note.id])
+    expect(workspace.current?.tags).toEqual(['job/projects'])
+  })
+
+  it('the list follows the tag viewed, moved under another, and its parent viewed', async () => {
+    const note = await backend.createNote({ title: 'Plans', tags: ['trips/summer'] })
+    await view('trips/summer')
+    await retag('trips/summer', 'archive/summer')
+    await workspace.remoteChanged()
+    expect(viewing()).toBe('archive/summer')
+    expect(workspace.notes.map((n) => n.id)).toEqual([note.id])
+    await view('archive')
+    await retag('archive', 'old')
+    await workspace.remoteChanged()
+    expect(viewing()).toBe('old')
+    expect(workspace.notes.map((n) => n.id)).toEqual([note.id])
+  })
+
+  it('a tag deleted elsewhere goes back to the notes with no tag', async () => {
+    const note = await backend.createNote({ title: 'Loose end', tags: ['errands'] })
+    await backend.createNote({ title: 'Other', tags: ['unrelated'] })
+    await view('errands')
+    await backend.setNoteTags(note.id, [])
+    const gone = (await backend.listTags()).find((t) => t.name === 'errands')
+    if (gone) await backend.deleteTag(gone.id)
+    await workspace.remoteChanged()
+    expect(viewing()).toBe('untagged')
+  })
+})
+
 describe('typing without a pause', () => {
   it('is saved while it goes on', async () => {
     workspace.coediting = () => false
