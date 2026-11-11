@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The open note: title, tags, editor, backlinks. -->
 <script lang="ts">
-  import { untrack } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import NoteFiles from './NoteFiles.svelte'
   import RawView from './RawView.svelte'
   import { hour12 } from '../lib/clock.svelte'
@@ -10,6 +10,7 @@
   import { onBack } from '../lib/back'
   import { modal } from '../lib/modal'
   import { backend, type NoteSummary, type NoteVersion } from '../lib/backend'
+  import { keepCaret } from '../lib/caret'
   import { currentLocale, t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { tagItems } from '../lib/noteMenu'
@@ -87,6 +88,13 @@
   let titleInput: HTMLInputElement | undefined = $state()
   /** Phones: no spelling popup on the title either, see the editor. */
   const PHONE = /android|iphone|ipad/i.test(navigator.userAgent)
+
+  // a title from another device: the caret stays on the same words
+  $effect.pre(() => {
+    const title = note?.title
+    const restore = titleInput && title !== undefined ? keepCaret(titleInput, title) : undefined
+    if (restore) void tick().then(restore)
+  })
 
   // a note just made: the caret in its title, ready to type
   $effect(() => {

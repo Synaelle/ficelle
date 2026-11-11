@@ -5,6 +5,9 @@
      takes the typing and draws the caret and the selection. Both wrap the
      same way, character for character. -->
 <script lang="ts">
+  import { tick } from 'svelte'
+  import { keepCaret } from '../lib/caret'
+
   let {
     value,
     label,
@@ -16,6 +19,12 @@
     oninput: (value: string) => void
     field?: HTMLTextAreaElement
   } = $props()
+
+  // text from another device: the caret stays on the same words
+  $effect.pre(() => {
+    const restore = field ? keepCaret(field, value) : undefined
+    if (restore) void tick().then(restore)
+  })
 
   /** The Markdown marks of a line, dimmed: what starts a heading, a list
    * item, a task or a quote, a fence, and the marks around bold, struck
