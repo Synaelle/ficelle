@@ -25,6 +25,7 @@
   import type { ActionId } from '../lib/shortcuts'
   import { isBackendError, workspace } from '../lib/workspace.svelte'
   import { createExtensions } from './extensions'
+  import { asWritten } from './asWritten'
   import { patchMarkdown, REMOTE } from './patch'
   import { looksLikeMarkdown } from './pasteMarkdown'
   import { ATTACHMENTS_CHANGED, setImageLayout, WRAPS, type Wrap } from './extensions/image'
@@ -261,17 +262,42 @@
   /** The markdown the editor shows: what it opened with, sent, or took in. */
   let shown = ''
 
+  /** The editor's own Markdown for `opened`, read when first needed. */
+  let openedText: string | null = null
+
+  /**
+   * What is saved for the editor's Markdown `now`: the lines the person left
+   * alone stay as the note has them, when it is written in another form than
+   * the editor's (imported, typed as raw text). Kept only when it reads as
+   * the same note, first with single lines kept, then whole blocks.
+   */
+  function written(current: Editor, now: string) {
+    if (!opened) return now
+    openedText ??= current.markdown?.serialize(opened.toJSON()) ?? now
+    if (openedText === markdown) return now
+    const reads = now.trimEnd()
+    for (const line of [true, false]) {
+      const kept = asWritten(markdown, openedText, now, line)
+      if (kept === now) return now
+      const parsed = current.markdown?.parse(kept)
+      if (parsed && current.markdown?.serialize(parsed).trimEnd() === reads) return kept
+    }
+    return now
+  }
+
   function save() {
     clearTimeout(timer)
     if (!editor) return
     if (opened && editor.state.doc.eq(opened)) return void onpending?.(false)
-    const next = editor.getMarkdown()
+    const now = editor.getMarkdown()
+    const next = written(editor, now)
     shown = next
     if (next !== markdown) onchange(next)
     else onpending?.(false)
     // what is saved is the new start: an edit taken back afterwards (a file
     // inserted then removed) differs from it, and is saved too
     opened = editor.state.doc
+    openedText = now
   }
 
   // another device's text for this note: patched in, the caret stays
@@ -279,7 +305,10 @@
     const incoming = markdown
     if (!editor || incoming === shown) return
     shown = incoming
-    if (patchMarkdown(editor, incoming)) opened = editor.state.doc
+    if (patchMarkdown(editor, incoming)) {
+      opened = editor.state.doc
+      openedText = null
+    }
   })
 
   /** What a file's mention is in the text: the image itself, or a link to it. */
