@@ -47,7 +47,15 @@ const WORDS: &[&str] = &[
     "[[link]] ",
     "x",
 ];
-const TAGS: &[&str] = &["home", "Work", "work", "todo", "été"];
+const TAGS: &[&str] = &[
+    "home",
+    "Work",
+    "work",
+    "todo",
+    "été",
+    "home/Kitchen",
+    "work/q1",
+];
 /// Attachment names (the same name twice, to make clashes) and the hex
 /// digit their hash repeats.
 const FILES: &[(&str, &str)] = &[
@@ -93,7 +101,7 @@ pub fn random_change(s: &mut Store, rng: &mut Rng) {
         .filter_map(|l| l.split_whitespace().nth(2).and_then(|id| id.parse().ok()))
         .chain(folders.iter().copied())
         .collect();
-    let _ = match rng.below(23) {
+    let _ = match rng.below(26) {
         0 | 1 => s
             .create_note(&NewNote {
                 folder_id: rng.pick(&folders).filter(|_| rng.below(2) == 0),
@@ -212,6 +220,18 @@ pub fn random_change(s: &mut Store, rng: &mut Rng) {
             match rng.pick(&files) {
                 Some(a) if rng.below(3) == 0 => s.set_attachment_thumb(a, &"c".repeat(64)),
                 Some(a) => s.remove_attachment(a),
+                None => Ok(()),
+            }
+        }
+        23 => s.create_tag(TAGS[rng.below(TAGS.len())]).map(|_| ()),
+        24 | 25 => {
+            let tags: Vec<_> = s.list_tags().unwrap().into_iter().map(|t| t.id).collect();
+            match rng.pick(&tags) {
+                Some(t) if rng.below(2) == 0 => s.delete_tag(t),
+                Some(t) => {
+                    let colors = crate::store::TAG_COLORS;
+                    s.set_tag_color(t, rng.pick(colors).filter(|_| rng.below(3) > 0))
+                }
                 None => Ok(()),
             }
         }

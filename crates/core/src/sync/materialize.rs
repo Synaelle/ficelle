@@ -496,11 +496,11 @@ pub(super) fn some(
     for id in &touched.notes {
         note(conn, docs, space_id, *id, now)?;
     }
-    if touched.tags {
-        tag_spellings(conn, docs)?;
-    }
     if touched.registry {
         registry(conn, docs, space_id, now)?;
+    }
+    if touched.tags || touched.registry {
+        tag_spellings(conn, docs)?;
     }
     Ok(())
 }
@@ -522,8 +522,8 @@ pub(super) fn all(
     for id in ids {
         note(conn, docs, space_id, id, now)?;
     }
-    tag_spellings(conn, docs)?;
-    registry(conn, docs, space_id, now)
+    registry(conn, docs, space_id, now)?;
+    tag_spellings(conn, docs)
 }
 
 /// Tags made on their own and colour marks, kept in the person's own space
@@ -624,14 +624,34 @@ fn spellings_in(space: &loro::LoroDoc, best: &mut HashMap<String, String>) {
         };
         for tag in tags.keys() {
             if let Some(name) = text_of(&tags, &tag) {
-                best.entry(tag.to_string())
-                    .and_modify(|b| {
-                        if name < *b {
-                            b.clone_from(&name);
-                        }
-                    })
-                    .or_insert(name);
+                candidate(best, &name);
             }
         }
+    }
+    let registry = space.get_map("tags");
+    for key in registry.keys() {
+        if let Some(ValueOrContainer::Container(loro::Container::Map(entry))) = registry.get(&key)
+            && let Some(name) = text_of(&entry, "name")
+        {
+            candidate(best, &name);
+        }
+    }
+}
+
+/// A spelling of a tag and of each tag above it, `Work` from `Work/Q1` too:
+/// a tag held only as a level of others has no entry of its own.
+fn candidate(best: &mut HashMap<String, String>, name: &str) {
+    let levels = name
+        .match_indices('/')
+        .map(|(at, _)| &name[..at])
+        .chain(std::iter::once(name));
+    for level in levels {
+        best.entry(level.to_lowercase())
+            .and_modify(|b| {
+                if level < b.as_str() {
+                    level.clone_into(b);
+                }
+            })
+            .or_insert_with(|| level.to_owned());
     }
 }

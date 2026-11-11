@@ -454,15 +454,16 @@ mod tests {
             };
             assert_eq!(tags_of(in_garden), ["Projects/Garden"], "from {from}");
             assert_eq!(tags_of(in_old), ["Old"], "from {from}");
-            // the tag typed before and the folder of the same name are one
-            assert_eq!(tags_of(tagged), ["projects"], "from {from}");
+            // the tag typed before and the folder of the same name are one,
+            // spelled as every device settles it: first in plain sort order
+            assert_eq!(tags_of(tagged), ["Projects"], "from {from}");
             let tags = all(&conn);
             assert_eq!(
                 tags,
                 [
                     ("Empty", true),
                     ("Old", false),
-                    ("projects", true),
+                    ("Projects", true),
                     ("Projects/Garden", true),
                     ("Rain\u{2215}Sun", true),
                 ]
