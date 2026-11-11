@@ -519,16 +519,20 @@
         </Row>
       </Group>
       <FilesSettings />
-      <Group note={confirming ? t('sync.disconnectHelp') : undefined}>
-        <Row label={t('sync.disconnect')}>
-          {#if confirming}
-            <button class="btn" onclick={() => (confirming = false)}>{t('common.cancel')}</button>
-            <button class="btn danger" onclick={disconnect}>{t('sync.disconnectConfirm')}</button>
-          {:else}
+      {#if confirming}
+        <!-- the two buttons beside the label leave it no room on a phone -->
+        <p class="settings-help">{t('sync.disconnectHelp')}</p>
+        <div class="settings-buttons">
+          <button class="btn" onclick={() => (confirming = false)}>{t('common.cancel')}</button>
+          <button class="btn danger" onclick={disconnect}>{t('sync.disconnectConfirm')}</button>
+        </div>
+      {:else}
+        <Group>
+          <Row label={t('sync.disconnect')}>
             <button class="btn" onclick={() => (confirming = true)}>{t('sync.disconnect')}</button>
-          {/if}
-        </Row>
-      </Group>
+          </Row>
+        </Group>
+      {/if}
     {:else if methods}
       <form class="sync-form" onsubmit={giveCode}>
         <p class="settings-help">{t('sync.secondFactorHelp')}</p>
