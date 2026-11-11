@@ -108,16 +108,18 @@ fn for_this_app(latest: &list::Latest) -> bool {
 }
 
 /// This build offers a release page instead of installing: the portable
-/// exe, and a Mac app that cannot replace itself where it is.
+/// exe, a Linux package, and a Mac app that cannot replace itself where it is.
 #[cfg(target_os = "macos")]
 fn page_only() -> bool {
     !mac_app::replaceable()
 }
 
-/// See the Mac's [`page_only`].
+/// See the Mac's [`page_only`]. On Linux only the AppImage replaces itself,
+/// a package (deb, rpm, the AUR) updates through the system.
 #[cfg(not(target_os = "macos"))]
 fn page_only() -> bool {
     crate::portable::PORTABLE
+        || (cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_none())
 }
 
 /// The repository's releases, `https://github.com/<owner>/<repo>/releases`,
@@ -825,9 +827,10 @@ mod platform {
     }
 }
 
-#[cfg(any(windows, target_os = "macos"))]
+#[cfg(desktop)]
 mod page {
-    //! The portable exe and a Mac app that cannot update itself: `latest.json`
+    //! The portable exe, a Linux package and a Mac app that cannot update
+    //! itself: `latest.json`
     //! read for its version only, nothing downloaded, the version's release
     //! page has the file.
 
@@ -858,13 +861,27 @@ mod page {
             || releases_in(app_brand::APP_UPDATES_URL).to_owned(),
             |version| release_page(&version),
         );
-        let opener = if cfg!(windows) { "explorer" } else { "open" };
+        let opener = if cfg!(windows) {
+            "explorer"
+        } else if cfg!(target_os = "macos") {
+            "open"
+        } else {
+            "xdg-open"
+        };
         std::process::Command::new(opener)
             .arg(page)
             .spawn()
             .map(drop)
             .map_err(|e| failed("unknown", e))
     }
+}
+
+/// This build only points to the release page, see [`page_only`]: the page
+/// says so instead of how updates download.
+#[tauri::command]
+#[must_use]
+pub fn app_update_page_only() -> bool {
+    page_only()
 }
 
 /// Looks for a newer version and downloads it. `None`: up to date, or this
@@ -882,7 +899,7 @@ pub async fn app_update_check(
         return Ok(None);
     }
     let allow_older = allow_older.unwrap_or(false);
-    #[cfg(any(windows, target_os = "macos"))]
+    #[cfg(desktop)]
     if page_only() {
         return tauri::async_runtime::spawn_blocking(move || page::check(channel))
             .await
@@ -931,7 +948,7 @@ pub async fn app_update_latest(
     )
 )]
 pub fn app_update_install(app: tauri::AppHandle) -> CommandResult<()> {
-    #[cfg(any(windows, target_os = "macos"))]
+    #[cfg(desktop)]
     if page_only() {
         return page::open();
     }

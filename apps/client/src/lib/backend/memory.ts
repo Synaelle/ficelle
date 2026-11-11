@@ -190,6 +190,7 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     clipboardImage: async () => new ArrayBuffer(0),
     droppedImages: async () => [],
     droppedImage: async () => new ArrayBuffer(0),
+    appUpdatePageOnly: async () => false,
     appUpdateInstall: async () => {
       throw { kind: 'unsupported', message: 'updates need the app' }
     },

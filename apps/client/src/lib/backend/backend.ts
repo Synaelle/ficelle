@@ -70,9 +70,12 @@ export interface Backend {
    * automatic updates off, looked at only for a critical security fix. */
   appUpdateLatest(channel: UpdateChannel, allowOlder?: boolean): Promise<AppUpdate | null>
   /** Desktop: installs the downloaded update and starts the app again. The
-   * portable exe, and a Mac app with nothing downloaded, open the version's
-   * release page instead. */
+   * portable exe, a Linux package, and a Mac app with nothing downloaded,
+   * open the version's release page instead. */
   appUpdateInstall(): Promise<void>
+  /** This build only points to the release page: the portable exe, a Linux
+   * package, a Mac app that cannot replace itself. */
+  appUpdatePageOnly(): Promise<boolean>
   /** The system lets this app show notifications, asking the person if it
    * must. False where there are none (the browser). */
   notificationsAllowed(): Promise<boolean>

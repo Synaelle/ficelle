@@ -3,7 +3,9 @@
      check right now. Only release builds update themselves, the others show
      nothing. -->
 <script lang="ts">
-  import { ANDROID } from '../lib/platform'
+  import { onMount } from 'svelte'
+  import { backend } from '../lib/backend'
+  import { ANDROID, LINUX } from '../lib/platform'
   import { channelSwitch } from '../lib/channelChange.svelte'
   import { overlay } from '../lib/overlay.svelte'
   import {
@@ -30,6 +32,12 @@
     if (yes) prefs.securityChecks = false
   }
 
+  /** Installed as a Linux package, which the system updates. */
+  let packaged = $state(false)
+  onMount(() => {
+    if (LINUX && updatesHere) void backend.appUpdatePageOnly().then((only) => (packaged = only))
+  })
+
   /** The system refused notifications: says where to allow them. */
   let notifyDenied = $state(false)
 
@@ -47,7 +55,9 @@
         ? t('appUpdate.helpPhone')
         : __APP_PORTABLE__
           ? t('appUpdate.helpPortable')
-          : t('appUpdate.help'),
+          : packaged
+            ? t('appUpdate.helpPackage')
+            : t('appUpdate.help'),
   )
 </script>
 

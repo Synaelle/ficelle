@@ -34,6 +34,7 @@ export function createTauriBackend(): Backend {
     appUpdateCheck: (channel, allowOlder) => invoke('app_update_check', { channel, allowOlder }),
     appUpdateLatest: (channel, allowOlder) => invoke('app_update_latest', { channel, allowOlder }),
     appUpdateInstall: () => invoke('app_update_install'),
+    appUpdatePageOnly: () => invoke('app_update_page_only'),
     notificationsAllowed: async () => {
       const { isPermissionGranted, requestPermission } =
         await import('@tauri-apps/plugin-notification')
