@@ -15,6 +15,10 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
 
+/// An open file, or bytes standing for one.
+trait ReadSeek: Read + Seek + Send {}
+impl<T: Read + Seek + Send> ReadSeek for T {}
+
 /// The largest entry read whole, for the page to parse. Larger ones (videos
 /// and the like) are only copied as attachments, a piece at a time.
 pub const MAX_READ: u64 = 256 * 1024 * 1024;
@@ -55,9 +59,9 @@ pub struct Source {
     places: Vec<Place>,
     /// Entries by path, to read any of thousands without a search.
     index: HashMap<String, usize>,
-    zips: Vec<zip::ZipArchive<BufReader<File>>>,
-    tar: Option<File>,
-    single: Option<File>,
+    zips: Vec<zip::ZipArchive<BufReader<Box<dyn ReadSeek>>>>,
+    tar: Option<Box<dyn ReadSeek>>,
+    single: Option<Box<dyn ReadSeek>>,
     /// Zips inside zips, written out to be read like the others, removed
     /// with the source.
     temp: Vec<PathBuf>,
@@ -70,7 +74,11 @@ pub struct Source {
 /// The most an import writes out of gzip files and zips inside zips, and
 /// how deep zips may sit in zips: a small file that unpacks without end
 /// fills no disk.
+#[cfg(not(target_family = "wasm"))]
 pub const MAX_UNPACKED: u64 = 4 * 1024 * 1024 * 1024;
+/// The same in the web version, where it all sits in memory.
+#[cfg(target_family = "wasm")]
+pub const MAX_UNPACKED: u64 = 512 * 1024 * 1024;
 const MAX_NESTING: u32 = 3;
 
 impl std::fmt::Debug for Source {
@@ -149,26 +157,29 @@ impl Source {
             let name = path
                 .file_name()
                 .map_or_else(|| "file".to_owned(), |n| n.to_string_lossy().into_owned());
-            source.add_file(File::open(path)?, &name)?;
+            let file = File::open(path)?;
+            let modified = file.metadata()?.modified().ok().and_then(millis);
+            source.add_file(Box::new(file), &name, modified)?;
         }
         source.index_entries();
         Ok(source)
     }
 
     /// Opens a file already open, named `name`: what Android hands over
-    /// for a document the person picked, which has no path.
+    /// for a document the person picked, which has no path, or a file
+    /// picked in the web version.
     ///
     /// # Errors
     ///
     /// As [`Source::open`].
-    pub fn open_file(mut file: File, name: &str) -> Result<Self> {
+    pub fn open_file(mut file: impl Read + Seek + Send + 'static, name: &str) -> Result<Self> {
         let mut source = Self::empty();
         let name = if name.contains('.') {
             name.to_owned()
         } else {
             named_by_content(&mut file, name)?
         };
-        source.add_file(file, &name)?;
+        source.add_file(Box::new(file), &name, None)?;
         source.index_entries();
         Ok(source)
     }
@@ -199,7 +210,12 @@ impl Source {
 
     /// A file by what it starts with: a zip, a tar, gzip (Google Takeout's
     /// `.tgz`, written out whole and looked at again) or one entry.
-    fn add_file(&mut self, mut file: File, name: &str) -> Result<()> {
+    fn add_file(
+        &mut self,
+        mut file: Box<dyn ReadSeek>,
+        name: &str,
+        modified: Option<i64>,
+    ) -> Result<()> {
         let mut head = [0u8; 512];
         let n = read_up_to(&mut file, &mut head)?;
         file.seek(SeekFrom::Start(0))?;
@@ -208,24 +224,18 @@ impl Source {
         } else if n == 512 && &head[257..262] == b"ustar" {
             self.add_tar(file)
         } else if head[..n].starts_with(&[0x1f, 0x8b]) {
-            let temp =
-                std::env::temp_dir().join(format!("import-{}.out", crate::id::NoteId::new()));
-            self.temp.push(temp.clone());
-            {
-                let gz = flate2::read::GzDecoder::new(BufReader::new(file));
-                self.unpack(gz, &temp)?;
-            }
+            let unpacked = self.unpack(flate2::read::GzDecoder::new(BufReader::new(file)))?;
             let inner = name
                 .strip_suffix(".gz")
                 .or_else(|| name.strip_suffix(".tgz"))
                 .unwrap_or(name);
-            self.add_file(File::open(&temp)?, inner)
+            self.add_file(unpacked, inner, None)
         } else {
-            let meta = file.metadata()?;
+            let size = file.seek(SeekFrom::End(0))?;
             self.entries.push(Entry {
                 path: name.to_owned(),
-                size: meta.len(),
-                modified: meta.modified().ok().and_then(millis),
+                size,
+                modified,
             });
             self.places.push(Place::Single);
             self.single = Some(file);
@@ -277,7 +287,7 @@ impl Source {
         Ok(())
     }
 
-    fn add_zip(&mut self, file: File, prefix: &str) -> Result<()> {
+    fn add_zip(&mut self, file: Box<dyn ReadSeek>, prefix: &str) -> Result<()> {
         let mut archive = zip::ZipArchive::new(BufReader::new(file)).map_err(bad)?;
         let at = self.zips.len();
         let mut inner = Vec::new();
@@ -313,34 +323,41 @@ impl Source {
             self.places.push(Place::Zip { zip: at, index });
         }
         self.zips.push(archive);
-        // zips inside: written out next to the system's temporary files and
-        // read the same way, their entries named after them
+        // zips inside: written out (see unpack) and read the same way, their
+        // entries named after them
         if self.nesting >= MAX_NESTING {
             return Ok(());
         }
         for (index, name) in inner {
-            let temp =
-                std::env::temp_dir().join(format!("import-{}.zip", crate::id::NoteId::new()));
-            self.temp.push(temp.clone());
-            {
+            let unpacked = {
                 let mut archive = std::mem::take(&mut self.zips);
                 let file = archive[at].by_index(index).map_err(bad);
-                let written = file.and_then(|file| self.unpack(file, &temp));
+                let written = file.and_then(|file| self.unpack(file));
                 self.zips = archive;
-                written?;
-            }
+                written?
+            };
             self.nesting += 1;
-            let added = self.add_zip(File::open(&temp)?, &name);
+            let added = self.add_zip(unpacked, &name);
             self.nesting -= 1;
             added?;
         }
         Ok(())
     }
 
-    /// Writes `from` out to `to`, within [`MAX_UNPACKED`] for the import.
-    fn unpack(&mut self, from: impl Read, to: &std::path::Path) -> Result<()> {
+    /// Writes `from` out within [`MAX_UNPACKED`] for the import, to be read
+    /// again: next to the system's temporary files, removed with the source,
+    /// or in memory in the web version, which has no such files.
+    fn unpack(&mut self, from: impl Read) -> Result<Box<dyn ReadSeek>> {
         let room = MAX_UNPACKED.saturating_sub(self.unpacked);
-        let mut out = File::create(to)?;
+        #[cfg(not(target_family = "wasm"))]
+        let (mut out, temp) = {
+            let temp =
+                std::env::temp_dir().join(format!("import-{}.out", crate::id::NoteId::new()));
+            self.temp.push(temp.clone());
+            (File::create(&temp)?, temp)
+        };
+        #[cfg(target_family = "wasm")]
+        let mut out = std::io::Cursor::new(Vec::new());
         let written = std::io::copy(&mut from.take(room + 1), &mut out).map_err(bad)?;
         if written > room {
             return Err(Error::Invalid(
@@ -348,11 +365,23 @@ impl Source {
             ));
         }
         self.unpacked += written;
+        #[cfg(not(target_family = "wasm"))]
+        return Ok(Box::new(File::open(&temp)?));
+        #[cfg(target_family = "wasm")]
+        {
+            out.set_position(0);
+            Ok(Box::new(out))
+        }
+    }
+
+    fn add_tar(&mut self, mut file: Box<dyn ReadSeek>) -> Result<()> {
+        self.index_tar(&mut file)?;
+        self.tar = Some(file);
         Ok(())
     }
 
-    fn add_tar(&mut self, file: File) -> Result<()> {
-        let mut archive = tar::Archive::new(file.try_clone()?);
+    fn index_tar(&mut self, file: &mut Box<dyn ReadSeek>) -> Result<()> {
+        let mut archive = tar::Archive::new(file);
         for entry in archive.entries().map_err(bad)? {
             let entry = entry.map_err(bad)?;
             if !entry.header().entry_type().is_file() {
@@ -376,7 +405,6 @@ impl Source {
                 offset: entry.raw_file_position(),
             });
         }
-        self.tar = Some(file);
         Ok(())
     }
 
@@ -398,22 +426,14 @@ impl Source {
         Ok(match place {
             Place::File(file) => Box::new(BufReader::new(File::open(file)?)),
             Place::Zip { zip, index } => Box::new(self.zips[zip].by_index(index).map_err(bad)?),
-            // a handle of the same file: one entry is read at a time
+            // the same file: one entry is read at a time
             Place::Tar { offset } => {
-                let mut file = self
-                    .tar
-                    .as_ref()
-                    .ok_or(Error::NotFound("tar"))?
-                    .try_clone()?;
+                let file = self.tar.as_mut().ok_or(Error::NotFound("tar"))?;
                 file.seek(SeekFrom::Start(offset))?;
                 Box::new(BufReader::new(file).take(size))
             }
             Place::Single => {
-                let mut file = self
-                    .single
-                    .as_ref()
-                    .ok_or(Error::NotFound("file"))?
-                    .try_clone()?;
+                let file = self.single.as_mut().ok_or(Error::NotFound("file"))?;
                 file.seek(SeekFrom::Start(0))?;
                 Box::new(BufReader::new(file))
             }
@@ -467,7 +487,7 @@ impl Source {
 /// A name for a file that came without one (Android documents often have
 /// only a number): the formats known by their extension get it from what
 /// the file starts with.
-fn named_by_content(file: &mut File, name: &str) -> Result<String> {
+fn named_by_content(file: &mut (impl Read + Seek), name: &str) -> Result<String> {
     let mut head = [0u8; 4096];
     let n = read_up_to(file, &mut head)?;
     file.seek(SeekFrom::Start(0))?;
@@ -494,7 +514,7 @@ fn named_by_content(file: &mut File, name: &str) -> Result<String> {
     Ok(format!("{stem}.{ext}"))
 }
 
-fn read_up_to(file: &mut File, buf: &mut [u8]) -> std::io::Result<usize> {
+fn read_up_to(file: &mut impl Read, buf: &mut [u8]) -> std::io::Result<usize> {
     let mut filled = 0;
     while filled < buf.len() {
         match file.read(&mut buf[filled..])? {

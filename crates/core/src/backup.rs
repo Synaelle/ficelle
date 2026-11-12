@@ -121,7 +121,7 @@ impl<W: Write> Write for SealingWriter<W> {
 
 /// Reads a sealed backup as its plain zip, opening chunks as asked for.
 struct SealedReader {
-    file: File,
+    file: Box<dyn ReadSeek>,
     cipher: FileCipher,
     /// Where the first sealed chunk starts.
     start: u64,
@@ -132,8 +132,8 @@ struct SealedReader {
 }
 
 impl SealedReader {
-    fn new(mut file: File, offset: u64, files: &Zeroizing<[u8; 32]>) -> Result<Self> {
-        let total = file.metadata()?.len();
+    fn new(mut file: Box<dyn ReadSeek>, offset: u64, files: &Zeroizing<[u8; 32]>) -> Result<Self> {
+        let total = file.seek(SeekFrom::End(0))?;
         let size =
             plain_size(total - offset).ok_or_else(|| Error::Corrupt("backup size".into()))?;
         let cipher = FileCipher::new(files, LABEL);
@@ -263,7 +263,8 @@ pub fn write_backup(
 }
 
 /// Writes a backup into a file already open (an Android document, which
-/// has no path to write beside).
+/// has no path to write beside), or any other place bytes go (the web
+/// version's download).
 ///
 /// # Errors
 ///
@@ -271,7 +272,7 @@ pub fn write_backup(
 pub fn write_backup_to(
     store: &Store,
     blobs: &BlobStore,
-    file: File,
+    file: impl Write,
     password: Option<&str>,
     kdf: KdfParams,
 ) -> Result<Manifest> {
@@ -386,7 +387,7 @@ pub fn is_encrypted(path: &Path) -> Result<bool> {
 /// # Errors
 ///
 /// The file cannot be read.
-pub fn is_encrypted_file(file: &mut File) -> Result<bool> {
+pub fn is_encrypted_file(file: &mut (impl Read + Seek)) -> Result<bool> {
     let mut head = [0u8; MAGIC.len()];
     file.seek(SeekFrom::Start(0))?;
     let sealed = file.read_exact(&mut head).is_ok() && &head == MAGIC;
@@ -405,12 +406,16 @@ impl Backup {
         Self::open_file(File::open(path)?, password)
     }
 
-    /// Opens a backup from a file already open (an Android document).
+    /// Opens a backup from a file already open (an Android document, a file
+    /// picked in the web version).
     ///
     /// # Errors
     ///
     /// As [`Backup::open`].
-    pub fn open_file(mut file: File, password: Option<&str>) -> Result<Self> {
+    pub fn open_file(
+        mut file: impl Read + Seek + Send + 'static,
+        password: Option<&str>,
+    ) -> Result<Self> {
         let reader: Box<dyn ReadSeek> = if is_encrypted_file(&mut file)? {
             let password = password.ok_or(Error::WrongPassword)?;
             let mut header = [0u8; OUTER_HEADER];
@@ -438,7 +443,7 @@ impl Backup {
             }
             let key = kdf.derive_key(password, &header[at + 16..])?;
             Box::new(SealedReader::new(
-                file,
+                Box::new(file),
                 OUTER_HEADER as u64,
                 &app_e2ee::files_key_from(&key),
             )?)

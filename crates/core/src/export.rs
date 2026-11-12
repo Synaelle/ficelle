@@ -12,6 +12,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::clock::{Timestamp, to_rfc3339};
@@ -68,10 +69,83 @@ pub fn export_markdown(
         ));
     }
     std::fs::create_dir_all(out)?;
+    export_into(store, out, &mut FolderOut, files)
+}
 
+/// Where an export writes: a folder, or straight into a zip.
+trait Out {
+    /// A directory, the ones above it made already.
+    fn dir(&mut self, path: &Path) -> Result<()>;
+    /// A file, dated `at`.
+    fn file(&mut self, path: &Path, bytes: &[u8], at: Timestamp) -> Result<()>;
+}
+
+/// Files and directories on this device.
+struct FolderOut;
+
+impl Out for FolderOut {
+    fn dir(&mut self, path: &Path) -> Result<()> {
+        Ok(std::fs::create_dir_all(path)?)
+    }
+
+    fn file(&mut self, path: &Path, bytes: &[u8], at: Timestamp) -> Result<()> {
+        std::fs::write(path, bytes)?;
+        set_modified(path, at)
+    }
+}
+
+/// Entries of a zip, written as they come: nothing of the notes is put
+/// anywhere else in plain text, and no folder is needed.
+struct ZipOut<W: Write> {
+    zip: zip::ZipWriter<zip::write::StreamWriter<W>>,
+    options: zip::write::SimpleFileOptions,
+}
+
+/// A path inside the export as a zip entry name.
+fn entry_name(path: &Path) -> String {
+    path.components()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+impl<W: Write> Out for ZipOut<W> {
+    fn dir(&mut self, path: &Path) -> Result<()> {
+        // every folder has its entry, so an empty one is kept
+        let dated = match zip_time(jiff::Timestamp::now()) {
+            Some(time) => self.options.last_modified_time(time),
+            None => self.options,
+        };
+        self.zip
+            .add_directory(entry_name(path), dated)
+            .map_err(|e| Error::Invalid(e.to_string()))
+    }
+
+    fn file(&mut self, path: &Path, bytes: &[u8], at: Timestamp) -> Result<()> {
+        let dated = match jiff::Timestamp::from_millisecond(at)
+            .ok()
+            .and_then(zip_time)
+        {
+            Some(time) => self.options.last_modified_time(time),
+            None => self.options,
+        };
+        self.zip
+            .start_file(entry_name(path), dated)
+            .map_err(|e| Error::Invalid(e.to_string()))?;
+        Ok(self.zip.write_all(bytes)?)
+    }
+}
+
+/// The export of every live note under `out`, through `to`.
+fn export_into(
+    store: &Store,
+    out: &Path,
+    to: &mut dyn Out,
+    files: &dyn AttachmentSource,
+) -> Result<ExportReport> {
     let mut report = ExportReport::default();
     let mut names = UsedNames::default();
-    let tag_dirs = create_tag_dirs(store, out, &mut names, &mut report)?;
+    let tag_dirs = create_tag_dirs(store, out, to, &mut names, &mut report)?;
 
     for summary in store.list_notes(NoteScope::All, NoteSort::TitleAsc)? {
         let note = store.note(summary.id)?;
@@ -84,9 +158,9 @@ pub fn export_markdown(
         let file = names.claim(&dir, &format!("{}.md", safe_name(&note.title)));
         // files first: one renamed on disk (a name taken by another note of
         // the folder, a character the system refuses) is renamed in the text
-        let renamed = export_attachments(store, &note, &dir, files, &mut names, &mut report)?;
-        std::fs::write(&file, render_note(&note, &relink(&note.body, &renamed)))?;
-        set_modified(&file, note.updated_at)?;
+        let renamed = export_attachments(store, &note, &dir, to, files, &mut names, &mut report)?;
+        let text = render_note(&note, &relink(&note.body, &renamed));
+        to.file(&file, text.as_bytes(), note.updated_at)?;
         report.notes += 1;
     }
     Ok(report)
@@ -106,10 +180,8 @@ fn set_modified(path: &Path, at: Timestamp) -> Result<()> {
     Ok(())
 }
 
-/// A file's date as a zip entry holds it (no time zone, to the two seconds).
-fn zip_time(time: std::time::SystemTime) -> Option<zip::DateTime> {
-    let since = time.duration_since(std::time::UNIX_EPOCH).ok()?;
-    let at = jiff::Timestamp::from_second(i64::try_from(since.as_secs()).ok()?).ok()?;
+/// A date as a zip entry holds it (no time zone, to the two seconds).
+fn zip_time(at: jiff::Timestamp) -> Option<zip::DateTime> {
     let day = at.to_zoned(jiff::tz::TimeZone::UTC).datetime();
     zip::DateTime::from_date_and_time(
         u16::try_from(day.year()).ok()?,
@@ -127,6 +199,7 @@ fn zip_time(time: std::time::SystemTime) -> Option<zip::DateTime> {
 fn create_tag_dirs(
     store: &Store,
     out: &Path,
+    to: &mut dyn Out,
     names: &mut UsedNames,
     report: &mut ExportReport,
 ) -> Result<HashMap<String, PathBuf>> {
@@ -140,7 +213,7 @@ fn create_tag_dirs(
             .cloned()
             .unwrap_or_else(|| out.to_owned());
         let dir = names.claim(&parent, &safe_name(name));
-        std::fs::create_dir_all(&dir)?;
+        to.dir(&dir)?;
         report.folders += 1;
         dirs.insert(tag_key(&tag), dir);
     }
@@ -151,6 +224,7 @@ fn export_attachments(
     store: &Store,
     note: &Note,
     dir: &Path,
+    to: &mut dyn Out,
     files: &dyn AttachmentSource,
     names: &mut UsedNames,
     report: &mut ExportReport,
@@ -161,7 +235,7 @@ fn export_attachments(
         return Ok(renamed);
     }
     let target = dir.join(ATTACHMENTS);
-    std::fs::create_dir_all(&target)?;
+    to.dir(&target)?;
     for attachment in attachments {
         match files.read(&attachment.sha256)? {
             Some(bytes) => {
@@ -173,8 +247,7 @@ fn export_attachments(
                 if written != attachment.file_name {
                     renamed.push((attachment.file_name.clone(), written));
                 }
-                std::fs::write(&path, bytes)?;
-                set_modified(&path, attachment.created_at)?;
+                to.file(&path, &bytes, attachment.created_at)?;
                 report.attachments += 1;
             }
             None => report
@@ -328,9 +401,8 @@ impl UsedNames {
     }
 }
 
-/// The same export in one zip file: written to a folder in the system's
-/// temporary files, zipped beside `out`, moved in place, the folder
-/// removed.
+/// The same export in one zip file, written beside `out` and moved in place
+/// once whole.
 ///
 /// # Errors
 ///
@@ -356,60 +428,28 @@ pub fn export_markdown_zip(
     }
 }
 
-/// The zip export into a file already open (an Android document).
+/// The zip export into a file already open (an Android document), or any
+/// other place bytes go (the web version's download).
 ///
 /// # Errors
 ///
 /// As [`export_markdown_zip`].
 pub fn export_markdown_zip_to(
     store: &Store,
-    file: std::fs::File,
+    file: impl Write,
     files: &dyn AttachmentSource,
 ) -> Result<ExportReport> {
-    // the notes in plain text a moment: in a folder only this user reads
-    // (0700 on Linux), gone when done or when the export fails
-    let staging = tempfile::Builder::new().prefix("export-").tempdir()?;
-    let temp = staging.path().to_path_buf();
-    let done = (|| -> Result<ExportReport> {
-        let report = export_markdown(store, &temp, files)?;
-        let mut zip = zip::ZipWriter::new(file);
-        let options = zip::write::SimpleFileOptions::default()
+    let mut out = ZipOut {
+        zip: zip::ZipWriter::new_stream(file),
+        options: zip::write::SimpleFileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated)
-            .large_file(true);
-        let mut dirs = vec![temp.clone()];
-        while let Some(dir) = dirs.pop() {
-            let mut entries: Vec<_> = std::fs::read_dir(&dir)?.collect::<std::io::Result<_>>()?;
-            entries.sort_by_key(std::fs::DirEntry::file_name);
-            for entry in entries {
-                let path = entry.path();
-                let name = path
-                    .strip_prefix(&temp)
-                    .map_err(|_| Error::Invalid("export path".into()))?
-                    .components()
-                    .map(|c| c.as_os_str().to_string_lossy().into_owned())
-                    .collect::<Vec<_>>()
-                    .join("/");
-                let dated = match entry.metadata()?.modified().ok().and_then(zip_time) {
-                    Some(time) => options.last_modified_time(time),
-                    None => options,
-                };
-                // every folder has its entry, so an empty one is kept
-                if path.is_dir() {
-                    zip.add_directory(name, dated)
-                        .map_err(|e| Error::Invalid(e.to_string()))?;
-                    dirs.push(path);
-                    continue;
-                }
-                zip.start_file(name, dated)
-                    .map_err(|e| Error::Invalid(e.to_string()))?;
-                std::io::copy(&mut std::fs::File::open(&path)?, &mut zip)?;
-            }
-        }
-        zip.finish().map_err(|e| Error::Invalid(e.to_string()))?;
-        Ok(report)
-    })();
-    drop(staging);
-    done
+            .large_file(true),
+    };
+    let report = export_into(store, Path::new(""), &mut out, files)?;
+    out.zip
+        .finish()
+        .map_err(|e| Error::Invalid(e.to_string()))?;
+    Ok(report)
 }
 
 #[cfg(test)]

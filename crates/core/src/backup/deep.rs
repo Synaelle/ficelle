@@ -207,7 +207,7 @@ fn the_sealed_reader_reads_any_position_as_the_plain_bytes() {
             }
             writer.finish().unwrap();
         }
-        let mut reader = SealedReader::new(File::open(&path).unwrap(), 4, &key).unwrap();
+        let mut reader = SealedReader::new(Box::new(File::open(&path).unwrap()), 4, &key).unwrap();
         assert_eq!(reader.size, len as u64, "seed {seed}");
         for _ in 0..30 {
             let from = rng.below(len + 1);
