@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- tools/flatpak/update.mjs adds each stable release to the list -->
+<component type="desktop-application">
+  <id>com.synaelle.ficelle</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+  <name>Ficelle</name>
+  <summary>Lightweight notes in Markdown</summary>
+  <developer id="com.synaelle">
+    <name>Synaelle</name>
+  </developer>
+  <description>
+    <p>Ficelle is a small notes app that opens in a moment and uses little memory. Notes are Markdown, with checklists, tables, callouts and images you place like in a word processor. Every note keeps its earlier versions.</p>
+    <p>Your notes stay on your own devices. Your computer and your phone sync directly on the same network, with no account and no server. Notes can be encrypted with a password, and backups go to a folder you choose.</p>
+  </description>
+  <launchable type="desktop-id">com.synaelle.ficelle.desktop</launchable>
+  <url type="homepage">https://ficelle.synaelle.com</url>
+  <url type="bugtracker">https://github.com/Synaelle/ficelle/issues</url>
+  <url type="vcs-browser">https://github.com/Synaelle/ficelle</url>
+  <url type="translate">https://github.com/Synaelle/ficelle/tree/main/packages/locales</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>A note with a checklist, a callout and a picture, beside the list of notes</caption>
+      <image>https://raw.githubusercontent.com/Synaelle/ficelle/main/tools/flatpak/screenshots/desktop.png</image>
+    </screenshot>
+  </screenshots>
+  <branding>
+    <color type="primary" scheme_preference="light">#f6d5d1</color>
+    <color type="primary" scheme_preference="dark">#7a261e</color>
+  </branding>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <releases>
+    <release version="0.5.4" date="2026-11-09"/>
+    <release version="0.5.3" date="2026-11-09"/>
+    <release version="0.5.2" date="2026-11-09"/>
+    <release version="0.5.1" date="2026-11-08"/>
+    <release version="0.5.0" date="2026-11-06"/>
+    <release version="0.4.0" date="2026-11-03"/>
+    <release version="0.3.3" date="2026-11-02"/>
+    <release version="0.3.2" date="2026-11-02"/>
+    <release version="0.3.0" date="2026-10-31"/>
+  </releases>
+</component>

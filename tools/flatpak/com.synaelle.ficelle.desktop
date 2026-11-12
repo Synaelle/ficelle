@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Ficelle
+Comment=A lightweight, private notes app for your computer and your phone
+Exec=ficelle
+Icon=com.synaelle.ficelle
+StartupWMClass=com.synaelle.ficelle
+Terminal=false
+Categories=Office;
+Keywords=notes;markdown;

@@ -1,0 +1,44 @@
+# Template of the Flathub manifest, filled for each stable release by
+# tools/flatpak/update.mjs (@VERSION@ and @SHA256@). Like the AUR package, it
+# takes the program and its icons out of the release's AppImage and uses the
+# runtime's WebKitGTK instead of the copy the AppImage carries.
+id: com.synaelle.ficelle
+runtime: org.gnome.Platform
+# the app's first page hangs in GNOME 51 (WebKitGTK 2.54.1), 50 draws it
+runtime-version: '50'
+sdk: org.gnome.Sdk
+command: ficelle
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # local sync: the peers listen on a TCP port and find each other with mDNS
+  - --share=network
+  - --talk-name=org.freedesktop.Notifications
+modules:
+  - name: ficelle
+    buildsystem: simple
+    build-options:
+      no-debuginfo: true
+    build-commands:
+      - chmod +x Ficelle.AppImage
+      - ./Ficelle.AppImage --appimage-extract >/dev/null
+      - install -Dm755 squashfs-root/usr/bin/ficelle /app/bin/ficelle
+      - install -Dm644 com.synaelle.ficelle.desktop /app/share/applications/com.synaelle.ficelle.desktop
+      - install -Dm644 com.synaelle.ficelle.metainfo.xml /app/share/metainfo/com.synaelle.ficelle.metainfo.xml
+      # the bundler names its largest folder 256x256@2, which no theme reads
+      - |
+        for png in squashfs-root/usr/share/icons/hicolor/*/apps/ficelle.png; do
+          size=$(basename "$(dirname "$(dirname "$png")")")
+          install -Dm644 "$png" "/app/share/icons/hicolor/${size%@2}/apps/com.synaelle.ficelle.png"
+        done
+    sources:
+      - type: file
+        url: https://github.com/Synaelle/ficelle/releases/download/v@VERSION@/Ficelle_@VERSION@_amd64.AppImage
+        sha256: '@SHA256@'
+        dest-filename: Ficelle.AppImage
+      - type: file
+        path: com.synaelle.ficelle.desktop
+      - type: file
+        path: com.synaelle.ficelle.metainfo.xml
