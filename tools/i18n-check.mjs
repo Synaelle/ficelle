@@ -69,7 +69,8 @@ for (const key of Object.keys(english)) {
 }
 for (const [code, strings] of Object.entries(locales)) {
   if (code === 'en') continue
-  const missing = Object.keys(english).filter((key) => !(key in strings))
+  // a text empty in English shows nothing, there is nothing to translate
+  const missing = Object.keys(english).filter((key) => english[key] !== '' && !(key in strings))
   // a language being started has most texts missing: one line, not hundreds
   if (missing.length > 50) warnings.push(`${code}: ${missing.length} texts not translated yet`)
   else for (const key of missing) warnings.push(`${code}: not translated yet: ${key}`)

@@ -20,10 +20,12 @@ const catalogs: Record<string, Record<string, string>> = Object.fromEntries(
 )
 const english = catalogs.en ?? {}
 
+// a text empty in English shows nothing, there is nothing to translate
+const toTranslate = Object.keys(english).filter((key) => english[key] !== '')
+
 /** Share of the English texts a language has, from 0 to 1. */
 const translated = (code: string) =>
-  Object.keys(english).filter((key) => key in (catalogs[code] ?? {})).length /
-  Object.keys(english).length
+  toTranslate.filter((key) => key in (catalogs[code] ?? {})).length / toTranslate.length
 
 // a page mostly in English with a few translated words reads worse than
 // English alone, so a language is offered once half of it is done, with its
