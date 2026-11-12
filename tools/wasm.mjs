@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Builds the e2ee account client (crates/e2ee-web) to WebAssembly for the
-// web pages, into apps/client/src/generated/e2ee. Skips the work when the
-// output is newer than every source. Fails fast, naming what is missing.
+// Builds the Rust crates the pages carry as WebAssembly into
+// apps/client/src/generated: the e2ee account client (crates/e2ee-web)
+// always, and with --core the notes core of the web version
+// (crates/core-web), which needs clang able to build for wasm32. Skips a
+// crate when its output is newer than every source. Fails fast, naming
+// what is missing.
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -9,11 +12,34 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const out = join(root, 'apps/client/src/generated/e2ee')
-const crate = 'app-e2ee-web'
-const wasm = join(root, 'target/wasm32-unknown-unknown/release/app_e2ee_web.wasm')
-const sources = [join(root, 'crates/e2ee'), join(root, 'crates/e2ee-web')]
 const BINDGEN = '0.2.129'
+
+const crates = [
+  {
+    crate: 'app-e2ee-web',
+    what: 'the e2ee client',
+    out: 'e2ee',
+    sources: ['crates/e2ee', 'crates/e2ee-web'],
+  },
+  ...(process.argv.includes('--core')
+    ? [
+        {
+          crate: 'app-core-web',
+          what: 'the notes core',
+          out: 'core',
+          sources: [
+            'crates/core',
+            'crates/core-web',
+            'crates/e2ee',
+            'crates/repo',
+            'crates/protocol',
+            'crates/brand',
+            'Cargo.lock',
+          ],
+        },
+      ]
+    : []),
+]
 
 /** Newest modification time under `path`, in ms. @param {string} path @returns {number} */
 function newest(path) {
@@ -27,10 +53,19 @@ function run(command, args) {
   execFileSync(command, args, { cwd: root, stdio: 'inherit' })
 }
 
-const marker = join(out, 'app_e2ee_web_bg.wasm')
-if (existsSync(marker) && statSync(marker).mtimeMs > Math.max(...sources.map(newest))) {
-  process.exit(0)
-}
+const stale = crates.filter(({ crate, out, sources }) => {
+  const marker = join(
+    root,
+    'apps/client/src/generated',
+    out,
+    `${crate.replaceAll('-', '_')}_bg.wasm`,
+  )
+  return (
+    !existsSync(marker) ||
+    statSync(marker).mtimeMs <= Math.max(...sources.map((s) => newest(join(root, s))))
+  )
+})
+if (stale.length === 0) process.exit(0)
 
 let version = ''
 try {
@@ -47,10 +82,18 @@ if (!version.endsWith(BINDGEN)) {
   process.exit(1)
 }
 
-console.log('wasm: building the e2ee client')
-run('cargo', ['build', '-q', '-p', crate, '--target', 'wasm32-unknown-unknown', '--release'])
-mkdirSync(out, { recursive: true })
-run('wasm-bindgen', ['--target', 'web', '--out-dir', out, wasm])
-// written by the build, never committed
-writeFileSync(join(out, '.gitignore'), '*\n')
+for (const { crate, what, out } of stale) {
+  console.log(`wasm: building ${what}`)
+  run('cargo', ['build', '-q', '-p', crate, '--target', 'wasm32-unknown-unknown', '--release'])
+  const dir = join(root, 'apps/client/src/generated', out)
+  mkdirSync(dir, { recursive: true })
+  const wasm = join(
+    root,
+    'target/wasm32-unknown-unknown/release',
+    `${crate.replaceAll('-', '_')}.wasm`,
+  )
+  run('wasm-bindgen', ['--target', 'web', '--out-dir', dir, wasm])
+  // written by the build, never committed
+  writeFileSync(join(dir, '.gitignore'), '*\n')
+}
 console.log('wasm: done')
