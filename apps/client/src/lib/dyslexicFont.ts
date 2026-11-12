@@ -32,7 +32,9 @@ const PSEUDOS = [
   '::before',
   '::after',
   '::first-line',
-  '::first-letter',
+  // not ::first-letter: in WebKit it makes the caret stay put in the note
+  // while typing, each key replacing the letter before, even set on a block
+  // around the editor
   '::marker',
   '::placeholder',
   '::file-selector-button',
