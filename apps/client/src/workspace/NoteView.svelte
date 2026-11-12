@@ -227,7 +227,17 @@
     </header>
 
     <div class="scroll" bind:this={scroller} style:overflow-anchor={hold ? 'none' : null}>
-      <article style:min-height={hold ? `${hold}px` : null}>
+      <!-- a tap under the last line writes at the note's end; the keyboard
+           gets there with the arrows -->
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+      <article
+        style:min-height={hold ? `${hold}px` : null}
+        onclick={(e) => {
+          if (e.target !== e.currentTarget || source) return
+          const prose = e.currentTarget.querySelector('.prose')
+          if (prose && e.clientY > prose.getBoundingClientRect().bottom) editorRef?.writeAtEnd()
+        }}
+      >
         <ConflictBanner {narrow} />
         <input
           bind:this={titleInput}

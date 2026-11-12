@@ -339,6 +339,39 @@
     editor.commands.focus('start')
   }
 
+  /** Puts the caret on a line of its own after the block ending at `after`:
+   * the empty line already there, or a new one. */
+  function writeAfter(after: number) {
+    if (!editor) return
+    const { state } = editor
+    const next = state.doc.nodeAt(after)
+    const tr = state.tr
+    if (!(next?.type.name === 'paragraph' && next.content.size === 0))
+      tr.insert(after, state.schema.node('paragraph'))
+    tr.setSelection(TextSelection.create(tr.doc, after + 1)).scrollIntoView()
+    editor.view.dispatch(tr)
+    editor.view.focus()
+  }
+
+  /** Only images on this line, nothing to write beside. */
+  const imagesOnly = (block: PMNode) => {
+    let only = block.type.name === 'paragraph' && block.childCount > 0
+    block.forEach((child) => (only &&= child.type.name === 'image'))
+    return only
+  }
+
+  /** A tap under the note's last line: the caret at its end, or on a line of
+   * its own when the note ends with something that takes no text after it
+   * (images alone, a table, code). */
+  export function writeAtEnd() {
+    if (!editor || readonly) return
+    const last = editor.state.doc.lastChild
+    if (last?.type.name === 'paragraph' && !imagesOnly(last)) {
+      editor.view.focus()
+      editor.commands.focus('end')
+    } else writeAfter(editor.state.doc.content.size)
+  }
+
   export function mentionFile(file: AttachmentFile) {
     if (placed) editor?.chain().focus().insertContent(mentionOf(file)).run()
     else
@@ -572,8 +605,16 @@
           void insertFiles(files, at)
           return true
         },
-        handleClick: (_view, _pos, event) => {
-          const link = (event.target as HTMLElement | null)?.closest('a')
+        handleClick: (view, pos, event) => {
+          const target = event.target as HTMLElement | null
+          // a tap beside or under images alone on their line writes on the
+          // next line, not next to them
+          const at = view.state.doc.resolve(pos)
+          if (!readonly && !target?.closest('.image-view') && imagesOnly(at.parent)) {
+            writeAfter(at.after())
+            return true
+          }
+          const link = target?.closest('a')
           const href = link?.getAttribute('href') ?? ''
           // a link to a heading of this note, `#its-anchor` as GitHub writes it
           if (href.startsWith('#') && href.length > 1) {
