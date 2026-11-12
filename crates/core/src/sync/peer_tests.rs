@@ -122,12 +122,37 @@ fn choices_follow_to_the_other_device_the_newest_winning_and_defaults_never_trav
         outbox,
         "taking a choice in queued nothing of its own"
     );
-    // both change the same one apart: after meeting they agree on one
+    // both change the same one apart: the later by the clock wins on both,
+    // however much the other wrote meanwhile
     clock_a.advance(MINUTE);
+    for _ in 0..20 {
+        note_with(&mut a, "busy", "writing a lot");
+    }
     a.set_synced_setting("sort", "\"updatedDesc\"").unwrap();
     clock_b.advance(2 * MINUTE);
     b.set_synced_setting("sort", "\"createdDesc\"").unwrap();
     meet(&mut a, &mut b);
+    for s in [&a, &b] {
+        let all = s.synced_settings().unwrap();
+        assert_eq!(
+            all.iter()
+                .find(|(k, _)| k == "sort")
+                .map(|(_, v)| v.as_str()),
+            Some("\"createdDesc\"")
+        );
+    }
+    // and the other way round, the busy device choosing last
+    clock_a.advance(5 * MINUTE);
+    a.set_synced_setting("sort", "\"titleAsc\"").unwrap();
+    meet(&mut a, &mut b);
+    assert_eq!(
+        b.synced_settings()
+            .unwrap()
+            .into_iter()
+            .find(|(k, _)| k == "sort")
+            .map(|(_, v)| v),
+        Some("\"titleAsc\"".into())
+    );
     assert_eq!(a.synced_settings().unwrap(), b.synced_settings().unwrap());
     // setting the same value again writes nothing
     let before = a.peer_write_mark().unwrap();

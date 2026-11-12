@@ -529,21 +529,39 @@ pub(super) fn all(
     tag_spellings(conn, docs)
 }
 
-/// The choices that follow the person, from their own space.
+/// The choices that follow the person, from their own space: for each, the
+/// entry chosen last by the clock among every device's, the device's id
+/// settling a tie the same way everywhere.
 pub(super) fn settings(conn: &Connection, docs: &mut Docs, space_id: &str) -> Result<()> {
     if !space_id.is_empty() {
         return Ok(());
     }
     let space = docs.get(conn, &doc_key(space_id, SPACE))?;
     let map = space.get_map("settings");
-    conn.execute("DELETE FROM synced_settings", [])?;
+    let mut latest: HashMap<String, (i64, String, String)> = HashMap::new();
     for key in map.keys() {
-        if let Some(ValueOrContainer::Value(LoroValue::String(value))) = map.get(&key) {
-            conn.execute(
-                "INSERT INTO synced_settings (key, value) VALUES (?1, ?2)",
-                params![key.to_string(), value.to_string()],
-            )?;
+        let Some((name, device)) = key.rsplit_once('@') else {
+            continue;
+        };
+        let Some(ValueOrContainer::Container(loro::Container::Map(entry))) = map.get(&key) else {
+            continue;
+        };
+        let (Some(value), Some(at)) = (text_of(&entry, "value"), int_of(&entry, "at")) else {
+            continue;
+        };
+        let newer = latest.get(name).is_none_or(|(best_at, best_device, _)| {
+            (at, device) > (*best_at, best_device.as_str())
+        });
+        if newer {
+            latest.insert(name.to_owned(), (at, device.to_owned(), value));
         }
+    }
+    conn.execute("DELETE FROM synced_settings", [])?;
+    for (name, (at, _, value)) in latest {
+        conn.execute(
+            "INSERT INTO synced_settings (key, value, changed_at) VALUES (?1, ?2, ?3)",
+            params![name, value, at],
+        )?;
     }
     Ok(())
 }

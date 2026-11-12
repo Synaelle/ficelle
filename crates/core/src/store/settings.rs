@@ -2,7 +2,8 @@
 
 //! The person's choices that follow them to every device. The app names each
 //! one and gives its value as JSON; the store keeps and syncs them without
-//! reading them. A choice nobody made has no row, so it never travels.
+//! reading them. A choice nobody made has no row, so it never travels. The
+//! latest choice by the clock wins, whichever device made it.
 
 use rusqlite::params;
 
@@ -38,14 +39,15 @@ impl Store {
         if serde_json::from_str::<serde_json::Value>(value).is_err() {
             return Err(Error::Invalid("a setting's value must be JSON".into()));
         }
+        let now = self.clock.now();
         let tx = self.conn.transaction()?;
         tx.execute(
-            "INSERT INTO synced_settings (key, value) VALUES (?1, ?2)
-             ON CONFLICT (key) DO UPDATE SET value = excluded.value
+            "INSERT INTO synced_settings (key, value, changed_at) VALUES (?1, ?2, ?3)
+             ON CONFLICT (key) DO UPDATE SET value = excluded.value, changed_at = excluded.changed_at
              WHERE value IS NOT excluded.value",
-            params![key, value],
+            params![key, value, now],
         )?;
-        crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
+        crate::sync::finish(tx, &mut self.docs, now)?;
         Ok(())
     }
 }

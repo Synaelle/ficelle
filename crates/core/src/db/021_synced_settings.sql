@@ -1,10 +1,12 @@
 -- The person's choices that follow them to every device (theme, sort,
--- typing helpers...), each a JSON value under the name the app gives it.
--- Only a choice made on some device has a row: defaults never travel, so a
--- new device does not undo what the others chose.
+-- typing helpers...), each a JSON value under the name the app gives it,
+-- with when it was chosen: the latest choice wins on every device. Only a
+-- choice made on some device has a row: defaults never travel, so a new
+-- device does not undo what the others chose.
 CREATE TABLE synced_settings (
     key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
+    value TEXT NOT NULL,
+    changed_at INTEGER NOT NULL
 ) WITHOUT ROWID;
 
 -- shared through the person's own space

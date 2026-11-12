@@ -87,23 +87,30 @@ pub(super) fn tags_registry(conn: &Connection, docs: &mut Docs) -> Result<()> {
     Ok(())
 }
 
-/// The person's choices that follow them into their own space, each a JSON
-/// value by its name. A choice taken back on a device leaves the map.
+/// The person's choices that follow them, into their own space. Each device
+/// writes its own entry per choice, `name@device`, holding the value and when
+/// it was chosen, so devices that chose apart never overwrite each other's
+/// entry and every device can pick the latest.
 pub(super) fn settings(conn: &Connection, docs: &mut Docs) -> Result<()> {
     let space = docs.get(conn, &doc_key("", SPACE))?;
     let map = space.get_map("settings");
-    let wanted: HashMap<String, String> = {
-        let mut stmt = conn.prepare("SELECT key, value FROM synced_settings")?;
-        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-            .collect::<rusqlite::Result<_>>()?
-    };
-    for key in map.keys().map(|k| k.to_string()).collect::<Vec<_>>() {
-        if !wanted.contains_key(&key) {
-            map.delete(&key).map_err(sync_error)?;
-        }
-    }
-    for (key, value) in wanted {
-        put(&map, &key, LoroValue::String(value.into()))?;
+    let me = space.peer_id();
+    let mut stmt = conn.prepare("SELECT key, value, changed_at FROM synced_settings")?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    for (key, value, at) in rows {
+        let entry = map
+            .ensure_mergeable_map(&format!("{key}@{me}"))
+            .map_err(sync_error)?;
+        put(&entry, "value", LoroValue::String(value.into()))?;
+        put(&entry, "at", LoroValue::I64(at))?;
     }
     space.commit();
     Ok(())
