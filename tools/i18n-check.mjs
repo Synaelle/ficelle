@@ -79,6 +79,20 @@ for (const [code, strings] of Object.entries(locales)) {
   }
 }
 
+// [list], then other sections, then [list.count] is valid TOML, but the
+// translation website cannot read a section split like that
+for (const file of readdirSync(localesDir).filter((f) => f.endsWith('.toml'))) {
+  const seen = new Set()
+  let current = ''
+  for (const [, name] of readFileSync(join(localesDir, file), 'utf8').matchAll(/^\[([^\]]+)\]/gm)) {
+    const top = name.split('.')[0]
+    if (top !== current && seen.has(top))
+      errors.push(`${file}: [${name}] is apart from the rest of [${top}]`)
+    seen.add(top)
+    current = top
+  }
+}
+
 for (const w of warnings) console.warn(`warning  ${w}`)
 for (const e of errors) console.error(`error    ${e}`)
 const counts = Object.entries(locales)

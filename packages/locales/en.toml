@@ -232,6 +232,10 @@ swipeTrash = "Trash"
 one = "{count} note"
 other = "{count} notes"
 
+[list.withInner]
+one = "With the tags inside it, {count} note"
+other = "With the tags inside it, {count} notes"
+
 [note]
 bodyPlaceholder = "Start writing…"
 label = "Note"
@@ -369,6 +373,39 @@ encrypted = "Your notes are encrypted."
 [settings.exported]
 one = "Exported {count} note."
 other = "Exported {count} notes."
+
+[settings.phone]
+groupLook = "Look and writing"
+groupPrivacy = "Privacy"
+dataBackups = "Data and backups"
+listsOn = "Lists on"
+listsOff = "Lists off"
+encrypted = "Encrypted, on this device"
+plain = "Not encrypted, on this device"
+groupPassword = "Password and recovery"
+keyCreated = "Created"
+keyNone = "None"
+hideScreens = "Hide from screenshots"
+
+[settings.way]
+device = "Without asking (old)"
+guarded = "Unlock with {method}"
+password = "Password each time"
+plain = "Not encrypted"
+pin = "PIN"
+
+[settings.wayHelp]
+device = "Anyone using your session or your unlocked phone can read them. Choose another way."
+guarded = "Your PIN, face or finger, checked by this device's security chip."
+password = "Nothing on this device opens them without it."
+pin = "A 6-digit PIN typed in the app. After 5 wrong tries, the password."
+
+[settings.waySet]
+device = ""
+guarded = "Your notes now open with {method}."
+password = "Your notes now open with the password."
+plain = ""
+pin = "Your notes now open with your PIN."
 
 [backup]
 makeTitle = "Make a backup"
@@ -749,7 +786,6 @@ locked = "Unlock your notes first."
 other = "Something went wrong, try again."
 devicesPaired = "This device syncs with its paired devices. Forget them first to use a server."
 
-
 [local]
 intro = "Your devices sync with each other on the same network while {appName} is open. No account needed."
 thisDevice = "This device"
@@ -859,19 +895,6 @@ needsUpdate = "{name} needs an update"
 updateThis = "Update to sync with {name}"
 unreachable = "Cannot reach {name}"
 
-[settings.phone]
-groupLook = "Look and writing"
-groupPrivacy = "Privacy"
-dataBackups = "Data and backups"
-listsOn = "Lists on"
-listsOff = "Lists off"
-encrypted = "Encrypted, on this device"
-plain = "Not encrypted, on this device"
-groupPassword = "Password and recovery"
-keyCreated = "Created"
-keyNone = "None"
-hideScreens = "Hide from screenshots"
-
 [feedback]
 retry = "Try again"
 unavailable_off = "Your server's admin turned feedback off."
@@ -924,6 +947,14 @@ state_done = "Dealt with"
 state_gone = "No longer kept"
 state_unknown = "Server not reached"
 
+[feedback.imageCount]
+one = "{count} image"
+other = "{count} images"
+
+[feedback.tooManyImages]
+one = "At most {count} image."
+other = "At most {count} images."
+
 [errorReport]
 notice = "Something went wrong."
 report = "Report it"
@@ -938,14 +969,6 @@ sentTo = "Sent to {host}."
 sent = "Thanks, the report is sent."
 off = "Reports are turned off on your sync server. You can write to {address} instead."
 copyAddress = "Copy address"
-
-[feedback.imageCount]
-one = "{count} image"
-other = "{count} images"
-
-[feedback.tooManyImages]
-one = "At most {count} image."
-other = "At most {count} images."
 
 [admin]
 title = "{app} admin"
@@ -1517,154 +1540,6 @@ mailOff = "This server sends no email."
 emailInvalid = "This is not an email address."
 linkInvalid = "This link is used, expired, or was never sent. Ask for a new one."
 
-# emails the server sends, plain text
-[mail]
-greeting = "Hello {name},"
-footer = "This message comes from {app} at {host}. If you did not expect it, you can ignore it."
-
-[mail.verify]
-subject = "Confirm your email address"
-body = "Open this link within a day to use this address for your account {username}:\n\n{link}\n\nWith a confirmed address, you can set a new password by email if you forget yours."
-
-[mail.reset]
-subject = "Set a new password"
-body = "Someone asked to set a new password for your account {username}. If it was you, open this link within an hour:\n\n{link}\n\nIf it was not you, ignore this message, your password stays as it is."
-
-[mail.recover]
-subject = "Set a new password with your recovery code"
-body = "Someone asked to set a new password for your account {username}. It is end-to-end encrypted, so nobody can reset its password by email: only your recovery code opens it. If you have it, use it here:\n\n{link}\n\nIf it was not you, ignore this message."
-
-[mail.test]
-subject = "A test mail"
-body = "This test mail was sent from the admin page. If you read it, {app} at {host} can send mail: address checks, password resets and notices will arrive."
-
-[mail.password]
-subject = "Your password was changed"
-body = "The password of your account {username} was just changed through a link sent to this address, and every device was signed out. If it was not you, contact the people who run this server at once."
-
-[mail.code]
-subject = "Your sign-in code"
-body = "Your code to sign in as {username} is\n\n{code}\n\nIt works for 10 minutes. If you are not signing in, someone has your password: change it now."
-
-[mail.deletion]
-subject = "Your account will be deleted"
-body = "Your account {username} will be deleted on {date}, with everything the server keeps for it. To keep it, sign in before then and cancel the deletion."
-
-[reset]
-title = "Reset everything"
-open = "Reset everything…"
-help = "Deletes every note on this device and starts over from the first launch."
-body = "This deletes from this device every note and tag, their files and history, and this device's sign-in to a server."
-server = "Notes already synced to a server stay on the server, and come back when you sign in again."
-final = "This cannot be undone."
-wait = "Reset everything ({count})"
-confirm = "Reset everything"
-
-[backups]
-schedule_off = "Only when asked"
-schedule_hourly = "Every hour"
-schedule_daily = "Every day"
-schedule_weekly = "Every week"
-keep_last = "Latest kept"
-keep_daily = "Days kept"
-keep_weekly = "Weeks kept"
-keep_monthly = "Months kept"
-title = "Backups"
-list = "Show the backups"
-help = "A copy of your notes and files in a folder, every day while the app is open: a USB key, or a OneDrive or Google Drive folder."
-auto = "Back up automatically"
-restoreTitle = "Restore"
-restoreFile = "Restore from a file"
-failed = "The backup did not go through: {error}"
-overdue = "No backup went through for a while. See Settings, Data and backups."
-status = "Status"
-where = "To {where}"
-running = "Backing up…"
-lastFailed = "The last backup failed: {error}"
-lastSuccess = "Last backup {when} ({date})."
-never = "No backup yet."
-backedUp = "Backed up {when}"
-failedTitle = "The last backup failed"
-now = "Back up now"
-check = "Check"
-checkFull = "Check every file"
-checkBad = "Something is wrong with the backups:"
-backups = "Backups"
-none = "No backups yet."
-notThere = "There is no backup at this place any more: it was moved, or its drive is not plugged in."
-test = "Test restore"
-restore = "Restore"
-restoreConfirm = "Restore the backup of {when}? Notes that are no longer here come back, with their history and files. Notes here stay as they are."
-restored = "{notes} notes came back, {skipped} were here already."
-when = "Schedule"
-schedule = "Back up"
-keepHelp = "The latest backups are kept, then the newest of each day, week and month, the others are removed. The newest backup is always kept."
-save = "Save"
-saved = "Saved."
-place = "Where"
-change = "Change where"
-stop = "Stop backing up"
-stopConfirm = "Stop backing up this device? The backups made stay where they are."
-setUp = "Set up backups"
-placeKind = "Back up to"
-folder = "Folder"
-chooseFolder = "Choose…"
-phoneFolder = "Backups go to this folder on the phone. Copy it to a computer now and then: it does not survive the phone itself."
-phoneHelp = "A copy of your notes and files on this phone, every day while the app is open."
-unchanged = "unchanged"
-repository = "Backup"
-new = "Start a new backup there"
-existing = "Use a backup already there"
-password = "Its password"
-newPassword = "Backup password"
-passwordAgain = "The same again"
-passwordWarning = "Keep this password safe, apart from your notes: without it nobody can open these backups, not even you."
-passwordNeeded = "Enter the password."
-passwordShort = "At least 8 characters."
-passwordsDiffer = "The two passwords differ."
-connecting = "Connecting…"
-start = "Start backing up"
-cancel = "Cancel"
-connected = "Backups are set up, the first one is done."
-foundTitle = "Backups are already here"
-foundOpened = "The backups are open. Pick one to restore your notes from."
-restoreFrom = "Restore from a backup"
-phoneFolderRestore = "This phone keeps its backups in this folder."
-looking = "Looking in the folder…"
-noneHere = "No backups in this folder."
-unreadable = "{app} is not allowed to read this folder. Check its permissions, or choose another folder."
-unreadablePhone = "Android keeps a new install of {app} out of the backups an earlier install made in this folder, until you allow it in. Choose Allow access, then Use this folder and Allow in the window that opens."
-allowFolder = "Allow access"
-foundStartHelp = "This folder holds backups from before. Keep backing up to them."
-useThem = "Use these backups"
-latestAsk = "Restore the latest backup, from {when}? It holds {notes}."
-latestRestore = "Restore it"
-sameAsNotes = "Use my notes password"
-notesPassword = "Your notes password"
-notesPasswordWrong = "That is not the password of your notes."
-foundOpenHelp = "These backups have no password. They take your notes password, the ones made before too."
-sameAsNotesHelp = "Anyone who learns this one password opens both your notes and your backups. Changing your notes password later does not change it for the backups made before."
-done = "Backed up."
-wrongPassword = "Wrong password for this backup."
-unprotected = "These backups have no password, but your notes do now. Stop backing up and start again to give them one."
-turnOn = "Turn on backups"
-
-[backups.notes]
-one = "{count} note"
-other = "{count} notes"
-
-[backups.files]
-one = "{count} file"
-other = "{count} files"
-
-[backups.checkOk]
-one = "Checked: {count} backup, {size}, nothing wrong."
-other = "Checked: {count} backups, {size}, nothing wrong."
-
-[backups.size]
-one = "{count} backup, {size} stored."
-other = "{count} backups, {size} stored."
-
 [admin.backups]
 title = "Backups"
 help = "Backups of the whole instance: its database, its key and every stored file, encrypted with a password of their own, sent to a place you choose on a schedule. Each backup stores only what changed. People back up their own notes from their apps too."
@@ -1857,25 +1732,153 @@ other = "Delete these {count} reports and their images for good?"
 one = "{count} report from this sender"
 other = "{count} reports from this sender"
 
-[settings.way]
-device = "Without asking (old)"
-guarded = "Unlock with {method}"
-password = "Password each time"
-plain = "Not encrypted"
-pin = "PIN"
+# emails the server sends, plain text
+[mail]
+greeting = "Hello {name},"
+footer = "This message comes from {app} at {host}. If you did not expect it, you can ignore it."
 
-[settings.wayHelp]
-device = "Anyone using your session or your unlocked phone can read them. Choose another way."
-guarded = "Your PIN, face or finger, checked by this device's security chip."
-password = "Nothing on this device opens them without it."
-pin = "A 6-digit PIN typed in the app. After 5 wrong tries, the password."
+[mail.verify]
+subject = "Confirm your email address"
+body = "Open this link within a day to use this address for your account {username}:\n\n{link}\n\nWith a confirmed address, you can set a new password by email if you forget yours."
 
-[settings.waySet]
-device = ""
-guarded = "Your notes now open with {method}."
-password = "Your notes now open with the password."
-plain = ""
-pin = "Your notes now open with your PIN."
+[mail.reset]
+subject = "Set a new password"
+body = "Someone asked to set a new password for your account {username}. If it was you, open this link within an hour:\n\n{link}\n\nIf it was not you, ignore this message, your password stays as it is."
+
+[mail.recover]
+subject = "Set a new password with your recovery code"
+body = "Someone asked to set a new password for your account {username}. It is end-to-end encrypted, so nobody can reset its password by email: only your recovery code opens it. If you have it, use it here:\n\n{link}\n\nIf it was not you, ignore this message."
+
+[mail.test]
+subject = "A test mail"
+body = "This test mail was sent from the admin page. If you read it, {app} at {host} can send mail: address checks, password resets and notices will arrive."
+
+[mail.password]
+subject = "Your password was changed"
+body = "The password of your account {username} was just changed through a link sent to this address, and every device was signed out. If it was not you, contact the people who run this server at once."
+
+[mail.code]
+subject = "Your sign-in code"
+body = "Your code to sign in as {username} is\n\n{code}\n\nIt works for 10 minutes. If you are not signing in, someone has your password: change it now."
+
+[mail.deletion]
+subject = "Your account will be deleted"
+body = "Your account {username} will be deleted on {date}, with everything the server keeps for it. To keep it, sign in before then and cancel the deletion."
+
+[reset]
+title = "Reset everything"
+open = "Reset everything…"
+help = "Deletes every note on this device and starts over from the first launch."
+body = "This deletes from this device every note and tag, their files and history, and this device's sign-in to a server."
+server = "Notes already synced to a server stay on the server, and come back when you sign in again."
+final = "This cannot be undone."
+wait = "Reset everything ({count})"
+confirm = "Reset everything"
+
+[backups]
+schedule_off = "Only when asked"
+schedule_hourly = "Every hour"
+schedule_daily = "Every day"
+schedule_weekly = "Every week"
+keep_last = "Latest kept"
+keep_daily = "Days kept"
+keep_weekly = "Weeks kept"
+keep_monthly = "Months kept"
+title = "Backups"
+list = "Show the backups"
+help = "A copy of your notes and files in a folder, every day while the app is open: a USB key, or a OneDrive or Google Drive folder."
+auto = "Back up automatically"
+restoreTitle = "Restore"
+restoreFile = "Restore from a file"
+failed = "The backup did not go through: {error}"
+overdue = "No backup went through for a while. See Settings, Data and backups."
+status = "Status"
+where = "To {where}"
+running = "Backing up…"
+lastFailed = "The last backup failed: {error}"
+lastSuccess = "Last backup {when} ({date})."
+never = "No backup yet."
+backedUp = "Backed up {when}"
+failedTitle = "The last backup failed"
+now = "Back up now"
+check = "Check"
+checkFull = "Check every file"
+checkBad = "Something is wrong with the backups:"
+backups = "Backups"
+none = "No backups yet."
+notThere = "There is no backup at this place any more: it was moved, or its drive is not plugged in."
+test = "Test restore"
+restore = "Restore"
+restoreConfirm = "Restore the backup of {when}? Notes that are no longer here come back, with their history and files. Notes here stay as they are."
+restored = "{notes} notes came back, {skipped} were here already."
+when = "Schedule"
+schedule = "Back up"
+keepHelp = "The latest backups are kept, then the newest of each day, week and month, the others are removed. The newest backup is always kept."
+save = "Save"
+saved = "Saved."
+place = "Where"
+change = "Change where"
+stop = "Stop backing up"
+stopConfirm = "Stop backing up this device? The backups made stay where they are."
+setUp = "Set up backups"
+placeKind = "Back up to"
+folder = "Folder"
+chooseFolder = "Choose…"
+phoneFolder = "Backups go to this folder on the phone. Copy it to a computer now and then: it does not survive the phone itself."
+phoneHelp = "A copy of your notes and files on this phone, every day while the app is open."
+unchanged = "unchanged"
+repository = "Backup"
+new = "Start a new backup there"
+existing = "Use a backup already there"
+password = "Its password"
+newPassword = "Backup password"
+passwordAgain = "The same again"
+passwordWarning = "Keep this password safe, apart from your notes: without it nobody can open these backups, not even you."
+passwordNeeded = "Enter the password."
+passwordShort = "At least 8 characters."
+passwordsDiffer = "The two passwords differ."
+connecting = "Connecting…"
+start = "Start backing up"
+cancel = "Cancel"
+connected = "Backups are set up, the first one is done."
+foundTitle = "Backups are already here"
+foundOpened = "The backups are open. Pick one to restore your notes from."
+restoreFrom = "Restore from a backup"
+phoneFolderRestore = "This phone keeps its backups in this folder."
+looking = "Looking in the folder…"
+noneHere = "No backups in this folder."
+unreadable = "{app} is not allowed to read this folder. Check its permissions, or choose another folder."
+unreadablePhone = "Android keeps a new install of {app} out of the backups an earlier install made in this folder, until you allow it in. Choose Allow access, then Use this folder and Allow in the window that opens."
+allowFolder = "Allow access"
+foundStartHelp = "This folder holds backups from before. Keep backing up to them."
+useThem = "Use these backups"
+latestAsk = "Restore the latest backup, from {when}? It holds {notes}."
+latestRestore = "Restore it"
+sameAsNotes = "Use my notes password"
+notesPassword = "Your notes password"
+notesPasswordWrong = "That is not the password of your notes."
+foundOpenHelp = "These backups have no password. They take your notes password, the ones made before too."
+sameAsNotesHelp = "Anyone who learns this one password opens both your notes and your backups. Changing your notes password later does not change it for the backups made before."
+done = "Backed up."
+wrongPassword = "Wrong password for this backup."
+unprotected = "These backups have no password, but your notes do now. Stop backing up and start again to give them one."
+turnOn = "Turn on backups"
+
+[backups.notes]
+one = "{count} note"
+other = "{count} notes"
+
+[backups.files]
+one = "{count} file"
+other = "{count} files"
+
+[backups.checkOk]
+one = "Checked: {count} backup, {size}, nothing wrong."
+other = "Checked: {count} backups, {size}, nothing wrong."
+
+[backups.size]
+one = "{count} backup, {size} stored."
+other = "{count} backups, {size} stored."
 
 [pin]
 label = "PIN"
@@ -1940,10 +1943,6 @@ delete = "Delete"
 enter = "Enter"
 escape = "Esc"
 space = "Space"
-
-[list.withInner]
-one = "With the tags inside it, {count} note"
-other = "With the tags inside it, {count} notes"
 
 [tags]
 title = "Tags"
