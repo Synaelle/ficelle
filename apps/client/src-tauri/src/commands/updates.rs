@@ -115,11 +115,14 @@ fn page_only() -> bool {
 }
 
 /// See the Mac's [`page_only`]. On Linux only the AppImage replaces itself,
-/// a package (the AUR, Flathub) updates through the system.
+/// a package (the AUR, Flathub) updates through the system. A Flatpak is
+/// never an AppImage, even when `APPIMAGE` came in from the starting
+/// process's environment: its own files are read-only.
 #[cfg(not(target_os = "macos"))]
 fn page_only() -> bool {
     crate::portable::PORTABLE
-        || (cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_none())
+        || (cfg!(target_os = "linux")
+            && (std::env::var_os("APPIMAGE").is_none() || std::env::var_os("FLATPAK_ID").is_some()))
 }
 
 /// The repository's releases, `https://github.com/<owner>/<repo>/releases`,
