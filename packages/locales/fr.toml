@@ -230,6 +230,10 @@ swipeTrash = "Corbeille"
 one = "{count} note"
 other = "{count} notes"
 
+[list.withInner]
+one = "Avec les étiquettes dedans, {count} note"
+other = "Avec les étiquettes dedans, {count} notes"
+
 [note]
 bodyPlaceholder = "Commencez à écrire…"
 label = "Note"
@@ -367,6 +371,39 @@ encrypted = "Vos notes sont chiffrées."
 [settings.exported]
 one = "{count} note exportée."
 other = "{count} notes exportées."
+
+[settings.phone]
+groupLook = "Apparence et écriture"
+groupPrivacy = "Confidentialité"
+dataBackups = "Données et sauvegardes"
+listsOn = "Listes activées"
+listsOff = "Listes désactivées"
+encrypted = "Chiffrées, sur cet appareil"
+plain = "Non chiffrées, sur cet appareil"
+groupPassword = "Mot de passe et récupération"
+keyCreated = "Créée"
+keyNone = "Aucune"
+hideScreens = "Masquer des captures d’écran"
+
+[settings.way]
+device = "Sans rien demander (ancien)"
+guarded = "Déverrouiller avec {method}"
+password = "Mot de passe à chaque fois"
+plain = "Non chiffrées"
+pin = "Code PIN"
+
+[settings.wayHelp]
+device = "Quiconque utilise votre session ou votre téléphone déverrouillé peut les lire. Choisissez un autre moyen."
+guarded = "Votre code PIN, votre visage ou votre doigt, vérifiés par la puce de sécurité de cet appareil."
+password = "Rien sur cet appareil ne les ouvre sans lui."
+pin = "Un code PIN à 6 chiffres saisi dans l’app. Après 5 essais ratés, le mot de passe."
+
+[settings.waySet]
+device = ""
+guarded = "Vos notes s’ouvrent maintenant avec {method}."
+password = "Vos notes s’ouvrent maintenant avec le mot de passe."
+plain = ""
+pin = "Vos notes s’ouvrent maintenant avec votre code PIN."
 
 [backup]
 makeTitle = "Faire une sauvegarde"
@@ -856,19 +893,6 @@ needsUpdate = "{name} a besoin d’une mise à jour"
 updateThis = "Mettre à jour pour se synchroniser avec {name}"
 unreachable = "{name} est injoignable"
 
-[settings.phone]
-groupLook = "Apparence et écriture"
-groupPrivacy = "Confidentialité"
-dataBackups = "Données et sauvegardes"
-listsOn = "Listes activées"
-listsOff = "Listes désactivées"
-encrypted = "Chiffrées, sur cet appareil"
-plain = "Non chiffrées, sur cet appareil"
-groupPassword = "Mot de passe et récupération"
-keyCreated = "Créée"
-keyNone = "Aucune"
-hideScreens = "Masquer des captures d’écran"
-
 [feedback]
 retry = "Réessayer"
 unavailable_off = "L’admin de votre serveur a désactivé les retours."
@@ -921,6 +945,14 @@ state_done = "Traité"
 state_gone = "Plus conservé"
 state_unknown = "Serveur non joint"
 
+[feedback.imageCount]
+one = "{count} image"
+other = "{count} images"
+
+[feedback.tooManyImages]
+one = "{count} image au maximum."
+other = "{count} images au maximum."
+
 [errorReport]
 notice = "Une erreur s’est produite."
 report = "La signaler"
@@ -935,14 +967,6 @@ sentTo = "Envoyé à {host}."
 sent = "Merci, le rapport est envoyé."
 off = "Les rapports sont désactivés sur votre serveur de synchronisation. Vous pouvez écrire à {address} à la place."
 copyAddress = "Copier l’adresse"
-
-[feedback.imageCount]
-one = "{count} image"
-other = "{count} images"
-
-[feedback.tooManyImages]
-one = "{count} image au maximum."
-other = "{count} images au maximum."
 
 [admin]
 title = "Administration {app}"
@@ -1514,154 +1538,6 @@ mailOff = "Ce serveur n’envoie pas d’e-mails."
 emailInvalid = "Ce n’est pas une adresse e-mail."
 linkInvalid = "Ce lien est déjà utilisé, expiré, ou n’a jamais été envoyé. Demandez-en un nouveau."
 
-# e-mails envoyés par le serveur, en texte brut
-[mail]
-greeting = "Bonjour {name},"
-footer = "Ce message vient de {app} sur {host}. Si vous ne l’attendiez pas, vous pouvez l’ignorer."
-
-[mail.verify]
-subject = "Confirmez votre adresse e-mail"
-body = "Ouvrez ce lien dans la journée pour utiliser cette adresse pour votre compte {username} :\n\n{link}\n\nAvec une adresse confirmée, vous pourrez choisir un nouveau mot de passe par e-mail si vous oubliez le vôtre."
-
-[mail.reset]
-subject = "Choisir un nouveau mot de passe"
-body = "Quelqu’un a demandé à choisir un nouveau mot de passe pour votre compte {username}. Si c’était vous, ouvrez ce lien dans l’heure :\n\n{link}\n\nSi ce n’était pas vous, ignorez ce message, votre mot de passe reste tel quel."
-
-[mail.recover]
-subject = "Choisir un nouveau mot de passe avec votre code de récupération"
-body = "Quelqu’un a demandé à choisir un nouveau mot de passe pour votre compte {username}. Il est chiffré de bout en bout, personne ne peut donc réinitialiser son mot de passe par e-mail : seul votre code de récupération l’ouvre. Si vous l’avez, utilisez-le ici :\n\n{link}\n\nSi ce n’était pas vous, ignorez ce message."
-
-[mail.test]
-subject = "Un e-mail de test"
-body = "Cet e-mail de test a été envoyé depuis la page d’administration. Si vous le lisez, {app} sur {host} peut envoyer des e-mails : les vérifications d’adresse, les réinitialisations de mot de passe et les avis arriveront."
-
-[mail.password]
-subject = "Votre mot de passe a été changé"
-body = "Le mot de passe de votre compte {username} vient d’être changé grâce à un lien envoyé à cette adresse, et tous les appareils ont été déconnectés. Si ce n’était pas vous, contactez immédiatement les personnes qui gèrent ce serveur."
-
-[mail.code]
-subject = "Votre code de connexion"
-body = "Votre code pour vous connecter en tant que {username} est\n\n{code}\n\nIl est valable 10 minutes. Si vous n’êtes pas en train de vous connecter, quelqu’un a votre mot de passe : changez-le maintenant."
-
-[mail.deletion]
-subject = "Votre compte va être supprimé"
-body = "Votre compte {username} sera supprimé le {date}, avec tout ce que le serveur garde pour lui. Pour le garder, connectez-vous avant cette date et annulez la suppression."
-
-[reset]
-title = "Tout réinitialiser"
-open = "Tout réinitialiser…"
-help = "Supprime toutes les notes de cet appareil et recommence depuis le premier lancement."
-body = "Cela supprime de cet appareil chaque note et chaque étiquette, leurs fichiers et leur historique, ainsi que la connexion de cet appareil à un serveur."
-server = "Les notes déjà synchronisées avec un serveur restent sur le serveur, et reviennent quand vous vous reconnectez."
-final = "C’est irréversible."
-wait = "Tout réinitialiser ({count})"
-confirm = "Tout réinitialiser"
-
-[backups]
-schedule_off = "Seulement sur demande"
-schedule_hourly = "Toutes les heures"
-schedule_daily = "Tous les jours"
-schedule_weekly = "Toutes les semaines"
-keep_last = "Dernières gardées"
-keep_daily = "Jours gardés"
-keep_weekly = "Semaines gardées"
-keep_monthly = "Mois gardés"
-title = "Sauvegardes"
-list = "Afficher les sauvegardes"
-help = "Une copie de vos notes et fichiers dans un dossier, chaque jour tant que l’app est ouverte : une clé USB, ou un dossier OneDrive ou Google Drive."
-auto = "Sauvegarder automatiquement"
-restoreTitle = "Restaurer"
-restoreFile = "Restaurer depuis un fichier"
-failed = "La sauvegarde n’a pas abouti : {error}"
-overdue = "Aucune sauvegarde n’a abouti depuis un moment. Voir Réglages, Données et sauvegardes."
-status = "État"
-where = "Vers {where}"
-running = "Sauvegarde en cours…"
-lastFailed = "La dernière sauvegarde a échoué : {error}"
-lastSuccess = "Dernière sauvegarde {when} ({date})."
-never = "Pas encore de sauvegarde."
-backedUp = "Sauvegardé {when}"
-failedTitle = "La dernière sauvegarde a échoué"
-now = "Sauvegarder maintenant"
-check = "Vérifier"
-checkFull = "Vérifier chaque fichier"
-checkBad = "Quelque chose ne va pas avec les sauvegardes :"
-backups = "Sauvegardes"
-none = "Pas encore de sauvegarde."
-notThere = "Il n’y a plus de sauvegarde à cet emplacement : elle a été déplacée, ou son disque n’est pas branché."
-test = "Tester la restauration"
-restore = "Restaurer"
-restoreConfirm = "Restaurer la sauvegarde du {when} ? Les notes qui ne sont plus là reviennent, avec leur historique et leurs fichiers. Les notes présentes restent telles quelles."
-restored = "{notes} notes sont revenues, {skipped} étaient déjà là."
-when = "Programmation"
-schedule = "Sauvegarder"
-keepHelp = "Les dernières sauvegardes sont gardées, puis la plus récente de chaque jour, semaine et mois, les autres sont supprimées. La sauvegarde la plus récente est toujours gardée."
-save = "Enregistrer"
-saved = "Enregistré."
-place = "Emplacement"
-change = "Changer d’emplacement"
-stop = "Arrêter les sauvegardes"
-stopConfirm = "Arrêter les sauvegardes de cet appareil ? Les sauvegardes faites restent où elles sont."
-setUp = "Configurer les sauvegardes"
-placeKind = "Sauvegarder vers"
-folder = "Dossier"
-chooseFolder = "Choisir…"
-phoneFolder = "Les sauvegardes vont dans ce dossier du téléphone. Copiez-le sur un ordinateur de temps en temps : il ne survit pas au téléphone lui-même."
-phoneHelp = "Une copie de vos notes et fichiers sur ce téléphone, chaque jour tant que l’app est ouverte."
-unchanged = "inchangé"
-repository = "Sauvegarde"
-new = "Commencer une nouvelle sauvegarde à cet endroit"
-existing = "Utiliser une sauvegarde déjà présente"
-password = "Son mot de passe"
-newPassword = "Mot de passe de la sauvegarde"
-passwordAgain = "Le même à nouveau"
-passwordWarning = "Gardez ce mot de passe en lieu sûr, à part de vos notes : sans lui, personne ne peut ouvrir ces sauvegardes, pas même vous."
-passwordNeeded = "Saisissez le mot de passe."
-passwordShort = "Au moins 8 caractères."
-passwordsDiffer = "Les deux mots de passe sont différents."
-connecting = "Connexion…"
-start = "Commencer les sauvegardes"
-cancel = "Annuler"
-connected = "Les sauvegardes sont configurées, la première est faite."
-foundTitle = "Des sauvegardes sont déjà là"
-foundOpened = "Les sauvegardes sont ouvertes. Choisissez-en une pour y restaurer vos notes."
-restoreFrom = "Restaurer depuis une sauvegarde"
-phoneFolderRestore = "Ce téléphone garde ses sauvegardes dans ce dossier."
-looking = "Recherche dans le dossier…"
-noneHere = "Aucune sauvegarde dans ce dossier."
-unreadable = "{app} n’a pas le droit de lire ce dossier. Vérifiez ses autorisations, ou choisissez un autre dossier."
-unreadablePhone = "Android tient une nouvelle installation de {app} à l’écart des sauvegardes qu’une installation précédente a faites dans ce dossier, tant que vous ne l’y autorisez pas. Choisissez Autoriser l’accès, puis Utiliser ce dossier et Autoriser dans la fenêtre qui s’ouvre."
-allowFolder = "Autoriser l’accès"
-foundStartHelp = "Ce dossier contient des sauvegardes antérieures. Continuez à sauvegarder dedans."
-useThem = "Utiliser ces sauvegardes"
-latestAsk = "Restaurer la dernière sauvegarde ({when}) ? Elle contient {notes}."
-latestRestore = "La restaurer"
-sameAsNotes = "Utiliser le mot de passe de mes notes"
-notesPassword = "Le mot de passe de vos notes"
-notesPasswordWrong = "Ce n’est pas le mot de passe de vos notes."
-foundOpenHelp = "Ces sauvegardes n’ont pas de mot de passe. Elles prennent celui de vos notes, celles faites avant aussi."
-sameAsNotesHelp = "Quiconque apprend ce mot de passe unique ouvre à la fois vos notes et vos sauvegardes. Changer plus tard le mot de passe de vos notes ne le change pas pour les sauvegardes faites avant."
-done = "Sauvegardé."
-wrongPassword = "Mot de passe incorrect pour cette sauvegarde."
-unprotected = "Ces sauvegardes n’ont pas de mot de passe, alors que vos notes en ont un maintenant. Arrêtez les sauvegardes et recommencez pour leur en donner un."
-turnOn = "Activer les sauvegardes"
-
-[backups.notes]
-one = "{count} note"
-other = "{count} notes"
-
-[backups.files]
-one = "{count} fichier"
-other = "{count} fichiers"
-
-[backups.checkOk]
-one = "Vérifié : {count} sauvegarde, {size}, rien d’anormal."
-other = "Vérifié : {count} sauvegardes, {size}, rien d’anormal."
-
-[backups.size]
-one = "{count} sauvegarde, {size} stockés."
-other = "{count} sauvegardes, {size} stockés."
-
 [admin.backups]
 title = "Sauvegardes"
 help = "Sauvegardes de toute l’instance : sa base de données, sa clé et chaque fichier stocké, chiffrés avec un mot de passe à part, envoyés vers un emplacement de votre choix selon une programmation. Chaque sauvegarde ne stocke que ce qui a changé. Chacun sauvegarde aussi ses propres notes depuis son app."
@@ -1854,25 +1730,153 @@ other = "Supprimer définitivement ces {count} rapports et leurs images ?"
 one = "{count} rapport de cet expéditeur"
 other = "{count} rapports de cet expéditeur"
 
-[settings.way]
-device = "Sans rien demander (ancien)"
-guarded = "Déverrouiller avec {method}"
-password = "Mot de passe à chaque fois"
-plain = "Non chiffrées"
-pin = "Code PIN"
+# e-mails envoyés par le serveur, en texte brut
+[mail]
+greeting = "Bonjour {name},"
+footer = "Ce message vient de {app} sur {host}. Si vous ne l’attendiez pas, vous pouvez l’ignorer."
 
-[settings.wayHelp]
-device = "Quiconque utilise votre session ou votre téléphone déverrouillé peut les lire. Choisissez un autre moyen."
-guarded = "Votre code PIN, votre visage ou votre doigt, vérifiés par la puce de sécurité de cet appareil."
-password = "Rien sur cet appareil ne les ouvre sans lui."
-pin = "Un code PIN à 6 chiffres saisi dans l’app. Après 5 essais ratés, le mot de passe."
+[mail.verify]
+subject = "Confirmez votre adresse e-mail"
+body = "Ouvrez ce lien dans la journée pour utiliser cette adresse pour votre compte {username} :\n\n{link}\n\nAvec une adresse confirmée, vous pourrez choisir un nouveau mot de passe par e-mail si vous oubliez le vôtre."
 
-[settings.waySet]
-device = ""
-guarded = "Vos notes s’ouvrent maintenant avec {method}."
-password = "Vos notes s’ouvrent maintenant avec le mot de passe."
-plain = ""
-pin = "Vos notes s’ouvrent maintenant avec votre code PIN."
+[mail.reset]
+subject = "Choisir un nouveau mot de passe"
+body = "Quelqu’un a demandé à choisir un nouveau mot de passe pour votre compte {username}. Si c’était vous, ouvrez ce lien dans l’heure :\n\n{link}\n\nSi ce n’était pas vous, ignorez ce message, votre mot de passe reste tel quel."
+
+[mail.recover]
+subject = "Choisir un nouveau mot de passe avec votre code de récupération"
+body = "Quelqu’un a demandé à choisir un nouveau mot de passe pour votre compte {username}. Il est chiffré de bout en bout, personne ne peut donc réinitialiser son mot de passe par e-mail : seul votre code de récupération l’ouvre. Si vous l’avez, utilisez-le ici :\n\n{link}\n\nSi ce n’était pas vous, ignorez ce message."
+
+[mail.test]
+subject = "Un e-mail de test"
+body = "Cet e-mail de test a été envoyé depuis la page d’administration. Si vous le lisez, {app} sur {host} peut envoyer des e-mails : les vérifications d’adresse, les réinitialisations de mot de passe et les avis arriveront."
+
+[mail.password]
+subject = "Votre mot de passe a été changé"
+body = "Le mot de passe de votre compte {username} vient d’être changé grâce à un lien envoyé à cette adresse, et tous les appareils ont été déconnectés. Si ce n’était pas vous, contactez immédiatement les personnes qui gèrent ce serveur."
+
+[mail.code]
+subject = "Votre code de connexion"
+body = "Votre code pour vous connecter en tant que {username} est\n\n{code}\n\nIl est valable 10 minutes. Si vous n’êtes pas en train de vous connecter, quelqu’un a votre mot de passe : changez-le maintenant."
+
+[mail.deletion]
+subject = "Votre compte va être supprimé"
+body = "Votre compte {username} sera supprimé le {date}, avec tout ce que le serveur garde pour lui. Pour le garder, connectez-vous avant cette date et annulez la suppression."
+
+[reset]
+title = "Tout réinitialiser"
+open = "Tout réinitialiser…"
+help = "Supprime toutes les notes de cet appareil et recommence depuis le premier lancement."
+body = "Cela supprime de cet appareil chaque note et chaque étiquette, leurs fichiers et leur historique, ainsi que la connexion de cet appareil à un serveur."
+server = "Les notes déjà synchronisées avec un serveur restent sur le serveur, et reviennent quand vous vous reconnectez."
+final = "C’est irréversible."
+wait = "Tout réinitialiser ({count})"
+confirm = "Tout réinitialiser"
+
+[backups]
+schedule_off = "Seulement sur demande"
+schedule_hourly = "Toutes les heures"
+schedule_daily = "Tous les jours"
+schedule_weekly = "Toutes les semaines"
+keep_last = "Dernières gardées"
+keep_daily = "Jours gardés"
+keep_weekly = "Semaines gardées"
+keep_monthly = "Mois gardés"
+title = "Sauvegardes"
+list = "Afficher les sauvegardes"
+help = "Une copie de vos notes et fichiers dans un dossier, chaque jour tant que l’app est ouverte : une clé USB, ou un dossier OneDrive ou Google Drive."
+auto = "Sauvegarder automatiquement"
+restoreTitle = "Restaurer"
+restoreFile = "Restaurer depuis un fichier"
+failed = "La sauvegarde n’a pas abouti : {error}"
+overdue = "Aucune sauvegarde n’a abouti depuis un moment. Voir Réglages, Données et sauvegardes."
+status = "État"
+where = "Vers {where}"
+running = "Sauvegarde en cours…"
+lastFailed = "La dernière sauvegarde a échoué : {error}"
+lastSuccess = "Dernière sauvegarde {when} ({date})."
+never = "Pas encore de sauvegarde."
+backedUp = "Sauvegardé {when}"
+failedTitle = "La dernière sauvegarde a échoué"
+now = "Sauvegarder maintenant"
+check = "Vérifier"
+checkFull = "Vérifier chaque fichier"
+checkBad = "Quelque chose ne va pas avec les sauvegardes :"
+backups = "Sauvegardes"
+none = "Pas encore de sauvegarde."
+notThere = "Il n’y a plus de sauvegarde à cet emplacement : elle a été déplacée, ou son disque n’est pas branché."
+test = "Tester la restauration"
+restore = "Restaurer"
+restoreConfirm = "Restaurer la sauvegarde du {when} ? Les notes qui ne sont plus là reviennent, avec leur historique et leurs fichiers. Les notes présentes restent telles quelles."
+restored = "{notes} notes sont revenues, {skipped} étaient déjà là."
+when = "Programmation"
+schedule = "Sauvegarder"
+keepHelp = "Les dernières sauvegardes sont gardées, puis la plus récente de chaque jour, semaine et mois, les autres sont supprimées. La sauvegarde la plus récente est toujours gardée."
+save = "Enregistrer"
+saved = "Enregistré."
+place = "Emplacement"
+change = "Changer d’emplacement"
+stop = "Arrêter les sauvegardes"
+stopConfirm = "Arrêter les sauvegardes de cet appareil ? Les sauvegardes faites restent où elles sont."
+setUp = "Configurer les sauvegardes"
+placeKind = "Sauvegarder vers"
+folder = "Dossier"
+chooseFolder = "Choisir…"
+phoneFolder = "Les sauvegardes vont dans ce dossier du téléphone. Copiez-le sur un ordinateur de temps en temps : il ne survit pas au téléphone lui-même."
+phoneHelp = "Une copie de vos notes et fichiers sur ce téléphone, chaque jour tant que l’app est ouverte."
+unchanged = "inchangé"
+repository = "Sauvegarde"
+new = "Commencer une nouvelle sauvegarde à cet endroit"
+existing = "Utiliser une sauvegarde déjà présente"
+password = "Son mot de passe"
+newPassword = "Mot de passe de la sauvegarde"
+passwordAgain = "Le même à nouveau"
+passwordWarning = "Gardez ce mot de passe en lieu sûr, à part de vos notes : sans lui, personne ne peut ouvrir ces sauvegardes, pas même vous."
+passwordNeeded = "Saisissez le mot de passe."
+passwordShort = "Au moins 8 caractères."
+passwordsDiffer = "Les deux mots de passe sont différents."
+connecting = "Connexion…"
+start = "Commencer les sauvegardes"
+cancel = "Annuler"
+connected = "Les sauvegardes sont configurées, la première est faite."
+foundTitle = "Des sauvegardes sont déjà là"
+foundOpened = "Les sauvegardes sont ouvertes. Choisissez-en une pour y restaurer vos notes."
+restoreFrom = "Restaurer depuis une sauvegarde"
+phoneFolderRestore = "Ce téléphone garde ses sauvegardes dans ce dossier."
+looking = "Recherche dans le dossier…"
+noneHere = "Aucune sauvegarde dans ce dossier."
+unreadable = "{app} n’a pas le droit de lire ce dossier. Vérifiez ses autorisations, ou choisissez un autre dossier."
+unreadablePhone = "Android tient une nouvelle installation de {app} à l’écart des sauvegardes qu’une installation précédente a faites dans ce dossier, tant que vous ne l’y autorisez pas. Choisissez Autoriser l’accès, puis Utiliser ce dossier et Autoriser dans la fenêtre qui s’ouvre."
+allowFolder = "Autoriser l’accès"
+foundStartHelp = "Ce dossier contient des sauvegardes antérieures. Continuez à sauvegarder dedans."
+useThem = "Utiliser ces sauvegardes"
+latestAsk = "Restaurer la dernière sauvegarde ({when}) ? Elle contient {notes}."
+latestRestore = "La restaurer"
+sameAsNotes = "Utiliser le mot de passe de mes notes"
+notesPassword = "Le mot de passe de vos notes"
+notesPasswordWrong = "Ce n’est pas le mot de passe de vos notes."
+foundOpenHelp = "Ces sauvegardes n’ont pas de mot de passe. Elles prennent celui de vos notes, celles faites avant aussi."
+sameAsNotesHelp = "Quiconque apprend ce mot de passe unique ouvre à la fois vos notes et vos sauvegardes. Changer plus tard le mot de passe de vos notes ne le change pas pour les sauvegardes faites avant."
+done = "Sauvegardé."
+wrongPassword = "Mot de passe incorrect pour cette sauvegarde."
+unprotected = "Ces sauvegardes n’ont pas de mot de passe, alors que vos notes en ont un maintenant. Arrêtez les sauvegardes et recommencez pour leur en donner un."
+turnOn = "Activer les sauvegardes"
+
+[backups.notes]
+one = "{count} note"
+other = "{count} notes"
+
+[backups.files]
+one = "{count} fichier"
+other = "{count} fichiers"
+
+[backups.checkOk]
+one = "Vérifié : {count} sauvegarde, {size}, rien d’anormal."
+other = "Vérifié : {count} sauvegardes, {size}, rien d’anormal."
+
+[backups.size]
+one = "{count} sauvegarde, {size} stockés."
+other = "{count} sauvegardes, {size} stockés."
 
 [pin]
 label = "Code PIN"
@@ -1937,10 +1941,6 @@ delete = "Suppr"
 enter = "Entrée"
 escape = "Échap"
 space = "Espace"
-
-[list.withInner]
-one = "Avec les étiquettes dedans, {count} note"
-other = "Avec les étiquettes dedans, {count} notes"
 
 [tags]
 title = "Étiquettes"
