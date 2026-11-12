@@ -3,7 +3,9 @@
 //! Scheduled backups of this device: where, with which password, how
 //! often, what to keep, and how the runs went. Kept in the vault.
 
-use app_repo::{FolderTarget, Policy, S3Config, S3Target, Target, WebdavConfig, WebdavTarget};
+use app_repo::{FolderTarget, Policy, Target};
+#[cfg(not(target_family = "wasm"))]
+use app_repo::{S3Config, S3Target, WebdavConfig, WebdavTarget};
 use serde::{Deserialize, Serialize};
 
 use super::RunReport;
@@ -50,9 +52,11 @@ pub enum TargetConfig {
         /// Its path.
         path: String,
     },
-    /// An S3 bucket.
+    /// An S3 bucket. Not in the web version, a page cannot reach one.
+    #[cfg(not(target_family = "wasm"))]
     S3(S3Config),
     /// A `WebDAV` folder.
+    #[cfg(not(target_family = "wasm"))]
     Webdav(WebdavConfig),
 }
 
@@ -70,7 +74,9 @@ impl TargetConfig {
                 }
                 std::sync::Arc::new(FolderTarget::named(path, &folder_name(path), &readme()))
             }
+            #[cfg(not(target_family = "wasm"))]
             Self::S3(config) => std::sync::Arc::new(S3Target::new(config.clone())?),
+            #[cfg(not(target_family = "wasm"))]
             Self::Webdav(config) => std::sync::Arc::new(WebdavTarget::new(config)?),
         })
     }
@@ -80,10 +86,12 @@ impl TargetConfig {
     pub fn without_secrets(&self) -> Self {
         match self {
             Self::Folder { path } => Self::Folder { path: path.clone() },
+            #[cfg(not(target_family = "wasm"))]
             Self::S3(c) => Self::S3(S3Config {
                 secret_key: String::new(),
                 ..c.clone()
             }),
+            #[cfg(not(target_family = "wasm"))]
             Self::Webdav(c) => Self::Webdav(WebdavConfig {
                 password: String::new(),
                 ..c.clone()
@@ -96,10 +104,12 @@ impl TargetConfig {
     #[must_use]
     pub fn keeping_secrets_of(self, old: &Self) -> Self {
         match (self, old) {
+            #[cfg(not(target_family = "wasm"))]
             (Self::S3(mut new), Self::S3(old)) if new.secret_key.is_empty() => {
                 new.secret_key.clone_from(&old.secret_key);
                 Self::S3(new)
             }
+            #[cfg(not(target_family = "wasm"))]
             (Self::Webdav(mut new), Self::Webdav(old)) if new.password.is_empty() => {
                 new.password.clone_from(&old.password);
                 Self::Webdav(new)

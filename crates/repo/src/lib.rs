@@ -25,13 +25,16 @@
 
 pub mod chunk;
 mod error;
+#[cfg(not(target_family = "wasm"))]
 mod http;
 mod maintain;
+#[cfg(not(target_family = "wasm"))]
 mod s3;
 mod snapshot;
 pub mod target;
 #[cfg(feature = "testing")]
 pub mod testing;
+#[cfg(not(target_family = "wasm"))]
 mod webdav;
 mod writer;
 
@@ -47,11 +50,14 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
 pub use error::{Error, Result};
+#[cfg(not(target_family = "wasm"))]
 pub use http::host_of;
 pub use maintain::{CheckReport, Lock, PruneReport};
+#[cfg(not(target_family = "wasm"))]
 pub use s3::{S3Config, S3Target};
 pub use snapshot::{Item, Policy, Snapshot, keep};
 pub use target::{FolderTarget, Listed, Target};
+#[cfg(not(target_family = "wasm"))]
 pub use webdav::{WebdavConfig, WebdavTarget};
 pub use writer::{WriteStats, Writer};
 

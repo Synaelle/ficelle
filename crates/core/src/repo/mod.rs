@@ -6,8 +6,10 @@
 
 pub use app_repo::{
     CheckReport, FolderTarget, Index, Item, KdfParams, Listed, Location, Lock, Policy, PruneReport,
-    Repo, S3Config, Snapshot, Target, WebdavConfig, WriteStats, Writer, keep,
+    Repo, Snapshot, Target, WriteStats, Writer, keep,
 };
+#[cfg(not(target_family = "wasm"))]
+pub use app_repo::{S3Config, WebdavConfig};
 
 mod settings;
 mod vault;
