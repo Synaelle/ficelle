@@ -111,6 +111,42 @@ describe('saving a note written in another form', () => {
     for (const editor of [one, two, padded]) editor.destroy()
   })
 
+  it('a note with Windows line endings keeps them, and its form, around the line typed in', () => {
+    const windows = STORED.replace(/\n/g, '\r\n')
+    const editor = editorWith(windows)
+    const before = editor.getMarkdown()
+    typeAfter(editor, 'intro', ' x')
+    expect(asWritten(windows, before, editor.getMarkdown())).toBe(
+      windows.replace('intro', 'intro x'),
+    )
+    typeAfter(editor, 'after', ' y')
+    const saved = asWritten(windows, before, editor.getMarkdown())
+    expect(saved).toBe(windows.replace('intro', 'intro x').replace('after', 'after y'))
+    expect(saved.replace(/\r\n/g, '')).not.toMatch(/[\r\n]/)
+    // no line ending is made up after a last line that had none
+    expect(asWritten('* a\r\n\r\nend', '- a\n\nend', '- a\n\nend!')).toBe('* a\r\n\r\nend!')
+    editor.destroy()
+  })
+
+  it('a long note in another form on every block keeps it around the line typed in', () => {
+    const blocks = Array.from(
+      { length: 900 },
+      (_, n) =>
+        `Section ${n}\n----------\n\n__bold ${n}__ text of ${n}\n\n* item ${n}\n* other ${n}\n`,
+    )
+    const stored = blocks.join('\n')
+    const before = stored
+      .replace(/^(Section \d+)\n-+$/gm, '## $1')
+      .replace(/__/g, '**')
+      .replace(/^\* /gm, '- ')
+    expect(stored.split('\n').length).toBeGreaterThan(6000)
+    const now = before.replace('**bold 450** text of 450', '**bold 450** text of 450, typed')
+    const saved = asWritten(stored, before, now)
+    expect(saved).toBe(
+      stored.replace('__bold 450__ text of 450', '**bold 450** text of 450, typed'),
+    )
+  })
+
   it('a note already in the editor form is saved as the editor writes it', () => {
     const editor = editorWith('# Plan\n\n- a\n- b')
     const before = editor.getMarkdown()
