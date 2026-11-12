@@ -1,0 +1,30 @@
+name: New language
+description: Ask for Ficelle in a language it does not speak yet
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ficelle is translated on [Weblate](https://hosted.weblate.org/projects/ficelle/). A new language needs a small change in the app before it can be translated there, so ask here first. Once I have added it, anyone can translate it on Weblate.
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: Its name, and its code if you know it (de, pt-BR).
+      placeholder: German
+    validations:
+      required: true
+  - type: dropdown
+    id: helping
+    attributes:
+      label: Would you translate it?
+      options:
+        - Yes, I would translate it
+        - I can help with part of it
+        - No, I would like to use it
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: For example a regional variant, or words that need care in this language.
