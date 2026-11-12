@@ -17,14 +17,16 @@
 //! password; older ones may be unencrypted ([`Vault::encrypt`]). Both are
 //! given a password when opened.
 
-use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
 use crate::blobs::BlobStore;
 use crate::crypto::{DatabaseKey, KdfParams, WrappedKey};
 use crate::db;
+use crate::disk::{Disk, NativeDisk};
 use crate::error::{Error, Result};
 use crate::id::VaultId;
 use crate::keystore::KeyStore;
@@ -105,12 +107,18 @@ struct PinEntry {
 pub struct Vault {
     dir: PathBuf,
     meta: Meta,
+    disk: Arc<dyn Disk>,
 }
 
 impl Vault {
     /// Tells whether `dir` already holds a vault.
     pub fn exists(dir: &Path) -> bool {
-        dir.join(META_FILE).is_file()
+        Self::exists_on(&NativeDisk, dir)
+    }
+
+    /// Tells whether `dir` of `disk` already holds a vault.
+    pub fn exists_on(disk: &dyn Disk, dir: &Path) -> bool {
+        disk.exists(&dir.join(META_FILE))
     }
 
     /// Creates a vault in `dir` (created if missing) and returns it unlocked.
@@ -119,19 +127,33 @@ impl Vault {
     ///
     /// Fails if a vault already exists there, or on file and database errors.
     pub fn create(dir: &Path, encryption: Encryption<'_>) -> Result<(Self, Store)> {
-        if Self::exists(dir) {
+        Self::create_on(Arc::new(NativeDisk), dir, encryption)
+    }
+
+    /// Creates a vault in `dir` of `disk`, see [`Vault::create`].
+    ///
+    /// # Errors
+    ///
+    /// Fails if a vault already exists there, or on file and database errors.
+    pub fn create_on(
+        disk: Arc<dyn Disk>,
+        dir: &Path,
+        encryption: Encryption<'_>,
+    ) -> Result<(Self, Store)> {
+        if Self::exists_on(disk.as_ref(), dir) {
             return Err(Error::Invalid(
                 "a vault already exists in this folder".into(),
             ));
         }
         // a database without metadata is left from another vault, adopting
         // it would mix that vault's notes (and encryption) into this one
-        if dir.join(DB_FILE).exists() {
+        if disk.exists(&dir.join(DB_FILE)) {
             return Err(Error::Invalid(
                 "this folder holds a database from another vault".into(),
             ));
         }
-        std::fs::create_dir_all(dir)?;
+        // the database file opens there before anything else is written
+        disk.make_folder(dir)?;
         let mut keep_in = None;
         let (key, wrapped_key) = match encryption {
             Encryption::Off => (None, None),
@@ -150,6 +172,7 @@ impl Vault {
         };
         let vault = Self {
             dir: dir.to_owned(),
+            disk,
             meta: Meta {
                 format: FORMAT,
                 id: VaultId::new(),
@@ -174,7 +197,17 @@ impl Vault {
     ///
     /// Fails if there is no vault or its metadata is unreadable.
     pub fn open(dir: &Path) -> Result<Self> {
-        let text = std::fs::read_to_string(dir.join(META_FILE))?;
+        Self::open_on(Arc::new(NativeDisk), dir)
+    }
+
+    /// Reads the vault in `dir` of `disk`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if there is no vault or its metadata is unreadable.
+    pub fn open_on(disk: Arc<dyn Disk>, dir: &Path) -> Result<Self> {
+        let mut text = String::new();
+        disk.open(&dir.join(META_FILE))?.read_to_string(&mut text)?;
         let meta: Meta =
             serde_json::from_str(&text).map_err(|err| Error::Corrupt(err.to_string()))?;
         if meta.format > FORMAT {
@@ -185,6 +218,7 @@ impl Vault {
         let vault = Self {
             dir: dir.to_owned(),
             meta,
+            disk,
         };
         vault.settle_encrypting()?;
         Ok(vault)
@@ -223,7 +257,11 @@ impl Vault {
         } else {
             None
         };
-        Ok(BlobStore::new(self.dir.join(BLOBS_DIR), key))
+        Ok(BlobStore::on(
+            self.disk.clone(),
+            self.dir.join(BLOBS_DIR),
+            key,
+        ))
     }
 
     /// Opens an unencrypted vault.
@@ -418,10 +456,8 @@ impl Vault {
         let key = DatabaseKey::generate()?;
         let enc = self.dir.join(ENC_DB);
         let enc_blobs = self.dir.join(ENC_BLOBS);
-        remove_if_there(&enc)?;
-        if enc_blobs.is_dir() {
-            fs::remove_dir_all(&enc_blobs)?;
-        }
+        self.disk.remove(&enc)?;
+        self.disk.remove_all(&enc_blobs)?;
         let conn = store.conn();
         conn.execute(
             "ATTACH DATABASE ?1 AS encrypted KEY ?2",
@@ -433,10 +469,10 @@ impl Vault {
         conn.pragma_update(Some("encrypted"), "user_version", version)?;
         conn.execute("DETACH DATABASE encrypted", [])?;
         drop(store);
-        let plain = BlobStore::new(self.dir.join(BLOBS_DIR), None);
+        let plain = BlobStore::on(self.disk.clone(), self.dir.join(BLOBS_DIR), None);
         {
             let mut encrypted = Store::new(db::open(&enc, Some(&key))?);
-            let files = BlobStore::new(enc_blobs, Some(encrypted.blob_key()?));
+            let files = BlobStore::on(self.disk.clone(), enc_blobs, Some(encrypted.blob_key()?));
             for sha in plain.names()? {
                 if let Some(mut reader) = plain.open(&sha)? {
                     files.put_known(&sha, &mut reader)?;
@@ -454,29 +490,26 @@ impl Vault {
     fn settle_encrypting(&self) -> Result<()> {
         let enc = self.dir.join(ENC_DB);
         let enc_blobs = self.dir.join(ENC_BLOBS);
-        if !enc.exists() && !enc_blobs.exists() {
+        let disk = &self.disk;
+        if !disk.exists(&enc) && !disk.exists(&enc_blobs) {
             return Ok(());
         }
         if !self.is_encrypted() {
             // vault.json never said so: the plain vault is the real one
-            remove_if_there(&enc)?;
-            if enc_blobs.is_dir() {
-                fs::remove_dir_all(&enc_blobs)?;
-            }
+            disk.remove(&enc)?;
+            disk.remove_all(&enc_blobs)?;
             return Ok(());
         }
-        if enc.exists() {
+        if disk.exists(&enc) {
             for name in [DB_FILE, "notes.db-wal", "notes.db-shm", "notes.db-journal"] {
-                remove_if_there(&self.dir.join(name))?;
+                disk.remove(&self.dir.join(name))?;
             }
-            fs::rename(&enc, self.db_path())?;
+            disk.rename(&enc, &self.db_path())?;
         }
-        if enc_blobs.is_dir() {
+        if disk.exists(&enc_blobs) {
             let blobs = self.dir.join(BLOBS_DIR);
-            if blobs.is_dir() {
-                fs::remove_dir_all(&blobs)?;
-            }
-            fs::rename(&enc_blobs, blobs)?;
+            disk.remove_all(&blobs)?;
+            disk.rename(&enc_blobs, &blobs)?;
         }
         Ok(())
     }
@@ -616,21 +649,33 @@ impl Vault {
     ///
     /// When a file cannot be removed, the ones before it are gone.
     pub fn destroy(dir: &Path) -> Result<()> {
+        Self::destroy_on(&NativeDisk, dir)
+    }
+
+    /// Deletes the vault in `dir` of `disk`, see [`Vault::destroy`].
+    ///
+    /// # Errors
+    ///
+    /// When a file cannot be removed, the ones before it are gone.
+    pub fn destroy_on(disk: &dyn Disk, dir: &Path) -> Result<()> {
         // the database first: once it is gone there is no vault to open
         for name in [DB_FILE, "notes.db-wal", "notes.db-shm", "notes.db-journal"] {
-            remove_if_there(&dir.join(name))?;
+            disk.remove(&dir.join(name))?;
         }
         for name in [BLOBS_DIR, "themes"] {
-            let path = dir.join(name);
-            if path.is_dir() {
-                fs::remove_dir_all(&path)?;
+            disk.remove_all(&dir.join(name))?;
+        }
+        // a vault.json write a crash cut short
+        for path in disk.list(dir)? {
+            let name = path.file_name().unwrap_or_default().to_string_lossy();
+            if name.starts_with("vault.") && name.ends_with(".tmp") {
+                disk.remove(&path)?;
             }
         }
-        remove_if_there(&dir.join(format!("{META_FILE}.tmp")))?;
-        remove_if_there(&dir.join(META_FILE))?;
+        disk.remove(&dir.join(META_FILE))?;
         // an empty folder goes too, one with other things in it stays
-        if dir.is_dir() && fs::read_dir(dir)?.next().is_none() {
-            fs::remove_dir(dir)?;
+        if disk.exists(dir) && disk.list(dir)?.is_empty() {
+            disk.remove_all(dir)?;
         }
         Ok(())
     }
@@ -743,18 +788,9 @@ impl Vault {
     fn write_meta(&self) -> Result<()> {
         let text = serde_json::to_string_pretty(&self.meta)
             .map_err(|err| Error::Corrupt(err.to_string()))?;
-        // write then rename so a crash never leaves a truncated file
-        let tmp = self.dir.join(format!("{META_FILE}.tmp"));
-        std::fs::write(&tmp, text)?;
-        std::fs::rename(&tmp, self.dir.join(META_FILE))?;
-        Ok(())
-    }
-}
-
-fn remove_if_there(path: &Path) -> Result<()> {
-    match fs::remove_file(path) {
-        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.into()),
-        _ => Ok(()),
+        self.disk.write(&self.dir.join(META_FILE), &mut |out| {
+            Ok(out.write_all(text.as_bytes())?)
+        })
     }
 }
 
@@ -763,6 +799,7 @@ mod tests {
     use super::*;
     use crate::keystore::MemoryKeyStore;
     use crate::store::NewNote;
+    use std::fs;
 
     const KDF: KdfParams = KdfParams::INSECURE_FOR_TESTS;
 

@@ -30,6 +30,7 @@ pub mod blobs;
 pub mod clock;
 pub mod crypto;
 pub mod db;
+pub mod disk;
 pub mod error;
 pub mod export;
 pub mod id;

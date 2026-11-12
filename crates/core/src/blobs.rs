@@ -16,6 +16,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use app_e2ee::{CHUNK, FILE_FORMAT, FILE_HEADER, FilesKey, Opener, SEALED_CHUNK, Sealer};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
@@ -24,7 +25,7 @@ use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
-use crate::crypto::random_bytes;
+use crate::disk::{Disk, NativeDisk};
 use crate::error::{Error, Result};
 use crate::export::AttachmentSource;
 
@@ -110,6 +111,7 @@ fn read_full(source: &mut dyn Read, buf: &mut [u8]) -> std::io::Result<usize> {
 pub struct BlobStore {
     dir: PathBuf,
     key: Option<Zeroizing<[u8; 32]>>,
+    disk: Arc<dyn Disk>,
 }
 
 impl std::fmt::Debug for BlobStore {
@@ -117,14 +119,20 @@ impl std::fmt::Debug for BlobStore {
         f.debug_struct("BlobStore")
             .field("dir", &self.dir)
             .field("encrypted", &self.key.is_some())
+            .field("disk", &self.disk)
             .finish()
     }
 }
 
 impl BlobStore {
-    /// Opens the store in `dir`. With a key, files are encrypted.
+    /// Opens the store in the folder `dir`. With a key, files are encrypted.
     pub fn new(dir: PathBuf, key: Option<Zeroizing<[u8; 32]>>) -> Self {
-        Self { dir, key }
+        Self::on(Arc::new(NativeDisk), dir, key)
+    }
+
+    /// Opens the store in `dir` of `disk`.
+    pub fn on(disk: Arc<dyn Disk>, dir: PathBuf, key: Option<Zeroizing<[u8; 32]>>) -> Self {
+        Self { dir, key, disk }
     }
 
     fn files_key(&self) -> Option<FilesKey> {
@@ -159,7 +167,7 @@ impl BlobStore {
     ///
     /// Crypto errors naming the file.
     pub fn has(&self, sha256: &str) -> Result<bool> {
-        Ok(self.path(sha256)?.exists())
+        Ok(self.disk.exists(&self.path(sha256)?))
     }
 
     /// Stores bytes and returns their hash. Storing the same content twice
@@ -195,30 +203,14 @@ impl BlobStore {
     /// crypto errors.
     pub fn put_known(&self, sha256: &str, source: &mut dyn Read) -> Result<()> {
         let path = self.path(sha256)?;
-        if path.exists() {
+        if self.disk.exists(&path) {
             return Ok(());
         }
-        let parent = path
-            .parent()
-            .ok_or_else(|| Error::Corrupt("blob path has no parent".into()))?;
-        std::fs::create_dir_all(parent)?;
-        let suffix = hex(&random_bytes::<6>()?);
-        let tmp = path.with_extension(format!("{suffix}.tmp"));
-        let written = self.write_to(&tmp, sha256, source);
-        match written {
-            Ok(()) => {
-                std::fs::rename(&tmp, &path)?;
-                Ok(())
-            }
-            Err(e) => {
-                let _ = std::fs::remove_file(&tmp);
-                Err(e)
-            }
-        }
+        self.disk
+            .write(&path, &mut |out| self.write_to(out, sha256, source))
     }
 
-    fn write_to(&self, tmp: &Path, sha256: &str, source: &mut dyn Read) -> Result<()> {
-        let mut out = std::io::BufWriter::new(File::create(tmp)?);
+    fn write_to(&self, out: &mut dyn Write, sha256: &str, source: &mut dyn Read) -> Result<()> {
         let mut hasher = Sha256::new();
         let mut sealer = self.files_key().map(|k| Sealer::new(&k, sha256));
         if let Some(s) = &sealer {
@@ -253,9 +245,6 @@ impl BlobStore {
                 "attachment content does not match its hash".into(),
             ));
         }
-        out.into_inner()
-            .map_err(|e| Error::Io(e.into_error()))?
-            .sync_all()?;
         Ok(())
     }
 
@@ -283,12 +272,12 @@ impl BlobStore {
     /// File or crypto errors, a file of an unknown format.
     pub fn open(&self, sha256: &str) -> Result<Option<BlobReader>> {
         let path = self.path(sha256)?;
-        let mut file = match File::open(&path) {
+        let mut file = match self.disk.open(&path) {
             Ok(file) => file,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(err) => return Err(err.into()),
         };
-        let len = file.metadata()?.len();
+        let len = self.disk.len(&path)?;
         let source = match self.files_key() {
             None => Source::Plain(BufReader::new(file)),
             Some(files) => {
@@ -328,7 +317,7 @@ impl BlobStore {
     }
 
     /// A file sealed whole by the first versions, its version byte already read.
-    fn open_v1(&self, mut file: File, sha256: &str) -> Result<Zeroizing<Vec<u8>>> {
+    fn open_v1(&self, mut file: Box<dyn Read + Send>, sha256: &str) -> Result<Zeroizing<Vec<u8>>> {
         let key = self.key.as_ref().ok_or(Error::Crypto)?;
         let mut raw = Vec::new();
         file.read_to_end(&mut raw)?;
@@ -357,12 +346,12 @@ impl BlobStore {
     /// File errors, a size no file of its format has.
     pub fn size(&self, sha256: &str) -> Result<Option<u64>> {
         let path = self.path(sha256)?;
-        let mut file = match File::open(&path) {
+        let mut file = match self.disk.open(&path) {
             Ok(file) => file,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(err) => return Err(err.into()),
         };
-        let len = file.metadata()?.len();
+        let len = self.disk.len(&path)?;
         if self.key.is_none() {
             return Ok(Some(len));
         }
@@ -389,8 +378,8 @@ impl BlobStore {
             return Err(Error::Invalid("an encrypted store hides its names".into()));
         }
         let mut names = Vec::new();
-        for shard in read_dir_or_empty(&self.dir)? {
-            for file in read_dir_or_empty(&shard)? {
+        for shard in self.disk.list(&self.dir)? {
+            for file in self.disk.list(&shard)? {
                 let name = file
                     .file_name()
                     .map(|n| n.to_string_lossy().into_owned())
@@ -415,8 +404,8 @@ impl BlobStore {
             .map(|sha| self.file_name(sha))
             .collect::<Result<_>>()?;
         let mut removed = 0;
-        for shard in read_dir_or_empty(&self.dir)? {
-            for file in read_dir_or_empty(&shard)? {
+        for shard in self.disk.list(&self.dir)? {
+            for file in self.disk.list(&shard)? {
                 let name = file
                     .file_name()
                     .map(|n| n.to_string_lossy().into_owned())
@@ -425,13 +414,12 @@ impl BlobStore {
                 let fresh = Path::new(&name)
                     .extension()
                     .is_some_and(|ext| ext.eq_ignore_ascii_case("tmp"))
-                    && std::fs::metadata(&file)
-                        .and_then(|m| m.modified())
-                        .ok()
-                        .and_then(|t| t.elapsed().ok())
+                    && self
+                        .disk
+                        .age(&file)
                         .is_some_and(|age| age < std::time::Duration::from_hours(24));
                 if !keep.contains(&name) && !fresh {
-                    std::fs::remove_file(&file)?;
+                    self.disk.remove(&file)?;
                     removed += 1;
                 }
             }
@@ -450,10 +438,10 @@ fn corrupt_or_io(err: std::io::Error) -> Error {
 }
 
 enum Source {
-    Plain(BufReader<File>),
+    Plain(BufReader<Box<dyn Read + Send>>),
     Whole(std::io::Cursor<Zeroizing<Vec<u8>>>),
     Sealed {
-        file: BufReader<File>,
+        file: BufReader<Box<dyn Read + Send>>,
         opener: Opener,
         /// Sealed bytes not read yet.
         left: u64,
@@ -537,14 +525,6 @@ impl Read for BlobReader {
         buf[..n].copy_from_slice(&self.chunk[self.at..self.at + n]);
         self.at += n;
         Ok(n)
-    }
-}
-
-fn read_dir_or_empty(dir: &Path) -> Result<Vec<PathBuf>> {
-    match std::fs::read_dir(dir) {
-        Ok(entries) => Ok(entries.filter_map(|e| e.ok().map(|e| e.path())).collect()),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
-        Err(err) => Err(err.into()),
     }
 }
 
