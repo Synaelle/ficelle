@@ -67,6 +67,23 @@ for (const key of used) {
 for (const key of Object.keys(english)) {
   if (!isUsed(key)) warnings.push(`en: not used by any code: ${key}`)
 }
+const FORMS = ['zero', 'one', 'two', 'few', 'many', 'other']
+/** `files.inNote` for `files.inNote.few` when English has that plural, else null. */
+const pluralBase = (/** @type {string} */ key) => {
+  const at = key.lastIndexOf('.')
+  const base = key.slice(0, at)
+  return FORMS.includes(key.slice(at + 1)) && `${base}.other` in english ? base : null
+}
+/** The plural forms a language needs beyond one and other. "many" only for
+ * millions (French, Spanish) falls back to other well enough. */
+const extraForms = (/** @type {string} */ code) => {
+  const rules = new Intl.PluralRules(code)
+  const small = new Set(Array.from({ length: 200 }, (_, n) => rules.select(n)))
+  return rules
+    .resolvedOptions()
+    .pluralCategories.filter((form) => form !== 'one' && form !== 'other' && small.has(form))
+}
+
 for (const [code, strings] of Object.entries(locales)) {
   if (code === 'en') continue
   // a text empty in English shows nothing, there is nothing to translate
@@ -79,7 +96,16 @@ for (const [code, strings] of Object.entries(locales)) {
       errors.push(`${code}: placeholders differ from English in ${key}`)
   }
   for (const key of Object.keys(strings)) {
-    if (!(key in english)) warnings.push(`${code}: not in English, remove it: ${key}`)
+    if (!(key in english) && !pluralBase(key))
+      warnings.push(`${code}: not in English, remove it: ${key}`)
+  }
+  // Polish says 2 notatki but 5 notatek: its plurals need forms English has not
+  for (const form of extraForms(code)) {
+    for (const key of Object.keys(english)) {
+      const base = key.endsWith('.other') && key.slice(0, -'.other'.length)
+      if (base && `${base}.other` in strings && !(`${base}.${form}` in strings))
+        warnings.push(`${code}: plural form missing: ${base}.${form}`)
+    }
   }
 }
 
