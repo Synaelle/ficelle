@@ -89,6 +89,8 @@
     const first = prefs.openNoteFirst ? workspace.notes.find((n) => n.id === open) : undefined
     return first ? [first, ...workspace.notes.filter((n) => n !== first)] : workspace.notes
   })
+  /** Some note listed has tags: every row gets their line. */
+  const withTags = $derived(listed.some((note) => note.tags.length > 0))
 
   async function changeSort(sort: NoteSort) {
     prefs.sort = sort
@@ -427,15 +429,22 @@
                   >{/if}
                 <span class="name">{note.title || t('note.untitled')}</span>
               </span>
-              <span class="snippet"
-                ><!-- the tags lead the preview's line: rows keep one height -->{#each note.tags as tag (tag)}
-                  {@const color = workspace.tags.find((o) => o.name === tag)?.color}
-                  <span class="row-tag"
-                    >{tagLabel(tag)}{#if color}<span class="tag-mark" data-color={color}
-                      ></span>{/if}</span
-                  >
-                {/each}{note.snippet}</span
-              >
+              <span class="snippet">{note.snippet}</span>
+              <!-- the list measures one row for all: when any note has tags,
+                   every row keeps the line for them -->
+              {#if withTags}
+                <span class="chips">
+                  {#each note.tags as tag (tag)}
+                    {@const color = workspace.tags.find((o) => o.name === tag)?.color}
+                    <span class="chip" title={tagLabel(tag)}
+                      >{#if color}<span class="tag-mark" data-color={color}
+                        ></span>{/if}{prefs.tagMark === 'hash'
+                        ? `#${tagLeaf(tag)}`
+                        : tagLeaf(tag)}</span
+                    >
+                  {/each}
+                </span>
+              {/if}
               <span class="date">{when(note.updatedAt)}</span>
             </button>
             {#if trash}
@@ -686,13 +695,26 @@
     display: inline-flex;
     color: var(--color-accent);
   }
-  .row-tag {
+  .chips {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: var(--space-1);
+    min-height: 19px;
+    margin-top: 2px;
+    overflow: hidden;
+  }
+  .chip {
     display: inline-flex;
+    flex: none;
     align-items: center;
-    gap: 4px;
-    margin-right: var(--space-2);
-    font-family: var(--font-mono);
+    gap: 5px;
+    padding: 1px 6px;
+    border-radius: var(--radius-chip);
+    background: var(--color-surface-2);
     font-size: 12px;
+    line-height: 17px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
   }
   .inner {
     margin: 0;
