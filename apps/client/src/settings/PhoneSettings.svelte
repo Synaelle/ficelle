@@ -369,12 +369,15 @@
     onclick={(e) => r.run(e)}
   >
     <span class="tile"><Icon name={r.icon} size={16} /></span>
-    <span class="label">{r.label}</span>
+    <!-- the value under its label: long words in any language keep room -->
+    <span class="text">
+      <span class="label">{r.label}</span>
+      {#if r.on === undefined && r.value}<span class="value">{r.value}</span>{/if}
+    </span>
     {#if r.on !== undefined}
       <Switch drawn checked={r.on} />
-    {:else}
-      {#if r.value}<span class="value">{r.value}</span>{/if}
-      {#if !r.action}<Icon name="right" size={16} />{/if}
+    {:else if !r.action}
+      <Icon name="right" size={16} />
     {/if}
   </button>
 {/snippet}
@@ -820,20 +823,23 @@
   }
   /* with a large text size the value gives way first, cut short, and the
      label wraps if it still has no room: never drawn over each other */
-  .label {
+  .text {
     flex: 1 1 auto;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-2) 0;
+  }
+  .label {
     overflow-wrap: anywhere;
+    hyphens: auto;
   }
   .value {
-    flex: 0 10 auto;
-    min-width: 3em;
-    max-width: 45%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     color: var(--color-text-muted);
-    font-size: 15px;
+    font-size: 14px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
   }
   /* a value in a shared row (About): nothing else beside it to give way to */
   :global(.settings-row) .value {
