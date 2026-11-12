@@ -100,6 +100,45 @@ fn notes_tags_and_pins_reach_the_other_device_and_nothing_echoes() {
 }
 
 #[test]
+fn choices_follow_to_the_other_device_the_newest_winning_and_defaults_never_travel() {
+    let (mut a, clock_a) = device(1_000_000);
+    let (mut b, clock_b) = device(1_000_000);
+    // a new device that never chose anything sends no setting
+    meet(&mut a, &mut b);
+    assert!(a.synced_settings().unwrap().is_empty());
+    a.set_synced_setting("sort", "\"titleAsc\"").unwrap();
+    a.set_synced_setting("autoLists", "false").unwrap();
+    let outbox = b.sync_outbox(usize::MAX).unwrap().len();
+    meet(&mut a, &mut b);
+    assert_eq!(
+        b.synced_settings().unwrap(),
+        vec![
+            ("autoLists".into(), "false".into()),
+            ("sort".into(), "\"titleAsc\"".into()),
+        ]
+    );
+    assert_eq!(
+        b.sync_outbox(usize::MAX).unwrap().len(),
+        outbox,
+        "taking a choice in queued nothing of its own"
+    );
+    // both change the same one apart: after meeting they agree on one
+    clock_a.advance(MINUTE);
+    a.set_synced_setting("sort", "\"updatedDesc\"").unwrap();
+    clock_b.advance(2 * MINUTE);
+    b.set_synced_setting("sort", "\"createdDesc\"").unwrap();
+    meet(&mut a, &mut b);
+    assert_eq!(a.synced_settings().unwrap(), b.synced_settings().unwrap());
+    // setting the same value again writes nothing
+    let before = a.peer_write_mark().unwrap();
+    let now = a.synced_settings().unwrap();
+    let (_, sort) = now.iter().find(|(k, _)| k == "sort").unwrap();
+    a.set_synced_setting("sort", sort).unwrap();
+    assert_eq!(a.peer_write_mark().unwrap(), before);
+    assert!(a.set_synced_setting("sort", "not json").is_err());
+}
+
+#[test]
 fn the_write_mark_moves_with_each_change_made_here_and_only_then() {
     let (mut a, _) = device(1_000_000);
     let (mut b, _) = device(1_000_000);

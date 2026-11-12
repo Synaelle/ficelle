@@ -87,6 +87,28 @@ pub(super) fn tags_registry(conn: &Connection, docs: &mut Docs) -> Result<()> {
     Ok(())
 }
 
+/// The person's choices that follow them into their own space, each a JSON
+/// value by its name. A choice taken back on a device leaves the map.
+pub(super) fn settings(conn: &Connection, docs: &mut Docs) -> Result<()> {
+    let space = docs.get(conn, &doc_key("", SPACE))?;
+    let map = space.get_map("settings");
+    let wanted: HashMap<String, String> = {
+        let mut stmt = conn.prepare("SELECT key, value FROM synced_settings")?;
+        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?
+    };
+    for key in map.keys().map(|k| k.to_string()).collect::<Vec<_>>() {
+        if !wanted.contains_key(&key) {
+            map.delete(&key).map_err(sync_error)?;
+        }
+    }
+    for (key, value) in wanted {
+        put(&map, &key, LoroValue::String(value.into()))?;
+    }
+    space.commit();
+    Ok(())
+}
+
 /// The map of one note in the space, created on first use.
 pub(super) fn entry(space: &LoroDoc, note: NoteId) -> Result<LoroMap> {
     space

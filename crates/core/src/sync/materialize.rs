@@ -430,7 +430,8 @@ pub(super) fn note(
 pub(super) struct Touched {
     /// The folder tree.
     pub folders: bool,
-    /// Tags made on their own and colour marks.
+    /// The person's own lists: tags made on their own and colour marks,
+    /// and the choices that follow them to every device.
     pub registry: bool,
     /// Notes whose entry changed.
     pub notes: HashSet<NoteId>,
@@ -459,7 +460,7 @@ pub(super) fn touched(space: &loro::LoroDoc, before: &loro::Frontiers) -> Option
         };
         match first.as_str() {
             "folders" => out.folders = true,
-            "tags" => out.registry = true,
+            "tags" | "settings" => out.registry = true,
             "notes" if path.len() == 1 => {
                 // entries added or replaced
                 let loro::event::Diff::Map(map) = diff else {
@@ -498,6 +499,7 @@ pub(super) fn some(
     }
     if touched.registry {
         registry(conn, docs, space_id, now)?;
+        settings(conn, docs, space_id)?;
     }
     if touched.tags || touched.registry {
         tag_spellings(conn, docs)?;
@@ -523,7 +525,27 @@ pub(super) fn all(
         note(conn, docs, space_id, id, now)?;
     }
     registry(conn, docs, space_id, now)?;
+    settings(conn, docs, space_id)?;
     tag_spellings(conn, docs)
+}
+
+/// The choices that follow the person, from their own space.
+pub(super) fn settings(conn: &Connection, docs: &mut Docs, space_id: &str) -> Result<()> {
+    if !space_id.is_empty() {
+        return Ok(());
+    }
+    let space = docs.get(conn, &doc_key(space_id, SPACE))?;
+    let map = space.get_map("settings");
+    conn.execute("DELETE FROM synced_settings", [])?;
+    for key in map.keys() {
+        if let Some(ValueOrContainer::Value(LoroValue::String(value))) = map.get(&key) {
+            conn.execute(
+                "INSERT INTO synced_settings (key, value) VALUES (?1, ?2)",
+                params![key.to_string(), value.to_string()],
+            )?;
+        }
+    }
+    Ok(())
 }
 
 /// Tags made on their own and colour marks, kept in the person's own space

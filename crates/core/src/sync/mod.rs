@@ -451,6 +451,12 @@ pub(crate) fn flush(conn: &Connection, docs: &mut Docs, now: Timestamp) -> Resul
         spaces.push("");
         tags_changed = true;
     }
+    if touched.iter().any(|(kind, _, _)| kind == "settings") {
+        record::settings(conn, docs)?;
+        if !spaces.contains(&"") {
+            spaces.push("");
+        }
+    }
     for (kind, space, id) in &touched {
         if kind != "note" {
             continue;

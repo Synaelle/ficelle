@@ -17,6 +17,7 @@ mod links;
 mod notes;
 mod peers;
 mod search;
+mod settings;
 mod spaces;
 mod sync;
 mod tags;

@@ -107,6 +107,10 @@ const MIGRATIONS: &[Migration] = &[
         sql: include_str!("db/020_peers.sql"),
         then: None,
     },
+    Migration {
+        sql: include_str!("db/021_synced_settings.sql"),
+        then: None,
+    },
 ];
 
 /// Opens or creates the database at `path`. With a key the file is encrypted
