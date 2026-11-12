@@ -21,6 +21,12 @@
 - Images work like in a word processor.
 - Every note keeps its earlier versions.
 
+# Sync
+
+Your devices sync directly with each other on the same network, and you can run your own sync server for everywhere else.
+
+I don't host a sync server for everyone, and I don't plan to. Keeping other people's notes on a server I run would make me legally responsible for them. Under European law that means answering requests to see or delete data, reporting breaches within days, replying to requests from authorities, and dealing with complaints about what people store, even when the notes are encrypted and I can't read them. That is a job for a company with lawyers, not for one person making a notes app in their spare time. Your notes stay on your devices or on a server you control.
+
 # Building
 
 See [Building Ficelle](docs/building.md).
