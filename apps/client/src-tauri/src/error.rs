@@ -37,23 +37,7 @@ impl CommandError {
 
 impl From<app_core::Error> for CommandError {
     fn from(err: app_core::Error) -> Self {
-        use app_core::Error as E;
-        let kind = match &err {
-            E::Db(_) => "database",
-            E::Io(_) => "file",
-            E::WrongPassword => "wrongPassword",
-            E::WrongKey => "wrongKey",
-            E::NotRemembered => "notRemembered",
-            E::NotFound(_) => "notFound",
-            E::Invalid(_) => "invalid",
-            E::KeyStore(_) => "keyStore",
-            E::Corrupt(_) => "corrupt",
-            E::Cancelled => "cancelled",
-            E::TooLarge(_) => "tooLarge",
-            E::Crypto => "crypto",
-            E::Target(_) => "target",
-        };
-        Self::new(kind, err.to_string())
+        Self::new(err.kind(), err.to_string())
     }
 }
 

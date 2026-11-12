@@ -58,6 +58,27 @@ pub enum Error {
     Target(String),
 }
 
+impl Error {
+    /// The kind of error, as the pages name it to say what went wrong.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Db(_) => "database",
+            Self::Io(_) => "file",
+            Self::WrongPassword => "wrongPassword",
+            Self::WrongKey => "wrongKey",
+            Self::NotRemembered => "notRemembered",
+            Self::NotFound(_) => "notFound",
+            Self::Invalid(_) => "invalid",
+            Self::KeyStore(_) => "keyStore",
+            Self::Corrupt(_) => "corrupt",
+            Self::Cancelled => "cancelled",
+            Self::TooLarge(_) => "tooLarge",
+            Self::Crypto => "crypto",
+            Self::Target(_) => "target",
+        }
+    }
+}
+
 impl From<app_repo::Error> for Error {
     fn from(e: app_repo::Error) -> Self {
         use app_repo::Error as R;
