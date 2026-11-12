@@ -190,6 +190,21 @@ pub async fn delete_tag(state: State<'_, AppState>, id: TagId) -> CommandResult<
     state.with(|s| s.store.delete_tag(id))
 }
 
+/// The choices that follow the person to every device, each a JSON value.
+#[tauri::command]
+pub async fn synced_settings(state: State<'_, AppState>) -> CommandResult<Vec<(String, String)>> {
+    state.with(|s| s.store.synced_settings())
+}
+
+#[tauri::command]
+pub async fn set_synced_setting(
+    state: State<'_, AppState>,
+    key: String,
+    value: String,
+) -> CommandResult<()> {
+    state.with(|s| s.store.set_synced_setting(&key, &value))
+}
+
 /// Whether to tell the person once that their folders became tags.
 #[tauri::command]
 pub async fn tags_merged(state: State<'_, AppState>) -> CommandResult<bool> {

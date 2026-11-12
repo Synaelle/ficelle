@@ -8,6 +8,7 @@ import { listen } from '@tauri-apps/api/event'
 import { backend } from './backend'
 import { localSync } from './localSync.svelte'
 import { prefs } from './prefs.svelte'
+import { takeSyncedPrefs } from './syncedPrefs.svelte'
 import { workspace } from './workspace.svelte'
 import { protocolRange } from './serverVersion'
 
@@ -99,6 +100,7 @@ class Sync {
     })
     await listen('sync-changed', () => {
       void workspace.remoteChanged()
+      void takeSyncedPrefs()
     })
     // files that arrived: the open note shows them
     await listen('files-changed', () => window.dispatchEvent(new Event(FILES_CHANGED)))

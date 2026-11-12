@@ -91,6 +91,7 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
   const notes = new Map<Id, Note>()
   const folders = new Map<Id, Folder>()
   /** Tags made on their own and colour marks, by lowercased path. */
+  const settings = new Map<string, string>()
   const tagMarks = new Map<string, { name: string; color: TagColor | null }>()
   const versions: NoteVersion[] = []
   const sentFeedback: import('./types').FeedbackDraft[] = []
@@ -446,6 +447,10 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       for (const [k, mark] of [...tagMarks]) if (within(mark.name, tagId)) tagMarks.delete(k)
     },
     tagsMerged: async () => false,
+    syncedSettings: async () => [...settings].sort(([a], [b]) => a.localeCompare(b)),
+    setSyncedSetting: async (key, value) => {
+      settings.set(key, value)
+    },
     tagsMergedSeen: async () => {},
     listVersions: async (noteId) => versions.filter((v) => v.noteId === noteId),
     restoreVersion: async (versionId) => {

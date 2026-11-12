@@ -89,6 +89,8 @@ export function createTauriBackend(): Backend {
     setTagColor: (id, color) => invoke('set_tag_color', { id, color }),
     deleteTag: (id) => invoke('delete_tag', { id }),
     tagsMerged: () => invoke('tags_merged'),
+    syncedSettings: () => invoke('synced_settings'),
+    setSyncedSetting: (key, value) => invoke('set_synced_setting', { key, value }),
     tagsMergedSeen: () => invoke('tags_merged_seen'),
     listVersions: (id) => invoke('list_versions', { id }),
     restoreVersion: (id) => invoke('restore_version', { id }),

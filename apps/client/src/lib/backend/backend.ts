@@ -146,6 +146,10 @@ export interface Backend {
   setTagColor(id: Id, color: TagColor | null): Promise<void>
   /** Takes a tag and the tags it holds off every note. */
   deleteTag(id: Id): Promise<void>
+  /** The choices made on some device that follow the person to every
+   * device, by name, each a JSON value. */
+  syncedSettings(): Promise<[string, string][]>
+  setSyncedSetting(key: string, value: string): Promise<void>
   /** This vault's folders became tags and the person was not told yet. */
   tagsMerged(): Promise<boolean>
   tagsMergedSeen(): Promise<void>

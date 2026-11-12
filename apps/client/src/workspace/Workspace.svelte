@@ -18,6 +18,7 @@
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { DESKTOP, MOBILE } from '../lib/platform'
+  import { sendSyncedPrefs, takeSyncedPrefs } from '../lib/syncedPrefs.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import Settings from '../settings/Settings.svelte'
   import AttachmentList from './AttachmentList.svelte'
@@ -56,6 +57,8 @@
   })
   void sync.start()
   void localSync.start()
+  void takeSyncedPrefs()
+  sendSyncedPrefs()
 
   // On phones back walks out the way the user came in: settings, the note,
   // then the search. Booleans, so switching notes keeps the order.

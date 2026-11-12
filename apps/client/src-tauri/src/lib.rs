@@ -180,6 +180,8 @@ pub fn run() {
             commands::notes::set_tag_color,
             commands::notes::delete_tag,
             commands::notes::tags_merged,
+            commands::notes::synced_settings,
+            commands::notes::set_synced_setting,
             commands::notes::tags_merged_seen,
             commands::notes::list_versions,
             commands::notes::restore_version,
