@@ -3,7 +3,10 @@
 // other apps, layout goes in an attribute block they ignore:
 //   ![vines](attachments/vines.png){width=320 wrap=left}
 // wrap is inline (default), left, right, center or full. height is written
-// only when the aspect ratio was unlocked with Shift while resizing.
+// only when the aspect ratio was unlocked with Shift while resizing. crop is
+// what is cut from the top, right, bottom and left, in percent of the image,
+// set by dragging a handle with Alt held: the file itself stays whole.
+//   ![vines](attachments/vines.png){width=240 crop=10,0,5,20}
 
 import Image from '@tiptap/extension-image'
 import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model'
@@ -19,11 +22,27 @@ export type Wrap = (typeof WRAPS)[number]
 
 const IMAGE = /^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)(?:\{([^}\n]*)\})?/
 
+type Crop = [top: number, right: number, bottom: number, left: number]
+
+/** `10,0,5,20` to fractions, null when nothing is cut or it makes no sense. */
+export function parseCrop(text: unknown): Crop | null {
+  if (typeof text !== 'string') return null
+  const parts = text.split(',').map(Number)
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n) || n < 0)) return null
+  const [t, r, b, l] = parts.map((n) => n / 100) as Crop
+  if (t + b >= 1 || l + r >= 1 || t + r + b + l === 0) return null
+  return [t, r, b, l]
+}
+
+/** Fractions back to `10,0,5,20`, to a tenth of a percent. */
+const cropText = (crop: Crop) => crop.map((n) => Math.round(n * 1000) / 10).join(',')
+
 /** `width=320 wrap=left` to an object. Unknown keys are ignored. */
 export function parseLayout(block = ''): {
   width: number | null
   height: number | null
   wrap: Wrap
+  crop: string | null
 } {
   const pairs = Object.fromEntries(
     [...block.matchAll(/(\w+)=("[^"]*"|\S+)/g)].map(([, key, value]) => [
@@ -34,7 +53,13 @@ export function parseLayout(block = ''): {
   const number = (text?: string) =>
     text && Number.isFinite(Number(text)) ? Math.round(Number(text)) : null
   const wrap = WRAPS.includes(pairs.wrap as Wrap) ? (pairs.wrap as Wrap) : 'inline'
-  return { width: number(pairs.width), height: number(pairs.height), wrap }
+  const crop = parseCrop(pairs.crop)
+  return {
+    width: number(pairs.width),
+    height: number(pairs.height),
+    wrap,
+    crop: crop && cropText(crop),
+  }
 }
 
 export interface LayoutImageOptions {
@@ -70,6 +95,7 @@ const busy = (on: boolean) => document.body.classList.toggle('image-busy', on)
  * image's layout (editor.css): an image held on its left grows to the right,
  * a centred one grows on both sides, so its handles move twice as far. The
  * aspect ratio is kept unless Shift is held, then the height is stored too.
+ * With Alt held every handle shows, and dragging one cuts that side instead.
  * The size changes once per frame and is written to the note at the end.
  *
  * On touch screens a selected image moves with the finger: the browser's
@@ -100,8 +126,16 @@ class ImageView {
       handle.addEventListener('pointerdown', (event) => this.startResize(event, dir))
       this.dom.append(handle)
     }
+    // a cropped image is placed from its file's own size, known once loaded
+    this.img.addEventListener('load', () => this.layout())
     this.render()
     window.addEventListener(ATTACHMENTS_CHANGED, this.refresh)
+  }
+
+  /** Alt shows every handle of the selected image, to crop from any side. */
+  private altKey = (event: Event) => {
+    const held = event instanceof KeyboardEvent && event.altKey
+    this.dom.classList.toggle('cropping', held)
   }
 
   /** A file arrived or its preview changed: the url may be another now. */
@@ -111,17 +145,60 @@ class ImageView {
 
   destroy() {
     window.removeEventListener(ATTACHMENTS_CHANGED, this.refresh)
+    this.watchAlt(false)
+  }
+
+  private watchAlt(on: boolean) {
+    for (const type of ['keydown', 'keyup', 'blur']) {
+      if (on) window.addEventListener(type, this.altKey)
+      else window.removeEventListener(type, this.altKey)
+    }
+    if (!on) this.dom.classList.remove('cropping')
   }
 
   private render() {
-    const { src, alt, title, width, height, wrap } = this.node.attrs
+    const { src, alt, title, wrap } = this.node.attrs
     this.dom.dataset.wrap = wrap
     this.img.src = this.resolve(src ?? '')
     this.img.alt = alt ?? ''
     if (title) this.img.title = title
     else this.img.removeAttribute('title')
-    this.img.style.width = wrap === 'full' ? '100%' : width ? `${width}px` : ''
-    this.img.style.height = height && wrap !== 'full' ? `${height}px` : ''
+    this.layout()
+  }
+
+  private layout() {
+    const { width, height } = this.node.attrs as { width: number | null; height: number | null }
+    this.place(width, height, parseCrop(this.node.attrs.crop))
+  }
+
+  /**
+   * Shows the image `w` wide on screen, and `h` high when its ratio is
+   * unlocked. A crop draws the whole image larger, clipped to the part kept,
+   * with negative margins so only that part takes room in the text.
+   */
+  private place(w: number | null, h: number | null, crop: Crop | null) {
+    const style = this.img.style
+    const full = this.node.attrs.wrap === 'full'
+    const cut = full ? null : crop
+    this.dom.classList.toggle('cropped', cut !== null)
+    if (!cut) {
+      style.width = full ? '100%' : w ? `${w}px` : ''
+      style.height = h && !full ? `${h}px` : ''
+      style.maxWidth = style.clipPath = style.margin = ''
+      return
+    }
+    const { naturalWidth, naturalHeight } = this.img
+    if (!naturalWidth) return
+    const [t, r, b, l] = cut
+    const shownW = w ?? naturalWidth * (1 - l - r)
+    const wholeW = shownW / (1 - l - r)
+    const wholeH = h ? h / (1 - t - b) : (wholeW * naturalHeight) / naturalWidth
+    style.width = `${wholeW}px`
+    style.height = h ? `${wholeH}px` : ''
+    style.maxWidth = 'none'
+    const pct = (n: number) => `${n * 100}%`
+    style.clipPath = `inset(${pct(t)} ${pct(r)} ${pct(b)} ${pct(l)} round var(--radius-control))`
+    style.margin = `${-t * wholeH}px ${-r * wholeW}px ${-b * wholeH}px ${-l * wholeW}px`
   }
 
   private startResize(event: PointerEvent, dir: string) {
@@ -129,11 +206,15 @@ class ImageView {
     event.stopPropagation()
     const handle = event.currentTarget as HTMLElement
     handle.setPointerCapture(event.pointerId)
+    if (event.altKey && this.node.attrs.wrap !== 'full') return this.startCrop(event, dir, handle)
+    const crop = parseCrop(this.node.attrs.crop)
+    // a cropped image's own box is larger than the part shown
+    const shown = crop ? this.dom : this.img
     const start = {
       x: event.clientX,
       y: event.clientY,
-      w: this.img.offsetWidth,
-      h: this.img.offsetHeight,
+      w: shown.offsetWidth,
+      h: shown.offsetHeight,
     }
     const ratio = start.w / Math.max(1, start.h)
     // a centred image grows on both sides: its handle moves half the width
@@ -162,8 +243,7 @@ class ImageView {
         h: Math.max(32, Math.round(h)),
         free,
       }
-      this.img.style.width = `${size.w}px`
-      this.img.style.height = free ? `${size.h}px` : ''
+      this.place(size.w, free ? size.h : null, crop)
     })
     const move = (e: PointerEvent) => {
       last = e
@@ -180,6 +260,62 @@ class ImageView {
       const pos = this.getPos()
       if (pos === undefined) return
       setImageLayout(this.editor, pos, { width: size.w, height: size.free ? size.h : null })
+    }
+    this.dom.classList.add('resizing')
+    busy(true)
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', end)
+    handle.addEventListener('pointercancel', end)
+  }
+
+  /** A handle dragged with Alt: its sides are cut, the image keeps its scale. */
+  private startCrop(event: PointerEvent, dir: string, handle: HTMLElement) {
+    const [t0, r0, b0, l0] = parseCrop(this.node.attrs.crop) ?? [0, 0, 0, 0]
+    // the whole image as drawn now, the crop moves within it
+    const wholeW = this.img.offsetWidth
+    const wholeH = this.img.offsetHeight
+    const free = this.node.attrs.height !== null
+    const room = this.dom.parentElement?.clientWidth || Infinity
+    // what stays is at least 48 by 32, and no wider than the column
+    const minW = Math.min(1, 48 / wholeW)
+    const minH = Math.min(1, 32 / wholeH)
+    const maxW = Math.min(1, room / wholeW)
+    const between = (n: number, low: number, high: number) => Math.min(high, Math.max(low, n))
+    const start = { x: event.clientX, y: event.clientY }
+    let crop: Crop = [t0, r0, b0, l0]
+    let last = event
+
+    const apply = perFrame(() => {
+      const dx = (last.clientX - start.x) / wholeW
+      const dy = (last.clientY - start.y) / wholeH
+      let [t, r, b, l] = [t0, r0, b0, l0]
+      if (dir.includes('n')) t = between(t0 + dy, 0, 1 - b0 - minH)
+      if (dir.includes('s')) b = between(b0 - dy, 0, 1 - t0 - minH)
+      if (dir.includes('w')) l = between(l0 + dx, Math.max(0, 1 - r0 - maxW), 1 - r0 - minW)
+      if (dir.includes('e')) r = between(r0 - dx, Math.max(0, 1 - l0 - maxW), 1 - l0 - minW)
+      crop = [t, r, b, l]
+      this.place(wholeW * (1 - l - r), free ? wholeH * (1 - t - b) : null, crop)
+    })
+    const move = (e: PointerEvent) => {
+      last = e
+      apply()
+    }
+    const end = (e: PointerEvent) => {
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', end)
+      handle.removeEventListener('pointercancel', end)
+      this.dom.classList.remove('resizing')
+      busy(false)
+      if (e.type === 'pointercancel') return this.render()
+      const pos = this.getPos()
+      if (pos === undefined) return
+      const [t, r, b, l] = crop
+      const kept = parseCrop(cropText(crop))
+      setImageLayout(this.editor, pos, {
+        crop: kept && cropText(kept),
+        width: Math.round(wholeW * (1 - l - r)),
+        height: free ? Math.round(wholeH * (1 - t - b)) : null,
+      })
     }
     this.dom.classList.add('resizing')
     busy(true)
@@ -314,10 +450,12 @@ class ImageView {
 
   selectNode() {
     this.dom.classList.add('selected')
+    this.watchAlt(true)
   }
 
   deselectNode() {
     this.dom.classList.remove('selected')
+    this.watchAlt(false)
   }
 
   /** Handles own their pointer events, the editor must not see them, nor
@@ -391,6 +529,7 @@ export const LayoutImage = Image.extend<LayoutImageOptions>({
       width: { default: null },
       height: { default: null },
       wrap: { default: 'inline' },
+      crop: { default: null },
     }
   },
 
@@ -426,10 +565,11 @@ export const LayoutImage = Image.extend<LayoutImageOptions>({
       width: token.layout?.width ?? null,
       height: token.layout?.height ?? null,
       wrap: token.layout?.wrap ?? 'inline',
+      crop: token.layout?.crop ?? null,
     }),
 
   renderMarkdown(node) {
-    const { src, alt, title, width, height, wrap } = (node.attrs ?? {}) as Record<
+    const { src, alt, title, width, height, wrap, crop } = (node.attrs ?? {}) as Record<
       string,
       string | number | null
     >
@@ -437,6 +577,7 @@ export const LayoutImage = Image.extend<LayoutImageOptions>({
       width ? `width=${Math.round(Number(width))}` : '',
       height ? `height=${Math.round(Number(height))}` : '',
       wrap && wrap !== 'inline' ? `wrap=${wrap}` : '',
+      crop ? `crop=${crop}` : '',
     ]
       .filter(Boolean)
       .join(' ')

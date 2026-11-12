@@ -39,6 +39,7 @@ const PROBES: [string, RegExp][] = [
   ['autolink', /<https:\/\/example\.org>|\[https:\/\/example\.org\]\(https:\/\/example\.org\)/],
   ['image', /!\[An image\]\(attachments\/photo\.png\)/],
   ['image layout block', /!\[Alt text\]\(attachments\/img\.png\)\{width=320 wrap=left\}/],
+  ['image crop', /!\[Cropped\]\(attachments\/crop\.png\)\{width=200 crop=10,0,5,20\.5\}/],
   ['hard break', /hard break( {2}|\\)\nnext line after spaces/],
   ['backslash hard break', /backslash hard break( {2}|\\)\nnext line after backslash/],
   ['nested bullets', /\n {2,4}[-*+] Nested bullet\n {4,8}[-*+] Deeply nested/],

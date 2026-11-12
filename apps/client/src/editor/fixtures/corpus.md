@@ -32,6 +32,8 @@ Accented paths: [lien accentué](notes/Été.md) and ![été](attachments/été.
 
 ![Alt text](attachments/img.png){width=320 wrap=left}
 
+![Cropped](attachments/crop.png){width=200 crop=10,0,5,20.5}
+
 Text that flows around the floated image on the left.
 
 ![Centered](attachments/wide.png){width=600 wrap=center}
