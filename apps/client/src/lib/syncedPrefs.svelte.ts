@@ -4,9 +4,7 @@
 // device comes back from the vault and replaces the one here. Choices about
 // this device (its language, sizes, lock, updates...) stay out.
 import { backend } from './backend'
-import { localSync } from './localSync.svelte'
 import { ARROW_CHOICES, DEFAULT_PREFS, prefs, type Prefs } from './prefs.svelte'
-import { sync } from './sync.svelte'
 import { workspace } from './workspace.svelte'
 
 export const SYNCED = [
@@ -104,8 +102,3 @@ export function sendSyncedPrefs() {
     seen = now
   })
 }
-
-/** Whether the choices travel anywhere: devices are paired or a server is
- * linked. */
-export const choicesTravel = () =>
-  localSync.status.devices.length > 0 || sync.status.state !== 'off'

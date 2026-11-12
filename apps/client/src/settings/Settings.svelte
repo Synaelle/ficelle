@@ -31,7 +31,6 @@
   import PhoneSettings from './PhoneSettings.svelte'
   import SizePicker from './SizePicker.svelte'
   import SyncSettings from './SyncSettings.svelte'
-  import { choicesTravel } from '../lib/syncedPrefs.svelte'
   import TestTools from '../devreport/TestTools.svelte'
   import AboutSettings from './AboutSettings.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
@@ -189,7 +188,6 @@
             )}</button
           >
         {/each}
-        {#if choicesTravel()}<p class="settings-help travels">{t('settings.syncedChoices')}</p>{/if}
       </nav>
 
       <div class="content">
@@ -538,9 +536,6 @@
   }
   nav input {
     margin-bottom: var(--space-2);
-  }
-  nav .travels {
-    margin: var(--space-3) var(--space-2) 0;
   }
   nav button {
     display: flex;

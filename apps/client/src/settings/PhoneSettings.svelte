@@ -5,7 +5,6 @@
 <script lang="ts">
   import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
-  import { choicesTravel } from '../lib/syncedPrefs.svelte'
   import SyncSettings from './SyncSettings.svelte'
   import { brand } from '@app/brand'
   import Knot from '@app/ui/Knot.svelte'
@@ -443,10 +442,7 @@
             </Group>
           {/if}
         {/if}
-        <Group
-          title={t('settings.sync')}
-          note={choicesTravel() ? t('settings.syncedChoices') : undefined}
-        >
+        <Group title={t('settings.sync')}>
           {#each syncRows as r (r.label)}{@render row(r)}{/each}
         </Group>
         <Group>
