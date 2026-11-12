@@ -304,6 +304,13 @@ class Workspace {
       // what was typed so far goes into the note in the trash
       await this.flush()
       if (this.current?.id !== note.id) return
+      // saved after the note was read: read again, or the text from
+      // before those keys would take them out of the editor
+      if (this.saves !== saves) {
+        this.current.trashedAt = fresh.trashedAt
+        this.followAgain = true
+        return
+      }
     }
     // gone for good, or in the trash with nobody typing in it: it closes.
     // A note being typed in stays open, in the trash, and says so

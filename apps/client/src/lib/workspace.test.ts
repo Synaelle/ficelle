@@ -292,6 +292,30 @@ describe('changes from another device', () => {
     }
   })
 
+  it('keys typed while a note just trashed elsewhere was read stay where they were typed', async () => {
+    workspace.coediting = () => true
+    const note = await create({ title: 'Old', body: 'start' })
+    workspace.edit({ body: 'start, typed' })
+    await workspace.flush()
+    await backend.trashNote(note.id)
+    const get = backend.getNote
+    let reads = 0
+    // a key lands while the note is read
+    backend.getNote = async (id) => {
+      const read = await get(id)
+      if (id === note.id && reads++ === 0) workspace.edit({ body: 'start, typed, and a key' })
+      return read
+    }
+    try {
+      await workspace.remoteChanged()
+    } finally {
+      backend.getNote = get
+    }
+    expect(workspace.current?.body).toBe('start, typed, and a key')
+    expect(workspace.current?.trashedAt).not.toBeNull()
+    expect((await backend.getNote(note.id)).body).toBe('start, typed, and a key')
+  })
+
   it('an edit of a note trashed elsewhere never lands in the next note opened', async () => {
     workspace.coediting = () => false
     const other = await create({ title: 'Other', body: 'kept' })
