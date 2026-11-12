@@ -86,22 +86,28 @@
   .cut {
     stroke-dasharray: 1 2;
   }
+  /* the offsets are lengths: Firefox drops a calc() that gives a bare
+     number, and the knot is then drawn whole. With pathLength 1 a px is
+     one unit of the path */
   .thread {
-    stroke-dashoffset: calc(1 - var(--head) - var(--tail));
+    stroke-dashoffset: calc((1 - var(--head) - var(--tail)) * 1px);
   }
   .over {
     stroke-dashoffset: calc(
-      1 - clamp(0, (var(--head) - 0.6089) / 0.3911, 1) -
-        clamp(0, (var(--tail) - 0.6089) / 0.3911, 1)
+      (
+          1 - clamp(0, (var(--head) - 0.6089) / 0.3911, 1) -
+            clamp(0, (var(--tail) - 0.6089) / 0.3911, 1)
+        ) *
+        1px
     );
   }
   .cut {
-    stroke-dashoffset: calc(1 - clamp(0, (var(--head) - 0.6552) / 0.1224, 1));
+    stroke-dashoffset: calc((1 - clamp(0, (var(--head) - 0.6552) / 0.1224, 1)) * 1px);
   }
   /* a dot at the thread's end, there only while it crosses */
   .cut-end {
     stroke-dasharray: 0 2;
-    stroke-dashoffset: calc(-1 * clamp(0, (var(--head) - 0.6552) / 0.1224, 1));
+    stroke-dashoffset: calc(-1px * clamp(0, (var(--head) - 0.6552) / 0.1224, 1));
     stroke-opacity: calc(
       clamp(0, (var(--head) - 0.6552) * 10000, 1) * clamp(0, (0.7776 - var(--head)) * 10000, 1)
     );
