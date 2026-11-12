@@ -126,11 +126,15 @@ jobs:
             macfiles=("$macapp")
           fi
           # the line apps show and whether it fixes a security problem: apps
-          # then ask in the middle of the screen, a critical update. It comes
+          # then ask in the middle of the screen, a critical update. Newer apps
+          # show the messages, keys they translate, and the English list of
+          # changes behind "What's changed"; older ones the line. It comes
           # from update.json on the draft, not from the servers' releases.json,
           # which only names versions with a server image
           notes=""
           critical=false
+          messages="[]"
+          changelog=""
           # only what the draft holds is downloaded, so a failed download stops the job
           assets=$(gh release view "$TAG" --json assets --jq '.assets[].name')
           if grep -qx releases.json <<< "$assets"; then
@@ -140,6 +144,8 @@ jobs:
             gh release download "$TAG" -p update.json -O update.json --clobber
             notes=$(jq -r '.notes // ""' update.json)
             critical=$(jq '.critical == true' update.json)
+            messages=$(jq -c '.messages // []' update.json)
+            changelog=$(jq -r '.changelog // ""' update.json)
             gh release delete-asset "$TAG" update.json --yes
           fi
           # the notes database's format, its schema steps: an app going back
@@ -149,13 +155,15 @@ jobs:
           entry() { jq -n --arg sig "$(cat "$1.sig")" --arg url "$base/$(basename "$1")" '{signature: $sig, url: $url}'; }
           # the one APK holds every Android architecture, listed under each
           jq -n --arg version "$version" --arg notes "$notes" --argjson critical "$critical" \
+            --argjson messages "$messages" --arg changelog "$changelog" \
             --argjson schema "$schema" \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --argjson windows "$(entry "$setup")" \
             --argjson linux "$(entry "$appimage")" \
             --argjson android "$(entry "$apk")" \
             --argjson mac "$mac" \
-            '{version: $version, notes: $notes, critical: $critical, schema: $schema, pub_date: $date, platforms: ({
+            '{version: $version, notes: $notes, messages: $messages, changelog: $changelog,
+              critical: $critical, schema: $schema, pub_date: $date, platforms: ({
               "windows-x86_64": $windows, "linux-x86_64": $linux,
               "android-aarch64": $android, "android-arm": $android, "android-x86_64": $android }
               + (if $mac then {"macos-aarch64": $mac, "macos-x86_64": $mac} else {} end))}' \
