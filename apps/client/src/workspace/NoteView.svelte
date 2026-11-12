@@ -430,6 +430,14 @@
   .narrow article {
     padding: var(--space-4) var(--space-4) 120px;
   }
+  /* the editor's bar sits at the bottom of a touch screen, above the
+     system's gesture bar: the note ends clear of both */
+  @media (pointer: coarse) {
+    article,
+    .narrow article {
+      padding-bottom: calc(120px + env(safe-area-inset-bottom));
+    }
+  }
   .title {
     width: 100%;
     border: 0;
