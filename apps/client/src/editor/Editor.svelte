@@ -436,6 +436,10 @@
   function copiedImage(data: DataTransfer, text: string): boolean {
     if (data.types.some((type) => type.startsWith('image/'))) return true
     if (data.types.includes('text/uri-list')) return true
+    // WebKitGTK gives the page nothing for a picture another app put on the
+    // clipboard, then pastes it itself as a blob address that dies with the
+    // page: the picture is read from the system instead
+    if (data.types.length === 0) return true
     const lines = text.trim().split('\n')
     return lines.every((line) =>
       /^(file:\/\/|\/)\S.*\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(line.trim()),
