@@ -3,7 +3,7 @@
 // upstream ships them, the round trip test in markdown.test.ts fails if a fix
 // is lost or broken.
 
-import type { AnyExtension } from '@tiptap/core'
+import type { AnyExtension, JSONContent } from '@tiptap/core'
 import Paragraph from '@tiptap/extension-paragraph'
 import { Markdown } from '@tiptap/markdown'
 
@@ -230,7 +230,7 @@ interface RenderSpec {
 /** The private parts of the markdown manager these fixes replace, as of 3.32. */
 interface TextEncoding {
   codeTypes: Set<string>
-  parse(markdown: string): { type: 'doc'; content: unknown[] }
+  parse(markdown: string): { type: 'doc'; content: JSONContent[] }
   nodeTypeRegistry: Map<string, RenderSpec[]>
   escapeMarkdownSyntax(text: string): string
   encodeTextForMarkdown(text: string, node: JSONLike, parent?: JSONLike): string
@@ -240,7 +240,14 @@ interface TextEncoding {
  * addresses with linkDestination. */
 export const ReadableMarkdown = Markdown.extend({
   onBeforeCreate(event) {
+    // upstream reads the note's markdown while it sets itself up, before the
+    // reading in parts below exists: held back here, so a long note opens as
+    // fast as it pastes
+    const options = this.editor.options
+    const initial = options.contentType === 'markdown' && typeof options.content === 'string'
+    if (initial) options.contentType = undefined
     this.parent?.(event)
+    if (initial) options.contentType = 'markdown'
     const manager = this.editor.markdown as unknown as TextEncoding | undefined
     if (!manager) return
     const parse = manager.parse.bind(manager)
@@ -248,6 +255,10 @@ export const ReadableMarkdown = Markdown.extend({
       const chunks = markdownChunks(markdown)
       if (chunks.length === 1) return parse(markdown)
       return { type: 'doc', content: chunks.flatMap((chunk) => parse(chunk).content) }
+    }
+    if (initial) {
+      const json = manager.parse(options.content as string)
+      if (json.content.length) options.content = json
     }
     for (const spec of manager.nodeTypeRegistry.get('link') ?? []) {
       spec.renderMarkdown = (node, helpers) => {
