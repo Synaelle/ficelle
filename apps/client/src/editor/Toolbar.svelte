@@ -1,11 +1,13 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Formatting buttons. Sticks to the top of the note while scrolling. On
      touch screens it sits at the bottom instead, which is just above the
-     keyboard since the page shrinks when the keyboard opens. -->
+     keyboard since the page shrinks when the keyboard opens, and shows the
+     five most used: the rest are in a sheet behind More, with their names. -->
 <script lang="ts">
   import type { Editor } from '@tiptap/core'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
+  import { overlay } from '../lib/overlay.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { shortcutFor } from '../lib/prefs.svelte'
   import { displayBinding, type ActionId } from '../lib/shortcuts'
@@ -24,12 +26,17 @@
     run: () => void
     active?: () => boolean
     disabled?: () => boolean
+    /** On the touch bar itself, the others behind More. */
+    quick?: true
   }
+
+  const TOUCH = window.matchMedia('(pointer: coarse)').matches
 
   const chain = () => editor.chain().focus()
   const tools: Tool[] = [
     {
       icon: 'bold',
+      quick: true,
       label: () => t('editor.bold'),
       action: 'bold',
       run: () => chain().toggleBold().run(),
@@ -37,6 +44,7 @@
     },
     {
       icon: 'italic',
+      quick: true,
       label: () => t('editor.italic'),
       action: 'italic',
       run: () => chain().toggleItalic().run(),
@@ -51,12 +59,14 @@
     },
     {
       icon: 'heading',
+      quick: true,
       label: () => t('editor.heading'),
       run: () => chain().toggleHeading({ level: 2 }).run(),
       active: () => editor.isActive('heading'),
     },
     {
       icon: 'list',
+      quick: true,
       label: () => t('editor.bulletList'),
       run: () => chain().toggleBulletList().run(),
       active: () => editor.isActive('bulletList'),
@@ -69,6 +79,7 @@
     },
     {
       icon: 'tasks',
+      quick: true,
       label: () => t('editor.checklist'),
       action: 'checklist',
       run: () => chain().toggleTaskList().run(),
@@ -104,23 +115,20 @@
     { icon: 'image', label: () => t('editor.image'), run: () => onimage() },
   ]
 
-  // On touch screens the bar scrolls sideways. A faded edge shows that more
-  // buttons wait on that side, a cut button alone looks like a layout bug.
-  let bar: HTMLDivElement | undefined = $state()
-  let moreLeft = $state(false)
-  let moreRight = $state(false)
-  function edges() {
-    if (!bar) return
-    moreLeft = bar.scrollLeft > 1
-    moreRight = bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 1
+  const shown = TOUCH ? tools.filter((tool) => tool.quick) : tools
+
+  function more() {
+    overlay.openSheet(
+      tools
+        .filter((tool) => !tool.quick)
+        .map((tool) => ({
+          label: tool.label(),
+          icon: tool.icon,
+          disabled: tool.disabled?.(),
+          run: tool.run,
+        })),
+    )
   }
-  $effect(() => {
-    if (!bar) return
-    edges()
-    const observer = new ResizeObserver(edges)
-    observer.observe(bar)
-    return () => observer.disconnect()
-  })
 
   function title(tool: Tool) {
     const label = tool.label()
@@ -128,16 +136,8 @@
   }
 </script>
 
-<div
-  class="toolbar"
-  class:more-left={moreLeft}
-  class:more-right={moreRight}
-  role="toolbar"
-  aria-label={t('editor.toolbar')}
-  bind:this={bar}
-  onscroll={edges}
->
-  {#each tools as tool (tool.icon)}
+<div class="toolbar" role="toolbar" aria-label={t('editor.toolbar')}>
+  {#each shown as tool (tool.icon)}
     <button
       class="icon-btn"
       aria-label={tool.label()}
@@ -151,6 +151,16 @@
       <Icon name={tool.icon} size={17} />
     </button>
   {/each}
+  {#if TOUCH}
+    <span class="divider" aria-hidden="true"></span>
+    <button
+      class="more"
+      aria-label={t('editor.moreLabel')}
+      aria-haspopup="menu"
+      onpointerdown={(e) => e.pointerType === 'touch' && e.preventDefault()}
+      onclick={more}>{t('editor.more')}</button
+    >
+  {/if}
 </div>
 
 <style>
@@ -179,32 +189,32 @@
       right: 0;
       z-index: 30;
       flex-wrap: nowrap;
-      overflow-x: auto;
+      align-items: center;
       margin: 0;
       padding: var(--space-1) var(--space-2) calc(var(--space-1) + env(safe-area-inset-bottom));
       border-top: 1px solid var(--color-border);
       border-bottom: 0;
-      scrollbar-width: none;
-      --fade-left: 0px;
-      --fade-right: 0px;
-      mask-image: linear-gradient(
-        to right,
-        transparent,
-        #000 var(--fade-left),
-        #000 calc(100% - var(--fade-right)),
-        transparent
-      );
-    }
-    .toolbar.more-left {
-      --fade-left: 40px;
-    }
-    .toolbar.more-right {
-      --fade-right: 40px;
     }
     .toolbar :global(.icon-btn) {
-      flex: none;
-      width: 44px;
+      flex: 1 1 44px;
       height: 44px;
+    }
+    .divider {
+      flex: none;
+      width: 1px;
+      height: 24px;
+      background: var(--color-border);
+    }
+    .more {
+      flex: none;
+      min-height: 44px;
+      padding: 0 var(--space-3);
+      border: 0;
+      border-radius: var(--radius-control);
+      background: none;
+      color: var(--color-text-muted);
+      font: inherit;
+      font-size: 14px;
     }
   }
 </style>

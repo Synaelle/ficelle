@@ -169,6 +169,11 @@ class Overlay {
     this.openMenuAt(box.right, box.bottom + 4, items, true)
   }
 
+  /** Opens the items as a sheet along the bottom, as a long touch does. */
+  openSheet(items: MenuItem[]) {
+    this.openMenuAt(0, 0, items, false, true)
+  }
+
   /** Where focus was before the menu, it goes back there when the menu closes. */
   private menuOpener: HTMLElement | null = null
 
