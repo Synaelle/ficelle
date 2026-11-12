@@ -23,7 +23,9 @@
 
 # Sync
 
-Your devices sync directly with each other on the same network, and you can run your own sync server for everywhere else.
+Your devices sync directly with each other on the same network, with nothing to set up but pairing them once.
+
+To sync from anywhere, run your own sync server. A server is for one person, you. Run it with Docker, see [Self-hosting with Docker](docs/self-hosting-docker.md). Running it without Docker works too but is not recommended, see [Self-hosting without Docker](docs/self-hosting-without-docker.md).
 
 There is no sync server run by me for everyone, see [Why there is no global sync server](docs/why-no-global-server.md).
 

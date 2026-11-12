@@ -1,7 +1,7 @@
 # Self-hosting without Docker
 
 > [!NOTE]
-> Server support is deprecated and only gets security fixes. New servers are for one person.
+> A server is for one person. Servers made before with several accounts keep working, and can move to one account from their admin page.
 
 The server is one binary, `ficelle-server`, with the web pages beside it and its data in one folder. It runs as a systemd service behind a reverse proxy with HTTPS.
 
