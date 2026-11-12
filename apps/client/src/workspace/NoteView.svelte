@@ -192,20 +192,19 @@
       {/if}
       <span class="where"></span>
       <!-- a small mark instead of words that would flash with every pause in
-           typing: a breathing dot while saving, a check once saved -->
+           typing: a breathing dot while saving, a check once saved. Only a
+           failure is said aloud, saving itself is not worth a word -->
       <span
         class="saved muted"
         class:bad={workspace.unsaved}
         class:quiet={!workspace.unsaved && !saving && !justSaved}
-        aria-live="polite"
       >
         {#if workspace.unsaved}
-          {t('note.notSaved')}
+          <span role="alert">{t('note.notSaved')}</span>
         {:else}
           <span class="mark" class:done={!saving} aria-hidden="true">
             <Icon name="check" size={12} />
           </span>
-          <span class="visually-hidden">{saving ? t('note.saving') : t('note.saved')}</span>
         {/if}
       </span>
       <button
