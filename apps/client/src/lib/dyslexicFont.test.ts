@@ -30,6 +30,8 @@ describe('the OpenDyslexic css', () => {
     expect(css).toMatch(/--font-editor: 'OpenDyslexic abc123'[^;]*!important/)
     expect(css).toMatch(/\* \{ font-family: 'OpenDyslexic abc123'[^;]*!important/)
     expect(css).toMatch(/\*::first-line \{ font-family: 'OpenDyslexic/)
+    // WebKit loses the caret in the note with a ::first-letter font
+    expect(css).not.toContain('::first-letter')
     expect(css).toMatch(/--font-mono: 'OpenDyslexic Mono abc123'[^;]*!important/)
     expect(css).toMatch(/:where\(code, pre[^)]*\) \* \{ font-family: 'OpenDyslexic Mono abc123'/)
   })
