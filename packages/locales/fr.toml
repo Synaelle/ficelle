@@ -238,6 +238,8 @@ version_beforeRestore = "Avant une restauration"
 restore = "Restaurer"
 restoreConfirm = "Restaurer le texte de cette version ({when}) ? La note telle qu’elle est maintenant reste dans son historique."
 trash = "Mettre à la corbeille"
+trashedElsewhere = "Mise à la corbeille sur un autre appareil."
+trashedOpen = "Cette note a été mise à la corbeille sur un autre appareil. Ce que vous saisissez y reste enregistré."
 
 tags = "Étiquettes"
 
