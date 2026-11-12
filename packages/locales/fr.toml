@@ -400,10 +400,8 @@ password = "Rien sur cet appareil ne les ouvre sans lui."
 pin = "Un code PIN à 6 chiffres saisi dans l’app. Après 5 essais ratés, le mot de passe."
 
 [settings.waySet]
-device = ""
 guarded = "Vos notes s’ouvrent maintenant avec {method}."
 password = "Vos notes s’ouvrent maintenant avec le mot de passe."
-plain = ""
 pin = "Vos notes s’ouvrent maintenant avec votre code PIN."
 
 [backup]
