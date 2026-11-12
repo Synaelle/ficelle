@@ -56,8 +56,8 @@
   const linked = $derived(status.state !== 'off')
   /** The server part, folded at first unless this device uses one, then as
    * the person chooses. */
-  let chosen: boolean | null = $state(null)
-  const serverOpen = $derived(chosen ?? linked)
+  /** The tab picked, else the way this device syncs, else this network. */
+  let picked: 'local' | 'server' | null = $state(null)
 
   let address = $state('')
   let checked: ServerCheck | null = $state(null)
@@ -202,6 +202,7 @@
 
   const local = $derived(localSync.status)
   const devicesPaired = $derived(local.devices.length > 0)
+  const tab = $derived(picked ?? (linked ? 'server' : 'local'))
   /** The pairing dialog open, and which way. */
   let pairMode: 'show' | 'type' | null = $state(null)
   let renaming: string | null = $state(null)
@@ -267,9 +268,20 @@
   </div>
 {/snippet}
 
-{#if !localSync.available}
-  <p class="settings-help">{t('errors.unsupported')}</p>
-{:else if viewing}
+<!-- a device syncs on its network or with a server, never both: each has its
+     tab, the one not in use shows greyed with what to do to use it -->
+{#if !viewing}
+  <div class="tabs" role="tablist" aria-label={t('sync.tabs')}>
+    {#each [['local', t('sync.tabLocal'), devicesPaired && !linked], ['server', t('sync.tabServer'), linked]] as const as [id, name, inUse] (id)}
+      <button class="tab" role="tab" aria-selected={tab === id} onclick={() => (picked = id)}
+        >{name}{#if inUse}<span class="in-use"><span class="dot"></span>{t('sync.inUse')}</span
+          >{/if}</button
+      >
+    {/each}
+  </div>
+{/if}
+
+{#if viewing}
   <div class="device-head">
     <button class="icon-btn" aria-label={t('common.back')} onclick={() => (viewingKey = null)}
       ><Icon name="back" size={16} /></button
@@ -336,121 +348,133 @@
       {/if}
     </Row>
   </Group>
-{:else}
-  <p class="settings-help">{t('local.intro')}</p>
-  <div class="notice" role="note">
-    <Icon name="warning" size={18} />
-    <div>
-      <b>{t('local.experimental')}</b>
-      <p>{t('local.experimentalHelp')}</p>
+{:else if tab === 'local' && !localSync.available}
+  <p class="settings-help">{t('errors.unsupported')}</p>
+{:else if tab === 'local'}
+  {#if linked}<p class="aside" role="note">
+      <Icon name="info" size={16} />{t('local.serverInUse')}
+    </p>{/if}
+  <div
+    class="tab-body"
+    role="tabpanel"
+    aria-label={t('sync.tabLocal')}
+    class:greyed={linked}
+    inert={linked}
+  >
+    <p class="settings-help">{t('local.intro')}</p>
+    <div class="notice" role="note">
+      <Icon name="warning" size={18} />
+      <div>
+        <b>{t('local.experimental')}</b>
+        <p>{t('local.experimentalHelp')}</p>
+      </div>
     </div>
-  </div>
 
-  {#if local.open}
-    <Group
-      title={t('local.devices')}
-      note={local.serverLinked
-        ? t('local.oneWay')
-        : local.devices.some((d) => d.platform === 'android')
-          ? t('local.phoneHelp')
-          : undefined}
-    >
-      {#if local.serverLinked}
-        <div class="settings-row empty">{t('local.serverInUse')}</div>
-      {:else if !devicesPaired}
-        <div class="settings-row empty">
-          <span>{t('local.none')}</span>
-          <span class="muted">{t('local.noneHelp')}</span>
-        </div>
-      {:else}
-        {#each local.devices as device (device.key)}
-          <Row
-            label={device.name}
-            help={platformName(device.platform)}
-            opens
-            onclick={() => (viewingKey = device.key)}
-          >
-            <span
-              class="device-state"
-              class:ok={device.state === 'synced'}
-              class:warn={device.state === 'needsUpdate' ||
-                device.state === 'updateThis' ||
-                device.blocked}
-              class:bad={device.state === 'failed'}>{deviceLine(device)}</span
+    {#if local.open}
+      <Group
+        title={t('local.devices')}
+        note={local.serverLinked
+          ? t('local.oneWay')
+          : local.devices.some((d) => d.platform === 'android')
+            ? t('local.phoneHelp')
+            : undefined}
+      >
+        {#if !devicesPaired}
+          <div class="settings-row empty">
+            <span>{t('local.none')}</span>
+            <span class="muted">{t('local.noneHelp')}</span>
+          </div>
+        {:else}
+          {#each local.devices as device (device.key)}
+            <Row
+              label={device.name}
+              help={platformName(device.platform)}
+              opens
+              onclick={() => (viewingKey = device.key)}
+            >
+              <span
+                class="device-state"
+                class:ok={device.state === 'synced'}
+                class:warn={device.state === 'needsUpdate' ||
+                  device.state === 'updateThis' ||
+                  device.blocked}
+                class:bad={device.state === 'failed'}>{deviceLine(device)}</span
+              >
+            </Row>
+          {/each}
+        {/if}
+      </Group>
+      {#each local.devices.filter((d) => d.blocked) as device (device.key)}
+        {@render firewall(device)}
+      {/each}
+      <div class="settings-buttons start">
+        <button
+          class="btn primary"
+          disabled={local.serverLinked}
+          onclick={() => (pairMode = 'show')}
+          ><Icon name="plus" size={16} />{t('local.pair')}</button
+        >
+        <button class="btn" disabled={local.serverLinked} onclick={() => (pairMode = 'type')}
+          >{t('local.haveCode')}</button
+        >
+      </div>
+      <Group>
+        {#if renaming !== null}
+          <form class="field-row rename" onsubmit={rename}>
+            <!-- svelte-ignore a11y_autofocus -->
+            <input
+              class="field"
+              aria-label={t('local.name')}
+              maxlength="60"
+              autofocus
+              bind:value={renaming}
+            />
+            <button class="btn" type="button" onclick={() => (renaming = null)}
+              >{t('common.cancel')}</button
+            >
+            <button class="btn primary" type="submit" disabled={!renaming.trim()}
+              >{t('local.save')}</button
+            >
+          </form>
+        {:else}
+          <Row label={t('local.thisDevice')}>
+            <span class="value">{local.name}</span>
+            <button
+              class="icon-btn"
+              aria-label={t('local.rename')}
+              disabled={local.serverLinked}
+              onclick={() => (renaming = local.name)}><Icon name="pencil" size={16} /></button
             >
           </Row>
-        {/each}
+        {/if}
+      </Group>
+      {#if local.discoveryError && local.running}
+        <p class="settings-help">{t('local.discoveryProblem', { error: local.discoveryError })}</p>
       {/if}
-    </Group>
-    {#each local.devices.filter((d) => d.blocked) as device (device.key)}
-      {@render firewall(device)}
-    {/each}
-    <div class="settings-buttons start">
-      <button class="btn primary" disabled={local.serverLinked} onclick={() => (pairMode = 'show')}
-        ><Icon name="plus" size={16} />{t('local.pair')}</button
-      >
-      <button class="btn" disabled={local.serverLinked} onclick={() => (pairMode = 'type')}
-        >{t('local.haveCode')}</button
-      >
-    </div>
-    <Group>
-      {#if renaming !== null}
-        <form class="field-row rename" onsubmit={rename}>
-          <!-- svelte-ignore a11y_autofocus -->
-          <input
-            class="field"
-            aria-label={t('local.name')}
-            maxlength="60"
-            autofocus
-            bind:value={renaming}
-          />
-          <button class="btn" type="button" onclick={() => (renaming = null)}
-            >{t('common.cancel')}</button
-          >
-          <button class="btn primary" type="submit" disabled={!renaming.trim()}
-            >{t('local.save')}</button
-          >
-        </form>
-      {:else}
-        <Row label={t('local.thisDevice')}>
-          <span class="value">{local.name}</span>
-          <button
-            class="icon-btn"
-            aria-label={t('local.rename')}
-            disabled={local.serverLinked}
-            onclick={() => (renaming = local.name)}><Icon name="pencil" size={16} /></button
-          >
-        </Row>
-      {/if}
-    </Group>
-    {#if local.discoveryError && local.running}
-      <p class="settings-help">{t('local.discoveryProblem', { error: local.discoveryError })}</p>
+      {#if localError}<p class="error" role="alert">{localError}</p>{/if}
+      {#if devicesPaired && !linked}<FilesSettings local />{/if}
     {/if}
-    {#if localError}<p class="error" role="alert">{localError}</p>{/if}
-    {#if devicesPaired && !linked}<FilesSettings local />{/if}
-  {/if}
+  </div>
 {/if}
 
 {#if pairMode}
   <PairDialog mode={pairMode} close={() => (pairMode = null)} />
 {/if}
 
-{#if !viewing && !linked}
-  <!-- the server is for people who already have one: kept out of the way -->
-  <button class="server-link" aria-expanded={serverOpen} onclick={() => (chosen = !serverOpen)}
-    >{serverOpen ? t('sync.hideServer') : t('sync.useServer')}</button
+{#if tab === 'server' && !viewing}
+  {#if devicesPaired && !linked && sync.available}<p class="aside" role="note">
+      <Icon name="info" size={16} />{t('local.devicesInUse')}
+    </p>{/if}
+  <div
+    class="tab-body"
+    role="tabpanel"
+    aria-label={t('sync.tabServer')}
+    class:greyed={devicesPaired && !linked}
+    inert={devicesPaired && !linked}
   >
-{/if}
-
-{#if serverOpen && !viewing}
-  <div class="fold-body">
     {#if !sync.available}
       <p class="settings-help">{t('errors.unsupported')}</p>
-    {:else if devicesPaired && !linked}
-      <p class="settings-help">{t('sync.serverDeprecated')}</p>
-      <p class="settings-help">{t('local.devicesInUse')}</p>
     {:else if linked && status.state !== 'signedOut'}
-      <p class="settings-help">{t('sync.serverDeprecated')}</p>
       <Group>
         <div class="settings-row state">
           <SyncIcon state={status.state} />
@@ -660,7 +684,6 @@
       </form>
     {:else}
       <form class="sync-form" onsubmit={check}>
-        <p class="settings-help">{t('sync.serverDeprecated')}</p>
         <p class="settings-help">{t('sync.intro')}</p>
         <Group>
           <div class="field-row">
@@ -687,19 +710,89 @@
 {/if}
 
 <style>
-  .server-link {
-    justify-self: start;
-    padding: var(--space-2) 0;
+  .tabs {
+    display: flex;
+    gap: var(--space-1);
+    width: fit-content;
+    max-width: 100%;
+    padding: var(--space-1);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-window);
+    background: var(--color-bg);
+  }
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 36px;
+    padding: 0 var(--space-4);
     border: 0;
+    border-radius: var(--radius-control);
     background: none;
-    font-size: 13px;
+    font-weight: 500;
     color: var(--color-text-muted);
-    text-decoration: underline;
+  }
+  .tab[aria-selected='true'] {
+    background: var(--color-surface-2);
+    color: var(--color-text);
   }
   @media (hover: hover) {
-    .server-link:hover {
+    .tab:hover {
       color: var(--color-text);
     }
+  }
+  .in-use {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--color-success);
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  /* one tab under the other on a phone would read as a list: two columns,
+     the in-use mark under the name */
+  @media (pointer: coarse), (max-width: 520px) {
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      width: auto;
+    }
+    .tab {
+      flex-direction: column;
+      gap: 2px;
+      min-height: 48px;
+      padding: var(--space-1) var(--space-2);
+      text-align: center;
+    }
+  }
+  .tab-body {
+    display: grid;
+    gap: var(--space-4);
+  }
+  .greyed {
+    opacity: 0.45;
+  }
+  .aside {
+    display: flex;
+    gap: var(--space-3);
+    max-width: 640px;
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-window);
+    background: var(--color-surface-2);
+  }
+  .aside :global(svg) {
+    flex: none;
+    margin-top: 2px;
+    color: var(--color-text-muted);
   }
   .sync-form {
     display: grid;
