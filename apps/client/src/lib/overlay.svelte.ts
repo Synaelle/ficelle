@@ -18,7 +18,8 @@ export interface MenuItem {
   /** Shows a check mark, for the current choice in a list. */
   checked?: boolean
   run?: () => void
-  /** Opens these items in place of the menu, for "Move to" and the like. */
+  /** A submenu, for "Tags" and the like: beside the menu, or in its place
+   * for a finger. */
   items?: MenuItem[]
 }
 

@@ -12,6 +12,12 @@
 
   let menuElement: HTMLDivElement | undefined = $state()
   let position = $state({ left: 0, top: 0 })
+  /** A submenu opened beside the menu, which stays open: with a mouse or the
+   * keys. A finger gets the submenu in place of the menu, with a back row. */
+  let flyout: { index: number; label: string; items: MenuItem[] } | null = $state(null)
+  let flyoutElement: HTMLDivElement | undefined = $state()
+  let flyoutPosition = $state({ left: 0, top: 0 })
+  let hoverTimer: ReturnType<typeof setTimeout> | undefined
   let textInput: HTMLInputElement | undefined = $state()
   let draft = $state('')
   /** The seconds left before a question that asks for a pause can be confirmed. */
@@ -50,6 +56,8 @@
   // keep the menu inside the window
   $effect(() => {
     const menu = overlay.menu
+    clearTimeout(hoverTimer)
+    flyout = null
     if (!menu) return
     if (menu.sheet) {
       // opened by a finger, the first row would look already pressed: the
@@ -81,21 +89,74 @@
     }
   })
 
-  function choose(item: MenuItem) {
-    if (item.items) return overlay.enterSubmenu(item)
+  function choose(item: MenuItem, index: number, button: HTMLElement, inFlyout: boolean) {
+    if (item.items) {
+      if (inFlyout || overlay.menu?.sheet || overlay.byTouch) return overlay.enterSubmenu(item)
+      return openFlyout(item, index, button, true)
+    }
     overlay.closeMenu()
     item.run?.()
   }
 
-  function menuKeys(event: KeyboardEvent) {
+  function openFlyout(item: MenuItem, index: number, button: HTMLElement, focus: boolean) {
+    clearTimeout(hoverTimer)
+    const menuBox = menuElement?.getBoundingClientRect()
+    if (!menuBox || !item.items) return
+    const row = button.getBoundingClientRect()
+    // a little over the menu's edge, its first row level with the item
+    flyout = { index, label: item.label, items: item.items }
+    flyoutPosition = { left: menuBox.right - 4, top: row.top - 5 }
+    void tick().then(() => {
+      const box = flyoutElement?.getBoundingClientRect()
+      if (!box) return
+      const fitsRight = menuBox.right - 4 + box.width <= window.innerWidth - 4
+      flyoutPosition = {
+        left: fitsRight ? menuBox.right - 4 : Math.max(4, menuBox.left + 4 - box.width),
+        top: Math.max(4, Math.min(row.top - 5, window.innerHeight - box.height - 4)),
+      }
+      if (focus) flyoutElement?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
+    })
+  }
+
+  function closeFlyout() {
+    const opener = menuElement?.querySelector<HTMLButtonElement>('[aria-expanded=true]')
+    flyout = null
+    opener?.focus()
+  }
+
+  /** The pointer on a row of the menu: its submenu opens, another one closes.
+   * A short wait, so a pointer crossing rows on its way to a submenu keeps it. */
+  function hover(event: PointerEvent, item: MenuItem, index: number) {
+    if (event.pointerType !== 'mouse' || overlay.menu?.sheet) return
+    clearTimeout(hoverTimer)
+    if (flyout?.index === index) return
+    const button = event.currentTarget as HTMLElement
+    hoverTimer = setTimeout(
+      () => {
+        if (item.items && !item.disabled) openFlyout(item, index, button, false)
+        else flyout = null
+      },
+      flyout ? 250 : 120,
+    )
+  }
+
+  function menuKeys(event: KeyboardEvent, container: HTMLElement | undefined, inFlyout: boolean) {
     const buttons = [
-      ...(menuElement?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []),
+      ...(container?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []),
     ]
     const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
       const step = event.key === 'ArrowDown' ? 1 : -1
       buttons[(index + step + buttons.length) % buttons.length]?.focus()
+    } else if (event.key === 'ArrowRight' && !inFlyout) {
+      const button = buttons[index]
+      if (button?.getAttribute('aria-haspopup')) button.click()
+    } else if (inFlyout && (event.key === 'ArrowLeft' || event.key === 'Escape')) {
+      // back to the menu, which stays open
+      event.preventDefault()
+      event.stopPropagation()
+      closeFlyout()
     } else if (event.key === 'ArrowLeft' && overlay.menu?.parents.length) {
       overlay.leaveSubmenu()
     } else if (event.key === 'Tab') {
@@ -145,7 +206,7 @@
     bind:this={menuElement}
     style:left={overlay.menu.sheet ? null : `${position.left}px`}
     style:top={overlay.menu.sheet ? null : `${position.top}px`}
-    onkeydown={menuKeys}
+    onkeydown={(e) => menuKeys(e, menuElement, false)}
   >
     {#if overlay.menu.parents.length > 0}
       <button class="item" role="menuitem" onclick={() => overlay.leaveSubmenu()}>
@@ -153,27 +214,51 @@
       </button>
       <hr />
     {/if}
-    {#each overlay.menu.items as item, i (i)}
-      {#if item.separator}
-        <hr />
-      {:else}
-        <button
-          class="item"
-          class:danger={item.danger}
-          role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
-          aria-checked={item.checked}
-          disabled={item.disabled}
-          onclick={() => choose(item)}
-        >
-          {#if item.icon}<Icon name={item.icon} size={16} />{:else}<span class="spacer"></span>{/if}
-          <span class="label">{item.label}</span>
-          {#if item.checked}<Icon name="check" size={14} />{/if}
-          {#if item.items}<Icon name="right" size={14} />{/if}
-        </button>
-      {/if}
-    {/each}
+    {@render entries(overlay.menu.items, false)}
   </div>
+  {#if flyout}
+    <div
+      class="menu"
+      role="menu"
+      tabindex="-1"
+      aria-label={flyout.label}
+      bind:this={flyoutElement}
+      style:left="{flyoutPosition.left}px"
+      style:top="{flyoutPosition.top}px"
+      onkeydown={(e) => menuKeys(e, flyoutElement, true)}
+      onpointerenter={() => clearTimeout(hoverTimer)}
+    >
+      {@render entries(flyout.items, true)}
+    </div>
+  {/if}
 {/if}
+
+{#snippet entries(items: MenuItem[], inFlyout: boolean)}
+  {#each items as item, i (i)}
+    {#if item.separator}
+      <hr />
+    {:else}
+      {@const open = !inFlyout && flyout?.index === i}
+      <button
+        class="item"
+        class:danger={item.danger}
+        class:open
+        role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
+        aria-checked={item.checked}
+        aria-haspopup={item.items ? 'menu' : undefined}
+        aria-expanded={item.items && !overlay.menu?.sheet ? open : undefined}
+        disabled={item.disabled}
+        onclick={(e) => choose(item, i, e.currentTarget, inFlyout)}
+        onpointerenter={inFlyout ? undefined : (e) => hover(e, item, i)}
+      >
+        {#if item.icon}<Icon name={item.icon} size={16} />{:else}<span class="spacer"></span>{/if}
+        <span class="label">{item.label}</span>
+        {#if item.checked}<Icon name="check" size={14} />{/if}
+        {#if item.items}<Icon name="right" size={14} />{/if}
+      </button>
+    {/if}
+  {/each}
+{/snippet}
 
 {#if overlay.dialog}
   <div
@@ -287,7 +372,8 @@
     text-align: start;
     cursor: pointer;
   }
-  .item:focus-visible {
+  .item:focus-visible,
+  .item.open {
     background: var(--color-selection);
     outline: none;
   }
