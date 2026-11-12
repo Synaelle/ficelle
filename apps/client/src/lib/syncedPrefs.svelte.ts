@@ -7,6 +7,7 @@ import { backend } from './backend'
 import { localSync } from './localSync.svelte'
 import { ARROW_CHOICES, DEFAULT_PREFS, prefs, type Prefs } from './prefs.svelte'
 import { sync } from './sync.svelte'
+import { workspace } from './workspace.svelte'
 
 export const SYNCED = [
   'mode',
@@ -49,16 +50,38 @@ function usable(key: Synced, value: unknown): boolean {
  * there and is not sent back. */
 const known: Partial<Record<Synced, string>> = {}
 
+/** Choices the editor is built with: changing one rebuilds the open editor,
+ * which would take the caret out of a note being typed in. */
+const EDITOR: readonly Synced[] = ['autoLists', 'emojiShortcodes', 'arrow', 'spellcheck']
+
+/** Editor choices that came while the person was typing, put in place once
+ * the caret leaves the note. */
+let held: Partial<Record<Synced, unknown>> = {}
+
+const typing = () => !!document.activeElement?.closest('.ProseMirror')
+
+function putHeld() {
+  Object.assign(prefs, held)
+  held = {}
+}
+
 /** Takes the vault's choices in, those of every device. */
 export async function takeSyncedPrefs() {
   const values = prefs as Record<Synced, unknown>
+  const sortWas = prefs.sort
   for (const [key, raw] of await backend.syncedSettings()) {
     if (!isSynced(key)) continue
     const value: unknown = JSON.parse(raw)
     if (!usable(key, value)) continue
     known[key] = raw
-    if (JSON.stringify(values[key]) !== raw) values[key] = value
+    if (JSON.stringify(values[key]) === raw) continue
+    if (EDITOR.includes(key) && typing()) {
+      if (!Object.keys(held).length) document.addEventListener('focusout', putHeld, { once: true })
+      held[key] = value
+    } else values[key] = value
   }
+  // the list is read sorted: a sort chosen elsewhere reads it again
+  if (prefs.sort !== sortWas) await workspace.refreshNotes()
 }
 
 /** Sends each choice changed here while the notes are open. Choices made
