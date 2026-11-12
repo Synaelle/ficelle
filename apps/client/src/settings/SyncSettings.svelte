@@ -362,13 +362,6 @@
     inert={linked}
   >
     <p class="settings-help">{t('local.intro')}</p>
-    <div class="notice" role="note">
-      <Icon name="warning" size={18} />
-      <div>
-        <b>{t('local.experimental')}</b>
-        <p>{t('local.experimentalHelp')}</p>
-      </div>
-    </div>
 
     {#if local.open}
       <Group
