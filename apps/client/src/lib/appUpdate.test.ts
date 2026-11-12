@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { brand } from '@app/brand'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { channel, isBigJump, isFix, updateLines, waitingForStable } from './appUpdate.svelte'
 import { prefs } from './prefs.svelte'
@@ -71,6 +72,12 @@ describe('updateLines', () => {
     expect(updateLines(update(['tomorrow', 'later', 'fixes']))).toEqual([
       'A new version is out.',
       'Fixes and small improvements.',
+    ])
+  })
+
+  it('names a new language in the app language from its code', () => {
+    expect(updateLines(update(['newLanguage:de']))).toEqual([
+      `${brand.displayName} now speaks German.`,
     ])
   })
 

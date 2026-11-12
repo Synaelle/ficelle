@@ -318,7 +318,12 @@ export function updateLines(update: AppUpdate): string[] {
   const lines = (update.messages ?? []).map((message) => {
     const [key = '', value = ''] = message.split(/:(.*)/s)
     if (!(MESSAGES as readonly string[]).includes(key)) return t('appUpdate.message.generic')
-    return t(`appUpdate.message.${key}`, { platform: value, language: value })
+    // a new language comes as its code (de): named in the app's language
+    const language =
+      key === 'newLanguage'
+        ? (new Intl.DisplayNames([currentLocale()], { type: 'language' }).of(value) ?? value)
+        : value
+    return t(`appUpdate.message.${key}`, { platform: value, language })
   })
   return lines.filter((line, i) => lines.indexOf(line) === i)
 }
