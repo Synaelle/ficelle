@@ -702,6 +702,8 @@
     min-height: 19px;
     margin-top: 2px;
     overflow: hidden;
+    /* chips cut at the edge fade out, so more tags read as more */
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
   }
   .chip {
     display: inline-flex;
