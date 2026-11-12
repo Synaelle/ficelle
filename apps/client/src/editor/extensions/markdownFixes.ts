@@ -252,7 +252,11 @@ export const ReadableMarkdown = Markdown.extend({
     if (!manager) return
     const parse = manager.parse.bind(manager)
     manager.parse = (markdown) => {
-      const chunks = markdownChunks(markdown)
+      // the reader drops the \r of Windows line endings anyway: without it,
+      // the blank lines between blocks show and the note is cut there
+      const chunks = markdownChunks(
+        markdown.includes('\r') ? markdown.replace(/\r\n?/g, '\n') : markdown,
+      )
       if (chunks.length === 1) return parse(markdown)
       return { type: 'doc', content: chunks.flatMap((chunk) => parse(chunk).content) }
     }

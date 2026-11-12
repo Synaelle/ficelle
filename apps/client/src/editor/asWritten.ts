@@ -144,12 +144,20 @@ export function asWritten(stored: string, before: string, now: string): string {
   const windows = raw.some((line) => line.endsWith('\r'))
   const kept = windows ? raw.map((line) => line.replace(/\r$/, '')) : raw
   const edited = now.split('\n')
+  const asTyped = (lines: string[]) => (windows ? lines.map((line) => `${line}\r`) : lines)
+  /** Lines joined back, the last with no line ending when the note has none. */
+  const joined = (lines: string[]) => {
+    const text = lines.join('\n')
+    return windows && !stored.endsWith('\r') && text.endsWith('\r') ? text.slice(0, -1) : text
+  }
+  // in the editor's own form but for its line endings: no line to line up,
+  // the editor's lines with the note's endings
+  if (windows && kept.join('\n') === before) return joined(asTyped(edited))
   const inKept = linedUp(base, kept)
   const inEdited = linedUp(base, edited)
   const out: string[] = []
   /** The stored lines from `from`, as written. */
   const asStored = (from: number, count: number) => raw.slice(from, from + count)
-  const asTyped = (lines: string[]) => (windows ? lines.map((line) => `${line}\r`) : lines)
   let b = 0
   let k = 0
   let e = 0
@@ -190,7 +198,5 @@ export function asWritten(stored: string, before: string, now: string): string {
     k = keptTo + 1
     e = editedTo + 1
   }
-  const text = out.join('\n')
-  // the last line of a file has no line ending to carry
-  return windows && !stored.endsWith('\r') && text.endsWith('\r') ? text.slice(0, -1) : text
+  return joined(out)
 }

@@ -187,6 +187,28 @@ describe('long notes read in parts', () => {
     pasted.destroy()
   })
 
+  it('a note with Windows line endings is read in parts too, the same as without them', () => {
+    const long = Array.from({ length: 12 }, () => corpus).join('\n\n')
+    const read = vi.spyOn(MarkdownManager.prototype, 'parse')
+    const windows = new Editor({
+      element: document.createElement('div'),
+      extensions: createExtensions(),
+      content: long.replace(/\n/g, '\r\n'),
+      contentType: 'markdown',
+    })
+    expect(read.mock.calls.length).toBe(markdownChunks(long).length)
+    read.mockRestore()
+    const plain = new Editor({
+      element: document.createElement('div'),
+      extensions: createExtensions(),
+      content: long,
+      contentType: 'markdown',
+    })
+    expect(windows.getJSON()).toEqual(plain.getJSON())
+    windows.destroy()
+    plain.destroy()
+  })
+
   it('never cuts inside code, math, folded sections, lists or quotes', () => {
     const filler = 'word '.repeat(1000)
     const tricky = [

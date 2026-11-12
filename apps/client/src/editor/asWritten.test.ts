@@ -128,6 +128,17 @@ describe('saving a note written in another form', () => {
     editor.destroy()
   })
 
+  it('a long note in the editor form with Windows line endings saves without lining up its lines', () => {
+    const lines = Array.from({ length: 6000 }, (_, n) => `Paragraph ${n} of a long note.`)
+    const before = lines.join('\n\n')
+    const stored = before.replace(/\n/g, '\r\n')
+    const now = before.replace('Paragraph 3000 of', 'Paragraph 3000, edited, of')
+    const start = performance.now()
+    const saved = asWritten(stored, before, now)
+    expect(performance.now() - start).toBeLessThan(200)
+    expect(saved).toBe(now.replace(/\n/g, '\r\n'))
+  })
+
   it('a long note in another form on every block keeps it around the line typed in', () => {
     const blocks = Array.from(
       { length: 900 },
