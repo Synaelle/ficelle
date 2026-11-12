@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { AppUpdate } from './backend'
-import { leaveBeta, syncSafety } from './channelChange.svelte'
+import { betaJoinsGently, leaveBeta, syncSafety } from './channelChange.svelte'
 
 const stable = (o: Partial<AppUpdate> = {}): AppUpdate => ({
   version: '0.4.1',
@@ -62,5 +62,28 @@ describe('leaveBeta', () => {
   it('goes back by installing on a computer, through an uninstall on Android', () => {
     expect(leaveBeta({ ...base, found: stable() })).toBe('back')
     expect(leaveBeta({ ...base, android: true, found: stable() })).toBe('backAndroid')
+  })
+})
+
+describe('betaJoinsGently', () => {
+  const beta = (o: Partial<AppUpdate> = {}): AppUpdate => ({
+    version: '0.6.0-beta.3',
+    notes: '',
+    sameSchema: true,
+    ...o,
+  })
+
+  it('joins without a backup when the beta reads the same notes and is one version ahead', () => {
+    expect(betaJoinsGently(beta(), '0.5.5')).toBe(true)
+    expect(betaJoinsGently(null, '0.5.5')).toBe(true)
+  })
+
+  it('asks for a backup when the notes database changes', () => {
+    expect(betaJoinsGently(beta({ sameSchema: false }), '0.5.5')).toBe(false)
+    expect(betaJoinsGently(beta({ sameSchema: undefined }), '0.5.5')).toBe(false)
+  })
+
+  it('asks for a backup over two versions or more', () => {
+    expect(betaJoinsGently(beta(), '0.4.2')).toBe(false)
   })
 })

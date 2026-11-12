@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Changing channel (lib/ChannelSwitch.svelte draws each step).
 //
-// Joining Beta: betas may have bugs, so a backup is asked for first, then
-// the Beta list is read at once and the newest beta downloads like any
-// update.
+// Joining Beta: the Beta list is read at once and the newest beta downloads
+// like any update. A backup is asked for first only when that beta changes
+// something deep: its notes database's format, or two versions or more at
+// once. An unreadable list asks too.
 //
 // Leaving Beta while a beta is installed: Stable has no newer version yet.
 // The person can wait for it, or go back to the newest stable at once after
@@ -112,9 +113,9 @@ class ChannelSwitch {
   /** The way every choice of channel goes. */
   async choose(next: UpdateChannel) {
     if (next === 'beta') {
-      if (prefs.channel !== 'beta') this.show('join')
-      else appUpdates.setChannel('beta')
-      return
+      if (prefs.channel === 'beta') return appUpdates.setChannel('beta')
+      if (await betaChangesLittle()) return this.join()
+      return this.show('join')
     }
     let found: AppUpdate | null = null
     if (installedBeta && !isMacApp) {
@@ -215,6 +216,22 @@ class ChannelSwitch {
 }
 
 export const channelSwitch = new ChannelSwitch()
+
+/** Joining Beta needs no backup first: no newer beta, or one that reads
+ * this version's notes database and is at most one version ahead. */
+export const betaJoinsGently = (beta: AppUpdate | null, current: string = thisVersion) =>
+  !beta || (beta.sameSchema === true && !isBigJump(beta.version, current))
+
+/** See betaJoinsGently. An unreadable list asks for the backup, and a test
+ * build walks that step. */
+async function betaChangesLittle(): Promise<boolean> {
+  if (pretendRelease) return false
+  try {
+    return betaJoinsGently(await backend.appUpdateLatest('beta'))
+  } catch {
+    return false
+  }
+}
 
 /** How safe the notes are on the sync server right now. */
 export const notesSynced = () => syncSafety(sync.status)
