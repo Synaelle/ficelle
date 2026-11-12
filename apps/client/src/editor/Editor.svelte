@@ -142,9 +142,6 @@
     const items: MenuItem[] = [
       { label: t('files.saveCopy'), icon: 'export', run: () => void saveCopy(file) },
     ]
-    // the picture itself on the clipboard; Android's clipboard takes text only
-    if (file.mimeType.startsWith('image/') && backend.native && !PHONE)
-      items.unshift({ label: t('files.copyImage'), icon: 'copy', run: () => void copyImage(file) })
     if (!readonly)
       items.push({
         label: t('files.remove'),
@@ -155,8 +152,13 @@
     return items
   }
 
-  /** Puts a picture of the note on the clipboard, as an image other apps paste. */
-  async function copyImage(file: AttachmentFile) {
+  /** The picture itself goes on the clipboard; Android's takes text only. */
+  const picturesCopy = (file: AttachmentFile) =>
+    file.mimeType.startsWith('image/') && backend.native && !PHONE
+
+  /** Puts a picture of the note on the clipboard, as an image other apps
+   * paste. Says whether it went. */
+  async function copyImage(file: AttachmentFile): Promise<boolean> {
     try {
       if (!file.here) await backend.fetchAttachment(file.sha256)
       const bytes = await backend.readAttachment(file.sha256)
@@ -168,16 +170,48 @@
       const pixels = context.getImageData(0, 0, bitmap.width, bitmap.height).data
       const image = await TauriImage.new(new Uint8Array(pixels.buffer), bitmap.width, bitmap.height)
       await writeImage(image)
-      toasts.push(t('files.title'), t('files.imageCopied'))
+      return true
     } catch (err) {
       console.warn('copy image failed', err)
       toasts.push(t('files.title'), t('files.imageNotCopied'))
+      return false
     }
   }
 
   /** The menu of a file linked in the text. */
   function fileMenu(event: MouseEvent, file: AttachmentFile) {
-    overlay.openMenu(event, fileItems(file))
+    const copy: MenuItem[] = picturesCopy(file)
+      ? [
+          {
+            label: t('files.copyImage'),
+            icon: 'copy',
+            run: () =>
+              void copyImage(file).then(
+                (done) => done && toasts.push(t('files.title'), t('files.imageCopied')),
+              ),
+          },
+        ]
+      : []
+    overlay.openMenu(event, [...copy, ...fileItems(file)])
+  }
+
+  /** Cut and copy for the image under the menu, selected like text would
+   * be: the picture itself on the clipboard where it can go, the editor's
+   * own copy elsewhere. Then the rest of the text menu. */
+  function imageItems(current: Editor, file: AttachmentFile, field: HTMLElement): MenuItem[] {
+    const copy = () =>
+      picturesCopy(file) ? copyImage(file) : Promise.resolve(document.execCommand('copy'))
+    const [, , ...rest] = textItems(field)
+    return [
+      {
+        label: t('menu.cut'),
+        disabled: readonly,
+        run: () =>
+          void copy().then((done) => done && current.chain().focus().deleteSelection().run()),
+      },
+      { label: t('menu.copy'), run: () => void copy() },
+      ...rest,
+    ]
   }
 
   /** The file an image of the text shows, if it is one of the note's. */
@@ -715,11 +749,18 @@
     const image = event.target instanceof HTMLImageElement ? fileOfImage(event.target) : undefined
     // a long touch on text is the phone's: selection handles, copy and paste
     if (!image && overlay.byTouch) return
-    if (!image) selectWordAt(current, event)
+    if (image) {
+      // the image is selected, so cut and copy take it as they take text
+      const at = current.view.posAtCoords({ left: event.clientX, top: event.clientY })?.inside ?? -1
+      if (at >= 0 && current.state.doc.nodeAt(at)?.type.name === 'image')
+        current.view.dispatch(
+          current.state.tr.setSelection(NodeSelection.create(current.state.doc, at)),
+        )
+    } else selectWordAt(current, event)
     const chain = () => current.chain().focus()
     overlay.openMenu(event, [
       ...(image ? [...fileItems(image), SEPARATOR] : []),
-      ...textItems(field),
+      ...(image ? imageItems(current, image, field) : textItems(field)),
       SEPARATOR,
       { label: t('editor.bold'), icon: 'bold', run: () => chain().toggleBold().run() },
       { label: t('editor.italic'), icon: 'italic', run: () => chain().toggleItalic().run() },
