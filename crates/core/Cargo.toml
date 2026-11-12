@@ -44,8 +44,16 @@ zip = { version = "=9.1.2", default-features = false, features = ["deflate-flate
 [target.'cfg(target_vendor = "apple")'.dependencies]
 rusqlite = { version = "0.42.0", features = ["bundled-sqlcipher"] }
 
-[target.'cfg(not(target_vendor = "apple"))'.dependencies]
+[target.'cfg(not(any(target_vendor = "apple", target_family = "wasm")))'.dependencies]
 rusqlite = { version = "0.42.0", features = ["bundled-sqlcipher-vendored-openssl"] }
+
+# The web version: SQLite and SQLCipher built for the browser, with clocks and
+# randomness from the browser's own
+[target.'cfg(target_family = "wasm")'.dependencies]
+rusqlite = { version = "0.42.0", features = ["bundled-sqlcipher"] }
+getrandom = { version = "0.4.3", features = ["wasm_js"] }
+jiff = { version = "0.2.38", default-features = false, features = ["std", "js"] }
+uuid = { version = "1.28.0", features = ["v7", "serde", "js"] }
 
 [dev-dependencies]
 app-repo = { workspace = true, features = ["testing"] }

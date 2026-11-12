@@ -147,7 +147,12 @@ pub fn open(path: &Path, key: Option<&DatabaseKey>) -> Result<Connection> {
 
 fn configure(conn: &Connection) -> Result<()> {
     // WAL lets the ui read while a save is in progress, NORMAL sync is safe with WAL
+    #[cfg(not(target_family = "wasm"))]
     conn.pragma_update(None, "journal_mode", "WAL")?;
+    // the browser's file storage has no shared memory for WAL: the default
+    // journal, removed after each write, so a database can also be copied
+    #[cfg(target_family = "wasm")]
+    conn.pragma_update(None, "journal_mode", "DELETE")?;
     conn.pragma_update(None, "synchronous", "NORMAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
     Ok(())
