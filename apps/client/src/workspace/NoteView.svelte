@@ -191,17 +191,23 @@
         </button>
       {/if}
       <span class="where"></span>
+      <!-- a small mark instead of words that would flash with every pause in
+           typing: a breathing dot while saving, a check once saved -->
       <span
         class="saved muted"
         class:bad={workspace.unsaved}
-        class:quiet={!saving && !justSaved}
+        class:quiet={!workspace.unsaved && !saving && !justSaved}
         aria-live="polite"
-        >{workspace.unsaved
-          ? t('note.notSaved')
-          : saving
-            ? t('note.saving')
-            : t('note.saved')}</span
       >
+        {#if workspace.unsaved}
+          {t('note.notSaved')}
+        {:else}
+          <span class="mark" class:done={!saving} aria-hidden="true">
+            <Icon name="check" size={12} />
+          </span>
+          <span class="visually-hidden">{saving ? t('note.saving') : t('note.saved')}</span>
+        {/if}
+      </span>
       <button
         class="icon-btn"
         aria-label={note.pinned ? t('note.unpin') : t('note.pin')}
@@ -407,6 +413,56 @@
   }
   .saved.quiet {
     opacity: 0;
+  }
+  .mark {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+  }
+  /* the dot while saving, drawn under the check that replaces it */
+  .mark::before {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: breathe 1.4s var(--ease-out) infinite alternate;
+    transition: opacity var(--dur-slow) var(--ease-out);
+  }
+  .mark :global(svg) {
+    opacity: 0;
+    transform: scale(0.6);
+    transition:
+      opacity var(--dur-slow) var(--ease-out),
+      transform var(--dur-slow) var(--ease-out);
+  }
+  .mark.done::before {
+    opacity: 0;
+    animation: none;
+  }
+  .mark.done :global(svg) {
+    opacity: 1;
+    transform: none;
+  }
+  @keyframes breathe {
+    from {
+      opacity: 0.35;
+    }
+    to {
+      opacity: 0.9;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mark::before {
+      animation: none;
+      opacity: 0.6;
+    }
+    .mark :global(svg) {
+      transform: none;
+    }
   }
   .saved.bad {
     color: var(--color-danger);
