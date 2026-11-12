@@ -15,7 +15,7 @@ const phone = /android|iphone|ipad/i.test(navigator.userAgent)
 
 /** Small is the original size. Huge keeps a 412 px phone at least 317 px wide. */
 const SCALES: Record<UiSize, number> = phone
-  ? { small: 1, medium: 1.075, huge: 1.3 }
+  ? { small: 1, medium: 1.02, huge: 1.3 }
   : { small: 1, medium: 1.1, huge: 1.25 }
 /** Layouts are checked down to 317 px, the width of Huge on a usual phone. */
 const MAX_PHONE_SCALE = 1.3
