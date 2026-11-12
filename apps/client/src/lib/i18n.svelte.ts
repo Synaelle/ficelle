@@ -5,35 +5,65 @@
 // {count} value with Intl.PluralRules.
 
 import { brand } from '@app/brand'
-import en from '../../../../packages/locales/en.toml'
-import fr from '../../../../packages/locales/fr.toml'
 
-export const LOCALES = [
-  { code: 'en', name: 'English' },
-  { code: 'fr', name: 'Français' },
-] as const
+// every packages/locales/<code>.toml: a language started on the translation
+// website comes with no change here
+const files = import.meta.glob<Record<string, string>>('../../../../packages/locales/*.toml', {
+  eager: true,
+  import: 'default',
+})
+const catalogs: Record<string, Record<string, string>> = Object.fromEntries(
+  Object.entries(files).map(([path, strings]) => [
+    path.slice(path.lastIndexOf('/') + 1, -'.toml'.length),
+    strings,
+  ]),
+)
+const english = catalogs.en ?? {}
 
-/** Where anyone can correct a translation. */
-export const LOCALES_URL = 'https://github.com/Synaelle/ficelle/tree/main/packages/locales'
+/** Share of the English texts a language has, from 0 to 1. */
+const translated = (code: string) =>
+  Object.keys(english).filter((key) => key in (catalogs[code] ?? {})).length /
+  Object.keys(english).length
 
-export type Locale = (typeof LOCALES)[number]['code']
+// a page mostly in English with a few translated words reads worse than
+// English alone, so a language is offered once half of it is done, with its
+// share shown beside it
+const READY = 0.5
 
-const catalogs: Record<Locale, Record<string, string>> = { en, fr }
+/** The languages offered, each named in itself, with the share translated. */
+export const LOCALES = Object.keys(catalogs)
+  .filter((code) => code === 'en' || translated(code) >= READY)
+  .map((code) => {
+    const name = new Intl.DisplayNames([code], { type: 'language' }).of(code) ?? code
+    return {
+      code,
+      name: name.charAt(0).toLocaleUpperCase(code) + name.slice(1),
+      done: code === 'en' ? 1 : translated(code),
+    }
+  })
+  .sort((a, b) => (a.code === 'en' ? -1 : b.code === 'en' ? 1 : a.name.localeCompare(b.name)))
 
-/** First supported language of the system, English otherwise. */
+/** Where anyone can help translate. */
+export const LOCALES_URL = 'https://hosted.weblate.org/projects/ficelle/'
+
+export type Locale = string
+
+const offered = new Set(LOCALES.map((l) => l.code))
+
+/** First offered language of the system, English otherwise. */
 export function systemLocale(): Locale {
   for (const tag of navigator.languages ?? [navigator.language]) {
     const code = tag.slice(0, 2).toLowerCase()
-    if (code in catalogs) return code as Locale
+    if (offered.has(code)) return code
   }
   return 'en'
 }
 
 const state = $state({ locale: 'en' as Locale })
 
-/** Whether this build has the language, a saved one may have been removed since. */
+/** Whether this build offers the language, a saved one may have been removed since. */
 export const isLocale = (code: unknown): code is Locale =>
-  typeof code === 'string' && Object.hasOwn(catalogs, code)
+  typeof code === 'string' && offered.has(code)
 
 /** Falls back to English for a language this build no longer has. */
 export function setLocale(locale: Locale) {
@@ -52,8 +82,8 @@ function lookup(key: string, vars: Vars): string | undefined {
   // a language saved by an older version may be gone; a text not translated
   // yet comes in English, its plural chosen by English rules
   const tables: [Locale, Record<string, string>][] = [
-    catalogs[state.locale] ? [state.locale, catalogs[state.locale]] : ['en', catalogs.en],
-    ['en', catalogs.en],
+    [state.locale, catalogs[state.locale] ?? english],
+    ['en', english],
   ]
   if (typeof vars.count === 'number') {
     for (const [locale, table] of tables) {
@@ -75,4 +105,14 @@ export function t(key: string, vars: Vars = {}): string {
   return text.replace(/\{(\w+)\}/g, (match, name: string) =>
     all[name] === undefined ? match : String(all[name]),
   )
+}
+
+/** "92% translated" for a language not fully translated yet, else nothing. */
+export function translatedLine(done: number): string | undefined {
+  if (done >= 1) return undefined
+  // rounded down, 99.6% is not finished
+  const percent = new Intl.NumberFormat(state.locale, { style: 'percent' }).format(
+    Math.floor(done * 100) / 100,
+  )
+  return t('settings.languageDone', { percent })
 }

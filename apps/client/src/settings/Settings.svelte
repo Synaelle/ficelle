@@ -8,7 +8,7 @@
   import { modal } from '../lib/modal'
   import { onMount } from 'svelte'
   import { biometricMethod } from '../lib/biometric'
-  import { LOCALES, LOCALES_URL, t, type Locale } from '../lib/i18n.svelte'
+  import { LOCALES, LOCALES_URL, t, translatedLine, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
@@ -293,7 +293,7 @@
               {/if}
             </Group>
           {:else if section === 'language'}
-            <Group note={t('settings.languageMachine', { url: LOCALES_URL })}>
+            <Group note={t('settings.languageHelp', { url: LOCALES_URL })}>
               <Row label={t('settings.language')}>
                 <select
                   class="field compact"
@@ -304,7 +304,11 @@
                 >
                   <option value="">{t('settings.languageSystem')}</option>
                   {#each LOCALES as locale (locale.code)}
-                    <option value={locale.code}>{locale.name}</option>
+                    <option value={locale.code}
+                      >{[locale.name, translatedLine(locale.done)]
+                        .filter(Boolean)
+                        .join(', ')}</option
+                    >
                   {/each}
                 </select>
               </Row>

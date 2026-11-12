@@ -15,7 +15,7 @@
   import { onBack } from '../lib/back'
   import { modal } from '../lib/modal'
   import { biometricMethod } from '../lib/biometric'
-  import { LOCALES, LOCALES_URL, t, type Locale } from '../lib/i18n.svelte'
+  import { LOCALES, LOCALES_URL, t, translatedLine, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { overlay, type MenuItem } from '../lib/overlay.svelte'
@@ -546,7 +546,7 @@
       {:else if page === 'language'}
         <Group
           title={t('settings.language')}
-          note={t('settings.languageMachine', { url: LOCALES_URL })}
+          note={t('settings.languageHelp', { url: LOCALES_URL })}
         >
           <Row
             label={t('settings.languageSystem')}
@@ -556,6 +556,7 @@
           {#each LOCALES as locale (locale.code)}
             <Row
               label={locale.name}
+              help={translatedLine(locale.done)}
               checked={prefs.language === locale.code}
               onclick={() => (prefs.language = locale.code as Locale)}
             />

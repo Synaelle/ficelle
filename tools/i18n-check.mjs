@@ -69,9 +69,12 @@ for (const key of Object.keys(english)) {
 }
 for (const [code, strings] of Object.entries(locales)) {
   if (code === 'en') continue
+  const missing = Object.keys(english).filter((key) => !(key in strings))
+  // a language being started has most texts missing: one line, not hundreds
+  if (missing.length > 50) warnings.push(`${code}: ${missing.length} texts not translated yet`)
+  else for (const key of missing) warnings.push(`${code}: not translated yet: ${key}`)
   for (const [key, text] of Object.entries(english)) {
-    if (!(key in strings)) warnings.push(`${code}: not translated yet: ${key}`)
-    else if (placeholders(text).join() !== placeholders(strings[key] ?? '').join())
+    if (key in strings && placeholders(text).join() !== placeholders(strings[key] ?? '').join())
       errors.push(`${code}: placeholders differ from English in ${key}`)
   }
   for (const key of Object.keys(strings)) {
