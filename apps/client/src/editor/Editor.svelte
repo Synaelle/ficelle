@@ -647,6 +647,13 @@
           const target = event.target as HTMLElement | null
           // a tap beside or under images alone on their line writes on the
           // next line, not next to them
+          // under the last block, in the editor's own room below the text:
+          // as a tap under the note
+          const last = view.dom.lastElementChild
+          if (!readonly && last && event.clientY > last.getBoundingClientRect().bottom) {
+            writeAtEnd()
+            return true
+          }
           const at = view.state.doc.resolve(pos)
           if (!readonly && !target?.closest('.image-view') && imagesOnly(at.parent)) {
             writeAfter(at.after())
