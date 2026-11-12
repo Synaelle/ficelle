@@ -4,11 +4,11 @@ Ficelle is made by one person in their spare time, so every bit of help counts. 
 
 ## Languages
 
-English is the reference language and the fallback, so a text that is not translated yet shows in English. Each language is one file in [packages/locales](packages/locales), and every change ends up there, whichever way you send it.
+English is the reference language and the fallback, so a text that is not translated yet shows in English. Each language is one file in [packages/locales](packages/locales), and every change ends up there, whichever way you send it. A language shows in the app once half of it is translated.
 
 ### On Weblate
 
-Coming soon. Weblate will let you translate in the browser, with nothing to install, and it will stay in sync with the files here on its own.
+The easiest way is [Ficelle on Weblate](https://hosted.weblate.org/projects/ficelle/), in the browser with nothing to install. Your changes reach this repository as pull requests. To ask for a language that is not there yet, open an issue with the New language form.
 
 ### On GitHub
 
@@ -21,7 +21,25 @@ You can also edit a file right on GitHub, without git or any tool.
 
 I check the change and merge it.
 
-To add a language, open an issue or a pull request with a copy of `en.toml` named after the language's code (`de.toml` for German). The app needs a small change to offer it, I take care of that.
+To start a new language here, add a file named after its code in [packages/locales](packages/locales) (`de.toml` for German). Copy into it the parts of `en.toml` you translate and leave out the rest, which then shows in English.
+
+### Languages translated on GitHub only
+
+Some languages change a word with the number in more ways than English does. Polish says "2 notatki" but "5 notatek". Weblate cannot keep those extra forms in Ficelle's files, so these languages are translated on GitHub only.
+
+Arabic, Belarusian, Bosnian, Breton, Croatian, Czech, Hebrew, Irish, Latvian, Lithuanian, Maltese, Polish, Romanian, Russian, Scottish Gaelic, Serbian, Slovak, Slovenian, Ukrainian and Welsh.
+
+In these files, a text that depends on a number gets every form the language needs next to `one` and `other`. Polish needs `few` and `many`.
+
+```toml
+[files.inNote]
+one = "{count} załącznik"
+few = "{count} załączniki"
+many = "{count} załączników"
+other = "{count} załącznika"
+```
+
+The forms of each language are listed in the [Unicode plural rules](https://www.unicode.org/cldr/charts/latest/supplemental/language_plural_rules.html). If you are unsure, ask in the pull request.
 
 ## Code
 
