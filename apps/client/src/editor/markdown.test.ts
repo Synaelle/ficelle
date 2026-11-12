@@ -4,7 +4,8 @@
 
 import { Editor } from '@tiptap/core'
 import { TaskList } from '@tiptap/extension-list'
-import { describe, expect, it } from 'vitest'
+import { MarkdownManager } from '@tiptap/markdown'
+import { describe, expect, it, vi } from 'vitest'
 import { createExtensions } from './extensions'
 import {
   TASK_GUARD,
@@ -163,6 +164,27 @@ describe('long notes read in parts', () => {
     const whole = Object.getPrototypeOf(manager).parse.call(manager, long)
     expect(manager.parse(long)).toEqual(whole)
     editor.destroy()
+  })
+
+  it('a note opened with its markdown is read in parts too', () => {
+    const long = Array.from({ length: 12 }, () => corpus).join('\n\n')
+    const read = vi.spyOn(MarkdownManager.prototype, 'parse')
+    const editor = new Editor({
+      element: document.createElement('div'),
+      extensions: createExtensions(),
+      content: long,
+      contentType: 'markdown',
+    })
+    expect(read.mock.calls.map(([md]) => md)).toEqual(markdownChunks(long))
+    read.mockRestore()
+    const pasted = new Editor({
+      element: document.createElement('div'),
+      extensions: createExtensions(),
+    })
+    pasted.commands.setContent(long, { contentType: 'markdown' })
+    expect(editor.getJSON()).toEqual(pasted.getJSON())
+    editor.destroy()
+    pasted.destroy()
   })
 
   it('never cuts inside code, math, folded sections, lists or quotes', () => {
