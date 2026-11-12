@@ -16,7 +16,7 @@
 import { brand } from '@app/brand'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
 import { isMacApp, pretendRelease, resetBetaWelcome } from './beta.svelte'
-import { t } from './i18n.svelte'
+import { currentLocale, t } from './i18n.svelte'
 import { ANDROID } from './platform'
 import { prefs } from './prefs.svelte'
 import { lastNotified, rememberNotified, worthNotifying } from './updateNotify'
@@ -291,5 +291,39 @@ class AppUpdates {
     this.critical = null
   }
 }
+
+/** What a release can say about itself, in every language the app has. */
+const MESSAGES = [
+  'fixes',
+  'features',
+  'major',
+  'faster',
+  'look',
+  'dataFixes',
+  'security',
+  'updateAll',
+  'sync',
+  'phone',
+  'platform',
+  'accessibility',
+  'languages',
+  'newLanguage',
+  'beta',
+] as const
+
+/** A release's messages in the app's language. Each is a key, or a key and
+ * what fills it in (`platform:Linux`). A key this version does not know,
+ * from a newer release, reads as "A new version is out", once. */
+export function updateLines(update: AppUpdate): string[] {
+  const lines = (update.messages ?? []).map((message) => {
+    const [key = '', value = ''] = message.split(/:(.*)/s)
+    if (!(MESSAGES as readonly string[]).includes(key)) return t('appUpdate.message.generic')
+    return t(`appUpdate.message.${key}`, { platform: value, language: value })
+  })
+  return lines.filter((line, i) => lines.indexOf(line) === i)
+}
+
+/** The English list of changes needs a word saying so in other languages. */
+export const changelogLabelled = () => currentLocale() !== 'en'
 
 export const appUpdates = new AppUpdates()

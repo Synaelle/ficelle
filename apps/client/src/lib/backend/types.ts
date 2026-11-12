@@ -203,8 +203,14 @@ export type UpdateChannel = 'stable' | 'beta'
 /** A newer version of the app, downloaded and waiting to be installed. */
 export interface AppUpdate {
   version: string
-  /** What changed, from the release. */
+  /** What changed, from the release, in English: a line for apps that do
+   * not read `messages`. */
   notes: string
+  /** What the release is about, as keys the app translates, see
+   * `updateLines`. */
+  messages?: string[]
+  /** The release's list of changes, in English. */
+  changelog?: string
   /** Not downloaded, this page has it: the portable exe, a Mac app that
    * cannot replace itself or a release with no Mac file. */
   page?: string

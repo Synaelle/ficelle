@@ -79,6 +79,27 @@ help = "New versions download on their own. Nothing changes until you restart in
 helpPhone = "New versions download on their own, then Android asks you to install them."
 channelWaiting = "This beta is newer than the latest stable version. Updates come again once Stable catches up."
 
+# What a release is about, shown on the update card in the app's language.
+# Each release picks one or two; the full list of changes stays in English.
+[appUpdate.message]
+fixes = "Fixes and small improvements."
+features = "New features and fixes."
+major = "A big update with new features."
+faster = "Faster and lighter."
+look = "A refreshed look."
+dataFixes = "Fixes problems that could lose notes. Updating is recommended."
+security = "Improves security. Updating is recommended."
+updateAll = "Older versions can no longer sync with this one, so update all your devices."
+sync = "Better syncing between your devices."
+phone = "Improvements for the phone app."
+platform = "Fixes for {platform}."
+accessibility = "Accessibility improvements."
+languages = "Translation updates."
+newLanguage = "{appName} now speaks {language}."
+beta = "A new beta to try. Keep backups of your notes."
+generic = "A new version is out."
+inEnglish = "Changes, in English"
+
 [files]
 remove = "Remove the file"
 copyImage = "Copy image"

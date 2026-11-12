@@ -40,6 +40,11 @@ use crate::error::{CommandError, CommandResult};
 pub struct AppUpdate {
     version: String,
     notes: String,
+    /// What the release is about, from a fixed set the app translates:
+    /// `fixes`, or `platform:Linux` with what fills it in.
+    messages: Vec<String>,
+    /// The release's list of changes, in English.
+    changelog: String,
     /// Not downloaded, this page has it: the portable exe, a Mac app that
     /// cannot replace itself or a release with no Mac file.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -62,6 +67,8 @@ impl AppUpdate {
         Self {
             version: list::clean(&latest.version).to_owned(),
             notes: latest.notes.clone(),
+            messages: latest.messages.clone(),
+            changelog: latest.changelog.clone(),
             page,
             critical: latest.critical,
             older: list::older(&latest.version, app_brand::VERSION),
@@ -176,6 +183,11 @@ mod list {
         pub version: String,
         #[serde(default)]
         pub notes: String,
+        /// See [`super::AppUpdate::messages`]; lists made before have none.
+        #[serde(default)]
+        pub messages: Vec<String>,
+        #[serde(default)]
+        pub changelog: String,
         /// The release fixes a critical security problem (its `security`
         /// flag in the signed release list).
         #[serde(default)]
@@ -986,10 +998,25 @@ mod tests {
         Latest {
             version: version.to_owned(),
             notes: String::new(),
+            messages: Vec::new(),
+            changelog: String::new(),
             critical: false,
             platforms: std::collections::HashMap::new(),
             schema,
         }
+    }
+
+    #[test]
+    fn reads_the_messages_and_changelog_and_does_without_them() {
+        let with: Latest = serde_json::from_str(
+            r#"{"version":"0.5.5","messages":["faster","platform:Linux"],"changelog":"- Long notes open faster.","platforms":{}}"#,
+        )
+        .unwrap();
+        assert_eq!(with.messages, ["faster", "platform:Linux"]);
+        assert_eq!(with.changelog, "- Long notes open faster.");
+        let without: Latest =
+            serde_json::from_str(r#"{"version":"0.5.4","notes":"Fixes.","platforms":{}}"#).unwrap();
+        assert!(without.messages.is_empty() && without.changelog.is_empty());
     }
 
     #[test]

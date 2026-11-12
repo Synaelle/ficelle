@@ -5,7 +5,7 @@
      skipping this version for the next one (a security fix can only wait). -->
 <script lang="ts">
   import { ANDROID } from './platform'
-  import { appUpdates, isFix } from './appUpdate.svelte'
+  import { appUpdates, changelogLabelled, isFix, updateLines } from './appUpdate.svelte'
   import { channelSwitch } from './channelChange.svelte'
   import Icon from './icons/Icon.svelte'
   import Knot from '@app/ui/Knot.svelte'
@@ -33,6 +33,12 @@
     if (ready.page) return fix ? t('appUpdate.cardFixOut') : t('appUpdate.cardNewOut')
     return fix ? t('appUpdate.cardFixReady') : t('appUpdate.cardNewReady')
   })
+
+  /** What the release is about, translated. */
+  const lines = $derived(appUpdates.ready ? updateLines(appUpdates.ready) : [])
+  /** Its list of changes in English; a release before the messages only
+   * has its English line. */
+  const details = $derived(appUpdates.ready?.changelog || appUpdates.ready?.notes || '')
 </script>
 
 {#if appUpdates.ready && appUpdates.shown && !appUpdates.dismissed && !appUpdates.critical && appUpdates.skipped !== appUpdates.ready.version}
@@ -47,7 +53,8 @@
         <span class="sub">{sub}</span>
       </div>
     </div>
-    {#if appUpdates.ready.notes}
+    {#if lines.length}<p class="lines">{lines.join(' ')}</p>{/if}
+    {#if details}
       <button
         class="changes"
         aria-expanded={changes}
@@ -60,7 +67,10 @@
       {#if changes}
         <!-- focusable, so the keyboard can scroll long notes -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-        <p class="notes" id="update-notes" tabindex="0">{appUpdates.ready.notes}</p>
+        <div class="notes" id="update-notes" tabindex="0">
+          {#if changelogLabelled()}<span class="lang">{t('appUpdate.message.inEnglish')}</span>{/if}
+          <p lang="en">{details}</p>
+        </div>
       {/if}
     {/if}
     {#if appUpdates.error}<p class="error">{t(`errors.${appUpdates.error}`)}</p>{/if}
@@ -159,6 +169,20 @@
   }
   .chev.open {
     transform: rotate(180deg);
+  }
+  .lines {
+    margin: 0;
+    color: var(--color-text);
+    line-height: 1.45;
+  }
+  .notes p {
+    margin: 0;
+  }
+  .lang {
+    display: block;
+    margin-bottom: var(--space-1);
+    font-size: 12px;
+    font-weight: 600;
   }
   .notes {
     max-height: 9em;

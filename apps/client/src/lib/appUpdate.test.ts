@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import { channel, isBigJump, isFix, waitingForStable } from './appUpdate.svelte'
+import { channel, isBigJump, isFix, updateLines, waitingForStable } from './appUpdate.svelte'
 import { prefs } from './prefs.svelte'
 
 beforeEach(() => {
@@ -54,5 +54,27 @@ describe('channels', () => {
     expect(waitingForStable('0.4.0')).toBe(false)
     prefs.channel = 'beta'
     expect(waitingForStable('0.4.0-beta.2')).toBe(false)
+  })
+})
+
+describe('updateLines', () => {
+  const update = (messages?: string[]) => ({ version: '0.5.5', notes: 'Fixes.', messages })
+
+  it('reads each message in the app language, filled in where it needs to be', () => {
+    expect(updateLines(update(['faster', 'platform:Linux']))).toEqual([
+      'Faster and lighter.',
+      'Fixes for Linux.',
+    ])
+  })
+
+  it('reads a message from a newer release as a new version, once', () => {
+    expect(updateLines(update(['tomorrow', 'later', 'fixes']))).toEqual([
+      'A new version is out.',
+      'Fixes and small improvements.',
+    ])
+  })
+
+  it('has nothing to say for a release before the messages', () => {
+    expect(updateLines(update())).toEqual([])
   })
 })
