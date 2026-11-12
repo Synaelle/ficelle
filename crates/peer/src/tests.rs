@@ -312,7 +312,7 @@ fn a_large_message_crosses_in_many_frames() {
 
 /// A node that never uses discovery, on a port of its own that stays the
 /// same when it starts again.
-fn hidden_node(name: &str) -> (Node<TestHost>, Arc<TestHost>, u16) {
+fn hidden_node(name: &str) -> (Node<TestHost>, Arc<TestHost>) {
     let host = TestHost::new(name);
     let me = Me {
         platform: "linux".into(),
@@ -325,7 +325,7 @@ fn hidden_node(name: &str) -> (Node<TestHost>, Arc<TestHost>, u16) {
         .port();
     let node = Node::with_port(host.clone(), me, "", port);
     node.set_wanted(true);
-    (node, host, port)
+    (node, host)
 }
 
 fn kept_address(host: &TestHost) -> Option<String> {
@@ -334,13 +334,15 @@ fn kept_address(host: &TestHost) -> Option<String> {
 
 #[test]
 fn a_device_discovery_cannot_see_is_reached_at_the_address_it_answered_on() {
-    let (a, ha, _) = hidden_node("Desktop");
-    let (b, hb, port_b) = hidden_node("Laptop");
+    let (a, ha) = hidden_node("Desktop");
+    let (b, hb) = hidden_node("Laptop");
     let shown = a.start_pairing().unwrap();
     b.pair_with_code(&shown.code, Some(&address(&a))).unwrap();
-    // b dialled a: a learned b's address from b's hello, with b's port
+    // b dialled a: a learned b's address from b's hello, with the port b
+    // listens on. Not always the one picked for it: that one was free when
+    // picked, and another test may have taken it before b started
     until("a kept b's address", || {
-        kept_address(&ha).as_deref() == Some(&format!("127.0.0.1:{port_b}"))
+        kept_address(&ha) == b.status().port.map(|port| format!("127.0.0.1:{port}"))
     });
     // b's own way back to a is broken, so only a dialling b can join them
     let b_view_of_a = hb.s(|s, _| s.peer_devices()).unwrap()[0].clone();
@@ -409,8 +411,8 @@ type Device = (Node<TestHost>, Arc<TestHost>);
 
 /// Two nodes without discovery, paired, `b` having dialled `a`.
 fn paired() -> (Device, Device) {
-    let (a, ha, _) = hidden_node("Desktop");
-    let (b, hb, _) = hidden_node("Phone");
+    let (a, ha) = hidden_node("Desktop");
+    let (b, hb) = hidden_node("Phone");
     let shown = a.start_pairing().unwrap();
     b.pair_with_code(&shown.code, Some(&address(&a))).unwrap();
     until("both say synced", || {
@@ -513,9 +515,9 @@ fn edits_made_on_both_devices_at_once_merge_on_both() {
 
 #[test]
 fn a_change_reaches_a_device_that_only_a_third_one_connects_to() {
-    let (a, ha, _) = hidden_node("Desktop");
-    let (b, hb, _) = hidden_node("Laptop");
-    let (c, hc, _) = hidden_node("Phone");
+    let (a, ha) = hidden_node("Desktop");
+    let (b, hb) = hidden_node("Laptop");
+    let (c, hc) = hidden_node("Phone");
     // b pairs with a, then c with b: without discovery a and c learn of
     // each other but have no address to meet at
     let shown = a.start_pairing().unwrap();
@@ -533,9 +535,9 @@ fn a_change_reaches_a_device_that_only_a_third_one_connects_to() {
 
 #[test]
 fn a_device_paired_later_is_learned_of_and_reached_without_the_one_between() {
-    let (a, ha, _) = hidden_node("Desktop");
-    let (b, hb, _) = hidden_node("Laptop");
-    let (c, hc, _) = hidden_node("Phone");
+    let (a, ha) = hidden_node("Desktop");
+    let (b, hb) = hidden_node("Laptop");
+    let (c, hc) = hidden_node("Phone");
     let shown = a.start_pairing().unwrap();
     b.pair_with_code(&shown.code, Some(&address(&a))).unwrap();
     until("a and b synced", || {
