@@ -65,7 +65,8 @@
   })
 </script>
 
-<div class="raw">
+<!-- the margin is as wide as the last line's number -->
+<div class="raw" style:--digits={Math.max(3, String(lines.length).length)}>
   <div class="copy" aria-hidden="true">
     {#each lines as line, index (index)}
       <div class="line">
@@ -83,7 +84,7 @@
 
 <style>
   .raw {
-    --gutter: 3.2em;
+    --gutter: calc(var(--digits, 3) * 1ch + 1.4em);
     position: relative;
     counter-reset: line;
     font-family: var(--font-mono);
