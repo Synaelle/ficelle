@@ -1,8 +1,5 @@
 # Self-hosting without Docker
 
-> [!NOTE]
-> A server is for one person. Servers made before with several accounts keep working, and can move to one account from their admin page.
-
 The server is one binary, `ficelle-server`, with the web pages beside it and its data in one folder. It runs as a systemd service behind a reverse proxy with HTTPS.
 
 The commands below are written for Debian and Ubuntu. Other Linux systems with systemd work the same way, with their own package names and paths.

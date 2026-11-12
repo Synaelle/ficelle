@@ -1,8 +1,5 @@
 # Self-hosting with Docker
 
-> [!NOTE]
-> A server is for one person. Servers made before with several accounts keep working, and can move to one account from their admin page.
-
 The server is one container, `ghcr.io/synaelle/ficelle-server`, with its data in one volume. Put a reverse proxy with HTTPS in front of it. This is the recommended way to run a server.
 
 ## Install
