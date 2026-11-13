@@ -12,7 +12,7 @@
   import type { Node as PMNode } from '@tiptap/pm/model'
   import { NodeSelection, TextSelection } from '@tiptap/pm/state'
   import { onDestroy, onMount } from 'svelte'
-  import { save as pickSavePath } from '@tauri-apps/plugin-dialog'
+  import { pickToSave } from '../lib/pick'
   import { ATTACHMENT_PREFIX } from '../lib/attachments'
   import { backend, type AttachmentFile } from '../lib/backend'
   import { shrinkImage, thumbnailOf } from '../lib/images'
@@ -34,6 +34,7 @@
   import Toolbar from './Toolbar.svelte'
   import WikiSuggest from './WikiSuggest.svelte'
   import { HANDHELD, MOBILE } from '../lib/platform'
+  import { pageZoom } from '../lib/uiSize'
   import './editor.css'
 
   let {
@@ -260,7 +261,7 @@
   async function saveCopy(file: AttachmentFile) {
     try {
       if (!file.here) await backend.fetchAttachment(file.sha256)
-      const path = await pickSavePath({ defaultPath: file.fileName })
+      const path = await pickToSave({ defaultPath: file.fileName })
       if (path) await backend.saveAttachment(file.sha256, path)
     } catch (err) {
       workspace.error = isBackendError(err) ? err.kind : 'unknown'
@@ -812,7 +813,8 @@
     // kept inside the note on its right too
     const room = host.width - (imageBar?.offsetWidth ?? 0)
     const left = Math.max(0, Math.min(box.left - host.left, room))
-    return `top:${top < 0 ? box.top - host.top + 8 : top}px;left:${left}px`
+    const zoom = pageZoom()
+    return `top:${(top < 0 ? box.top - host.top + 8 : top) / zoom}px;left:${left / zoom}px`
   })
 
   const WRAP_ICONS: Record<Wrap, IconName> = {

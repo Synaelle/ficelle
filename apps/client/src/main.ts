@@ -3,7 +3,7 @@
 import { brand } from '@app/brand'
 import { mount } from 'svelte'
 import App from './App.svelte'
-import { DESKTOP, LINUX, PLATFORM } from './lib/platform'
+import { DESKTOP, HANDHELD, LINUX, PLATFORM } from './lib/platform'
 import { followScrollbars } from './lib/scrollbars'
 import { isQuickWindow } from './lib/quickNote'
 import QuickNote from './QuickNote.svelte'
@@ -17,7 +17,7 @@ if (LINUX) followScrollbars()
 // shrinking it (Safari) leaves the page the height still in sight. Times the
 // zoom, so pinching in does not shrink the page with it
 const viewport = window.visualViewport
-if (PLATFORM === 'web' && viewport) {
+if (PLATFORM === 'web' && HANDHELD && viewport) {
   const follow = () =>
     document.documentElement.style.setProperty(
       '--visible-height',

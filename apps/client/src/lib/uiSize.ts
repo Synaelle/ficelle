@@ -3,7 +3,8 @@
 // zoom, so every size grows together and layouts reflow to the narrower
 // width instead of each component carrying its own sizes. Phones scale
 // through the viewport (Android's webview has no zoom), desktop through the
-// webview zoom (desktop webviews ignore the viewport).
+// webview zoom (desktop webviews ignore the viewport), the web version on a
+// computer through CSS zoom.
 
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { backend } from './backend'
@@ -60,5 +61,16 @@ export function applyUiSize(size: UiSize) {
     void getCurrentWebview()
       .setZoom(scale)
       .catch(() => {})
+  } else {
+    // a browser page has no webview zoom: the page zooms itself
+    document.documentElement.style.zoom = String(scale)
   }
+}
+
+/** The page's own zoom (the web version on a computer, see applyUiSize), 1
+ * elsewhere. What the page measures (boxes, pointer positions) is zoomed,
+ * what css places is not: a measured position divided by this is placed
+ * where it was measured. */
+export function pageZoom(): number {
+  return Number(document.documentElement.style.zoom) || 1
 }

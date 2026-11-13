@@ -2,6 +2,8 @@
 <!-- Drag handle that resizes the pane on its left. Arrow keys move it too,
      double click puts the default width back. -->
 <script lang="ts">
+  import { pageZoom } from '../lib/uiSize'
+
   let {
     width = $bindable(),
     min,
@@ -23,7 +25,7 @@
   }
 
   function move(event: PointerEvent) {
-    if (start) width = clamp(start.width + event.clientX - start.x)
+    if (start) width = clamp(start.width + (event.clientX - start.x) / pageZoom())
   }
 
   function keys(event: KeyboardEvent) {

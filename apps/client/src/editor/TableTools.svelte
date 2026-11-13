@@ -14,6 +14,7 @@
   import type { IconName } from '../lib/icons/sets'
   import { overlay, SEPARATOR, type MenuItem } from '../lib/overlay.svelte'
   import { HANDHELD } from '../lib/platform'
+  import { pageZoom } from '../lib/uiSize'
 
   let { editor, tick }: { editor: Editor; tick: number } = $props()
 
@@ -81,13 +82,15 @@
     // note: never over the header row
     const top = box.top - frame.top - 38
     const left = Math.max(0, box.right - frame.left - width)
-    return `top:${top < -12 ? box.bottom - frame.top + 4 : top}px;left:${left}px`
+    const zoom = pageZoom()
+    return `top:${(top < -12 ? box.bottom - frame.top + 4 : top) / zoom}px;left:${left / zoom}px`
   })
   const cellStyle = $derived.by(() => {
     if (!where?.cell || !host) return ''
     const box = where.cell.getBoundingClientRect()
     const frame = host.getBoundingClientRect()
-    return `top:${box.top - frame.top + 4}px;left:${box.right - frame.left - 32}px`
+    const zoom = pageZoom()
+    return `top:${(box.top - frame.top) / zoom + 4}px;left:${(box.right - frame.left) / zoom - 32}px`
   })
 
   // presses keep the caret in the cell, and the keyboard open on a phone

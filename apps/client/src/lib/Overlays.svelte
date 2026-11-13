@@ -9,6 +9,7 @@
   import Icon from './icons/Icon.svelte'
   import { modal } from './modal'
   import { overlay, textItems, type MenuItem } from './overlay.svelte'
+  import { pageZoom } from './uiSize'
 
   let menuElement: HTMLDivElement | undefined = $state()
   let position = $state({ left: 0, top: 0 })
@@ -53,7 +54,8 @@
     else event.preventDefault()
   }
 
-  // keep the menu inside the window
+  // keep the menu inside the window. Positions are as measured, placed
+  // through pageZoom
   $effect(() => {
     const menu = overlay.menu
     clearTimeout(hoverTimer)
@@ -204,8 +206,8 @@
     role="menu"
     tabindex="-1"
     bind:this={menuElement}
-    style:left={overlay.menu.sheet ? null : `${position.left}px`}
-    style:top={overlay.menu.sheet ? null : `${position.top}px`}
+    style:left={overlay.menu.sheet ? null : `${position.left / pageZoom()}px`}
+    style:top={overlay.menu.sheet ? null : `${position.top / pageZoom()}px`}
     onkeydown={(e) => menuKeys(e, menuElement, false)}
   >
     {#if overlay.menu.parents.length > 0}
@@ -223,8 +225,8 @@
       tabindex="-1"
       aria-label={flyout.label}
       bind:this={flyoutElement}
-      style:left="{flyoutPosition.left}px"
-      style:top="{flyoutPosition.top}px"
+      style:left="{flyoutPosition.left / pageZoom()}px"
+      style:top="{flyoutPosition.top / pageZoom()}px"
       onkeydown={(e) => menuKeys(e, flyoutElement, true)}
       onpointerenter={() => clearTimeout(hoverTimer)}
     >

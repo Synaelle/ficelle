@@ -13,6 +13,7 @@ import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model'
 import { NodeSelection } from '@tiptap/pm/state'
 import { dropPoint } from '@tiptap/pm/transform'
 import type { Editor } from '@tiptap/core'
+import { pageZoom } from '../../lib/uiSize'
 
 export const WRAPS = ['inline', 'left', 'right', 'center', 'full'] as const
 
@@ -229,8 +230,9 @@ class ImageView {
 
     const apply = perFrame(() => {
       const free = last.shiftKey
-      let w = start.w + sx * (last.clientX - start.x)
-      let h = start.h + sy * (last.clientY - start.y)
+      const zoom = pageZoom()
+      let w = start.w + (sx * (last.clientX - start.x)) / zoom
+      let h = start.h + (sy * (last.clientY - start.y)) / zoom
       if (!free) {
         // follow whichever axis moved more, the other one keeps the ratio
         if (sx === 0 || (sy !== 0 && Math.abs(h - start.h) * ratio > Math.abs(w - start.w)))
@@ -346,13 +348,14 @@ class ImageView {
 
     const place = perFrame(() => {
       if (!ghost || !marker) return
-      ghost.style.transform = `translate(${last.clientX}px, ${last.clientY}px) translate(-50%, -50%)`
+      const zoom = pageZoom()
+      ghost.style.transform = `translate(${last.clientX / zoom}px, ${last.clientY / zoom}px) translate(-50%, -50%)`
       target = this.dropAt(last.clientX, last.clientY)
       marker.hidden = target === null
       if (target === null) return
       const at = view.coordsAtPos(target)
-      marker.style.transform = `translate(${at.left}px, ${at.top}px)`
-      marker.style.height = `${Math.max(16, at.bottom - at.top)}px`
+      marker.style.transform = `translate(${at.left / zoom}px, ${at.top / zoom}px)`
+      marker.style.height = `${Math.max(16, (at.bottom - at.top) / zoom)}px`
     })
     // near the top or bottom edge the note scrolls, a little every frame
     const edgeScroll = () => {
@@ -377,7 +380,7 @@ class ImageView {
       ghost = document.createElement('img')
       ghost.className = 'image-ghost'
       ghost.setAttribute('src', this.img.src)
-      ghost.style.width = `${Math.min(box.width, 160)}px`
+      ghost.style.width = `${Math.min(box.width / pageZoom(), 160)}px`
       marker = document.createElement('span')
       marker.className = 'image-drop'
       marker.hidden = true

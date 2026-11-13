@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Note titles offered after typing [[. Arrow keys move, Enter or Tab picks. -->
 <script lang="ts">
+  import { pageZoom } from '../lib/uiSize'
   import type { SuggestionProps } from '@tiptap/suggestion'
   import { t } from '../lib/i18n.svelte'
   import type { WikiItem } from './extensions/wikiLink'
@@ -14,7 +15,10 @@
   })
 
   const box = $derived(props.clientRect?.())
-  const style = $derived(box ? `top:${box.bottom + 6}px;left:${box.left}px` : 'display:none')
+  const zoom = pageZoom()
+  const style = $derived(
+    box ? `top:${(box.bottom + 6) / zoom}px;left:${box.left / zoom}px` : 'display:none',
+  )
 
   /** Returns true when the key was used, so the editor ignores it. */
   export function key(name: string): boolean {
