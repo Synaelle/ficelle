@@ -3,8 +3,8 @@
 // apps/client/src/generated: the e2ee account client (crates/e2ee-web)
 // always, and with --core the notes core of the web version
 // (crates/core-web), which needs clang able to build for wasm32. Skips a
-// crate when its output is newer than every source. Fails fast, naming
-// what is missing.
+// crate when its output is newer than every source, unless the build has
+// a release or preview identity. Fails fast, naming what is missing.
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -53,7 +53,12 @@ function run(command, args) {
   execFileSync(command, args, { cwd: root, stdio: 'inherit' })
 }
 
+// a release or a preview carries its own name and version (crates/brand):
+// cargo decides then, it rebuilds only what that changes
+const identity = process.env.APP_RELEASE === '1' || process.env.APP_PREVIEW === '1'
+
 const stale = crates.filter(({ crate, out, sources }) => {
+  if (identity) return true
   const marker = join(
     root,
     'apps/client/src/generated',
