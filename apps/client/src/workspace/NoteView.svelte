@@ -488,9 +488,7 @@
     overflow-y: auto;
   }
   article {
-    /* wide screens give the note room, lines still short enough to read */
-    max-width: 960px;
-    margin: 0 auto;
+    /* the note takes the whole pane, as wide as the window makes it */
     padding: var(--space-6) var(--space-6) 120px;
   }
   .narrow article {
