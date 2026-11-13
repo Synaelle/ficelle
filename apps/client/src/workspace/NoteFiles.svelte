@@ -12,6 +12,7 @@
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { pickToSave } from '../lib/pick'
+  import { WEB } from '../lib/platform'
   import { FILES_CHANGED } from '../lib/sync.svelte'
   import { isBackendError, workspace } from '../lib/workspace.svelte'
   import { ATTACHMENTS_CHANGED } from '../editor/extensions/image'
@@ -126,8 +127,10 @@
               >{t('files.mention')}</button
             >
           {/if}
-          <button class="btn small" disabled={!backend.native} onclick={() => saveCopy(file)}
-            >{t('files.saveCopy')}</button
+          <button
+            class="btn small"
+            disabled={!backend.native && !WEB}
+            onclick={() => saveCopy(file)}>{t('files.saveCopy')}</button
           >
           {#if !readonly}
             <button

@@ -2,9 +2,11 @@
 <!-- Shows a new recovery key once, and only lets go once it is saved. -->
 <script lang="ts">
   import { brand } from '@app/brand'
-  import { readText, writeText } from '@tauri-apps/plugin-clipboard-manager'
-  import { save } from '@tauri-apps/plugin-dialog'
   import { writeTextFile } from '@tauri-apps/plugin-fs'
+  import { copyText, pasteText } from '../lib/clipboard'
+  import { download } from '../lib/download'
+  import { pickToSave } from '../lib/pick'
+  import { WEB } from '../lib/platform'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
 
@@ -31,13 +33,13 @@
   const CLIPBOARD_TIME = 60_000
 
   async function copy() {
-    await writeText(code)
+    await copyText(code)
     copied = true
     // other apps read the clipboard: the key leaves it after a minute, if
     // nothing else was copied since
     setTimeout(() => {
-      void readText()
-        .then((now) => (now === code ? writeText('') : undefined))
+      void pasteText()
+        .then((now) => (now === code ? copyText('') : undefined))
         .catch(() => undefined)
     }, CLIPBOARD_TIME)
   }
@@ -48,13 +50,15 @@
   async function saveFile() {
     saveFailed = false
     const name = t('recovery.fileName', { app: brand.displayName })
-    const path = await save({
+    const path = await pickToSave({
       defaultPath: `${name}.txt`,
       filters: [{ name: 'Text', extensions: ['txt'] }],
     })
     if (!path) return
+    const text = [name, '', code, '', t('recovery.fileNote'), ''].join('\n')
     try {
-      await writeTextFile(path, [name, '', code, '', t('recovery.fileNote'), ''].join('\n'))
+      if (WEB) download(text, path, 'text/plain')
+      else await writeTextFile(path, text)
       savedFile = true
     } catch {
       saveFailed = true

@@ -4,28 +4,16 @@
 // can do (update itself, keep a key on the device, reach the system's files
 // and windows) is left out here, or done the browser's way.
 
-import { brand } from '@app/brand'
 import type { invoke } from '@tauri-apps/api/core'
 import type { Backend } from './backend'
 import type { CoreAnswer, CoreRequest } from './core.worker'
+import { download } from '../download'
 import { pickedFile } from '../pick'
 import { backupMade, notesMade } from '../webBackups'
 import { createTauriBackend } from './tauri'
 import type { Attachment, AttachmentFile } from './types'
 
 const unsupported = (message: string) => ({ kind: 'unsupported', message })
-
-/** Hands a made file to the browser to save, named after `path`, see
- * pickToSave. */
-function download(bytes: Uint8Array<ArrayBuffer>, path: string) {
-  const url = URL.createObjectURL(new Blob([bytes]))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = path.slice(path.lastIndexOf('/') + 1)
-  link.click()
-  // the download has its copy by then
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
-}
 
 /** A file picked with pickToOpen, whole. */
 async function pickedBytes(path: string): Promise<Uint8Array<ArrayBuffer>> {
@@ -170,12 +158,12 @@ export function createWebBackend(): Backend {
       throw unsupported('the quick note needs the desktop app')
     },
     quickWindowReady: async () => {},
-    // fonts come from the project's own mirror, as the apps get them, and the
-    // browser's cache keeps them
+    // fonts come with the web version, in its fonts folder (build:web), and
+    // the browser's cache keeps them
     fontDownload: async (_id, files) => files ?? ['latin-400-normal', 'latin-700-normal'],
     fontFiles: async () => [],
     fontFile: async (id, name) => {
-      const response = await fetch(`${brand.fontsUrl}/${id}/${name}.woff2`)
+      const response = await fetch(`fonts/${id}/${name}.woff2`)
       if (!response.ok) throw { kind: 'notFound', message: `${id} has no ${name}` }
       return response.arrayBuffer()
     },
@@ -243,6 +231,10 @@ export function createWebBackend(): Backend {
     // a copy is sent: the page keeps its own
     importPut: (bytes) => send('import_put', {}, { bytes: bytes.slice() }),
 
+    // a copy of a file goes where the browser puts downloads
+    saveAttachment: async (sha256, path) => {
+      download(await send('read_attachment', { sha256 }, { binary: true }), path)
+    },
     // every file is here: nothing to fetch from a server
     fetchAttachment: async () => {},
     setAutoFetch: async () => {},

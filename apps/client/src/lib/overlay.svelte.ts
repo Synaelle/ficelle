@@ -4,7 +4,7 @@
 // them for async versions, and `if (confirm(...))` then read a Promise as
 // yes, which deleted things without asking.
 
-import { readText } from '@tauri-apps/plugin-clipboard-manager'
+import { pasteText } from './clipboard'
 import { t } from './i18n.svelte'
 import type { IconName } from './icons/sets'
 
@@ -232,8 +232,9 @@ function hasInputSelection(field: HTMLElement) {
 }
 
 async function paste(field: HTMLElement) {
-  // the web clipboard api waits on a permission prompt the webview never shows
-  const text = await readText().catch(() => '')
+  // in the app the browser's clipboard waits on a permission prompt the
+  // webview never shows: the system's is read there, see lib/clipboard
+  const text = await pasteText().catch(() => '')
   field.focus()
   // insertText keeps undo working in inputs and in the editor
   if (text) document.execCommand('insertText', false, text)
