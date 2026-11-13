@@ -173,12 +173,17 @@
       : !encrypted
         ? [{ icon: 'lock', label: t('settings.encrypt'), run: () => void settings.encrypt() }]
         : [
-            {
-              icon: 'fingerprint',
-              label: t('settings.wayTitle'),
-              value: t(`settings.way.${vault.way}`, { method }),
-              run: () => (page = 'way'),
-            },
+            // a choice only where there is more than the password
+            ...(ways(vault).length > 1
+              ? [
+                  {
+                    icon: 'fingerprint' as const,
+                    label: t('settings.wayTitle'),
+                    value: t(`settings.way.${vault.way}`, { method }),
+                    run: () => (page = 'way' as const),
+                  },
+                ]
+              : []),
             ...(lockable
               ? [
                   {
@@ -243,12 +248,17 @@
   })
 
   const aboutRows = $derived<SettingRow[]>([
-    {
-      icon: 'feedback',
-      label: t('settings.feedback'),
-      keywords: t('settings.feedbackKeywords'),
-      run: () => (page = 'feedback'),
-    },
+    // the web version has no place to send feedback yet
+    ...(WEB
+      ? []
+      : [
+          {
+            icon: 'feedback' as const,
+            label: t('settings.feedback'),
+            keywords: t('settings.feedbackKeywords'),
+            run: () => (page = 'feedback' as const),
+          },
+        ]),
     // dev and preview builds only
     ...(__APP_DEV_TOOLS__
       ? [
@@ -427,7 +437,6 @@
         <Group title={t('settings.phone.groupLook')}>
           {#each lookRows as r (r.label)}{@render row(r)}{/each}
         </Group>
-        {#if WEB}<p class="settings-help">{t('web.notSafe')}</p>{/if}
         {#if privacyRows.length}
           <Group
             title={vault && !encrypted

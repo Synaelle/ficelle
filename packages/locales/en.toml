@@ -1796,8 +1796,6 @@ restoreTitle = "Restore"
 restoreFile = "Restore from a file"
 download = "Download a backup"
 webHelp = "Your notes are kept in this browser only, and a browser can lose them. Download a backup now and then and keep it somewhere safe."
-webKept = "This browser keeps your notes until you delete them."
-webMayClear = "This browser may delete your notes to free space. Keep a recent backup."
 webReminder = "No backup for two weeks. Download one in Settings, Data."
 failed = "The backup did not go through: {error}"
 overdue = "No backup went through for a while. See Settings, Data and backups."
@@ -2009,7 +2007,6 @@ exIdeas = "ideas"
 
 [web]
 limited = "This is the web version of {app}. It keeps your notes in this browser only, with no sync, no automatic backups and no unlock by fingerprint or PIN. The apps for Windows, Linux and Android are the full {app}."
-notSafe = "The web version is not the place for notes that must stay private, since anything running in this browser can reach them while they are open. Use the apps for those."
 
 # The web version's wording where the apps say "this device", see
 # lib/i18n.svelte.ts: the same keys under inBrowser
@@ -2022,7 +2019,7 @@ failedHelp = "Something stopped them from opening in this browser. Try again, or
 startAgain = "Start again in this browser"
 
 [inBrowser.settings]
-encryptNote = "Your notes are kept in this browser without a password. Anyone who uses this browser on this computer can read them. Encrypt them so a password opens them. Encryption can't be turned off afterwards."
+encryptNote = "Your notes are kept in this browser without a password. Encrypt them if other people use this browser. Encryption can't be turned off afterwards."
 
 [inBrowser.settings.phone]
 encrypted = "Encrypted, in this browser"

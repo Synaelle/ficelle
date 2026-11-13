@@ -4,6 +4,7 @@
 // Settings, the overrides are stored in prefs.
 
 import { t } from './i18n.svelte'
+import { WEB } from './platform'
 
 export const ACTIONS = [
   'newNote',
@@ -22,7 +23,8 @@ export const ACTIONS = [
 export type ActionId = (typeof ACTIONS)[number]
 
 export const DEFAULT_SHORTCUTS: Record<ActionId, string> = {
-  newNote: 'Mod+N',
+  // a browser keeps Ctrl+N for a new window, a page never gets it
+  newNote: WEB ? 'Alt+N' : 'Mod+N',
   search: 'Mod+K',
   pin: 'Mod+Shift+P',
   trash: 'Mod+Backspace',

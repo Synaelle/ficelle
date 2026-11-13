@@ -64,7 +64,8 @@
     // the web version cannot reach other devices or a server
     ...(WEB ? [] : (['sync'] as const)),
     'data',
-    'feedback',
+    // the web version has no place to send feedback yet
+    ...(WEB ? [] : (['feedback'] as const)),
     // dev and preview builds only
     ...(__APP_DEV_TOOLS__ ? (['testTools'] as const) : []),
     'about',
@@ -352,7 +353,6 @@
             {/if}
           {:else if section === 'security'}
             {@const vault = settings.vault}
-            {#if WEB}<p class="settings-help">{t('web.notSafe')}</p>{/if}
             {#if vault && !vault.encrypted}
               <Group note={t('settings.encryptNote')}>
                 <Row label={t('settings.phone.plain')}>
@@ -362,7 +362,8 @@
                 </Row>
               </Group>
             {/if}
-            {#if vault?.encrypted}
+            <!-- a choice only where there is more than the password (not the web version) -->
+            {#if vault?.encrypted && ways(vault).length > 1}
               <div role="radiogroup" aria-label={t('settings.wayTitle')}>
                 <Group title={t('settings.wayTitle')}>
                   {#each ways(vault) as option (option)}
@@ -382,6 +383,8 @@
                   {/if}
                 </Group>
               </div>
+            {/if}
+            {#if vault?.encrypted}
               {#if vault.way === 'guarded' || vault.way === 'pin' || vault.way === 'password'}
                 <Group>
                   <Row label={t('settings.autoLock')}>

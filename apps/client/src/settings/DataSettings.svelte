@@ -44,11 +44,6 @@
   let setup: 'start' | 'restore' | null = $state(null)
   /** The web version's backup being made, see BackupDialog. */
   let making = $state(false)
-  /** Whether the browser agreed to keep the web version's notes. */
-  let kept: boolean | null = $state(null)
-  onMount(async () => {
-    if (WEB) kept = (await navigator.storage?.persisted?.()) ?? null
-  })
   /** A phone names its own backup folder: there is nothing to pick there. */
   const phoneFolder = window.AppSystem?.backupFolder?.() ?? ''
   let folder = $state(phoneFolder)
@@ -290,9 +285,6 @@
     <Row label={t('backups.download')} opens onclick={() => (making = true)} />
     <Row label={t('backups.restoreFile')} opens onclick={onrestorefile} />
   </Group>
-  {#if kept !== null}
-    <p class="settings-help">{kept ? t('backups.webKept') : t('backups.webMayClear')}</p>
-  {/if}
   {#if making}<BackupDialog mode="make" close={() => (making = false)} />{/if}
 {:else}
   <Group title={t('backups.title')} note={phoneFolder ? t('backups.phoneHelp') : t('backups.help')}>
