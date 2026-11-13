@@ -50,8 +50,18 @@
 
   const kind = (err: unknown) => (isBackendError(err) ? err.kind : 'unknown')
 
+  let finished = false
+  /** The notes show once the knot has let go, or after its time if the
+   * animation never ends (a page in the background, animations off). */
+  function finish() {
+    if (finished) return
+    finished = true
+    done()
+  }
+
   function opened() {
     opening = true
+    setTimeout(finish, 1500)
   }
 
   async function attempt(action: () => Promise<void>) {
@@ -151,7 +161,7 @@
       <Knot
         motion={opening ? 'untie' : 'tie'}
         size={pin && !typing && !recovering ? 74 : 102}
-        onend={() => opening && done()}
+        onend={() => opening && finish()}
       />
     </div>
 
