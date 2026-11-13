@@ -488,7 +488,8 @@
     overflow-y: auto;
   }
   article {
-    max-width: 760px;
+    /* wide screens give the note room, lines still short enough to read */
+    max-width: 960px;
     margin: 0 auto;
     padding: var(--space-6) var(--space-6) 120px;
   }
