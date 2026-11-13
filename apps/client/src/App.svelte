@@ -189,7 +189,15 @@
     aria-label={t('setup.encryptTitle')}
     use:modal={{ onclose: () => encryptFlow.finish(false) }}
   >
-    <Setup encrypt done={() => encryptFlow.finish(true)} cancel={() => encryptFlow.finish(false)} />
+    <!-- once encrypted the notes can lock: Lock and the auto lock read the new state -->
+    <Setup
+      encrypt
+      done={() => {
+        encryptFlow.finish(true)
+        void ready()
+      }}
+      cancel={() => encryptFlow.finish(false)}
+    />
   </div>
 {/if}
 
