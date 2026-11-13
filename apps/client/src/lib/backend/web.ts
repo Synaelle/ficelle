@@ -44,6 +44,8 @@ export function createWebBackend(): Backend {
   let worker: Promise<Worker> | null = null
   /** Asked once already: the next try takes the notes from the other tab. */
   let refused = false
+  /** Ends the worker and lets go of the notes. */
+  let stop: (() => void) | null = null
   const tabs = new BroadcastChannel(LOCK)
 
   /** The worker, once this tab holds the notes. The first try only takes
@@ -70,12 +72,17 @@ export function createWebBackend(): Backend {
         }
         resolve(started)
         // held until another tab takes the notes: this one then stops its
-        // worker, which frees the storage, and starts over to say so
+        // worker, which frees the storage, and starts over to say so. Or
+        // until the notes are locked, see stop
         return new Promise<void>((release) => {
+          stop = () => {
+            started.terminate()
+            worker = null
+            release()
+          }
           tabs.onmessage = ({ data }) => {
             if (data !== 'take') return
-            started.terminate()
-            release()
+            stop?.()
             location.reload()
           }
         })
@@ -142,9 +149,13 @@ export function createWebBackend(): Backend {
       await commands.vaultCreate(way, password, pin)
       notesMade()
     },
+    // the worker ends: nothing of the open notes stays in its memory, and
+    // the next call starts a fresh one that has to unlock again
     vaultLock: async () => {
       forgetUrls()
       await commands.vaultLock()
+      stop?.()
+      stop = null
     },
 
     appUpdateCheck: async () => null,
