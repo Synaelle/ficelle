@@ -27,7 +27,6 @@
   import BackupDialog from './BackupDialog.svelte'
   import ResetDialog from './ResetDialog.svelte'
   import DataSettings from './DataSettings.svelte'
-  import ImportDialog from './ImportDialog.svelte'
   import FeedbackSettings from './FeedbackSettings.svelte'
   import PhoneSettings from './PhoneSettings.svelte'
   import SizePicker from './SizePicker.svelte'
@@ -505,7 +504,10 @@
 {/if}
 
 {#if importing}
-  <ImportDialog ficelle={importing === 'ficelle'} close={() => (importing = null)} />
+  <!-- the importers of every other app load only when an import starts -->
+  {#await import('./ImportDialog.svelte') then { default: ImportDialog }}
+    <ImportDialog ficelle={importing === 'ficelle'} close={() => (importing = null)} />
+  {/await}
 {/if}
 
 {#if restoringFile}
