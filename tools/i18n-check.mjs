@@ -51,7 +51,8 @@ for (const file of rustFiles(serverDir)) {
   for (const m of code.matchAll(/\btr\(\s*\w+,\s*"([\w.-]+)"/g)) used.add(m[1])
 }
 // the web version's own wording of a text, see apps/client/src/lib/i18n.svelte.ts
-const isUsed = (/** @type {string} */ key) =>
+/** @type {(key: string) => boolean} */
+const isUsed = (key) =>
   (key.startsWith('inBrowser.') && isUsed(key.slice('inBrowser.'.length))) ||
   used.has(key) ||
   used.has(key.replace(/\.(zero|one|two|few|many|other)$/, '')) ||

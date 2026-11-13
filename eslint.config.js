@@ -9,6 +9,7 @@ export default ts.config(
   {
     ignores: [
       '**/dist/',
+      '**/dist-web/',
       '**/target/',
       '**/src-tauri/gen/',
       '**/src/generated/',
