@@ -11,7 +11,7 @@ import type { CoreAnswer, CoreRequest } from './core.worker'
 import { pickedFile } from '../pick'
 import { backupMade, notesMade } from '../webBackups'
 import { createTauriBackend } from './tauri'
-import type { AttachmentFile } from './types'
+import type { Attachment, AttachmentFile } from './types'
 
 const unsupported = (message: string) => ({ kind: 'unsupported', message })
 
@@ -175,8 +175,8 @@ export function createWebBackend(): Backend {
     droppedImages: async () => [],
     droppedImage: async () => new ArrayBuffer(0),
 
-    addAttachment: async (note, file) =>
-      send(
+    addAttachment: async (note, file) => {
+      const attachment = await send<Attachment>(
         'add_attachment',
         {
           note,
@@ -184,7 +184,12 @@ export function createWebBackend(): Backend {
           mime: file.type || 'application/octet-stream',
         },
         { bytes: new Uint8Array(await file.arrayBuffer()) },
-      ),
+      )
+      // the editor shows a picture as soon as it is attached
+      if (attachment.mimeType.startsWith('image/') && !urls.has(attachment.sha256))
+        urls.set(attachment.sha256, URL.createObjectURL(file))
+      return attachment
+    },
     attachInboxFile: async () => {
       throw unsupported('shared files need the app')
     },
