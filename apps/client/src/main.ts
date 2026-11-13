@@ -3,7 +3,9 @@
 import { brand } from '@app/brand'
 import { mount } from 'svelte'
 import App from './App.svelte'
+import { setLocale, systemLocale } from './lib/i18n.svelte'
 import { DESKTOP, HANDHELD, LINUX, PLATFORM } from './lib/platform'
+import { prefs } from './lib/prefs.svelte'
 import { followScrollbars } from './lib/scrollbars'
 import { isQuickWindow } from './lib/quickNote'
 import QuickNote from './QuickNote.svelte'
@@ -26,6 +28,9 @@ if (PLATFORM === 'web' && HANDHELD && viewport) {
   viewport.addEventListener('resize', follow)
   follow()
 }
+
+// the language's texts are here before the first screen, never English first
+await setLocale(prefs.language ?? systemLocale())
 
 const target = document.getElementById('app')
 if (!target) throw new Error('missing #app element in index.html')

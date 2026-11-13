@@ -21,6 +21,12 @@ declare module '*.toml' {
   export default strings
 }
 
+declare module 'virtual:locale-shares' {
+  /** Each language's share of the English texts, see vite/plugins.ts. */
+  const shares: Record<string, number>
+  export default shares
+}
+
 declare module 'virtual:icons' {
   /** Inner svg markup by icon role, see vite/plugins.ts. */
   export const lucide: Record<string, string>

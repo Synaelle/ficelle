@@ -17,7 +17,7 @@
   import { isBackendError } from './lib/workspace.svelte'
 
   applyTheme(() => backend.systemClock24h())
-  $effect(() => setLocale(prefs.language ?? systemLocale()))
+  $effect(() => void setLocale(prefs.language ?? systemLocale()))
   $effect(() => applyUiSize(prefs.uiSize))
   $effect(() => applyDyslexicFont(prefs.dyslexicFont))
 

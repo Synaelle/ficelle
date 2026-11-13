@@ -30,7 +30,7 @@
 
   persistPrefs()
   applyTheme()
-  $effect(() => setLocale(prefs.language ?? systemLocale()))
+  $effect(() => void setLocale(prefs.language ?? systemLocale()))
 
   /** A public page: a link from a mail, the recovery page, the privacy
    * page. They need no sign-in. */

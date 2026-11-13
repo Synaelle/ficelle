@@ -5,28 +5,19 @@
 // {count} value with Intl.PluralRules.
 
 import { brand } from '@app/brand'
+import shares from 'virtual:locale-shares'
+import english from '../../../../packages/locales/en.toml'
 import { WEB } from './platform'
 
-// every packages/locales/<code>.toml: a language started on the translation
-// website comes with no change here
-const files = import.meta.glob<Record<string, string>>('../../../../packages/locales/*.toml', {
-  eager: true,
+// English, the fallback for every text, comes with the page. Every other
+// packages/locales/<code>.toml loads once chosen, so the page does not parse
+// languages nobody here reads; a language started on the translation website
+// comes with no change here
+const loaders = import.meta.glob<Record<string, string>>('../../../../packages/locales/*.toml', {
   import: 'default',
 })
-const catalogs: Record<string, Record<string, string>> = Object.fromEntries(
-  Object.entries(files).map(([path, strings]) => [
-    path.slice(path.lastIndexOf('/') + 1, -'.toml'.length),
-    strings,
-  ]),
-)
-const english = catalogs.en ?? {}
-
-// a text empty in English shows nothing, there is nothing to translate
-const toTranslate = Object.keys(english).filter((key) => english[key] !== '')
-
-/** Share of the English texts a language has, from 0 to 1. */
-const translated = (code: string) =>
-  toTranslate.filter((key) => key in (catalogs[code] ?? {})).length / toTranslate.length
+const codeOf = (path: string) => path.slice(path.lastIndexOf('/') + 1, -'.toml'.length)
+const catalogs: Record<string, Record<string, string>> = { en: english }
 
 // a page mostly in English with a few translated words reads worse than
 // English alone, so a language is offered once half of it is done, with its
@@ -34,14 +25,15 @@ const translated = (code: string) =>
 const READY = 0.5
 
 /** The languages offered, each named in itself, with the share translated. */
-export const LOCALES = Object.keys(catalogs)
-  .filter((code) => code === 'en' || translated(code) >= READY)
+export const LOCALES = Object.keys(loaders)
+  .map(codeOf)
+  .filter((code) => code === 'en' || (shares[code] ?? 0) >= READY)
   .map((code) => {
     const name = new Intl.DisplayNames([code], { type: 'language' }).of(code) ?? code
     return {
       code,
       name: name.charAt(0).toLocaleUpperCase(code) + name.slice(1),
-      done: code === 'en' ? 1 : translated(code),
+      done: code === 'en' ? 1 : (shares[code] ?? 0),
     }
   })
   .sort((a, b) => (a.code === 'en' ? -1 : b.code === 'en' ? 1 : a.name.localeCompare(b.name)))
@@ -68,9 +60,13 @@ const state = $state({ locale: 'en' as Locale })
 export const isLocale = (code: unknown): code is Locale =>
   typeof code === 'string' && offered.has(code)
 
-/** Falls back to English for a language this build no longer has. */
-export function setLocale(locale: Locale) {
+/** Falls back to English for a language this build no longer has. The
+ * language's texts load first, the page switches once they are here. */
+export async function setLocale(locale: Locale) {
   const known = isLocale(locale) ? locale : 'en'
+  const path = Object.keys(loaders).find((p) => codeOf(p) === known)
+  if (!catalogs[known] && path)
+    catalogs[known] = await (loaders[path] as () => Promise<Record<string, string>>)()
   state.locale = known
   document.documentElement.lang = known
 }

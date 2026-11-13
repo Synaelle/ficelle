@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { defineConfig } from 'vitest/config'
 import { appVersion, buildDate, hasReleaseIdentity, isRelease } from '../../tools/version.mjs'
-import { iconSets, tomlLocales } from './vite/plugins.ts'
+import { iconSets, localeShares, tomlLocales } from './vite/plugins.ts'
 
 // tauri sets TAURI_ENV_PLATFORM while it drives the build
 const platform = process.env.TAURI_ENV_PLATFORM
@@ -24,7 +24,7 @@ function protocolVersion(): number {
 // `--mode web` builds the web version: the notes app alone, for a static
 // folder, with the core running in the page
 export default defineConfig(({ mode }) => ({
-  plugins: [svelte(), tomlLocales(), iconSets()],
+  plugins: [svelte(), tomlLocales(), localeShares(), iconSets()],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion()),
     __APP_BUILD_DATE__: JSON.stringify(buildDate()),
