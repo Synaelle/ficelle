@@ -2010,3 +2010,37 @@ exIdeas = "ideas"
 [web]
 limited = "This is the web version of {app}. It keeps your notes in this browser only, with no sync, no automatic backups and no unlock by fingerprint or PIN. The apps for Windows, Linux and Android are the full {app}."
 notSafe = "The web version is not the place for notes that must stay private, since anything running in this browser can reach them while they are open. Use the apps for those."
+
+# The web version's wording where the apps say "this device", see
+# lib/i18n.svelte.ts: the same keys under inBrowser
+[inBrowser.setup]
+quickPasswordHelp = "Nothing in this browser can open your notes without it."
+encryptHelp = "Your notes get encrypted in this browser, and from now on a password opens them. Encryption can't be turned off afterwards."
+
+[inBrowser.unlock]
+failedHelp = "Something stopped them from opening in this browser. Try again, or reload the page."
+startAgain = "Start again in this browser"
+
+[inBrowser.settings]
+encryptNote = "Your notes are kept in this browser without a password. Anyone who uses this browser on this computer can read them. Encrypt them so a password opens them. Encryption can't be turned off afterwards."
+
+[inBrowser.settings.phone]
+encrypted = "Encrypted, in this browser"
+plain = "Not encrypted, in this browser"
+
+[inBrowser.settings.wayHelp]
+password = "Nothing in this browser opens them without it."
+
+[inBrowser.backup]
+makeHelp = "Everything in this browser goes into one file: notes, tags, history and files."
+
+[inBrowser.import]
+skippedHere = "Imports are remembered in this browser only: anywhere else the same export would bring them again."
+
+[inBrowser.recovery]
+help = "Write it down or keep it somewhere only you can reach, away from this computer. It is shown only this once."
+fileNote = "Anyone who has this key can open your notes. Keep it away from the computer the notes are on."
+
+[inBrowser.reset]
+help = "Deletes every note in this browser and starts over."
+body = "This deletes from this browser every note and tag, with their files and history."

@@ -5,6 +5,7 @@
 // {count} value with Intl.PluralRules.
 
 import { brand } from '@app/brand'
+import { WEB } from './platform'
 
 // every packages/locales/<code>.toml: a language started on the translation
 // website comes with no change here
@@ -87,15 +88,20 @@ function lookup(key: string, vars: Vars): string | undefined {
     [state.locale, catalogs[state.locale] ?? english],
     ['en', english],
   ]
+  // the web version says "this browser" where the apps say "this device":
+  // its own wording, under [inBrowser], comes first in each language
+  const keys = WEB ? [`inBrowser.${key}`, key] : [key]
   if (typeof vars.count === 'number') {
     for (const [locale, table] of tables) {
       const form = new Intl.PluralRules(locale).select(vars.count)
-      const text = table[`${key}.${form}`] ?? table[`${key}.other`]
-      if (text !== undefined) return text
+      for (const k of keys) {
+        const text = table[`${k}.${form}`] ?? table[`${k}.other`]
+        if (text !== undefined) return text
+      }
     }
   }
   for (const [, table] of tables) {
-    if (table[key] !== undefined) return table[key]
+    for (const k of keys) if (table[k] !== undefined) return table[k]
   }
   return undefined
 }
