@@ -3,6 +3,7 @@
      launch makes the notes, not encrypted, and goes straight to them. -->
 <script lang="ts">
   import { brand } from '@app/brand'
+  import { WEB } from './lib/platform'
   import DevReport from './devreport/DevReport.svelte'
   import BetaFeedback from './lib/BetaFeedback.svelte'
   import TagsMerged from './workspace/TagsMerged.svelte'
@@ -150,10 +151,16 @@
   </main>
 {:else if stage === 'elsewhere'}
   <main class="failed">
-    <h1>{t('unlock.elsewhereTitle', { app: brand.displayName })}</h1>
-    <p role="alert">{t('unlock.elsewhereHelp', { app: brand.displayName })}</p>
+    {#if WEB}
+      <h1>{t('unlock.elsewhereTabTitle')}</h1>
+      <p role="alert">{t('unlock.elsewhereTabHelp', { app: brand.displayName })}</p>
+    {:else}
+      <h1>{t('unlock.elsewhereTitle', { app: brand.displayName })}</h1>
+      <p role="alert">{t('unlock.elsewhereHelp', { app: brand.displayName })}</p>
+    {/if}
+    <!-- in the web version a second try takes the notes from the other tab -->
     <button class="btn primary" onclick={() => ((stage = 'loading'), void start())}
-      >{t('unlock.retry')}</button
+      >{WEB ? t('unlock.useHere') : t('unlock.retry')}</button
     >
   </main>
 {:else if stage === 'upgrade' && status?.way === 'device'}

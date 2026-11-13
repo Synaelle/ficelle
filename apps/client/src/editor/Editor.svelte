@@ -33,7 +33,7 @@
   import TableTools from './TableTools.svelte'
   import Toolbar from './Toolbar.svelte'
   import WikiSuggest from './WikiSuggest.svelte'
-  import { MOBILE } from '../lib/platform'
+  import { HANDHELD, MOBILE } from '../lib/platform'
   import './editor.css'
 
   let {
@@ -61,7 +61,7 @@
    * same, so it is saved and reaches the other devices while it goes on. */
   const SERIALIZE_AT_MOST_MS = 2000
   /** Phones and tablets, where the system spells and selects. */
-  const PHONE = MOBILE
+  const PHONE = HANDHELD
   /** Touch screens have the toolbar fixed over the bottom of the note: the
    * caret is kept above it, not just inside the window. */
   const TOUCH = window.matchMedia('(pointer: coarse)').matches

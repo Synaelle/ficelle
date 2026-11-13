@@ -7,6 +7,7 @@
      folder or its zip), read by the markdown importer, with no app to pick. -->
 <script lang="ts">
   import { pickToOpen } from '../lib/pick'
+  import { WEB } from '../lib/platform'
   import { brand } from '@app/brand'
   import { onDestroy } from 'svelte'
   import { backend } from '../lib/backend'
@@ -142,9 +143,10 @@
   const sample = $derived(
     prepared ? prepared.model.notes.filter((n) => !prepared?.known.has(n.key)).slice(0, 3) : [],
   )
-  // Android's folder picker gives an address no file can be opened under:
-  // exports come as a file there (a zip of a folder)
-  const android = /android/i.test(navigator.userAgent)
+  // Android's folder picker gives an address no file can be opened under,
+  // and the web version opens one file: exports come as a file there (a
+  // zip of a folder)
+  const fileOnly = WEB || /android/i.test(navigator.userAgent)
   const busy = $derived(stage === 'reading' || stage === 'writing')
   const closeIfIdle = () => !busy && close()
 </script>
@@ -183,7 +185,7 @@
         <p class="muted how">{t(`import.how.${importer.id}`)}</p>
       {/if}
       <div class="actions">
-        {#if importer.picks.includes('folder') && !android}
+        {#if importer.picks.includes('folder') && !fileOnly}
           <button class="btn" onclick={() => choose('folder')}
             ><Icon name="folder" size={16} />{t('import.chooseFolder')}</button
           >

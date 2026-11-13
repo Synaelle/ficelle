@@ -21,7 +21,9 @@ function protocolVersion(): number {
   return Number(found[1])
 }
 
-export default defineConfig({
+// `--mode web` builds the web version: the notes app alone, for a static
+// folder, with the core running in the page
+export default defineConfig(({ mode }) => ({
   plugins: [svelte(), tomlLocales(), iconSets()],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion()),
@@ -36,6 +38,20 @@ export default defineConfig({
     __APP_DEV_TOOLS__: JSON.stringify(!isRelease()),
     // the system the tauri cli builds for, "web" in the browser and tests
     __APP_PLATFORM__: JSON.stringify(process.env.TAURI_ENV_PLATFORM ?? 'web'),
+    // the web version, not the browser preview of development and the tests
+    __APP_WEB__: JSON.stringify(mode === 'web'),
+  },
+  resolve: {
+    alias: {
+      // the notes core, built for the web version alone (tools/wasm.mjs
+      // --core), a stand-in elsewhere
+      '@app/core-web': fileURLToPath(
+        new URL(
+          mode === 'web' ? 'src/generated/core/app_core_web.js' : 'src/lib/backend/noCore.ts',
+          import.meta.url,
+        ),
+      ),
+    },
   },
   clearScreen: false,
   server: {
@@ -60,13 +76,16 @@ export default defineConfig({
     // match each platform webview so no extra transpilation ships
     target: platform === 'windows' ? 'chrome120' : platform ? 'safari16' : 'es2022',
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    outDir: mode === 'web' ? 'dist-web' : 'dist',
     rollupOptions: {
       // the admin page ships with the web build, the server serves it at
       // /admin; the apps leave it out
       input: {
         main: fileURLToPath(new URL('index.html', import.meta.url)),
-        ...(platform ? {} : { admin: fileURLToPath(new URL('admin.html', import.meta.url)) }),
+        ...(platform || mode === 'web'
+          ? {}
+          : { admin: fileURLToPath(new URL('admin.html', import.meta.url)) }),
       },
     },
   },
-})
+}))

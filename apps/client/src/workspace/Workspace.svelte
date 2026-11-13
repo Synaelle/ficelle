@@ -17,7 +17,9 @@
   import { backups } from '../lib/backups.svelte'
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
-  import { DESKTOP, MOBILE } from '../lib/platform'
+  import { DESKTOP, HANDHELD, WEB } from '../lib/platform'
+  import { backupDue } from '../lib/webBackups'
+  import { toasts } from '../lib/toast.svelte'
   import { sendSyncedPrefs, takeSyncedPrefs } from '../lib/syncedPrefs.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import Settings from '../settings/Settings.svelte'
@@ -42,7 +44,7 @@
   const NARROW = 720
   /** A phone, not a tablet: turned sideways it is wide enough for three
    * panes, but with the keyboard up the note would have no room left. */
-  const PHONE = MOBILE && Math.min(screen.width, screen.height) < 600
+  const PHONE = HANDHELD && Math.min(screen.width, screen.height) < 600
   const narrow = $derived(width < NARROW || PHONE)
   const showSidebar = $derived(!narrow)
   // the note keeps at least this much room when the list grows
@@ -51,6 +53,7 @@
 
   void workspace.load()
   onMount(() => {
+    if (WEB && backupDue()) toasts.push(t('backups.title'), t('backups.webReminder'))
     // scheduled backups run while the notes are open
     backups.start()
     return () => backups.stop()

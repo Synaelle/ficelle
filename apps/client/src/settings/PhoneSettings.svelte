@@ -26,6 +26,7 @@
   import TestTools from '../devreport/TestTools.svelte'
   import AboutSettings from './AboutSettings.svelte'
   import { MODES } from '../lib/theme.svelte'
+  import { MOBILE, WEB } from '../lib/platform'
   import { TAG_MARKS } from '../lib/tagMark.svelte'
   import { UI_SIZES } from '../lib/uiSize'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
@@ -310,7 +311,7 @@
       ...lookRows,
       ...security,
       ...hideRows,
-      ...syncRows,
+      ...(WEB ? [] : syncRows),
       dataRow,
       ...aboutRows,
       ...innerRows,
@@ -426,6 +427,7 @@
         <Group title={t('settings.phone.groupLook')}>
           {#each lookRows as r (r.label)}{@render row(r)}{/each}
         </Group>
+        {#if WEB}<p class="settings-help">{t('web.notSafe')}</p>{/if}
         {#if privacyRows.length}
           <Group
             title={vault && !encrypted
@@ -445,9 +447,11 @@
             </Group>
           {/if}
         {/if}
-        <Group title={t('settings.sync')}>
-          {#each syncRows as r (r.label)}{@render row(r)}{/each}
-        </Group>
+        {#if !WEB}
+          <Group title={t('settings.sync')}>
+            {#each syncRows as r (r.label)}{@render row(r)}{/each}
+          </Group>
+        {/if}
         <Group>
           {@render row(dataRow)}
         </Group>
@@ -504,14 +508,16 @@
             />
           {/each}
         </Group>
-        <Group>
-          {@render row({
-            icon: 'pin',
-            label: t('settings.haptics'),
-            on: prefs.haptics,
-            run: () => (prefs.haptics = !prefs.haptics),
-          })}
-        </Group>
+        {#if MOBILE}
+          <Group>
+            {@render row({
+              icon: 'pin',
+              label: t('settings.haptics'),
+              on: prefs.haptics,
+              run: () => (prefs.haptics = !prefs.haptics),
+            })}
+          </Group>
+        {/if}
         <Group>
           {@render row({
             icon: 'textStyle',

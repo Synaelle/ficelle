@@ -17,7 +17,7 @@ import { brand } from '@app/brand'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
 import { isMacApp, pretendRelease, resetBetaWelcome } from './beta.svelte'
 import { currentLocale, t } from './i18n.svelte'
-import { ANDROID } from './platform'
+import { ANDROID, PLATFORM } from './platform'
 import { prefs } from './prefs.svelte'
 import { lastNotified, rememberNotified, worthNotifying } from './updateNotify'
 import { isBackendError } from './workspace.svelte'
@@ -70,10 +70,12 @@ const pretend = import.meta.env.DEV ? new URLSearchParams(location.search) : nul
 /** This build's version, a beta's when Test tools pretend it is one. */
 export const thisVersion = pretendRelease ? '0.4.0-beta.1' : __APP_VERSION__
 
-/** Only numbered releases update themselves, betas included, dev and
- * preview builds don't (unless they pretend, with nothing downloaded). */
+/** Only numbered releases of the apps update themselves, betas included.
+ * Dev and preview builds don't (unless they pretend, with nothing
+ * downloaded), nor the web version, which is always the one served. */
 export const updatesHere =
-  /^\d+\.\d+\.\d+(-beta\.\d+)?$/.test(thisVersion) || !!pretend?.has('updates')
+  (PLATFORM !== 'web' && /^\d+\.\d+\.\d+(-beta\.\d+)?$/.test(thisVersion)) ||
+  !!pretend?.has('updates')
 
 /** Stable or Beta can be chosen: everywhere but the Mac, on Stable, whose
  * releases are few. Betas have no Mac file. */

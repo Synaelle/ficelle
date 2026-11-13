@@ -13,6 +13,7 @@
   import type { IconName } from '../lib/icons/sets'
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
   import { MODES } from '../lib/theme.svelte'
+  import { WEB } from '../lib/platform'
   import { TAG_MARKS } from '../lib/tagMark.svelte'
   import {
     applyQuickShortcut,
@@ -60,7 +61,8 @@
     'language',
     'shortcuts',
     'security',
-    'sync',
+    // the web version cannot reach other devices or a server
+    ...(WEB ? [] : (['sync'] as const)),
     'data',
     'feedback',
     // dev and preview builds only
@@ -350,6 +352,7 @@
             {/if}
           {:else if section === 'security'}
             {@const vault = settings.vault}
+            {#if WEB}<p class="settings-help">{t('web.notSafe')}</p>{/if}
             {#if vault && !vault.encrypted}
               <Group note={t('settings.encryptNote')}>
                 <Row label={t('settings.phone.plain')}>

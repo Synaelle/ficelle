@@ -4,6 +4,7 @@
 <script lang="ts">
   import { brand } from '@app/brand'
   import { updatesHere } from '../lib/appUpdate.svelte'
+  import { WEB } from '../lib/platform'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import Knot from '@app/ui/Knot.svelte'
@@ -38,6 +39,8 @@
     </span>
   </div>
 </Group>
+
+{#if WEB}<p class="settings-help">{t('web.limited', { app: brand.displayName })}</p>{/if}
 
 {#if updatesHere}<UpdateCheck />{/if}
 

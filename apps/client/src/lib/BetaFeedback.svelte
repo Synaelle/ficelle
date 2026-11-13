@@ -5,6 +5,7 @@
 <script lang="ts">
   import { brand } from '@app/brand'
   import { betaFeedback, isBeta, isMacApp, touchScreen } from './beta.svelte'
+  import { WEB } from './platform'
   import { t } from './i18n.svelte'
   import Icon from './icons/Icon.svelte'
   import { modal } from './modal'
@@ -68,6 +69,7 @@
     >
       <div id="beta-welcome" class="text">
         {#if isBeta}<p>{touchScreen ? t('beta.welcomePhone') : t('beta.welcome')}</p>{/if}
+        {#if WEB}<p>{t('web.limited', { app: brand.displayName })}</p>{/if}
         {#if isMacApp}<p>{t('beta.mac', { address: brand.contactEmail })}</p>{/if}
       </div>
       <div class="actions">

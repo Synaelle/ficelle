@@ -31,12 +31,15 @@ body {
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  /* in a phone's browser: no pull to reload the page, no zoom on a double tap */
+  overscroll-behavior: none;
+  touch-action: manipulation;
   /* checkboxes, radios and ranges follow the theme instead of system blue */
   accent-color: var(--color-accent);
 }
 
 #app {
-  height: 100%;
+  height: var(--visible-height, 100%);
 }
 
 /* the system's unticked box is pure white, a glare on the light paper:

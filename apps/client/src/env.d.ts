@@ -12,6 +12,8 @@ declare const __APP_PORTABLE__: boolean
 declare const __APP_DEV_TOOLS__: boolean
 /** The system the build is for, see lib/platform.ts. */
 declare const __APP_PLATFORM__: 'windows' | 'darwin' | 'linux' | 'android' | 'web'
+/** The web version (`vite build --mode web`), see lib/platform.ts. */
+declare const __APP_WEB__: boolean
 
 declare module '*.toml' {
   /** Flat "section.key" strings, see vite/plugins.ts. */

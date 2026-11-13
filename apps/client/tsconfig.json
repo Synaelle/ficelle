@@ -12,7 +12,9 @@
     "noEmit": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    // the stand-in has the core's types, see vite.config.ts
+    "paths": { "@app/core-web": ["./src/lib/backend/noCore.ts"] }
   },
   "include": ["src/**/*.ts", "src/**/*.svelte"]
 }

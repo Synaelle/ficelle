@@ -13,7 +13,7 @@
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { overlay, SEPARATOR, type MenuItem } from '../lib/overlay.svelte'
-  import { MOBILE } from '../lib/platform'
+  import { HANDHELD } from '../lib/platform'
 
   let { editor, tick }: { editor: Editor; tick: number } = $props()
 
@@ -97,7 +97,7 @@
   // for it, so a narrow column's text stays readable
   const roomKey = new PluginKey('tableCellRoom')
   onMount(() => {
-    if (!MOBILE) return
+    if (!HANDHELD) return
     editor.registerPlugin(
       new Plugin({
         key: roomKey,
@@ -123,7 +123,7 @@
   })
 </script>
 
-{#if where && MOBILE}
+{#if where && HANDHELD}
   {#if where.cell}
     <button
       class="cell-btn"
