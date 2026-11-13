@@ -2006,7 +2006,11 @@ exTodo = "todo"
 exIdeas = "ideas"
 
 [web]
-limited = "This is the web version of {app}. It keeps your notes in this browser only, with no sync, no automatic backups and no unlock by fingerprint or PIN. The apps for Windows, Linux and Android are the full {app}."
+welcomeTitle = "Welcome to {app}"
+welcomeText = "Thanks for trying it. Everything works here, but your notes stay in this browser only, so download a backup now and then."
+welcomeApps = "If you like it, the apps keep your notes for good."
+welcomeStart = "Start writing"
+welcomeGetApps = "Get the apps"
 
 # The web version's wording where the apps say "this device", see
 # lib/i18n.svelte.ts: the same keys under inBrowser

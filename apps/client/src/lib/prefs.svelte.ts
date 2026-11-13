@@ -77,6 +77,8 @@ export interface Prefs {
   pretendBeta: boolean
   /** The welcome of a beta build was read, see resetBetaWelcome. */
   betaWelcomed: boolean
+  /** The web version's welcome was read (lib/WebWelcome.svelte). */
+  webWelcomed: boolean
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -111,6 +113,7 @@ export const DEFAULT_PREFS: Prefs = {
   reportScreenshot: true,
   pretendBeta: false,
   betaWelcomed: false,
+  webWelcomed: false,
 }
 
 const STORAGE_KEY = 'prefs'

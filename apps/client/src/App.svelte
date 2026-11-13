@@ -6,6 +6,7 @@
   import { WEB } from './lib/platform'
   import DevReport from './devreport/DevReport.svelte'
   import BetaFeedback from './lib/BetaFeedback.svelte'
+  import WebWelcome from './lib/WebWelcome.svelte'
   import TagsMerged from './workspace/TagsMerged.svelte'
   import { autoLock } from './lib/autolock.svelte'
   import { backend, type VaultStatus } from './lib/backend'
@@ -173,6 +174,7 @@
   </div>
   <BetaFeedback />
   <TagsMerged />
+  {#if WEB && !prefs.webWelcomed}<WebWelcome />{/if}
 {/if}
 
 <Overlays />

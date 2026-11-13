@@ -13,7 +13,8 @@
   import { prefs } from './prefs.svelte'
   import FeedbackSettings from '../settings/FeedbackSettings.svelte'
 
-  const welcome = $derived((isBeta || isMacApp) && !prefs.betaWelcomed)
+  // the web version has its own welcome (WebWelcome)
+  const welcome = $derived((isBeta || isMacApp) && !WEB && !prefs.betaWelcomed)
 
   const close = () => (betaFeedback.open = false)
 
@@ -69,7 +70,6 @@
     >
       <div id="beta-welcome" class="text">
         {#if isBeta}<p>{touchScreen ? t('beta.welcomePhone') : t('beta.welcome')}</p>{/if}
-        {#if WEB}<p>{t('web.limited', { app: brand.displayName })}</p>{/if}
         {#if isMacApp}<p>{t('beta.mac', { address: brand.contactEmail })}</p>{/if}
       </div>
       <div class="actions">
