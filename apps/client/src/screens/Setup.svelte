@@ -55,6 +55,9 @@
   let busy = $state(false)
   let error = $state('')
   const method = $derived(biometricMethod())
+  /** Something quicker than the password can open the notes here: without
+   * (the web version), the password is the only way and nothing asks. */
+  const quickWays = $derived(biometricAvailable || deviceAvailable)
 
   onMount(async () => {
     const status = await backend.vaultStatus()
@@ -88,7 +91,8 @@
     event.preventDefault()
     if (problem) return
     error = ''
-    step = 'quick'
+    if (quickWays) step = 'quick'
+    else void finish(null)
   }
 
   function chooseWay(event: SubmitEvent) {
@@ -181,7 +185,7 @@
         <span class="logo"><Knot size={48} /></span>
         <h1>{encrypt ? t('setup.encryptTitle') : t('setup.upgradeTitle')}</h1>
         <p class="muted center">{encrypt ? t('setup.encryptHelp') : t('setup.upgradeHelp')}</p>
-        <p class="muted small center">{t('setup.passwordWhy')}</p>
+        {#if quickWays}<p class="muted small center">{t('setup.passwordWhy')}</p>{/if}
         <!-- password managers and Chromium expect a username next to a password -->
         <input type="text" autocomplete="username" value={brand.displayName} hidden readonly />
         <PasswordField
