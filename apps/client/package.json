@@ -11,7 +11,7 @@
     "tauri": "tauri",
     "test": "vitest run",
     "dev:web-version": "node ../../tools/wasm.mjs --core && vite --mode web",
-    "build:web": "node ../../tools/wasm.mjs --core && vite build --mode web"
+    "build:web": "node ../../tools/wasm.mjs --core && vite build --mode web && node ../../tools/fonts-mirror.mjs dist-web/fonts"
   },
   "dependencies": {
     "@app/brand": "workspace:*",

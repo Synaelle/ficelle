@@ -38,8 +38,9 @@ describe('the OpenDyslexic css', () => {
 })
 
 describe('applyDyslexicFont', () => {
-  it('puts its style before every other, a theme added later included', () => {
+  it('puts its style before every other, a theme added later included', async () => {
     applyDyslexicFont(true)
+    await vi.waitFor(() => expect(dyslexicStatus.loading).toBe(false))
     const theme = document.createElement('style')
     theme.id = 'theme-css'
     theme.textContent = '@layer x { * { font-family: Comic !important } }'
@@ -52,12 +53,12 @@ describe('applyDyslexicFont', () => {
 
   it('loads OpenDyslexic under the same random family the css names', async () => {
     applyDyslexicFont(true)
+    await vi.waitFor(() => expect(dyslexicStatus.loading).toBe(false))
     const css = document.getElementById('dyslexic-font')?.textContent ?? ''
     const family = vi.mocked(loadFontPack).mock.lastCall?.[2]
     expect(vi.mocked(loadFontPack).mock.lastCall?.[0]).toBe(OPENDYSLEXIC)
     expect(family).toMatch(/^OpenDyslexic [0-9a-f]{16}$/)
     expect(css).toContain(`--font-ui: '${family}'`)
-    await vi.waitFor(() => expect(dyslexicStatus.loading).toBe(false))
     expect(dyslexicStatus.failed).toBe(false)
   })
 
@@ -65,6 +66,9 @@ describe('applyDyslexicFont', () => {
     vi.mocked(loadFontPack).mockRejectedValueOnce(new Error('offline'))
     applyDyslexicFont(true)
     await vi.waitFor(() => expect(dyslexicStatus.failed).toBe(true))
+    // the page keeps its own fonts, not the system's fallback
+    expect(document.getElementById('dyslexic-font')?.textContent).toBe('')
+    expect(document.documentElement.hasAttribute('data-dyslexic-font')).toBe(false)
     applyDyslexicFont(false)
     expect(dyslexicStatus.failed).toBe(false)
   })

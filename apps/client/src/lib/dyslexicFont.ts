@@ -11,7 +11,7 @@
 //
 // OpenDyslexic itself is downloaded the first time the setting is on
 // (lib/fonts.ts) and kept on the device: the app does not
-// carry it, to stay small. OpenDyslexic Mono, built for the app and small,
+// carry it, to stay small. The web version serves it from its own folder. OpenDyslexic Mono, built for the app and small,
 // is bundled.
 
 import mono from '../styles/opendyslexic/opendyslexic-mono-400-normal.woff2?url'
@@ -95,17 +95,34 @@ function fontStyle(): HTMLStyleElement {
   return style
 }
 
-export function applyDyslexicFont(on: boolean) {
+/** The latest call: a slow load after the setting changed again does nothing. */
+let latest = 0
+
+function useFont(on: boolean) {
   fontStyle().textContent = on ? dyslexicCss(mono, suffix) : ''
   document.documentElement.toggleAttribute('data-dyslexic-font', on)
+}
+
+export function applyDyslexicFont(on: boolean) {
+  const call = ++latest
   dyslexicStatus.failed = false
-  if (!on) return void (dyslexicStatus.loading = false)
-  // the text shows in the fallback fonts until the files are here
+  if (!on) {
+    useFont(false)
+    dyslexicStatus.loading = false
+    return
+  }
+  // the page keeps its own fonts until OpenDyslexic is here: a font that
+  // never comes leaves them, not the system's fallback
   dyslexicStatus.loading = true
   loadFontPack(OPENDYSLEXIC, true, dyslexicFamily(suffix))
     .then(
-      (ok) => (dyslexicStatus.failed = !ok),
-      () => (dyslexicStatus.failed = true),
+      (ok) => ok,
+      () => false,
     )
-    .finally(() => (dyslexicStatus.loading = false))
+    .then((ok) => {
+      if (call !== latest) return
+      useFont(ok)
+      dyslexicStatus.failed = !ok
+      dyslexicStatus.loading = false
+    })
 }
