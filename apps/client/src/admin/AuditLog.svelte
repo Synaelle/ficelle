@@ -73,11 +73,11 @@
   void load()
 </script>
 
-<section class="ad-group" aria-labelledby="log-title">
+<section class="dash-group" aria-labelledby="log-title">
   <h2 id="log-title">
     {t('admin.log.title')}
     <select
-      class="field ad-select ad-aside"
+      class="field dash-select dash-aside"
       aria-label={t('admin.log.filter')}
       bind:value={event}
       onchange={() => load()}
@@ -86,9 +86,9 @@
       {#each EVENTS as name (name)}<option value={name}>{label(name)}</option>{/each}
     </select>
   </h2>
-  {#if problem}<p class="ad-problem" role="alert">{problem}</p>{/if}
-  <div class="ad-table-box">
-    <table class="ad-table">
+  {#if problem}<p class="dash-problem" role="alert">{problem}</p>{/if}
+  <div class="dash-table-box">
+    <table class="dash-table">
       <thead>
         <tr>
           <th>{t('admin.log.when')}</th>

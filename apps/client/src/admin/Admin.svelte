@@ -15,6 +15,7 @@
     keep,
     PROTOCOL_VERSION,
     route,
+    sectionHref,
     signOut,
     thisDevice,
     type AuthOptions,
@@ -91,14 +92,14 @@
     const error = value('#sso-error=')
     if (hash === '#sso-linked') {
       flash.account = t('admin.account.ssoLinked')
-      history.replaceState(null, '', '#account')
+      history.replaceState(null, '', sectionHref('account'))
     } else if (error) {
       // the address is anyone's to write: only a known code is shown, never
       // its text
       const known = new ApiError(0, error, t('admin.errors.ssoFailed'))
       if (auth.session) {
         flash.account = errorText(known)
-        history.replaceState(null, '', '#account')
+        history.replaceState(null, '', sectionHref('account'))
       } else {
         ssoProblem = errorText(known)
         history.replaceState(null, '', location.pathname)

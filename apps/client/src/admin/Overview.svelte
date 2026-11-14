@@ -6,7 +6,7 @@
 <script lang="ts">
   import { t } from '../lib/i18n.svelte'
   import { overlay } from '../lib/overlay.svelte'
-  import { api, type Overview, type StorageOverview, type WebView } from './api.svelte'
+  import { api, sectionHref, type Overview, type StorageOverview, type WebView } from './api.svelte'
   import Checklist from './Checklist.svelte'
   import { bytes, errorText, relative } from './format'
 
@@ -85,47 +85,47 @@
     !backups
       ? null
       : !backups.config
-        ? { v: t('admin.overview.backupNone'), tone: 'ad-warn' }
+        ? { v: t('admin.overview.backupNone'), tone: 'dash-warn' }
         : backups.status.lastError
-          ? { v: t('admin.overview.backupFailed'), tone: 'ad-bad' }
+          ? { v: t('admin.overview.backupFailed'), tone: 'dash-bad' }
           : backups.status.lastSuccessAt
-            ? { v: relative(backups.status.lastSuccessAt), tone: 'ad-ok' }
-            : { v: t('admin.overview.backupNever'), tone: 'ad-warn' },
+            ? { v: relative(backups.status.lastSuccessAt), tone: 'dash-ok' }
+            : { v: t('admin.overview.backupNever'), tone: 'dash-warn' },
   )
 
   void load()
 </script>
 
-{#if problem}<p class="ad-problem" role="alert">{problem}</p>{/if}
+{#if problem}<p class="dash-problem" role="alert">{problem}</p>{/if}
 {#if !overview && !problem}<p class="muted" aria-busy="true">{t('admin.loading')}</p>{/if}
 {#if several}
-  <p class="ad-problem" role="alert">
+  <p class="dash-problem" role="alert">
     {t('admin.onePerson.pointer')}
     <button class="btn" onclick={ongo}>{t('admin.onePerson.title')}</button>
   </p>
 {/if}
 
 {#if overview}
-  <div class="ad-strip">
-    <a href="#security">
+  <div class="dash-strip">
+    <a href={sectionHref('security')}>
       <span class="k">{t('admin.overview.devices')}</span>
       <span class="v">{overview.devices}</span>
     </a>
     {#if storage}
-      <a href="#storage">
+      <a href={sectionHref('storage')}>
         <span class="k">{t('admin.storage.title')}</span>
         <span class="v">{bytes(storage.storedBytes)}</span>
         <span class="s">{t('admin.overview.files', { count: storage.files })}</span>
       </a>
     {/if}
     {#if lastBackup}
-      <a href="#backups">
+      <a href={sectionHref('backups')}>
         <span class="k">{t('admin.overview.lastBackup')}</span>
         <span class={['v', lastBackup.tone]}>{lastBackup.v}</span>
       </a>
     {/if}
     {#if web}
-      <a href="#web">
+      <a href={sectionHref('web')}>
         <span class="k">{t('admin.web.title')}</span>
         <span class="v"
           >{web.access === 'off' ? t('admin.account.off') : t('admin.account.on')}</span
@@ -134,7 +134,7 @@
       </a>
     {/if}
     {#if newReports !== null}
-      <a href="#feedback">
+      <a href={sectionHref('feedback')}>
         <span class="k">{t('admin.overview.newFeedback')}</span>
         <span class="v">{newReports}</span>
       </a>
@@ -145,14 +145,14 @@
 <Checklist personal />
 
 {#if overview}
-  <section class="ad-group" aria-labelledby="server-settings">
+  <section class="dash-group" aria-labelledby="server-settings">
     <h2 id="server-settings">{t('admin.groupServer')}</h2>
-    <ul class="ad-rows">
+    <ul class="dash-rows">
       {#if updates}
-        <li class="ad-row">
-          <span class="ad-words">
-            <span class="ad-label">{t('admin.checklist.updatesTitle')}</span>
-            <span class="ad-help">
+        <li class="dash-row">
+          <span class="dash-words">
+            <span class="dash-label">{t('admin.checklist.updatesTitle')}</span>
+            <span class="dash-help">
               {#if !updates.available}
                 {t('admin.checklist.updatesUnavailable')}
               {:else if updates.enabled}
@@ -175,13 +175,13 @@
               {/if}
             </span>
             {#if updates.enabled && updates.error}
-              <span class="ad-help ad-bad"
+              <span class="dash-help dash-bad"
                 >{t('admin.checklist.checkFailed', { why: updates.error })}</span
               >
             {/if}
           </span>
           {#if updates.available}
-            <span class="ad-ctl">
+            <span class="dash-ctl">
               {#if updates.enabled}
                 <button
                   class="btn"
@@ -191,7 +191,7 @@
                 >
               {/if}
               <input
-                class="ad-switch"
+                class="dash-switch"
                 type="checkbox"
                 role="switch"
                 aria-label={t('admin.checklist.updatesSwitch')}
@@ -206,17 +206,19 @@
           {/if}
         </li>
       {/if}
-      <li class="ad-row">
-        <span class="ad-words">
-          <span class="ad-label">{t(`admin.overview.secondStep${ownWords}`)}</span>
-          <span class="ad-help">{t(`admin.overview.secondStepHelp${ownWords}`)}</span>
+      <li class="dash-row">
+        <span class="dash-words">
+          <span class="dash-label">{t(`admin.overview.secondStep${ownWords}`)}</span>
+          <span class="dash-help">{t(`admin.overview.secondStepHelp${ownWords}`)}</span>
           {#if !overview.adminsNeedSecondStep}
-            <span class="ad-help ad-bad">{t(`admin.overview.secondStepOffRisks${ownWords}`)}</span>
+            <span class="dash-help dash-bad"
+              >{t(`admin.overview.secondStepOffRisks${ownWords}`)}</span
+            >
           {/if}
         </span>
-        <span class="ad-ctl">
+        <span class="dash-ctl">
           <input
-            class="ad-switch"
+            class="dash-switch"
             type="checkbox"
             role="switch"
             aria-label={t(`admin.overview.secondStepOn${ownWords}`)}
@@ -226,14 +228,14 @@
           />
         </span>
       </li>
-      <li class="ad-row">
-        <span class="ad-words">
-          <span class="ad-label">{t('admin.overview.coediting')}</span>
-          <span class="ad-help">{t(`admin.overview.coeditingHelp${ownWords}`)}</span>
+      <li class="dash-row">
+        <span class="dash-words">
+          <span class="dash-label">{t('admin.overview.coediting')}</span>
+          <span class="dash-help">{t(`admin.overview.coeditingHelp${ownWords}`)}</span>
         </span>
-        <span class="ad-ctl">
+        <span class="dash-ctl">
           <input
-            class="ad-switch"
+            class="dash-switch"
             type="checkbox"
             role="switch"
             aria-label={t('admin.overview.coeditingOn')}
@@ -249,7 +251,7 @@
     </ul>
   </section>
 
-  <p class="ad-foot">
+  <p class="dash-foot">
     {t('admin.overview.since', {
       date: overview.createdAt.slice(0, 10),
       version: overview.version,

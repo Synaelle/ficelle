@@ -17,7 +17,7 @@
   import Backups from './Backups.svelte'
   import Feedback from './Feedback.svelte'
   import WebVersion from './WebVersion.svelte'
-  import { api, type WebView } from './api.svelte'
+  import { api, sectionHref, type WebView } from './api.svelte'
   import { errorText } from './format'
 
   let { info, admin }: { info: ServerInfo; admin: boolean } = $props()
@@ -91,7 +91,7 @@
 
   function go(next: Section) {
     section = next
-    history.replaceState(null, '', `#${next}`)
+    history.replaceState(null, '', sectionHref(next))
   }
 </script>
 
@@ -137,8 +137,8 @@
       <p class="notice" role="status">{t('admin.factorRequired')}</p>
     {/if}
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-    <div class="ad-page">
-      <div class="ad-head"><h1>{t(`admin.${section}.title`)}</h1></div>
+    <div class="dash-page">
+      <div class="dash-head"><h1>{t(`admin.${section}.title`)}</h1></div>
       {#if section === 'overview'}
         <Overview {several} ongo={() => go('onePerson')} />
       {:else if section === 'onePerson'}

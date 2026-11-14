@@ -28,10 +28,10 @@
   void load()
 </script>
 
-{#if problem}<p class="ad-problem" role="alert">{problem}</p>{/if}
+{#if problem}<p class="dash-problem" role="alert">{problem}</p>{/if}
 {#if !overview && !problem}<p class="muted" aria-busy="true">{t('admin.loading')}</p>{/if}
 {#if overview}
-  <div class="ad-strip">
+  <div class="dash-strip">
     <div>
       <span class="k">{t('admin.storage.stored')}</span>
       <span class="v">{bytes(overview.storedBytes)}</span>
@@ -51,10 +51,10 @@
   </div>
 
   {#if overview.people.total > 1}
-    <section class="ad-group" aria-labelledby="storage-people">
+    <section class="dash-group" aria-labelledby="storage-people">
       <h2 id="storage-people">{t('admin.storage.people')}</h2>
-      <div class="ad-table-box">
-        <table class="ad-table">
+      <div class="dash-table-box">
+        <table class="dash-table">
           <thead>
             <tr>
               <th>{t('admin.username')}</th>

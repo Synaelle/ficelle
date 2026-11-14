@@ -16,6 +16,12 @@ export function route(): string {
   return path.startsWith(base) ? `/${path.slice(base.length)}` : path
 }
 
+/** A section of this page: its own path and the section after #. A bare
+ * `#name` would go to the server's root, the page sets `<base href>` there. */
+export function sectionHref(name: string): string {
+  return `${location.pathname}#${name}`
+}
+
 /** `app_protocol::PROTOCOL_VERSION`, bump both together. */
 export const PROTOCOL_VERSION = 1
 

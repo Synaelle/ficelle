@@ -9,7 +9,7 @@
   let { personal = false }: { personal?: boolean } = $props()
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
-  import { api } from './api.svelte'
+  import { api, sectionHref } from './api.svelte'
   import { errorText, relative } from './format'
 
   type State = 'ok' | 'warn' | 'fail'
@@ -156,29 +156,29 @@
   void load()
 </script>
 
-<section class="ad-group" aria-labelledby="checklist-title">
+<section class="dash-group" aria-labelledby="checklist-title">
   <h2 id="checklist-title">
     {t('admin.checklist.title')}
     {#if fine.length}
       <button
-        class="btn quiet ad-aside"
+        class="btn quiet dash-aside"
         aria-expanded={showFine}
         onclick={() => (showFine = !showFine)}
         >{t('admin.checklist.fineCount', { count: fine.length })}</button
       >
     {/if}
   </h2>
-  {#if problem}<p class="ad-problem" role="alert">{problem}</p>{/if}
+  {#if problem}<p class="dash-problem" role="alert">{problem}</p>{/if}
   {#snippet line(item: Item)}
     {@const where = place(item)}
-    <li class={['ad-row', item.state]}>
-      <span class="ad-lead"
+    <li class={['dash-row', item.state]}>
+      <span class="dash-lead"
         ><Icon name={item.state === 'ok' ? 'check' : 'warning'} size={16} /></span
       >
-      <span class="ad-words">{text(item)}</span>
-      <span class="ad-ctl">
+      <span class="dash-words">{text(item)}</span>
+      <span class="dash-ctl">
         {#if where && item.state !== 'ok'}
-          <a class="btn" href={`#${where}`}>{t('admin.checklist.goThere')}</a>
+          <a class="btn" href={sectionHref(where)}>{t('admin.checklist.goThere')}</a>
         {/if}
         <button
           class="btn quiet"
@@ -194,7 +194,7 @@
     </li>
   {/snippet}
   {#if needing.length || showFine}
-    <ul class="ad-rows">
+    <ul class="dash-rows">
       {#each needing as item (item.key)}{@render line(item)}{/each}
       {#if showFine}
         {#each fine as item (item.key)}{@render line(item)}{/each}
@@ -202,7 +202,7 @@
     </ul>
   {/if}
   {#if hiddenCount > 0}
-    <p class="ad-help">
+    <p class="dash-help">
       {t('admin.checklist.hidden', { count: hiddenCount })}
       <button
         class="link"

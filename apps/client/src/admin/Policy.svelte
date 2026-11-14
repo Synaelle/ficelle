@@ -172,18 +172,18 @@
 {#snippet rule([key, eff, kind]: [Key, keyof FilesPolicy, Kind], current: PolicyView)}
   {@const set = key in draft}
   {@const name = t(`admin.policy.keys.${key}`)}
-  <li class="ad-row ad-tight">
-    <span class="ad-words">
-      <span class="ad-label">{name}</span>
+  <li class="dash-row dash-tight">
+    <span class="dash-words">
+      <span class="dash-label">{name}</span>
       {#if set && (kind === 'mb' || kind === 'count' || kind === 'px')}
-        <span class="ad-help">{t(`admin.policy.zero.${kind}`)}</span>
+        <span class="dash-help">{t(`admin.policy.zero.${kind}`)}</span>
       {/if}
     </span>
-    <span class="ad-val value">
+    <span class="dash-val value">
       {#if !set}
         <button
           type="button"
-          class="ad-val"
+          class="dash-val"
           aria-label={t('admin.policy.change', {
             rule: name,
             value: shown(key, kind, current.effective[eff]),
@@ -193,7 +193,7 @@
         >
       {:else if kind === 'bool'}
         <input
-          class="ad-switch"
+          class="dash-switch"
           type="checkbox"
           role="switch"
           aria-label={name}
@@ -221,11 +221,11 @@
               [key]: Math.max(0, Math.round(Number(e.currentTarget.value))),
             })}
         />
-        {#if kind !== 'count'}<span class="ad-unit unit">{t(`admin.policy.units.${kind}`)}</span
+        {#if kind !== 'count'}<span class="dash-unit unit">{t(`admin.policy.units.${kind}`)}</span
           >{/if}
       {/if}
     </span>
-    <span class="ad-src">
+    <span class="dash-src">
       {#if set}
         <button
           type="button"
@@ -246,35 +246,35 @@
 {/snippet}
 
 {#if view}
-  <form class="ad-page policy" onsubmit={save}>
-    {#if level !== 'instance'}<p class="ad-help">{t(`admin.policy.help.${level}`)}</p>{/if}
-    <section class="ad-group">
+  <form class="dash-page policy" onsubmit={save}>
+    {#if level !== 'instance'}<p class="dash-help">{t(`admin.policy.help.${level}`)}</p>{/if}
+    <section class="dash-group">
       <h2>
         {t('admin.policy.groupFiles')}
-        <span class="ad-aside legend">
+        <span class="dash-aside legend">
           {t('admin.policy.clickToChange')}
           <span><Icon name="configFile" size={14} />{t('admin.policy.legendConfig')}</span>
           <span class="here"><Icon name="restore" size={14} />{t('admin.policy.legendHere')}</span>
         </span>
       </h2>
-      <ul class="ad-rows">
+      <ul class="dash-rows">
         {#each RULES.filter(([, , kind]) => !IMAGE_KINDS.includes(kind)) as item (item[0])}
           {@render rule(item, view)}
         {/each}
       </ul>
     </section>
-    <section class="ad-group">
+    <section class="dash-group">
       <h2>{t('admin.policy.groupImages')}</h2>
-      <ul class="ad-rows">
+      <ul class="dash-rows">
         {#each RULES.filter(([, , kind]) => IMAGE_KINDS.includes(kind)) as item (item[0])}
           {@render rule(item, view)}
         {/each}
       </ul>
     </section>
-    {#if problem}<p class="ad-problem" role="alert">{problem}</p>{/if}
-    {#if saved}<p class="ad-help" role="status">{t('admin.policy.saved')}</p>{/if}
+    {#if problem}<p class="dash-problem" role="alert">{problem}</p>{/if}
+    {#if saved}<p class="dash-help" role="status">{t('admin.policy.saved')}</p>{/if}
     {#if changes > 0}
-      <div class="ad-savebar">
+      <div class="dash-savebar">
         <span>{t('admin.unsaved', { count: changes })}</span>
         <button class="btn quiet" type="button" onclick={reset}>{t('admin.undo')}</button>
         <button class="btn primary" type="submit">{t('admin.save')}</button>
@@ -282,7 +282,7 @@
     {/if}
   </form>
 {:else if problem}
-  <p class="ad-problem" role="alert">{problem}</p>
+  <p class="dash-problem" role="alert">{problem}</p>
 {/if}
 
 <style>
@@ -308,7 +308,7 @@
     width: 190px;
     min-width: 0;
   }
-  .value > .ad-val {
+  .value > .dash-val {
     min-width: 0;
     margin-right: -8px;
   }
@@ -326,7 +326,7 @@
   .unit {
     width: 4ch;
   }
-  .ad-src {
+  .dash-src {
     min-width: 32px;
   }
   .from {

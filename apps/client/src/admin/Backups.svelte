@@ -290,18 +290,21 @@
 {/if}
 
 {#if view?.config && !editing}
-  <ul class="ad-rows" data-backups-status>
+  <ul class="dash-rows" data-backups-status>
     <li
-      class={['ad-row', view.status.lastError ? 'fail' : view.status.lastSuccessAt ? 'ok' : 'warn']}
+      class={[
+        'dash-row',
+        view.status.lastError ? 'fail' : view.status.lastSuccessAt ? 'ok' : 'warn',
+      ]}
     >
-      <span class="ad-lead"
+      <span class="dash-lead"
         ><Icon
           name={view.status.lastError || !view.status.lastSuccessAt ? 'warning' : 'check'}
           size={18}
         /></span
       >
-      <span class="ad-words">
-        <span class="ad-label">
+      <span class="dash-words">
+        <span class="dash-label">
           {#if view.running}
             {t('backups.running')}
           {:else if view.status.lastSuccessAt}
@@ -314,11 +317,11 @@
           {/if}
         </span>
         {#if view.status.lastError}
-          <span class="ad-help ad-bad"
+          <span class="dash-help dash-bad"
             >{t('backups.lastFailed', { error: view.status.lastError })}</span
           >
         {/if}
-        <span class="ad-help">
+        <span class="dash-help">
           {#if where}{t('backups.where', { where })}{/if}
           {#if view.status.snapshots > 0}
             {t('backups.size', {
@@ -328,7 +331,7 @@
           {/if}
         </span>
       </span>
-      <span class="ad-ctl">
+      <span class="dash-ctl">
         <button class="btn" disabled={busy} onclick={() => runCheck(false)}
           >{t('backups.check')}</button
         >
@@ -339,8 +342,8 @@
       </span>
     </li>
     {#if check}
-      <li class={['ad-row', check.problems.length ? 'fail' : 'ok']} data-backups-check>
-        <span class="ad-words">
+      <li class={['dash-row', check.problems.length ? 'fail' : 'ok']} data-backups-check>
+        <span class="dash-words">
           {#if check.problems.length === 0}
             <span
               >{t('backups.checkOk', {
@@ -349,12 +352,12 @@
               })}</span
             >
           {:else}
-            <span class="ad-bad">{t('backups.checkBad')}</span>
-            {#each check.problems as p (p)}<span class="ad-help mono">{p}</span>{/each}
+            <span class="dash-bad">{t('backups.checkBad')}</span>
+            {#each check.problems as p (p)}<span class="dash-help mono">{p}</span>{/each}
           {/if}
         </span>
         {#if check.problems.length === 0}
-          <span class="ad-ctl">
+          <span class="dash-ctl">
             <button class="btn quiet" disabled={busy} onclick={() => runCheck(true)}
               >{t('backups.checkFull')}</button
             >
@@ -365,24 +368,24 @@
   </ul>
 
   {#if snapshots}
-    <section class="ad-group" data-backups-list aria-labelledby="backups-kept">
+    <section class="dash-group" data-backups-list aria-labelledby="backups-kept">
       <h2 id="backups-kept">{t('backups.backups')}</h2>
       {#if snapshots.length === 0}
-        <p class="ad-help">{t('backups.none')}</p>
+        <p class="dash-help">{t('backups.none')}</p>
       {:else}
-        <ul class="ad-rows">
+        <ul class="dash-rows">
           {#each snapshots as s (s.id)}
-            <li class="ad-row ad-tight" data-snapshot={s.id}>
-              <span class="ad-words">
-                <span class="ad-label">{dateTime(s.time)}</span>
-                <span class="ad-help"
+            <li class="dash-row dash-tight" data-snapshot={s.id}>
+              <span class="dash-words">
+                <span class="dash-label">{dateTime(s.time)}</span>
+                <span class="dash-help"
                   >{t('admin.backups.counts', {
                     users: s.counts.users ?? 0,
                     files: s.counts.files ?? 0,
                   })}, {bytes(s.size)}</span
                 >
               </span>
-              <span class="ad-ctl">
+              <span class="dash-ctl">
                 <button class="btn quiet" disabled={busy} onclick={() => testRestore(s)}
                   >{t('backups.test')}</button
                 >
@@ -391,12 +394,12 @@
           {/each}
         </ul>
         <h2>{t('admin.backups.person')}</h2>
-        <ul class="ad-rows">
-          <li class="ad-row">
-            <span class="ad-words"
-              ><span class="ad-help">{t('admin.backups.personHelp')}</span></span
+        <ul class="dash-rows">
+          <li class="dash-row">
+            <span class="dash-words"
+              ><span class="dash-help">{t('admin.backups.personHelp')}</span></span
             >
-            <span class="ad-ctl">
+            <span class="dash-ctl">
               <input
                 class="field person"
                 aria-label={t('admin.username')}
@@ -404,7 +407,7 @@
                 bind:value={person}
               />
               <select
-                class="field ad-select"
+                class="field dash-select"
                 aria-label={t('admin.backups.from')}
                 bind:value={personSnapshot}
               >
@@ -422,27 +425,31 @@
     </section>
   {/if}
 
-  <section class="ad-group" aria-labelledby="backups-when">
+  <section class="dash-group" aria-labelledby="backups-when">
     <h2 id="backups-when">{t('backups.when')}</h2>
-    <ul class="ad-rows">
-      <li class="ad-row ad-tight">
-        <span class="ad-words"><span class="ad-label">{t('backups.schedule')}</span></span>
-        <span class="ad-ctl">
-          <select class="field ad-select" aria-label={t('backups.schedule')} bind:value={schedule}>
+    <ul class="dash-rows">
+      <li class="dash-row dash-tight">
+        <span class="dash-words"><span class="dash-label">{t('backups.schedule')}</span></span>
+        <span class="dash-ctl">
+          <select
+            class="field dash-select"
+            aria-label={t('backups.schedule')}
+            bind:value={schedule}
+          >
             {#each SCHEDULES as s (s)}<option value={s}>{t(`backups.schedule_${s}`)}</option>{/each}
           </select>
         </span>
       </li>
-      <li class="ad-row ad-tight">
-        <span class="ad-words">
-          <span class="ad-label">{t('admin.backups.keep')}</span>
-          <span class="ad-help">{t('backups.keepHelp')}</span>
+      <li class="dash-row dash-tight">
+        <span class="dash-words">
+          <span class="dash-label">{t('admin.backups.keep')}</span>
+          <span class="dash-help">{t('backups.keepHelp')}</span>
         </span>
-        <span class="ad-ctl">
+        <span class="dash-ctl">
           {#each KEEP as period (period)}
             <label class="keep"
-              ><span class="ad-unit">{t(`backups.keep_${period}`)}</span><input
-                class="field ad-num"
+              ><span class="dash-unit">{t(`backups.keep_${period}`)}</span><input
+                class="field dash-num"
                 type="number"
                 min="0"
                 max="100"
@@ -458,11 +465,11 @@
     </p>
   </section>
 
-  <section class="ad-group">
+  <section class="dash-group">
     <!-- rarely needed, long: folded -->
     <details class="recovery">
       <summary>{t('admin.backups.recovery')}</summary>
-      <p class="ad-help">{t('admin.backups.recoveryHelp')}</p>
+      <p class="dash-help">{t('admin.backups.recoveryHelp')}</p>
       <pre data-backups-recovery>{recovery}</pre>
     </details>
     <p class="actions">
