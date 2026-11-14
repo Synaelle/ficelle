@@ -400,7 +400,7 @@ async fn privacy_facts_come_from_the_configuration() {
     assert_eq!(info["accountKinds"], "choice");
     // feedback: not taken here by default, people's reports go to the project
     assert_eq!(info["feedbackReceive"], false);
-    assert_eq!(info["feedbackKeepDays"], 180);
+    assert_eq!(info["feedbackKeepDays"], 30);
     assert_eq!(info["feedbackSendTo"], "main");
     assert_eq!(
         info["feedbackMain"],

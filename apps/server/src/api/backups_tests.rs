@@ -102,7 +102,7 @@ async fn an_instance_is_backed_up_and_a_deleted_account_comes_back() {
     assert_eq!(status, StatusCode::OK);
 
     // a run, listed, checked, test restored
-    // the feedback database goes along
+    // the feedback database stays out: deleted reports must not live on
     state
         .feedback
         .call(|c| {
@@ -292,7 +292,7 @@ async fn an_instance_is_backed_up_and_a_deleted_account_comes_back() {
         .call(|c| Ok(c.query_row("SELECT count(*) FROM blocks", [], |r| r.get(0))?))
         .await
         .unwrap();
-    assert_eq!(words, 1, "the feedback database came back");
+    assert_eq!(words, 0, "the feedback database starts empty");
     let disk = crate::files::LocalDisk::new(into.path().join("data").join("files"));
     // standard files are sealed at rest: what comes back is what was kept
     let whole = |storage: &dyn crate::files::Storage, object: &str| {

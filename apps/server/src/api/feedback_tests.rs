@@ -705,15 +705,18 @@ async fn admins_and_readers_moderate_the_token_only_reads() {
     let bytes = to_bytes(response.into_body(), 1 << 20).await.unwrap();
     assert_eq!(bytes.to_vec(), png);
 
-    // marked, noted, kept
+    // marked and noted, never kept past the keeping time
     let path = format!("/admin/feedback/reports/{id}");
-    let change = json!({ "status": "done", "note": "fixed in 0.12.1", "kept": true });
+    let change = json!({ "status": "done", "note": "fixed in 0.12.1" });
     let (status, changed) = call(&app, "PATCH", &path, Some(&kim), Some(change)).await;
     assert_eq!(status, StatusCode::OK, "{changed}");
     assert_eq!(
-        (&changed["status"], &changed["note"], &changed["kept"]),
-        (&json!("done"), &json!("fixed in 0.12.1"), &json!(true))
+        (&changed["status"], &changed["note"]),
+        (&json!("done"), &json!("fixed in 0.12.1"))
     );
+    let keep = Some(json!({ "kept": true }));
+    let (status, _) = call(&app, "PATCH", &path, Some(&kim), keep).await;
+    assert!(status.is_client_error(), "{status}");
     let open = Some(json!({ "status": "open" }));
     let (status, _) = call(
         &app,

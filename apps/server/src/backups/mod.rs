@@ -519,21 +519,6 @@ async fn run_once(state: &AppState) -> Result<(RunReport, u64, u64), String> {
         })
         .await
         .map_err(|e| format!("copying the database: {e}"));
-    let feedback_text = dir
-        .join(crate::db::FEEDBACK_FILE)
-        .to_string_lossy()
-        .into_owned();
-    let copied = match copied {
-        Ok(()) => state
-            .feedback
-            .call(move |c| {
-                c.execute("VACUUM INTO ?1", [&feedback_text])?;
-                Ok(())
-            })
-            .await
-            .map_err(|e| format!("copying the feedback database: {e}")),
-        failed => failed,
-    };
     if let Err(e) = copied {
         remove_scratch(&dir);
         return Err(e);

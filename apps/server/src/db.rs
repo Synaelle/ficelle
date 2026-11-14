@@ -47,6 +47,7 @@ const FEEDBACK_MIGRATIONS: &[&str] = &[
     include_str!("../migrations/feedback/002_about.sql"),
     include_str!("../migrations/feedback/003_server.sql"),
     include_str!("../migrations/feedback/004_answers.sql"),
+    include_str!("../migrations/feedback/005_no_keeping.sql"),
 ];
 
 /// Shared handle to the database.
@@ -102,7 +103,17 @@ impl Db {
     ///
     /// As [`Db::open`].
     pub fn open_feedback(dir: &Path) -> Result<Self, DbError> {
-        Self::open_file(dir, FEEDBACK_FILE, FEEDBACK_MIGRATIONS)
+        Self::open_file(dir, FEEDBACK_FILE, FEEDBACK_MIGRATIONS)?.zeroing_deletes()
+    }
+
+    /// Deleted rows are overwritten, not left readable in free pages: a
+    /// deleted report must be gone from the file.
+    fn zeroing_deletes(self) -> Result<Self, DbError> {
+        self.conn
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .pragma_update(None, "secure_delete", "ON")?;
+        Ok(self)
     }
 
     fn open_file(dir: &Path, file: &str, migrations: &[&str]) -> Result<Self, DbError> {
@@ -128,7 +139,7 @@ impl Db {
     /// Fails only if a migration is broken.
     #[cfg(test)]
     pub fn feedback_in_memory() -> Result<Self, DbError> {
-        Self::setup(Connection::open_in_memory()?, FEEDBACK_MIGRATIONS)
+        Self::setup(Connection::open_in_memory()?, FEEDBACK_MIGRATIONS)?.zeroing_deletes()
     }
 
     fn setup(mut conn: Connection, migrations: &[&str]) -> Result<Self, DbError> {

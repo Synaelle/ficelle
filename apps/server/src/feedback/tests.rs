@@ -405,47 +405,76 @@ fn spam_is_filed_away_and_blocked_senders_dropped() {
 }
 
 #[test]
-fn reports_and_their_images_go_after_the_keeping_time_unless_kept() {
+fn reports_and_their_images_go_after_the_keeping_time_whatever_their_status() {
     let mut c = conn();
     let mut r = report("an old report with a picture");
     r.images = vec![STANDARD.encode(images::tests::png_of(4, 4))];
     let Outcome::Saved(old) = take(&mut c, NOW, "a", &validate(r).unwrap()).unwrap() else {
         panic!("saved")
     };
-    let Outcome::Saved(kept) = take(
+    let Outcome::Saved(answered) = take(
         &mut c,
         NOW,
         "a",
-        &validate(report("an old one worth keeping")).unwrap(),
+        &validate(report("an old one, answered and noted")).unwrap(),
     )
     .unwrap() else {
         panic!("saved")
     };
-    c.execute("UPDATE reports SET kept = 1 WHERE id = ?1", [&kept])
-        .unwrap();
+    c.execute(
+        "UPDATE reports SET status = 'open', note = 'a bug', answer = 'thanks' WHERE id = ?1",
+        [&answered],
+    )
+    .unwrap();
     super::challenge(&c, NOW, "a", &config()).unwrap();
-    let later = NOW + 181 * DAY;
-    take(
+    let later = NOW + 31 * DAY;
+    let Outcome::Saved(new) = take(
         &mut c,
         later,
         "b",
         &validate(report("a new report, still here")).unwrap(),
     )
-    .unwrap();
-    assert!(cleanup(&c, later, 180).unwrap() >= 3);
+    .unwrap() else {
+        panic!("saved")
+    };
+    assert!(cleanup(&c, later, 30).unwrap() >= 4);
     let ids: Vec<String> = c
-        .prepare("SELECT id FROM reports ORDER BY created_at")
+        .prepare("SELECT id FROM reports")
         .unwrap()
         .query_map([], |r| r.get(0))
         .unwrap()
         .collect::<Result<_, _>>()
         .unwrap();
-    assert_eq!(ids.len(), 2);
-    assert!(ids.contains(&kept) && !ids.contains(&old));
+    assert_eq!(ids, [new], "{old} and {answered} went");
     let images: i64 = c
         .query_row("SELECT count(*) FROM images", [], |r| r.get(0))
         .unwrap();
     assert_eq!(images, 0, "its image went with it");
+}
+
+#[tokio::test]
+async fn a_deleted_report_is_gone_from_the_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = crate::db::Db::open_feedback(dir.path()).unwrap();
+    db.call(|c| {
+        for n in 0..20 {
+            let text = format!("a report about the tangerine kettle number {n}");
+            let address = format!("a{n}");
+            take(c, NOW, &address, &validate(report(&text)).unwrap()).unwrap();
+        }
+        Ok(cleanup(c, NOW + 31 * DAY, 30).unwrap())
+    })
+    .await
+    .unwrap();
+    for name in ["feedback.db", "feedback.db-wal"] {
+        let Ok(bytes) = std::fs::read(dir.path().join(name)) else {
+            continue;
+        };
+        assert!(
+            !bytes.windows(16).any(|w| w == b"tangerine kettle"),
+            "{name} still holds a deleted report"
+        );
+    }
 }
 
 #[test]

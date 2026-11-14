@@ -862,11 +862,12 @@ pub fn block(
     Ok(())
 }
 
-/// Removes what has had its time: reports past `keep_days` and not kept,
-/// sends after a day, expired challenges and blocks. Returns how many rows.
+/// Removes what has had its time: reports and their images past
+/// `keep_days`, sends after a day, expired challenges and blocks. Returns
+/// how many rows.
 pub fn cleanup(conn: &Connection, now: i64, keep_days: u32) -> Result<usize, DbError> {
     let mut removed = conn.execute(
-        "DELETE FROM reports WHERE kept = 0 AND created_at < ?1",
+        "DELETE FROM reports WHERE created_at < ?1",
         [now - i64::from(keep_days) * DAY],
     )?;
     removed += conn.execute("DELETE FROM sends WHERE at < ?1", [now - DAY])?;
@@ -875,6 +876,10 @@ pub fn cleanup(conn: &Connection, now: i64, keep_days: u32) -> Result<usize, DbE
         "DELETE FROM blocks WHERE expires_at IS NOT NULL AND expires_at <= ?1",
         [now],
     )?;
+    if removed > 0 {
+        // the log still holds the pages as they were before the delete
+        conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))?;
+    }
     Ok(removed)
 }
 

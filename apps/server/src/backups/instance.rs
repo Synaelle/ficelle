@@ -4,8 +4,9 @@
 //!
 //! - `server.db`: the database, copied with `VACUUM INTO` (consistent,
 //!   compact), so the snapshot never catches it halfway through a write.
-//! - `feedback.db`: the feedback reports and block lists, copied the same
-//!   way, when the instance has them (beside the database's copy).
+//! - Never the feedback reports: they go after the keeping time, a backup
+//!   would keep them. Older snapshots' `feedback.db` is left out when
+//!   restoring.
 //! - `master.key`: the key that wraps the standard accounts' space keys
 //!   and seals their files at rest. Without it, a restored instance could
 //!   open none of them.
@@ -61,7 +62,7 @@ fn count(conn: &Connection, table: &str) -> u64 {
 }
 
 /// Backs the instance up: `db_copy` is the database already copied by
-/// `VACUUM INTO` (the feedback database's copy beside it, when there is one), `master_key` the key file's path, `files` the store.
+/// `VACUUM INTO`, `master_key` the key file's path, `files` the store.
 ///
 /// # Errors
 ///
@@ -115,11 +116,6 @@ fn run(
     };
     let mut db = std::fs::File::open(db_copy).map_err(|e| e.to_string())?;
     add(&mut writer, &mut items, "server.db", &mut db)?;
-    let feedback = db_copy.with_file_name(crate::db::FEEDBACK_FILE);
-    if feedback.exists() {
-        let mut file = std::fs::File::open(&feedback).map_err(|e| e.to_string())?;
-        add(&mut writer, &mut items, "feedback.db", &mut file)?;
-    }
     if let Some(key) = master_key {
         let mut file = std::fs::File::open(key).map_err(|e| format!("{}: {e}", key.display()))?;
         add(&mut writer, &mut items, "master.key", &mut file)?;
@@ -251,9 +247,6 @@ pub fn restore(repo: &Repo, snapshot_id: &str, data_dir: &Path) -> Result<Snapsh
         match item.name.as_str() {
             "server.db" => write_item(repo, &index, item, &data_dir.join(crate::db::DB_FILE))?,
             "master.key" => write_item(repo, &index, item, &data_dir.join(crate::keys::KEY_FILE))?,
-            "feedback.db" => {
-                write_item(repo, &index, item, &data_dir.join(crate::db::FEEDBACK_FILE))?;
-            }
             name => {
                 let Some(object) = name.strip_prefix("files/") else {
                     continue;

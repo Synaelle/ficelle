@@ -78,7 +78,6 @@ pub struct Summary {
     images: i64,
     score: i64,
     flags: String,
-    kept: bool,
 }
 
 /// A page of reports.
@@ -120,7 +119,7 @@ pub fn list(conn: &Connection, filter: &Filter) -> Result<Page, DbError> {
     let mut sql = String::from(
         "SELECT id, created_at, status, category, substr(message, 1, 200), version, platform,
              contact IS NOT NULL, logs IS NOT NULL,
-             (SELECT count(*) FROM images WHERE report = reports.id), score, flags, kept, about
+             (SELECT count(*) FROM images WHERE report = reports.id), score, flags, about
          FROM reports WHERE 1 = 1",
     );
     let mut args: Vec<rusqlite::types::Value> = Vec::new();
@@ -177,7 +176,7 @@ pub fn list(conn: &Connection, filter: &Filter) -> Result<Page, DbError> {
                 created_at: r.get(1)?,
                 status: r.get(2)?,
                 category: r.get(3)?,
-                about: r.get(13)?,
+                about: r.get(12)?,
                 excerpt: r.get(4)?,
                 version: r.get(5)?,
                 platform: r.get(6)?,
@@ -186,7 +185,6 @@ pub fn list(conn: &Connection, filter: &Filter) -> Result<Page, DbError> {
                 images: r.get(9)?,
                 score: r.get(10)?,
                 flags: r.get(11)?,
-                kept: r.get(12)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -254,7 +252,6 @@ pub struct Full {
     answer: String,
     /// The sender's app can read the answer: the report came with a receipt.
     answerable: bool,
-    kept: bool,
     /// Reports from the same install or address, this one included.
     from_sender: i64,
     images: Vec<ImageMeta>,
@@ -265,7 +262,7 @@ pub fn get(conn: &Connection, id: &str) -> Result<Option<Full>, DbError> {
     let found = conn
         .query_row(
             "SELECT id, created_at, status, category, message, contact, version, platform, logs,
-                 install, score, flags, note, kept, about,
+                 install, score, flags, note, about,
                  answer, receipt IS NOT NULL,
                  (SELECT count(*) FROM reports o
                   WHERE o.address = reports.address
@@ -278,7 +275,7 @@ pub fn get(conn: &Connection, id: &str) -> Result<Option<Full>, DbError> {
                     created_at: r.get(1)?,
                     status: r.get(2)?,
                     category: r.get(3)?,
-                    about: r.get(14)?,
+                    about: r.get(13)?,
                     message: r.get(4)?,
                     contact: r.get(5)?,
                     version: r.get(6)?,
@@ -288,10 +285,9 @@ pub fn get(conn: &Connection, id: &str) -> Result<Option<Full>, DbError> {
                     score: r.get(10)?,
                     flags: r.get(11)?,
                     note: r.get(12)?,
-                    answer: r.get(15)?,
-                    answerable: r.get(16)?,
-                    kept: r.get(13)?,
-                    from_sender: r.get(17)?,
+                    answer: r.get(14)?,
+                    answerable: r.get(15)?,
+                    from_sender: r.get(16)?,
                     images: Vec::new(),
                 })
             },
@@ -343,8 +339,6 @@ pub struct Change {
     pub note: Option<String>,
     /// The one answer the sender's app shows, 2,000 characters at most.
     pub answer: Option<String>,
-    /// Kept past the keeping time.
-    pub kept: Option<bool>,
 }
 
 /// Applies a change. `false` when there is no such report.
@@ -353,14 +347,12 @@ pub fn update(conn: &Connection, id: &str, change: &Change) -> Result<bool, DbEr
         "UPDATE reports SET
              status = coalesce(?2, status),
              note = coalesce(?3, note),
-             kept = coalesce(?4, kept),
-             answer = coalesce(?5, answer)
+             answer = coalesce(?4, answer)
          WHERE id = ?1",
         params![
             id,
             change.status.map(Status::as_str),
             change.note,
-            change.kept,
             change.answer
         ],
     )?;

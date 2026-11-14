@@ -151,7 +151,7 @@ pub struct FeedbackConfig {
     pub per_day: u32,
     /// Reports a day for the whole instance, then none until the next day.
     pub instance_per_day: u32,
-    /// Days a report is kept, unless a moderator keeps it.
+    /// Days a report is kept, then deleted with its images.
     pub keep_days: u32,
     /// The project's main instance, where the admin page sends feedback
     /// about this server. The brand's `feedbackUrl` by default, another
@@ -168,7 +168,7 @@ impl Default for FeedbackConfig {
             per_hour: 20,
             per_day: 100,
             instance_per_day: 500,
-            keep_days: 180,
+            keep_days: 30,
             main_url: app_brand::FEEDBACK_URL.to_owned(),
         }
     }
