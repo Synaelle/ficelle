@@ -2045,6 +2045,10 @@ manage = "Manage tags…"
 expand = "Show the tags inside"
 collapse = "Hide the tags inside"
 
+[tags.found]
+one = "{count} tag"
+other = "{count} tags"
+
 [tags.notes]
 one = "{count} note"
 other = "{count} notes"

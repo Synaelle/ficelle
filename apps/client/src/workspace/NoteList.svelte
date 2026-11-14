@@ -7,7 +7,7 @@
   import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
   import SyncIcon from './SyncIcon.svelte'
-  import { backend, MATCH_END, MATCH_START, type NoteSort, type Scope } from '../lib/backend'
+  import { backend, MATCH_END, MATCH_START, type NoteSort } from '../lib/backend'
   import { currentLocale, t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { pullDown, swipeRow } from '../lib/gestures'
@@ -18,6 +18,7 @@
   import { overlay, SEPARATOR } from '../lib/overlay.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import { UNFILED, workspace } from '../lib/workspace.svelte'
+  import TagSheet from './TagSheet.svelte'
   import VirtualList from './VirtualList.svelte'
 
   let {
@@ -66,22 +67,8 @@
     return t('sidebar.allNotes')
   })
 
-  // on a phone: one select replaces the sidebar
-  const scopeValue = $derived(
-    workspace.scope.kind === 'tag' ? `tag:${workspace.scope.id}` : workspace.scope.kind,
-  )
-  function pickScope(value: string) {
-    const [kind, id] = value.split(':') as [string, string]
-    const scope: Scope =
-      kind === 'tag'
-        ? { kind: 'tag', id }
-        : kind === 'trash'
-          ? { kind: 'trash' }
-          : kind === 'untagged'
-            ? UNFILED
-            : { kind: 'all' }
-    void workspace.setScope(scope)
-  }
+  /** On a phone the title opens the tags, in place of the sidebar. */
+  let picking = $state(false)
 
   /** The notes as listed: the open one first when the setting says so. */
   const listed = $derived.by(() => {
@@ -214,19 +201,16 @@
   <header>
     {#if narrow}
       <h1 class="visually-hidden">{title}</h1>
-      <select
+      <button
         class="scope"
-        aria-label={t('list.scopeLabel')}
-        value={scopeValue}
-        onchange={(e) => pickScope(e.currentTarget.value)}
+        aria-haspopup="dialog"
+        aria-expanded={picking}
+        onclick={() => (picking = true)}
+        ><span class="dim">{titleParent}</span><span class="leaf">{title}</span><Icon
+          name="down"
+          size={18}
+        /></button
       >
-        <option value="untagged">{t('sidebar.untagged')}</option>
-        <option value="all">{t('sidebar.allNotes')}</option>
-        {#each workspace.tags as tag (tag.id)}
-          <option value="tag:{tag.id}">{tagLabel(tag.name)}</option>
-        {/each}
-        <option value="trash">{t('sidebar.trash')}</option>
-      </select>
     {:else}
       <h1><span class="dim">{titleParent}</span>{title}</h1>
       {#if workspace.scope.kind === 'tag'}
@@ -481,6 +465,9 @@
   <footer class="muted">
     {t('list.count', { count: workspace.hits?.length ?? workspace.notes.length })}
   </footer>
+  {#if picking}
+    <TagSheet close={() => (picking = false)} />
+  {/if}
 </section>
 
 <style>
@@ -516,10 +503,35 @@
   .scope {
     min-width: 0;
     max-width: 70%;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0;
     border: 0;
     background: transparent;
+    color: var(--color-text);
     font-size: 18px;
     font-weight: 650;
+  }
+  .scope .dim {
+    flex: none;
+    max-width: 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .scope .leaf {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .scope :global(svg) {
+    flex: none;
+    color: var(--color-text-muted);
   }
   .icon-btn.danger {
     color: var(--color-danger);
