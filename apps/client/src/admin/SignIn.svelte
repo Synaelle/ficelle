@@ -88,7 +88,14 @@
     })
   }
 
-  const canPasskey = $derived(!!options?.passkeys && passkeysSupported())
+  /** A passkey first. Not when signing an app in on a server that may hold
+   * encrypted accounts: their notes open with the password only, the
+   * passkey is still there as the second step. */
+  const canPasskey = $derived(
+    !!options?.passkeys &&
+      passkeysSupported() &&
+      !(forApp && options.accountKinds !== 'standard'),
+  )
 
   /** The kind of the new account. Only asked when the server lets the
    * person choose. */
