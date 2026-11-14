@@ -27,6 +27,7 @@ mod sso;
 mod sync;
 mod updates;
 mod web;
+mod webapp;
 
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -316,6 +317,12 @@ async fn main() {
         Ok(false) => spawn_setup_links(state.clone()),
         Err(err) => fail(&err.to_string(), 1),
     }
+    match state.db.call(|c| accounts::store::limits(c)).await {
+        Ok(limits) => state
+            .rate_limit
+            .set(limits.apply(&state.config.auth).rate_limit_per_minute),
+        Err(err) => fail(&err.to_string(), 1),
+    }
     spawn_cleanup(state.clone());
     backups::remove_leftover_scratch(&state.config.storage.data_dir);
     let master = state.master.clone();
@@ -400,7 +407,8 @@ fn spawn_cleanup(state: AppState) {
                 .db
                 .call(move |c| {
                     Ok(accounts::store::cleanup(c, now)?
-                        + accounts::profile::trim_audit(c, now - keep)?)
+                        + accounts::profile::trim_audit(c, now - keep)?
+                        + webapp::cleanup(c, now)?)
                 })
                 .await
             {

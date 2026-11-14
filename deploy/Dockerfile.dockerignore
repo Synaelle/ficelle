@@ -4,6 +4,7 @@
 **/node_modules
 target
 apps/client/dist
+apps/client/dist-web
 apps/client/src/generated
 apps/client/src-tauri/gen
 docs

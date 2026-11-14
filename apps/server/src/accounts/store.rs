@@ -279,8 +279,71 @@ pub fn end_resets(conn: &Connection, user_id: &str) -> Result<(), DbError> {
     Ok(())
 }
 
+/// Sign-in limits set on the admin page. Each one left `None` keeps the
+/// config file's value.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+pub struct Limits {
+    /// Sign-in requests a minute from one address.
+    pub per_minute: Option<u32>,
+    /// Failed sign-ins in a row before the account waits.
+    pub attempts: Option<u32>,
+    /// The first wait, in minutes.
+    pub first_wait: Option<u32>,
+    /// The longest wait, in minutes.
+    pub longest_wait: Option<u32>,
+}
+
+impl Limits {
+    /// The config file's values with these in their place.
+    #[must_use]
+    pub fn apply(self, auth: &AuthConfig) -> AuthConfig {
+        AuthConfig {
+            rate_limit_per_minute: self.per_minute.unwrap_or(auth.rate_limit_per_minute),
+            lockout_attempts: self.attempts.unwrap_or(auth.lockout_attempts),
+            lockout_minutes: self.first_wait.unwrap_or(auth.lockout_minutes),
+            lockout_max_minutes: self.longest_wait.unwrap_or(auth.lockout_max_minutes),
+            ..auth.clone()
+        }
+    }
+}
+
+/// The sign-in limits set on the admin page, none when nothing was set.
+///
+/// # Errors
+///
+/// Database errors only.
+pub fn limits(conn: &Connection) -> Result<Limits, DbError> {
+    let value: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = 'signin_limits'",
+            [],
+            |r| r.get(0),
+        )
+        .optional()?;
+    Ok(value
+        .and_then(|v| serde_json::from_str(&v).ok())
+        .unwrap_or_default())
+}
+
+/// Keeps the sign-in limits set on the admin page.
+///
+/// # Errors
+///
+/// Database errors only.
+pub fn set_limits(conn: &Connection, limits: &Limits) -> Result<(), DbError> {
+    let value = serde_json::to_string(limits).unwrap_or_default();
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES ('signin_limits', ?1)
+         ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+        [value],
+    )?;
+    Ok(())
+}
+
 /// Counts a failed sign-in. Returns the end of the lock it caused, if any.
-/// Each lock lasts twice the previous one, up to the configured maximum.
+/// Each lock lasts twice the previous one, up to the longest wait, from the
+/// limits set on the admin page or else the config file.
 ///
 /// # Errors
 ///
@@ -291,6 +354,7 @@ pub fn record_failure(
     now: i64,
     auth: &AuthConfig,
 ) -> Result<Option<i64>, DbError> {
+    let auth = &limits(conn)?.apply(auth);
     let (failed, locks): (i64, i64) = conn.query_row(
         "UPDATE users SET failed_logins = failed_logins + 1 WHERE id = ?1
          RETURNING failed_logins, lock_count",

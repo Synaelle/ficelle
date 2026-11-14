@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // A server to try everything by hand, in one command: `pnpm dev:server`.
-// Builds the web pages and the server, then starts, next to it:
+// Builds the web pages, the web version and the server, then starts, next
+// to it:
 //   - a mail catcher on port 2525, which prints every mail (and its links)
 //     here instead of sending it,
 //   - a pretend single sign-on provider on port 9100, with one person.
@@ -10,7 +11,7 @@
 
 import { execSync, spawn } from 'node:child_process'
 import { createHash, createSign, generateKeyPairSync, randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { createServer as createTcpServer } from 'node:net'
 import { networkInterfaces } from 'node:os'
@@ -50,6 +51,9 @@ function build(what, command) {
   execSync(command, { cwd: root, stdio: 'inherit' })
 }
 build('the web pages', 'pnpm --filter @app/client build')
+build('the web version', 'pnpm --filter @app/client build:web')
+// served from the pages' folder, as the image does
+cpSync(join(root, 'apps/client/dist-web'), join(root, 'apps/client/dist/web'), { recursive: true })
 build('the server', 'cargo build -q -p server')
 
 // mail catcher: just enough SMTP for the server to hand a message over

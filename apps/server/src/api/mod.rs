@@ -23,6 +23,7 @@ mod sharing;
 pub mod sso;
 mod sync;
 mod updates;
+mod web;
 
 use app_protocol::account::User;
 use axum::Router;
@@ -128,6 +129,9 @@ pub fn router() -> Router<AppState> {
         .route("/admin/audit", get(admin::audit))
         .route("/admin/account-kinds", put(admin::set_account_kinds))
         .route("/admin/coediting", put(admin::set_coediting))
+        .route("/admin/web", get(web::get).put(web::set))
+        .route("/admin/web/limits", put(web::set_limits))
+        .route("/web/session", post(web::session))
         .route("/admin/second-step", put(admin::set_second_step))
         .route(
             "/admin/one-person",
@@ -323,3 +327,5 @@ mod tests;
 mod transfer_tests;
 #[cfg(test)]
 mod updates_tests;
+#[cfg(test)]
+mod web_tests;

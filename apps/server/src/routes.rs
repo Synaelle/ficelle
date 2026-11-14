@@ -146,6 +146,7 @@ pub fn router(state: AppState) -> Router {
         .route(crate::sso::CALLBACK_PATH, get(crate::api::sso::callback))
         .nest("/api/v1", crate::api::router())
         .merge(crate::web::router())
+        .merge(crate::webapp::router())
         .fallback(|| async { Error::not_found() })
         .layer(middleware::from_fn_with_state(state.clone(), setup_pending))
         .layer(middleware::from_fn(check_protocol))

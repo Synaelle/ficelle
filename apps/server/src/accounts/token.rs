@@ -29,6 +29,8 @@ pub enum Kind {
     SetupLink,
     /// A setup session, between the link and the first admin.
     Setup,
+    /// The web version's sign-in cookie.
+    Web,
 }
 
 impl Kind {
@@ -41,6 +43,7 @@ impl Kind {
             Self::Feedback => "fb_",
             Self::SetupLink => "sl_",
             Self::Setup => "su_",
+            Self::Web => "wv_",
         }
     }
 }

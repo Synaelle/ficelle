@@ -39,6 +39,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/018_no_plugins.sql"),
     include_str!("../migrations/019_ksf.sql"),
     include_str!("../migrations/020_second_step.sql"),
+    include_str!("../migrations/021_web_version.sql"),
 ];
 
 /// The feedback database's migrations.

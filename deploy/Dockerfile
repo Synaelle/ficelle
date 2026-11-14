@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# The server image: the server and its web pages (the admin page, setup) on
+# The server image: the server and its web pages (the admin page, setup, the
+# web version, off until an admin turns it on) on
 # distroless, no shell, not root. Build from the repository root:
 #   docker build -f deploy/Dockerfile -t ficelle-server .
 # CHANNEL=release stamps the workspace version, preview stamps
@@ -26,7 +27,11 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
  && npm install -g --no-fund --no-audit pnpm@12.15.0
-# the web pages carry the e2ee client as WebAssembly, built by tools/wasm.mjs
+# the web pages carry the e2ee client as WebAssembly, built by tools/wasm.mjs,
+# and the web version the notes core, whose SQLite clang builds for wasm32
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends clang \
+ && rm -rf /var/lib/apt/lists/*
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo install --locked wasm-bindgen-cli --version 0.2.129
 WORKDIR /src
@@ -48,11 +53,14 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     esac; \
     export APP_COMMIT="$COMMIT" APP_COMMIT_DATE="$COMMIT_DATE"; \
     pnpm --filter @app/client build; \
+    pnpm --filter @app/client build:web; \
     cargo build --release --locked -p server; \
     mkdir -p /out/bin /out/web /out/root; \
     install -d -m 700 /out/root/data /out/root/backups; \
     cp "target/release/$BINARY" /out/bin/; \
     cp -r apps/client/dist/. /out/web/; \
+    mkdir -p /out/web/web; \
+    cp -r apps/client/dist-web/. /out/web/web/; \
     node tools/fonts-mirror.mjs /out/web/fonts
 
 FROM gcr.io/distroless/cc-debian13:nonroot@sha256:cc66d222f0a7ec996b78a99fe76a969bc80b539a5016ad866c14d1949bc6d0ab

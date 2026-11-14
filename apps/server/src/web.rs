@@ -3,7 +3,8 @@
 //! The admin page and its files, from `server.web_dir` (the web build of the
 //! client). `/admin` is the page, `/invite/<token>` the same page showing a
 //! sign-up form, `/assets/...` its scripts, styles and fonts.
-//! `/` leads to the admin page until the web app for notes exists. Without
+//! `/` leads to the admin page. The web version is apart, see
+//! [`crate::webapp`]. Without
 //! `web_dir` these paths answer 404 like any unknown path.
 
 use std::path::{Path, PathBuf};
@@ -60,7 +61,7 @@ async fn to_admin(State(state): State<AppState>) -> Redirect {
 
 /// The page, told where it lives: its assets and every address it builds
 /// are relative to the `<base>` added here, so it works under any path.
-async fn admin_page(State(state): State<AppState>) -> Result<Response, Error> {
+pub(crate) async fn admin_page(State(state): State<AppState>) -> Result<Response, Error> {
     let path = web_dir(&state)?.join("admin.html");
     let html = tokio::fs::read_to_string(&path)
         .await
@@ -132,7 +133,7 @@ async fn font(
     Ok(respond(bytes, "font/woff2", "public, max-age=604800"))
 }
 
-fn respond(body: Vec<u8>, kind: &'static str, cache: &'static str) -> Response {
+pub(crate) fn respond(body: Vec<u8>, kind: &'static str, cache: &'static str) -> Response {
     let mut response = (StatusCode::OK, body).into_response();
     let headers = response.headers_mut();
     headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(kind));
@@ -145,7 +146,7 @@ fn respond(body: Vec<u8>, kind: &'static str, cache: &'static str) -> Response {
     response
 }
 
-fn content_type(file: &str) -> &'static str {
+pub(crate) fn content_type(file: &str) -> &'static str {
     match file.rsplit('.').next().unwrap_or("") {
         "js" | "mjs" => "text/javascript; charset=utf-8",
         "css" => "text/css; charset=utf-8",

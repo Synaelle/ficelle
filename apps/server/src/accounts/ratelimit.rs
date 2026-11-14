@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use crate::clock::MINUTE;
@@ -14,7 +15,7 @@ use crate::clock::MINUTE;
 /// Shared limiter.
 #[derive(Clone)]
 pub struct RateLimit {
-    per_minute: u32,
+    per_minute: Arc<AtomicU32>,
     buckets: Arc<Mutex<HashMap<IpAddr, Bucket>>>,
 }
 
@@ -31,15 +32,20 @@ impl RateLimit {
     /// `per_minute` requests a minute, all of them usable at once.
     pub fn new(per_minute: u32) -> Self {
         Self {
-            per_minute,
+            per_minute: Arc::new(AtomicU32::new(per_minute)),
             buckets: Arc::default(),
         }
+    }
+
+    /// The requests a minute allowed from now on, as the admin set them.
+    pub fn set(&self, per_minute: u32) {
+        self.per_minute.store(per_minute, Ordering::Relaxed);
     }
 
     /// Takes one request from `ip`'s allowance. `Err` holds the seconds to
     /// wait before the next one is allowed.
     pub fn check(&self, ip: IpAddr, now: i64) -> Result<(), u64> {
-        let capacity = f64::from(self.per_minute);
+        let capacity = f64::from(self.per_minute.load(Ordering::Relaxed));
         #[expect(
             clippy::cast_precision_loss,
             reason = "a minute in ms is far below 2^52"
