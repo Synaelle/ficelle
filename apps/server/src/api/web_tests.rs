@@ -213,7 +213,7 @@ async fn behind_the_sign_in_nothing_loads_without_the_cookie() {
     assert_eq!(status, StatusCode::NO_CONTENT);
     let cookie = cookie.unwrap();
     assert!(cookie.starts_with("web_session=wv_"), "{cookie}");
-    for part in ["Path=/web/", "HttpOnly", "SameSite=Strict"] {
+    for part in ["Path=/web/", "HttpOnly", "SameSite=Lax"] {
         assert!(cookie.contains(part), "{cookie}");
     }
     let pair = cookie.split(';').next().unwrap();

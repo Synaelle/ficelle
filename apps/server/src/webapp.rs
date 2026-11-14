@@ -143,12 +143,15 @@ pub fn folder(state: &AppState) -> Option<PathBuf> {
     dir.join("index.html").is_file().then_some(dir)
 }
 
-/// The cookie that keeps a browser signed in to the web version.
+/// The cookie that keeps a browser signed in to the web version. Lax, not
+/// strict: a strict one stays behind when the address is opened from a link
+/// in another app, which would show the sign-in again. The paths under
+/// `/web` only hand out files, nothing a request from elsewhere could change.
 pub fn cookie(state: &AppState, token: &str) -> String {
     let max_age = i64::from(state.config.auth.refresh_token_days) * DAY / 1000;
     let secure = if state.config.hsts() { "; Secure" } else { "" };
     format!(
-        "{COOKIE}={token}; Path={}/web/; Max-Age={max_age}; HttpOnly; SameSite=Strict{secure}",
+        "{COOKIE}={token}; Path={}/web/; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}",
         state.config.base_path()
     )
 }
