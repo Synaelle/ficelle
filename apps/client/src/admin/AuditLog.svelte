@@ -35,6 +35,8 @@
     'feedback_blocked',
     'feedback_unblocked',
     'feedback_deleted',
+    'web_version_changed',
+    'signin_limits_changed',
   ]
 
   let event = $state('')
@@ -71,83 +73,61 @@
   void load()
 </script>
 
-<div class="bar">
-  <label>
-    {t('admin.log.filter')}
-    <select class="field" bind:value={event} onchange={() => load()}>
+<section class="ad-group" aria-labelledby="log-title">
+  <h2 id="log-title">
+    {t('admin.log.title')}
+    <select
+      class="field ad-select ad-aside"
+      aria-label={t('admin.log.filter')}
+      bind:value={event}
+      onchange={() => load()}
+    >
       <option value="">{t('admin.log.all')}</option>
       {#each EVENTS as name (name)}<option value={name}>{label(name)}</option>{/each}
     </select>
-  </label>
-</div>
-{#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-
-<table>
-  <thead>
-    <tr>
-      <th>{t('admin.log.when')}</th>
-      <th>{t('admin.log.what')}</th>
-      <th>{t('admin.log.who')}</th>
-      <th class="hide-narrow">{t('admin.log.address')}</th>
-      <th class="hide-narrow">{t('admin.log.detail')}</th>
-    </tr>
-  </thead>
-  <tbody>
-    {#each entries as entry (entry.id)}
-      <tr class:alarm={['token_reuse', 'locked_out', 'setup_failed'].includes(entry.event)}>
-        <td class="nowrap">{dateTime(entry.at)}</td>
-        <td>{label(entry.event)}</td>
-        <td>{entry.username ?? (entry.userId ? t('admin.log.deleted') : '–')}</td>
-        <td class="hide-narrow mono">{entry.ip ?? ''}</td>
-        <td class="hide-narrow">{entry.detail ?? ''}</td>
-      </tr>
-    {:else}
-      <tr><td colspan="5" class="muted">{t('admin.log.none')}</td></tr>
-    {/each}
-  </tbody>
-</table>
-{#if next}
-  <button class="btn more" onclick={() => load(true)}>{t('admin.log.older')}</button>
-{/if}
+  </h2>
+  {#if problem}<p class="ad-problem" role="alert">{problem}</p>{/if}
+  <div class="ad-table-box">
+    <table class="ad-table">
+      <thead>
+        <tr>
+          <th>{t('admin.log.when')}</th>
+          <th>{t('admin.log.what')}</th>
+          <th>{t('admin.log.who')}</th>
+          <th class="hide-narrow">{t('admin.log.address')}</th>
+          <th class="hide-narrow">{t('admin.log.detail')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each entries as entry (entry.id)}
+          <tr class:alarm={['token_reuse', 'locked_out', 'setup_failed'].includes(entry.event)}>
+            <td>{dateTime(entry.at)}</td>
+            <td>{label(entry.event)}</td>
+            <td>{entry.username ?? (entry.userId ? t('admin.log.deleted') : '–')}</td>
+            <td class="hide-narrow mono">{entry.ip ?? ''}</td>
+            <td class="hide-narrow detail">{entry.detail ?? ''}</td>
+          </tr>
+        {:else}
+          <tr><td colspan="5" class="muted">{t('admin.log.none')}</td></tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+  {#if next}
+    <p><button class="btn" onclick={() => load(true)}>{t('admin.log.older')}</button></p>
+  {/if}
+</section>
 
 <style>
-  .bar {
-    margin-bottom: var(--space-3);
-  }
-  label {
-    display: inline-grid;
-    gap: var(--space-1);
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  th {
-    text-align: left;
-    color: var(--color-text-muted);
-    font-size: 13px;
-  }
-  th,
-  td {
-    padding: var(--space-1) var(--space-2);
-    border-bottom: 1px solid var(--color-border);
-    vertical-align: top;
-  }
   .alarm td {
     color: var(--color-danger);
-  }
-  .nowrap {
-    white-space: nowrap;
   }
   .mono {
     font-family: var(--font-mono);
     font-size: 12px;
   }
-  .more {
-    margin-top: var(--space-3);
-  }
-  .problem {
-    color: var(--color-danger);
+  .detail {
+    white-space: normal;
   }
   @media (max-width: 760px) {
     .hide-narrow {

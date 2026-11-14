@@ -16,20 +16,23 @@
   import Storage from './Storage.svelte'
   import Backups from './Backups.svelte'
   import Feedback from './Feedback.svelte'
-  import { api } from './api.svelte'
+  import WebVersion from './WebVersion.svelte'
+  import { api, type WebView } from './api.svelte'
   import { errorText } from './format'
 
   let { info, admin }: { info: ServerInfo; admin: boolean } = $props()
 
-  type Section = 'overview' | 'onePerson' | 'storage' | 'backups' | 'feedback' | 'log' | 'account'
-  const SECTIONS: [Section, IconName][] = [
+  type Section = 'overview' | 'onePerson' | 'web' | 'storage' | 'backups' | 'feedback' | 'security'
+  const SERVER: [Section, IconName][] = [
     ['overview', 'dashboard'],
     ['onePerson', 'user'],
+    ['web', 'globe'],
     ['storage', 'database'],
     ['backups', 'backup'],
+  ]
+  const PEOPLE: [Section, IconName][] = [
     ['feedback', 'feedback'],
-    ['log', 'log'],
-    ['account', 'shield'],
+    ['security', 'shield'],
   ]
   /** Members the admins named read the feedback inbox too. */
   let reader = $state(false)
@@ -37,13 +40,21 @@
   let several = $state(false)
   /** Why the sections that depend on the server could not be shown. */
   let problem = $state('')
-  const shown = $derived(
-    admin
-      ? SECTIONS.filter(([s]) => s !== 'onePerson' || several)
-      : SECTIONS.filter(([s]) => s === 'account' || (reader && s === 'feedback')),
+  /** The web version's state and the new reports, beside their sections. */
+  let web: WebView | null = $state(null)
+  let newReports = $state(0)
+  const server = $derived(admin ? SERVER.filter(([s]) => s !== 'onePerson' || several) : [])
+  const people = $derived(
+    admin ? PEOPLE : PEOPLE.filter(([s]) => s === 'security' || (reader && s === 'feedback')),
   )
+  const shown = $derived([...server, ...people])
+  // the log and the account had sections of their own before
+  const OLD: Record<string, Section> = { '#log': 'security', '#account': 'security' }
   const fromHash = (): Section =>
-    shown.find(([s]) => `#${s}` === location.hash)?.[0] ?? shown[0]?.[0] ?? 'account'
+    OLD[location.hash] ??
+    shown.find(([s]) => `#${s}` === location.hash)?.[0] ??
+    shown[0]?.[0] ??
+    'security'
   let section: Section = $state(fromHash())
 
   function countAccounts() {
@@ -54,8 +65,20 @@
       })
       .catch((err: unknown) => (problem = errorText(err)))
   }
+
+  function loadTags() {
+    void api<WebView>('GET', '/admin/web')
+      .then((view) => (web = view))
+      .catch((err: unknown) => (problem = errorText(err)))
+    void api<{ counts: { new: number } }>('GET', '/admin/feedback/reports?status=new&limit=1')
+      .then((page) => (newReports = page.counts.new))
+      .catch((err: unknown) => (problem = errorText(err)))
+  }
   // svelte-ignore state_referenced_locally
-  if (admin) countAccounts()
+  if (admin) {
+    countAccounts()
+    loadTags()
+  }
   // svelte-ignore state_referenced_locally
   if (!admin) {
     void api<{ inbox: boolean }>('GET', '/admin/feedback/access')
@@ -74,6 +97,19 @@
 
 <svelte:window onhashchange={() => (section = fromHash())} />
 
+{#snippet entry([s, icon]: [Section, IconName])}
+  <button aria-current={section === s ? 'page' : undefined} onclick={() => go(s)}>
+    <Icon name={icon} size={16} /><span class="name">{t(`admin.${s}.title`)}</span>
+    {#if s === 'web' && web}
+      <span class={['tag', web.access !== 'off' && 'on']}
+        >{web.access === 'off' ? t('admin.web.tagOff') : t('admin.web.tagOn')}</span
+      >
+    {:else if s === 'feedback' && newReports > 0}
+      <span class="tag count">{newReports}</span>
+    {/if}
+  </button>
+{/snippet}
+
 <div class="panel">
   <header>
     <img class="logo" src={logo} alt="" />
@@ -84,43 +120,47 @@
     >
     <span class="muted version">{info.version}</span>
     <span class="who muted">{auth.session?.user.username}</span>
-    <button class="btn" onclick={signOut}
+    <button class="btn quiet" onclick={signOut}
       ><Icon name="signOut" size={16} />{t('admin.signOut')}</button
     >
   </header>
   <nav aria-label={t('admin.sections')}>
-    {#each shown as [s, icon] (s)}
-      <button aria-current={section === s ? 'page' : undefined} onclick={() => go(s)}>
-        <Icon name={icon} size={16} />{t(`admin.${s}.title`)}
-      </button>
-    {/each}
+    {#if server.length}
+      <span class="group">{t('admin.groupServer')}</span>
+      {#each server as item (item[0])}{@render entry(item)}{/each}
+      <span class="group">{t('admin.groupPeople')}</span>
+    {/if}
+    {#each people as item (item[0])}{@render entry(item)}{/each}
   </nav>
   <main>
     {#if auth.session?.user.factorRequired}
       <p class="notice" role="status">{t('admin.factorRequired')}</p>
     {/if}
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-    <h1>{t(`admin.${section}.title`)}</h1>
-    {#if section === 'overview'}
-      <Overview {several} ongo={() => go('onePerson')} />
-    {:else if section === 'onePerson'}
-      <OnePerson
-        ondone={() => {
-          several = false
-          go('overview')
-        }}
-      />
-    {:else if section === 'storage'}
-      <Storage />
-    {:else if section === 'backups'}
-      <Backups />
-    {:else if section === 'feedback'}
-      <Feedback {admin} />
-    {:else if section === 'log'}
-      <AuditLog />
-    {:else}
-      <Account />
-    {/if}
+    <div class="ad-page">
+      <div class="ad-head"><h1>{t(`admin.${section}.title`)}</h1></div>
+      {#if section === 'overview'}
+        <Overview {several} ongo={() => go('onePerson')} />
+      {:else if section === 'onePerson'}
+        <OnePerson
+          ondone={() => {
+            several = false
+            go('overview')
+          }}
+        />
+      {:else if section === 'web'}
+        <WebVersion onchange={(view) => (web = view)} />
+      {:else if section === 'storage'}
+        <Storage />
+      {:else if section === 'backups'}
+        <Backups />
+      {:else if section === 'feedback'}
+        <Feedback {admin} />
+      {:else}
+        <Account />
+        {#if admin}<AuditLog />{/if}
+      {/if}
+    </div>
   </main>
 </div>
 
@@ -137,21 +177,20 @@
   .panel {
     height: 100%;
     display: grid;
-    grid-template: 'header header' auto 'nav main' 1fr / 210px 1fr;
+    grid-template: 'header header' auto 'nav main' 1fr / 200px 1fr;
   }
   header {
     grid-area: header;
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-2) var(--space-4);
+    height: 44px;
+    padding: 0 var(--space-4);
     border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
   }
   .logo {
-    width: 24px;
-    height: 24px;
-    border-radius: var(--radius-control);
+    width: 18px;
+    height: 18px;
   }
   .version {
     font-family: var(--font-mono);
@@ -159,47 +198,77 @@
   }
   .who {
     margin-left: auto;
+    font-size: 13px;
   }
   nav {
     grid-area: nav;
-    display: grid;
-    align-content: start;
+    display: flex;
+    flex-direction: column;
     gap: 2px;
-    padding: var(--space-3);
+    padding: var(--space-3) var(--space-2);
     border-right: 1px solid var(--color-border);
+  }
+  .group {
+    padding: var(--space-3) 10px var(--space-1);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
   nav button {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    height: 36px;
-    padding: 0 var(--space-3);
+    gap: 10px;
+    height: 30px;
+    padding: 0 10px;
     border: 0;
     border-radius: var(--radius-control);
     background: none;
     text-align: left;
   }
+  nav button :global(svg) {
+    flex: none;
+    color: var(--color-text-muted);
+  }
   nav button[aria-current] {
     background: var(--color-selection);
+  }
+  nav button[aria-current] :global(svg) {
+    color: var(--color-accent-text);
+  }
+  .name {
+    flex: 1;
+  }
+  .tag {
+    color: var(--color-text-muted);
+    font-size: 12px;
+  }
+  .tag.on {
+    color: var(--color-success);
+  }
+  .tag.count {
+    color: var(--color-accent-text);
+    font-weight: 600;
   }
   main {
     grid-area: main;
     overflow: auto;
-    padding: var(--space-4) var(--space-5) var(--space-6);
-  }
-  h1 {
-    margin: 0 0 var(--space-4);
-    font-size: 22px;
+    padding: 20px 28px 32px;
   }
   @media (max-width: 760px) {
     .panel {
       grid-template: 'header' auto 'nav' auto 'main' 1fr / 1fr;
     }
     nav {
-      display: flex;
+      flex-direction: row;
       overflow-x: auto;
+      padding: 6px var(--space-2);
       border-right: 0;
       border-bottom: 1px solid var(--color-border);
+    }
+    .group {
+      display: none;
     }
     nav button {
       flex: none;

@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The feedback inbox: reports from anyone's apps, by status, with
-     filters; one report whole with its images and logs, to mark, note, keep,
+     filters; one report whole with its images and logs, to mark, note,
      block its sender, save as a zip or delete. Admins also set whether this server takes
      reports, where its people send theirs, who reads the inbox, the token
      for `reports pull` and the block lists. -->
@@ -34,7 +34,6 @@
     images: number
     score: number
     flags: string
-    kept: boolean
   }
   interface Page {
     reports: Summary[]
@@ -63,7 +62,6 @@
     answer: string
     /** Sent with a receipt: the sender's app can read the answer. */
     answerable: boolean
-    kept: boolean
     fromSender: number
     images: { position: number; kind: string; width: number; height: number; size: number }[]
   }
@@ -234,7 +232,7 @@
     void load()
   }
 
-  async function change(body: { status?: Status; note?: string; answer?: string; kept?: boolean }) {
+  async function change(body: { status?: Status; note?: string; answer?: string }) {
     const id = open?.id
     if (!id) return
     await act(async () => {
@@ -446,15 +444,6 @@
         {/if}
       {/each}
       <button class="btn" disabled={busy} onclick={saveZip}>{t('admin.feedback.saveZip')}</button>
-      <label class="choice">
-        <input
-          type="checkbox"
-          checked={report.kept}
-          disabled={busy}
-          onchange={(e) => change({ kept: e.currentTarget.checked })}
-        />
-        {t('admin.feedback.keep')}
-      </label>
     </div>
     <label class="field-label">
       {t('admin.feedback.note')}
@@ -599,7 +588,6 @@
               {#if report.images}<Icon name="image" size={13} />{report.images}{/if}
               {#if report.hasLogs}<Icon name="log" size={13} />{/if}
               {#if report.hasContact}<Icon name="feedback" size={13} />{/if}
-              {#if report.kept}<Icon name="pin" size={13} />{/if}
             </span>
           </button>
         </li>
@@ -764,15 +752,14 @@
   form {
     display: grid;
     gap: var(--space-3);
-    margin-bottom: var(--space-6);
     justify-items: start;
   }
-  form {
-    margin-bottom: 0;
-  }
+  /* a small title over its group, as on the other sections */
   h2 {
     margin: 0;
-    font-size: 16px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 600;
   }
   p {
     margin: 0;
@@ -826,8 +813,8 @@
   .field-label {
     display: grid;
     gap: var(--space-1);
-    width: min(520px, 100%);
-    font-weight: 600;
+    width: min(420px, 100%);
+    font-weight: 500;
   }
   .small-field {
     width: auto;
@@ -879,7 +866,6 @@
   .views {
     display: flex;
     gap: var(--space-4);
-    margin-bottom: var(--space-4);
     border-bottom: 1px solid var(--color-border);
   }
   .views button {
@@ -903,6 +889,15 @@
   /* a report on one line: date, from, about and its start, marks */
   .reports {
     gap: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+  }
+  .reports > li.muted {
+    padding: var(--space-3);
+  }
+  .report-row:last-child {
+    border-bottom: 0;
   }
   .picking {
     display: flex;
@@ -937,7 +932,7 @@
     cursor: pointer;
   }
   .reports button:hover {
-    background: var(--color-surface);
+    background: var(--color-surface-2);
   }
   .excerpt {
     overflow: hidden;

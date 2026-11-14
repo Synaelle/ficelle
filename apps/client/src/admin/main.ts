@@ -5,6 +5,7 @@
 import { brand } from '@app/brand'
 import { mount } from 'svelte'
 import '../styles/app.css'
+import './admin.css'
 import Admin from './Admin.svelte'
 
 document.title = `${brand.displayName} admin`

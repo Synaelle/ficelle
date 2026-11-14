@@ -1,24 +1,65 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- The server at a glance: its devices, security checklist and on or off
-     settings. It is for one person; one with several accounts is pointed to
-     going to one. -->
+<!-- The server at a glance: a strip of its state (devices, storage, the
+     last backup, the web version, new feedback), what needs a look, and its
+     on or off settings. It is for one person; one with several accounts is
+     pointed to going to one. -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte'
   import { overlay } from '../lib/overlay.svelte'
-  import { api, type Overview } from './api.svelte'
+  import { api, type Overview, type StorageOverview, type WebView } from './api.svelte'
   import Checklist from './Checklist.svelte'
-  import { errorText } from './format'
+  import { bytes, errorText, relative } from './format'
 
   let { several = false, ongo }: { several?: boolean; ongo?: () => void } = $props()
 
+  interface Updates {
+    enabled: boolean
+    available: boolean
+    latest?: { version: string; date: string; notes: string; url: string }
+    checkedAt?: number
+    error?: string
+  }
+  interface Backups {
+    config: unknown
+    status: { lastSuccessAt: number | null; lastError: string | null }
+  }
+
   let overview: Overview | null = $state(null)
+  let storage: StorageOverview | null = $state(null)
+  let backups = $state<Backups | null>(null)
+  let web: WebView | null = $state(null)
+  let newReports: number | null = $state(null)
+  let updates: Updates | null = $state(null)
   let problem = $state('')
+  let busy = $state(false)
 
   async function load() {
     try {
-      overview = await api<Overview>('GET', '/admin/overview')
+      ;[overview, storage, backups, web, updates] = await Promise.all([
+        api<Overview>('GET', '/admin/overview'),
+        api<StorageOverview>('GET', '/admin/storage'),
+        api<Backups>('GET', '/admin/backups'),
+        api<WebView>('GET', '/admin/web'),
+        api<Updates>('GET', '/admin/updates'),
+      ])
+      newReports = (
+        await api<{ counts: { new: number } }>('GET', '/admin/feedback/reports?status=new&limit=1')
+      ).counts.new
     } catch (err) {
       problem = errorText(err)
+    }
+  }
+
+  async function act(action: () => Promise<unknown>) {
+    busy = true
+    problem = ''
+    try {
+      await action()
+      await load()
+    } catch (err) {
+      problem = errorText(err)
+    } finally {
+      busy = false
     }
   }
 
@@ -26,7 +67,6 @@
   const ownWords = 'Personal'
 
   async function setSecondStep(required: boolean, box: HTMLInputElement) {
-    problem = ''
     // a password alone for every admin: said before it happens
     if (
       !required &&
@@ -38,191 +78,179 @@
       box.checked = true
       return
     }
-    try {
-      await api('PUT', '/admin/second-step', { required })
-      await load()
-    } catch (err) {
-      problem = errorText(err)
-    }
+    await act(() => api('PUT', '/admin/second-step', { required }))
   }
 
-  async function setCoediting(on: boolean) {
-    problem = ''
-    try {
-      await api('PUT', '/admin/coediting', { coediting: on })
-      await load()
-    } catch (err) {
-      problem = errorText(err)
-    }
-  }
+  const lastBackup = $derived(
+    !backups
+      ? null
+      : !backups.config
+        ? { v: t('admin.overview.backupNone'), tone: 'ad-warn' }
+        : backups.status.lastError
+          ? { v: t('admin.overview.backupFailed'), tone: 'ad-bad' }
+          : backups.status.lastSuccessAt
+            ? { v: relative(backups.status.lastSuccessAt), tone: 'ad-ok' }
+            : { v: t('admin.overview.backupNever'), tone: 'ad-warn' },
+  )
 
   void load()
 </script>
 
-{#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+{#if problem}<p class="ad-problem" role="alert">{problem}</p>{/if}
 {#if !overview && !problem}<p class="muted" aria-busy="true">{t('admin.loading')}</p>{/if}
 {#if several}
-  <p class="warn" role="alert">
+  <p class="ad-problem" role="alert">
     {t('admin.onePerson.pointer')}
     <button class="btn" onclick={ongo}>{t('admin.onePerson.title')}</button>
   </p>
 {/if}
+
 {#if overview}
-  <section class="personal">
-    {#if !several}<p>{t('admin.overview.personalHelp')}</p>{/if}
-    <dl class="counts">
-      <div>
-        <dt>{t('admin.overview.devices')}</dt>
-        <dd>{overview.devices}</dd>
-      </div>
-    </dl>
-  </section>
+  <div class="ad-strip">
+    <a href="#security">
+      <span class="k">{t('admin.overview.devices')}</span>
+      <span class="v">{overview.devices}</span>
+    </a>
+    {#if storage}
+      <a href="#storage">
+        <span class="k">{t('admin.storage.title')}</span>
+        <span class="v">{bytes(storage.storedBytes)}</span>
+        <span class="s">{t('admin.overview.files', { count: storage.files })}</span>
+      </a>
+    {/if}
+    {#if lastBackup}
+      <a href="#backups">
+        <span class="k">{t('admin.overview.lastBackup')}</span>
+        <span class={['v', lastBackup.tone]}>{lastBackup.v}</span>
+      </a>
+    {/if}
+    {#if web}
+      <a href="#web">
+        <span class="k">{t('admin.web.title')}</span>
+        <span class="v">{web.access === 'off' ? t('admin.web.tagOff') : t('admin.web.tagOn')}</span>
+        <span class="s">{t(`admin.web.short_${web.access}`)}</span>
+      </a>
+    {/if}
+    {#if newReports !== null}
+      <a href="#feedback">
+        <span class="k">{t('admin.overview.newFeedback')}</span>
+        <span class="v">{newReports}</span>
+      </a>
+    {/if}
+  </div>
 {/if}
 
 <Checklist personal />
 
 {#if overview}
-  <!-- on or off settings, as switch rows -->
-  <div class="switches">
-    <label class="switch-row">
-      <span>
-        <b>{t(`admin.overview.secondStep${ownWords}`)}</b>
-        <span class="muted">{t(`admin.overview.secondStepHelp${ownWords}`)}</span>
-      </span>
-      <input
-        type="checkbox"
-        role="switch"
-        aria-label={t(`admin.overview.secondStepOn${ownWords}`)}
-        checked={overview.adminsNeedSecondStep}
-        onchange={(e) => setSecondStep(e.currentTarget.checked, e.currentTarget)}
-      />
-    </label>
-    {#if !overview.adminsNeedSecondStep}
-      <p class="warn" role="alert">{t(`admin.overview.secondStepOffRisks${ownWords}`)}</p>
-    {/if}
-    <label class="switch-row">
-      <span>
-        <b>{t('admin.overview.coediting')}</b>
-        <span class="muted">{t(`admin.overview.coeditingHelp${ownWords}`)}</span>
-      </span>
-      <input
-        type="checkbox"
-        role="switch"
-        aria-label={t('admin.overview.coeditingOn')}
-        checked={overview.coediting}
-        onchange={(e) => setCoediting(e.currentTarget.checked)}
-      />
-    </label>
-  </div>
+  <section class="ad-group" aria-labelledby="server-settings">
+    <h2 id="server-settings">{t('admin.groupServer')}</h2>
+    <ul class="ad-rows">
+      {#if updates}
+        <li class="ad-row">
+          <span class="ad-words">
+            <span class="ad-label">{t('admin.checklist.updatesTitle')}</span>
+            <span class="ad-help">
+              {#if !updates.available}
+                {t('admin.checklist.updatesUnavailable')}
+              {:else if updates.enabled}
+                {updates.checkedAt
+                  ? t('admin.checklist.checked', { when: relative(updates.checkedAt) })
+                  : t('admin.checklist.notChecked')}
+                {#if updates.latest}
+                  {t('admin.checklist.latest', {
+                    version: updates.latest.version,
+                    date: updates.latest.date,
+                  })}
+                  {#if updates.latest.url}
+                    <a href={updates.latest.url} target="_blank" rel="noreferrer"
+                      >{t('admin.checklist.readMore')}</a
+                    >
+                  {/if}
+                {/if}
+              {:else}
+                {t('admin.checklist.updatesSwitch')}
+              {/if}
+            </span>
+            {#if updates.enabled && updates.error}
+              <span class="ad-help ad-bad"
+                >{t('admin.checklist.checkFailed', { why: updates.error })}</span
+              >
+            {/if}
+          </span>
+          {#if updates.available}
+            <span class="ad-ctl">
+              {#if updates.enabled}
+                <button
+                  class="btn"
+                  disabled={busy}
+                  onclick={() => act(() => api('POST', '/admin/updates/check'))}
+                  >{t('admin.checklist.checkNow')}</button
+                >
+              {/if}
+              <input
+                class="ad-switch"
+                type="checkbox"
+                role="switch"
+                aria-label={t('admin.checklist.updatesSwitch')}
+                checked={updates.enabled}
+                disabled={busy}
+                onchange={(e) => {
+                  const enabled = e.currentTarget.checked
+                  void act(() => api('PUT', '/admin/updates', { enabled }))
+                }}
+              />
+            </span>
+          {/if}
+        </li>
+      {/if}
+      <li class="ad-row">
+        <span class="ad-words">
+          <span class="ad-label">{t(`admin.overview.secondStep${ownWords}`)}</span>
+          <span class="ad-help">{t(`admin.overview.secondStepHelp${ownWords}`)}</span>
+          {#if !overview.adminsNeedSecondStep}
+            <span class="ad-help ad-bad">{t(`admin.overview.secondStepOffRisks${ownWords}`)}</span>
+          {/if}
+        </span>
+        <span class="ad-ctl">
+          <input
+            class="ad-switch"
+            type="checkbox"
+            role="switch"
+            aria-label={t(`admin.overview.secondStepOn${ownWords}`)}
+            checked={overview.adminsNeedSecondStep}
+            disabled={busy}
+            onchange={(e) => setSecondStep(e.currentTarget.checked, e.currentTarget)}
+          />
+        </span>
+      </li>
+      <li class="ad-row">
+        <span class="ad-words">
+          <span class="ad-label">{t('admin.overview.coediting')}</span>
+          <span class="ad-help">{t(`admin.overview.coeditingHelp${ownWords}`)}</span>
+        </span>
+        <span class="ad-ctl">
+          <input
+            class="ad-switch"
+            type="checkbox"
+            role="switch"
+            aria-label={t('admin.overview.coeditingOn')}
+            checked={overview.coediting}
+            disabled={busy}
+            onchange={(e) => {
+              const coediting = e.currentTarget.checked
+              void act(() => api('PUT', '/admin/coediting', { coediting }))
+            }}
+          />
+        </span>
+      </li>
+    </ul>
+  </section>
 
-  <p class="muted small">
+  <p class="ad-foot">
     {t('admin.overview.since', {
       date: overview.createdAt.slice(0, 10),
       version: overview.version,
     })}
   </p>
 {/if}
-
-<style>
-  .personal {
-    display: grid;
-    gap: var(--space-3);
-    justify-items: start;
-    margin-bottom: var(--space-4);
-  }
-  .personal p {
-    margin: 0;
-  }
-  .warn {
-    margin: 0 0 var(--space-4);
-    padding: var(--space-2) var(--space-3);
-    border-left: 3px solid var(--color-danger);
-  }
-  /* the counts, small: a number over its name */
-  .counts {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: var(--space-2);
-    margin: 0 0 var(--space-4);
-  }
-  .counts div {
-    display: flex;
-    flex-direction: column;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-popover);
-    background: var(--color-surface);
-  }
-  dt {
-    color: var(--color-text-muted);
-    font-size: 12px;
-  }
-  dd {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-  }
-  .switch-row > span {
-    display: grid;
-    gap: 1px;
-  }
-  .switch-row .muted {
-    font-size: 13px;
-  }
-  .switches {
-    display: grid;
-    gap: var(--space-2);
-    max-width: 760px;
-    margin-bottom: var(--space-4);
-  }
-  .switch-row {
-    display: flex;
-    gap: var(--space-4);
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-popover);
-    cursor: pointer;
-  }
-  /* a checkbox drawn as a switch */
-  .switch-row input {
-    appearance: none;
-    flex: none;
-    position: relative;
-    width: 38px;
-    height: 22px;
-    margin: 0;
-    border-radius: var(--radius-chip);
-    background: var(--color-border);
-    cursor: pointer;
-    transition: background var(--dur-fast) var(--ease-out);
-  }
-  .switch-row input::after {
-    content: '';
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 16px;
-    height: 16px;
-    border-radius: var(--radius-chip);
-    background: var(--color-bg);
-    transition: translate var(--dur-fast) var(--ease-out);
-  }
-  .switch-row input:checked {
-    background: var(--color-accent);
-  }
-  .switch-row input:checked::after {
-    translate: 16px 0;
-  }
-  .switch-row input:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
-  }
-  .small {
-    font-size: 12px;
-  }
-  .problem {
-    color: var(--color-danger);
-  }
-</style>

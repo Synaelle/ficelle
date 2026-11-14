@@ -47,6 +47,21 @@
   /** Opened from the setup link in the server log. */
   const setupPage = route() === '/setup'
 
+  /** The web version's sign-in: the server shows this page at `/web/` until
+   * the browser holds the web version's cookie. */
+  const webDoor = route() === '/web/'
+
+  /** Signed in at the web version's door: the cookie, then the web version. */
+  async function openWeb() {
+    problem = ''
+    try {
+      await api('POST', '/web/session')
+      location.reload()
+    } catch (err) {
+      problem = errorText(err)
+    }
+  }
+
   /** Opened from an invite link: `/invite/<token>`. */
   const invite = route().startsWith('/invite/')
     ? decodeURIComponent(route().slice('/invite/'.length))
@@ -119,6 +134,11 @@
     }
   }
 
+  // already signed in on this tab: straight through the door
+  $effect(() => {
+    if (webDoor && auth.session && options && !problem) void openWeb()
+  })
+
   void start()
 </script>
 
@@ -129,6 +149,19 @@
   </main>
 {:else if !info || !options}
   <main class="center" aria-busy="true"><p class="muted">{t('admin.loading')}</p></main>
+{:else if webDoor && auth.session}
+  <main class="center" aria-busy="true"><p class="muted">{t('admin.loading')}</p></main>
+{:else if webDoor}
+  <SignIn
+    setup={false}
+    {options}
+    heading={t('admin.webDoor', { app: brand.displayName })}
+    initialProblem={ssoProblem}
+    initialSecond={ssoSecond}
+    done={() => {
+      // signed in: the effect above opens the web version
+    }}
+  />
 {:else if setupPage}
   <Setup />
 {:else if publicPage}

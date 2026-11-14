@@ -570,21 +570,21 @@
 
 <style>
   .lead {
-    max-width: 620px;
-    margin: 0 0 var(--space-4);
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 13px;
   }
+  /* a small title over its group, as on the other sections */
   .group {
-    margin: var(--space-5) 0 var(--space-2);
+    margin: var(--space-3) 0 var(--space-2);
     color: var(--color-text-muted);
     font-size: 13px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
   .list {
-    max-width: 680px;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-popover);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
   }
   .item + .item {
     border-top: 1px solid var(--color-border);

@@ -89,6 +89,31 @@ export interface Overview {
   personal: boolean
 }
 
+/** Who may open the web version, `off` until an admin turns it on. */
+export type WebAccess = 'off' | 'signedIn' | 'anyone'
+
+/** Sign-in limits, `null` for the config file's value. Waits in minutes. */
+export interface SignInLimits {
+  perMinute: number | null
+  attempts: number | null
+  firstWait: number | null
+  longestWait: number | null
+}
+
+/** The web version as the admin page shows it. */
+export interface WebView {
+  access: WebAccess
+  /** Its files are on this server. */
+  files: boolean
+  /** Where people open it, empty without the server's public address. */
+  address: string
+  limits: SignInLimits
+  defaults: SignInLimits
+  /** Sign-ins and refused ones in the last day. */
+  signIns: number
+  refused: number
+}
+
 export interface Group {
   id: string
   name: string
@@ -304,8 +329,10 @@ function lastDevice(): string | undefined {
 }
 
 /** A short device name for the admin page in the device list, and the
- * sign-in it takes the place of. */
+ * sign-in it takes the place of. The web version's sign-in is a device of
+ * its own, it replaces none. */
 export function thisDevice() {
+  const web = route() === '/web/'
   const ua = navigator.userAgent
   const browser = /firefox/i.test(ua)
     ? 'Firefox'
@@ -316,7 +343,9 @@ export function thisDevice() {
         : /safari/i.test(ua)
           ? 'Safari'
           : 'Browser'
-  return { name: `${browser}, admin page`, platform: 'web', replaces: lastDevice() }
+  return web
+    ? { name: `${browser}, web version`, platform: 'web' }
+    : { name: `${browser}, admin page`, platform: 'web', replaces: lastDevice() }
 }
 
 /** A files policy as set at one level, a key left out is inherited. */

@@ -32,6 +32,7 @@
     options = null,
     initialProblem = '',
     initialSecond = null,
+    heading = '',
     done,
   }: {
     setup: boolean
@@ -40,6 +41,8 @@
     initialProblem?: string
     /** Back from single sign-on as an admin: this server's second factor. */
     initialSecond?: SecondFactorNeeded | null
+    /** In place of the admin page's title, for the web version's sign-in. */
+    heading?: string
     done: () => void
   } = $props()
 
@@ -420,7 +423,7 @@
       <h1>
         {mode === 'register'
           ? t('admin.register.title', { app: brand.displayName })
-          : t('admin.signIn.title', { app: brand.displayName })}
+          : heading || t('admin.signIn.title', { app: brand.displayName })}
       </h1>
       {#if mode === 'signIn' && canPasskey}
         <button class="btn primary" type="button" disabled={busy} onclick={signInWithPasskey}

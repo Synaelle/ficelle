@@ -1,0 +1,372 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* The admin page's sections, one compact look for all: a group is a small
+   title over a box of rows, each row its words on the left and its control
+   on the right. Numbers and short values sit in one column. */
+
+.ad-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 1040px;
+}
+.ad-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.ad-head h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+.ad-head .ad-meta {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.ad-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+.ad-group > h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.ad-group > h2 .ad-aside {
+  margin-left: auto;
+  font-weight: 400;
+}
+.ad-group > p {
+  margin: 0;
+}
+
+.ad-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+.ad-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-height: 48px;
+  padding: var(--space-2) 14px;
+  border-top: 1px solid var(--color-border);
+}
+.ad-row:first-child {
+  border-top: 0;
+}
+.ad-row.ad-tight {
+  min-height: 40px;
+  padding-block: 6px;
+}
+.ad-words {
+  flex: 1 1 260px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ad-label {
+  font-weight: 500;
+}
+.ad-help {
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+}
+.ad-ctl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.ad-lead {
+  flex: none;
+  color: var(--color-text-muted);
+}
+.ad-row.warn .ad-lead {
+  color: var(--color-warning);
+}
+.ad-row.fail .ad-lead {
+  color: var(--color-danger);
+}
+.ad-row.ok .ad-lead {
+  color: var(--color-success);
+}
+/* a value and where it comes from, in fixed columns so they line up */
+.ad-val {
+  min-width: 120px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+button.ad-val {
+  height: 30px;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  button.ad-val:hover {
+    border-color: var(--color-border);
+  }
+}
+.ad-src {
+  min-width: 48px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+  color: var(--color-text-faint);
+  font-size: 12px;
+}
+.ad-src.set {
+  color: var(--color-accent-text);
+}
+
+/* small fields sized to what they hold, never the full width */
+.ad-num {
+  width: calc(4ch + 22px);
+  height: 30px;
+  padding: 0 var(--space-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ad-num.wide {
+  width: calc(6ch + 22px);
+}
+select.ad-select {
+  width: auto;
+  height: 30px;
+}
+.ad-unit {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.ad-ctl .btn,
+.ad-row .btn {
+  height: 30px;
+}
+.btn.quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+}
+@media (hover: hover) {
+  .btn.quiet:hover {
+    background: var(--color-surface-2);
+    color: var(--color-text);
+  }
+}
+a.btn {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* the status strip at the top of the overview */
+.ad-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+.ad-strip > * {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 14px;
+  border-left: 1px solid var(--color-border);
+  color: inherit;
+  text-decoration: none;
+}
+.ad-strip > :first-child {
+  border-left: 0;
+}
+.ad-strip .k,
+.ad-strip .s {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.ad-strip .v {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ad-ok {
+  color: var(--color-success);
+}
+.ad-warn {
+  color: var(--color-warning);
+}
+.ad-bad {
+  color: var(--color-danger);
+}
+
+/* radio choices in a box of rows */
+.ad-choice {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-border);
+  cursor: pointer;
+}
+.ad-choice:first-child {
+  border-top: 0;
+}
+.ad-choice input {
+  margin: 3px 0 0;
+  accent-color: var(--color-accent);
+}
+
+/* a section's unsaved changes, kept in view at the bottom */
+.ad-savebar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+}
+.ad-savebar > span {
+  flex: 1;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.ad-table-box {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+.ad-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.ad-table th {
+  padding: var(--space-2) 14px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+.ad-table td {
+  padding: var(--space-2) 14px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.ad-table tr:last-child td {
+  border-bottom: 0;
+}
+.ad-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-problem {
+  margin: 0;
+  color: var(--color-danger);
+}
+.ad-foot {
+  margin: 0;
+  color: var(--color-text-faint);
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .ad-ctl {
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+  .ad-val {
+    min-width: 0;
+    justify-content: flex-start;
+  }
+  .ad-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ad-strip > :nth-child(odd) {
+    border-left: 0;
+  }
+  .ad-strip > :nth-child(n + 3) {
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+/* an on or off setting: a small square switch, as the app draws its own */
+input.ad-switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+  cursor: pointer;
+}
+input.ad-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 1px;
+  background: var(--color-text-muted);
+  transition: left var(--dur-fast) var(--ease-out);
+}
+input.ad-switch:checked {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+input.ad-switch:checked::after {
+  left: 17px;
+  background: var(--color-accent-on);
+}
+input.ad-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* number fields without the browser's arrows: typed, not clicked */
+.ad-page input[type='number'] {
+  appearance: textfield;
+}
+.ad-page input[type='number']::-webkit-inner-spin-button,
+.ad-page input[type='number']::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}

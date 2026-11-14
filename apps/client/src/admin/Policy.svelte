@@ -4,6 +4,8 @@
      comes from. -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte'
+  import Icon from '../lib/icons/Icon.svelte'
+  import type { IconName } from '../lib/icons/sets'
   import { api, type FilesPolicy, type PolicySettings, type PolicyView } from './api.svelte'
   import { bytes, errorText } from './format'
 
@@ -33,6 +35,8 @@
     ['retentionDays', 'retentionDays', 'days'],
   ]
   const MB = 1024 * 1024
+  /** Rules about images, in a group of their own. */
+  const IMAGE_KINDS: Kind[] = ['px', 'quality', 'bool']
 
   let view: PolicyView | null = $state(null)
   let draft: PolicySettings = $state({})
@@ -40,6 +44,20 @@
   let lists: Record<string, string> = $state({})
   let problem = $state('')
   let saved = $state(false)
+  /** Rules whose draft differs from what is saved. */
+  const changes = $derived.by(() => {
+    if (!view) return 0
+    const before = view.settings as Record<string, unknown>
+    const now = draft as Record<string, unknown>
+    return RULES.filter(([key]) => {
+      if (key === 'allowedTypes' || key === 'blockedTypes') {
+        const typed = key in now ? (lists[key] ?? '') : undefined
+        const was = key in before ? (before[key] as string[]).join(', ') : undefined
+        return typed !== was
+      }
+      return JSON.stringify(now[key]) !== JSON.stringify(before[key])
+    }).length
+  })
 
   async function load() {
     problem = ''
@@ -114,6 +132,15 @@
     return t(`admin.policy.from.${from.level}`)
   }
 
+  /** Where a value comes from, as an icon: the words go to its title. */
+  function sourceIcon(current: PolicyView, eff: keyof FilesPolicy): IconName {
+    const from = current.sources[eff]
+    if (!from || from.level === level) return 'restore'
+    return { config: 'configFile', instance: 'settings', group: 'groups', user: 'user' }[
+      from.level
+    ] as IconName
+  }
+
   async function save(event: SubmitEvent) {
     event.preventDefault()
     problem = ''
@@ -142,132 +169,177 @@
   })
 </script>
 
+{#snippet rule([key, eff, kind]: [Key, keyof FilesPolicy, Kind], current: PolicyView)}
+  {@const set = key in draft}
+  {@const name = t(`admin.policy.keys.${key}`)}
+  <li class="ad-row ad-tight">
+    <span class="ad-words">
+      <span class="ad-label">{name}</span>
+      {#if set && (kind === 'mb' || kind === 'count' || kind === 'px')}
+        <span class="ad-help">{t(`admin.policy.zero.${kind}`)}</span>
+      {/if}
+    </span>
+    <span class="ad-val value">
+      {#if !set}
+        <button
+          type="button"
+          class="ad-val"
+          aria-label={t('admin.policy.change', {
+            rule: name,
+            value: shown(key, kind, current.effective[eff]),
+          })}
+          onclick={() => toggle(current, key, eff, true)}
+          >{shown(key, kind, current.effective[eff])}</button
+        >
+      {:else if kind === 'bool'}
+        <input
+          class="ad-switch"
+          type="checkbox"
+          role="switch"
+          aria-label={name}
+          checked={draft.thumbnails}
+          onchange={(e) => (draft = { ...draft, thumbnails: e.currentTarget.checked })}
+        />
+      {:else if kind === 'types'}
+        <input
+          class="field edit types"
+          aria-label={name}
+          placeholder=".pdf, image/*"
+          bind:value={lists[key]}
+        />
+      {:else}
+        <input
+          class="field edit"
+          type="number"
+          min={kind === 'quality' ? 1 : 0}
+          max={kind === 'quality' ? 100 : undefined}
+          aria-label={name}
+          value={draft[key] as number}
+          oninput={(e) =>
+            (draft = {
+              ...draft,
+              [key]: Math.max(0, Math.round(Number(e.currentTarget.value))),
+            })}
+        />
+        {#if kind !== 'count'}<span class="ad-unit unit">{t(`admin.policy.units.${kind}`)}</span
+          >{/if}
+      {/if}
+    </span>
+    <span class="ad-src">
+      {#if set}
+        <button
+          type="button"
+          class="icon-btn undo"
+          aria-label={t('admin.policy.unset', { rule: name })}
+          title={t('admin.policy.unset', { rule: name })}
+          onclick={() => toggle(current, key, eff, false)}><Icon name="restore" size={14} /></button
+        >
+      {:else}
+        <span class="from" title={source(current, eff)}
+          ><Icon name={sourceIcon(current, eff)} size={14} /><span class="visually-hidden"
+            >{source(current, eff)}</span
+          ></span
+        >
+      {/if}
+    </span>
+  </li>
+{/snippet}
+
 {#if view}
-  <form class="policy" onsubmit={save}>
-    <p class="muted help">{t(`admin.policy.help.${level}`)}</p>
-    {#each RULES as [key, eff, kind] (key)}
-      {@const set = key in draft}
-      <div class="rule">
-        <label class="set">
-          <input
-            type="checkbox"
-            checked={set}
-            onchange={(e) => view && toggle(view, key, eff, e.currentTarget.checked)}
-          />
-          <span>{t(`admin.policy.keys.${key}`)}</span>
-        </label>
-        <div class="value">
-          {#if set}
-            {#if kind === 'bool'}
-              <select
-                class="field"
-                aria-label={t(`admin.policy.keys.${key}`)}
-                value={draft.thumbnails ? 'on' : 'off'}
-                onchange={(e) => (draft = { ...draft, thumbnails: e.currentTarget.value === 'on' })}
-              >
-                <option value="on">{t('admin.account.on')}</option>
-                <option value="off">{t('admin.account.off')}</option>
-              </select>
-            {:else if kind === 'types'}
-              <input
-                class="field"
-                aria-label={t(`admin.policy.keys.${key}`)}
-                placeholder=".pdf, image/*"
-                bind:value={lists[key]}
-              />
-            {:else}
-              <input
-                class="field number"
-                type="number"
-                min={kind === 'quality' ? 1 : 0}
-                max={kind === 'quality' ? 100 : undefined}
-                aria-label={t(`admin.policy.keys.${key}`)}
-                value={draft[key] as number}
-                oninput={(e) =>
-                  (draft = {
-                    ...draft,
-                    [key]: Math.max(0, Math.round(Number(e.currentTarget.value))),
-                  })}
-              />
-              <span class="muted unit">{t(`admin.policy.units.${kind}`)}</span>
-            {/if}
-          {:else}
-            <span>{shown(key, kind, view.effective[eff])}</span>
-            <span class="muted from">{source(view, eff)}</span>
-          {/if}
-        </div>
+  <form class="ad-page policy" onsubmit={save}>
+    {#if level !== 'instance'}<p class="ad-help">{t(`admin.policy.help.${level}`)}</p>{/if}
+    <section class="ad-group">
+      <h2>
+        {t('admin.policy.groupFiles')}
+        <span class="ad-aside legend">
+          {t('admin.policy.clickToChange')}
+          <span><Icon name="configFile" size={14} />{t('admin.policy.legendConfig')}</span>
+          <span class="here"><Icon name="restore" size={14} />{t('admin.policy.legendHere')}</span>
+        </span>
+      </h2>
+      <ul class="ad-rows">
+        {#each RULES.filter(([, , kind]) => !IMAGE_KINDS.includes(kind)) as item (item[0])}
+          {@render rule(item, view)}
+        {/each}
+      </ul>
+    </section>
+    <section class="ad-group">
+      <h2>{t('admin.policy.groupImages')}</h2>
+      <ul class="ad-rows">
+        {#each RULES.filter(([, , kind]) => IMAGE_KINDS.includes(kind)) as item (item[0])}
+          {@render rule(item, view)}
+        {/each}
+      </ul>
+    </section>
+    {#if problem}<p class="ad-problem" role="alert">{problem}</p>{/if}
+    {#if saved}<p class="ad-help" role="status">{t('admin.policy.saved')}</p>{/if}
+    {#if changes > 0}
+      <div class="ad-savebar">
+        <span>{t('admin.unsaved', { count: changes })}</span>
+        <button class="btn quiet" type="button" onclick={reset}>{t('admin.policy.undo')}</button>
+        <button class="btn primary" type="submit">{t('admin.policy.save')}</button>
       </div>
-    {/each}
-    {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-    <div class="actions">
-      {#if saved}<span class="muted" role="status">{t('admin.policy.saved')}</span>{/if}
-      <button class="btn" type="button" onclick={reset}>{t('admin.policy.undo')}</button>
-      <button class="btn primary" type="submit">{t('admin.policy.save')}</button>
-    </div>
+    {/if}
   </form>
 {:else if problem}
-  <p class="problem" role="alert">{problem}</p>
+  <p class="ad-problem" role="alert">{problem}</p>
 {/if}
 
 <style>
   .policy {
-    display: grid;
-    gap: var(--space-1);
-    /* the person panel is narrow on any screen: the rules follow their own width */
-    container-type: inline-size;
+    gap: var(--space-4);
   }
-  .help {
-    margin: 0 0 var(--space-2);
-  }
-  .rule {
-    display: grid;
-    grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
-    gap: var(--space-2) var(--space-3);
-    align-items: center;
-    min-height: 40px;
-    padding: var(--space-1) 0;
-    border-bottom: 1px solid var(--color-border);
-  }
-  .set {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-  .value {
+  .legend {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-1) var(--space-3);
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .legend .here {
+    color: var(--color-accent-text);
+  }
+  /* one column for values, read or being changed, so nothing moves */
+  .value {
+    width: 190px;
     min-width: 0;
   }
-  .value input:not(.number) {
-    flex: 1;
-    min-width: 160px;
+  .value > .ad-val {
+    min-width: 0;
+    margin-right: -8px;
   }
-  .number {
-    width: 110px;
+  .edit {
+    width: calc(6ch + 18px);
+    height: 28px;
+    padding: 0 var(--space-2);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
   }
-  .value select {
-    width: auto;
-    min-width: 120px;
+  .edit.types {
+    width: 100%;
+    text-align: left;
+  }
+  .unit {
+    width: 4ch;
+  }
+  .ad-src {
+    min-width: 32px;
   }
   .from {
-    font-size: 13px;
+    display: inline-flex;
   }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
+  .undo {
+    width: 24px;
+    height: 24px;
+    color: var(--color-accent-text);
   }
-  .problem {
-    color: var(--color-danger);
-  }
-  @container (max-width: 520px) {
-    .rule {
-      grid-template-columns: 1fr;
-      gap: var(--space-1);
+  @media (max-width: 720px) {
+    .value {
+      width: auto;
     }
   }
 </style>

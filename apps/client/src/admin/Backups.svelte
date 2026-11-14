@@ -7,6 +7,7 @@
      every day and a password; Advanced shows every place and choice. -->
 <script lang="ts">
   import PasswordField from '../lib/PasswordField.svelte'
+  import Icon from '../lib/icons/Icon.svelte'
   import { t } from '../lib/i18n.svelte'
   import { overlay } from '../lib/overlay.svelte'
   import { api } from './api.svelte'
@@ -289,141 +290,187 @@
 {/if}
 
 {#if view?.config && !editing}
-  <section data-backups-status>
-    <h2>{t('backups.status')}</h2>
-    {#if where}<p class="muted">{t('backups.where', { where })}</p>{/if}
-    {#if view.running}
-      <p>{t('backups.running')}</p>
-    {:else if view.status.lastError}
-      <p class="problem">{t('backups.lastFailed', { error: view.status.lastError })}</p>
-    {/if}
-    <p>
-      {view.status.lastSuccessAt
-        ? t('backups.lastSuccess', {
-            when: relative(view.status.lastSuccessAt),
-            date: dateTime(view.status.lastSuccessAt),
-          })
-        : t('backups.never')}
-    </p>
-    {#if view.status.snapshots > 0}
-      <p class="muted">
-        {t('backups.size', { count: view.status.snapshots, size: bytes(view.status.storedBytes) })}
-      </p>
-    {/if}
-    <div class="actions">
-      <button class="btn primary" disabled={busy || view.running} onclick={run}
-        >{t('backups.now')}</button
+  <ul class="ad-rows" data-backups-status>
+    <li
+      class={['ad-row', view.status.lastError ? 'fail' : view.status.lastSuccessAt ? 'ok' : 'warn']}
+    >
+      <span class="ad-lead"
+        ><Icon
+          name={view.status.lastError || !view.status.lastSuccessAt ? 'warning' : 'check'}
+          size={18}
+        /></span
       >
-      <button class="btn" disabled={busy} onclick={list}>{t('backups.list')}</button>
-      <button class="btn" disabled={busy} onclick={() => runCheck(false)}
-        >{t('backups.check')}</button
-      >
-    </div>
-    {#if check}
-      {#if check.problems.length === 0}
-        <p data-backups-check>
-          {t('backups.checkOk', { count: check.snapshots, size: bytes(check.storedBytes) })}
-        </p>
-        <div class="actions">
-          <button class="btn" disabled={busy} onclick={() => runCheck(true)}
-            >{t('backups.checkFull')}</button
+      <span class="ad-words">
+        <span class="ad-label">
+          {#if view.running}
+            {t('backups.running')}
+          {:else if view.status.lastSuccessAt}
+            {t('backups.lastSuccess', {
+              when: relative(view.status.lastSuccessAt),
+              date: dateTime(view.status.lastSuccessAt),
+            })}
+          {:else}
+            {t('backups.never')}
+          {/if}
+        </span>
+        {#if view.status.lastError}
+          <span class="ad-help ad-bad"
+            >{t('backups.lastFailed', { error: view.status.lastError })}</span
           >
-        </div>
-      {:else}
-        <div class="problem" data-backups-check>
-          <p>{t('backups.checkBad')}</p>
-          <ul>
-            {#each check.problems as p (p)}<li>{p}</li>{/each}
-          </ul>
-        </div>
-      {/if}
+        {/if}
+        <span class="ad-help">
+          {#if where}{t('backups.where', { where })}{/if}
+          {#if view.status.snapshots > 0}
+            {t('backups.size', {
+              count: view.status.snapshots,
+              size: bytes(view.status.storedBytes),
+            })}
+          {/if}
+        </span>
+      </span>
+      <span class="ad-ctl">
+        <button class="btn" disabled={busy} onclick={() => runCheck(false)}
+          >{t('backups.check')}</button
+        >
+        <button class="btn" disabled={busy} onclick={list}>{t('backups.list')}</button>
+        <button class="btn primary" disabled={busy || view.running} onclick={run}
+          >{t('backups.now')}</button
+        >
+      </span>
+    </li>
+    {#if check}
+      <li class={['ad-row', check.problems.length ? 'fail' : 'ok']} data-backups-check>
+        <span class="ad-words">
+          {#if check.problems.length === 0}
+            <span
+              >{t('backups.checkOk', {
+                count: check.snapshots,
+                size: bytes(check.storedBytes),
+              })}</span
+            >
+          {:else}
+            <span class="ad-bad">{t('backups.checkBad')}</span>
+            {#each check.problems as p (p)}<span class="ad-help mono">{p}</span>{/each}
+          {/if}
+        </span>
+        {#if check.problems.length === 0}
+          <span class="ad-ctl">
+            <button class="btn quiet" disabled={busy} onclick={() => runCheck(true)}
+              >{t('backups.checkFull')}</button
+            >
+          </span>
+        {/if}
+      </li>
     {/if}
-  </section>
+  </ul>
 
   {#if snapshots}
-    <section data-backups-list>
-      <h2>{t('backups.backups')}</h2>
+    <section class="ad-group" data-backups-list aria-labelledby="backups-kept">
+      <h2 id="backups-kept">{t('backups.backups')}</h2>
       {#if snapshots.length === 0}
-        <p class="muted">{t('backups.none')}</p>
+        <p class="ad-help">{t('backups.none')}</p>
       {:else}
-        <ul class="snapshots">
+        <ul class="ad-rows">
           {#each snapshots as s (s.id)}
-            <li data-snapshot={s.id}>
-              <span
-                ><strong>{dateTime(s.time)}</strong>
-                <span class="muted"
+            <li class="ad-row ad-tight" data-snapshot={s.id}>
+              <span class="ad-words">
+                <span class="ad-label">{dateTime(s.time)}</span>
+                <span class="ad-help"
                   >{t('admin.backups.counts', {
                     users: s.counts.users ?? 0,
                     files: s.counts.files ?? 0,
                   })}, {bytes(s.size)}</span
-                ></span
-              >
-              <button class="btn" disabled={busy} onclick={() => testRestore(s)}
-                >{t('backups.test')}</button
-              >
+                >
+              </span>
+              <span class="ad-ctl">
+                <button class="btn quiet" disabled={busy} onclick={() => testRestore(s)}
+                  >{t('backups.test')}</button
+                >
+              </span>
             </li>
           {/each}
         </ul>
         <h2>{t('admin.backups.person')}</h2>
-        <p class="muted">{t('admin.backups.personHelp')}</p>
-        <div class="actions">
-          <label class="field-label"
-            >{t('admin.backups.username')}<input class="field" bind:value={person} /></label
-          >
-          <label class="field-label"
-            >{t('admin.backups.from')}<select class="field" bind:value={personSnapshot}>
-              {#each snapshots as s (s.id)}<option value={s.id}>{dateTime(s.time)}</option>{/each}
-            </select></label
-          >
-          <button
-            class="btn"
-            disabled={busy || !person.trim() || !personSnapshot}
-            onclick={() => void restorePerson()}>{t('backups.restore')}</button
-          >
-        </div>
+        <ul class="ad-rows">
+          <li class="ad-row">
+            <span class="ad-words"
+              ><span class="ad-help">{t('admin.backups.personHelp')}</span></span
+            >
+            <span class="ad-ctl">
+              <input
+                class="field person"
+                aria-label={t('admin.backups.username')}
+                placeholder={t('admin.backups.username')}
+                bind:value={person}
+              />
+              <select
+                class="field ad-select"
+                aria-label={t('admin.backups.from')}
+                bind:value={personSnapshot}
+              >
+                {#each snapshots as s (s.id)}<option value={s.id}>{dateTime(s.time)}</option>{/each}
+              </select>
+              <button
+                class="btn"
+                disabled={busy || !person.trim() || !personSnapshot}
+                onclick={() => void restorePerson()}>{t('backups.restore')}</button
+              >
+            </span>
+          </li>
+        </ul>
       {/if}
     </section>
   {/if}
 
-  <section>
-    <h2>{t('backups.when')}</h2>
-    <label class="field-label"
-      >{t('backups.schedule')}<select class="field" bind:value={schedule}>
-        {#each SCHEDULES as s (s)}<option value={s}>{t(`backups.schedule_${s}`)}</option>{/each}
-      </select></label
-    >
-    <div class="actions">
-      {#each KEEP as period (period)}
-        <label class="field-label keep"
-          >{t(`backups.keep_${period}`)}<input
-            class="field"
-            type="number"
-            min="0"
-            max="100"
-            bind:value={policy[period]}
-          /></label
-        >
-      {/each}
-    </div>
-    <p class="muted small">{t('backups.keepHelp')}</p>
-    <div class="actions">
+  <section class="ad-group" aria-labelledby="backups-when">
+    <h2 id="backups-when">{t('backups.when')}</h2>
+    <ul class="ad-rows">
+      <li class="ad-row ad-tight">
+        <span class="ad-words"><span class="ad-label">{t('backups.schedule')}</span></span>
+        <span class="ad-ctl">
+          <select class="field ad-select" aria-label={t('backups.schedule')} bind:value={schedule}>
+            {#each SCHEDULES as s (s)}<option value={s}>{t(`backups.schedule_${s}`)}</option>{/each}
+          </select>
+        </span>
+      </li>
+      <li class="ad-row ad-tight">
+        <span class="ad-words">
+          <span class="ad-label">{t('admin.backups.keep')}</span>
+          <span class="ad-help">{t('backups.keepHelp')}</span>
+        </span>
+        <span class="ad-ctl">
+          {#each KEEP as period (period)}
+            <label class="keep"
+              ><span class="ad-unit">{t(`backups.keep_${period}`)}</span><input
+                class="field ad-num"
+                type="number"
+                min="0"
+                max="100"
+                bind:value={policy[period]}
+              /></label
+            >
+          {/each}
+        </span>
+      </li>
+    </ul>
+    <p class="actions">
       <button class="btn" disabled={busy} onclick={saveSchedule}>{t('backups.save')}</button>
-    </div>
+    </p>
   </section>
 
-  <section>
+  <section class="ad-group">
     <!-- rarely needed, long: folded -->
     <details class="recovery">
       <summary>{t('admin.backups.recovery')}</summary>
-      <p class="muted">{t('admin.backups.recoveryHelp')}</p>
+      <p class="ad-help">{t('admin.backups.recoveryHelp')}</p>
       <pre data-backups-recovery>{recovery}</pre>
     </details>
-    <div class="actions">
+    <p class="actions">
       <button class="btn" disabled={busy} onclick={edit}>{t('backups.change')}</button>
       <button class="btn danger" disabled={busy} onclick={() => void stop()}
         >{t('backups.stop')}</button
       >
-    </div>
+    </p>
   </section>
 {:else if view}
   <form
@@ -562,12 +609,22 @@
   .field.wide {
     width: min(480px, 100%);
   }
-  section,
   form {
     display: grid;
     gap: var(--space-3);
-    margin-bottom: var(--space-6);
     justify-items: start;
+  }
+  .person {
+    width: 160px;
+    height: 30px;
+  }
+  .keep {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mono {
+    font-family: var(--font-mono);
   }
   h2 {
     margin: 0;
@@ -615,9 +672,6 @@
   .field-label .field {
     font-weight: 400;
   }
-  .keep {
-    width: 8em;
-  }
   textarea {
     height: auto;
     font-family: var(--font-mono);
@@ -627,29 +681,6 @@
     flex-wrap: wrap;
     align-items: end;
     gap: var(--space-3);
-  }
-  .snapshots {
-    justify-self: stretch;
-    display: grid;
-    gap: var(--space-2);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .snapshots li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-popover);
-    background: var(--color-surface);
-  }
-  .snapshots .muted {
-    margin-left: var(--space-2);
-    font-size: 12px;
   }
   pre {
     justify-self: stretch;
@@ -663,12 +694,6 @@
   }
   .problem {
     color: var(--color-danger);
-  }
-  .problem ul {
-    margin: var(--space-1) 0 0;
-    padding-left: var(--space-5);
-    font-family: var(--font-mono);
-    font-size: 12px;
   }
   .saved {
     color: var(--color-success);

@@ -28,139 +28,96 @@
   void load()
 </script>
 
-{#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+{#if problem}<p class="ad-problem" role="alert">{problem}</p>{/if}
 {#if !overview && !problem}<p class="muted" aria-busy="true">{t('admin.loading')}</p>{/if}
 {#if overview}
-  <dl class="counts">
+  <div class="ad-strip">
     <div>
-      <dt>{t('admin.storage.stored')}</dt>
-      <dd>{bytes(overview.storedBytes)}</dd>
+      <span class="k">{t('admin.storage.stored')}</span>
+      <span class="v">{bytes(overview.storedBytes)}</span>
     </div>
     <div>
-      <dt>{t('admin.storage.files')}</dt>
-      <dd>{overview.files}</dd>
+      <span class="k">{t('admin.storage.files')}</span>
+      <span class="v">{overview.files}</span>
     </div>
     <div>
-      <dt>{t('admin.storage.saved')}</dt>
-      <dd>{bytes(Math.max(0, overview.referencedBytes - overview.uniqueBytes))}</dd>
+      <span class="k">{t('admin.storage.notes')}</span>
+      <span class="v">{bytes(overview.noteBytes)}</span>
     </div>
     <div>
-      <dt>{t('admin.storage.notes')}</dt>
-      <dd>{bytes(overview.noteBytes)}</dd>
+      <span class="k">{t('admin.storage.saved')}</span>
+      <span class="v">{bytes(Math.max(0, overview.referencedBytes - overview.uniqueBytes))}</span>
     </div>
-  </dl>
+  </div>
 
-  <h2>{t('admin.storage.people')}</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>{t('admin.username')}</th>
-        <th>{t('admin.storage.used')}</th>
-        <th class="num">{t('admin.storage.files')}</th>
-        <th class="num">{t('admin.storage.largest')}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each overview.people.items as person (person.userId)}
-        {@const part = share(person.usedBytes, person.quotaBytes)}
-        <tr>
-          <td><b>{person.username}</b> <span class="muted">{person.displayName}</span></td>
-          <td>
-            <span
-              >{person.quotaBytes
-                ? t('admin.storage.ofQuota', {
-                    used: bytes(person.usedBytes),
-                    quota: bytes(person.quotaBytes),
-                  })
-                : bytes(person.usedBytes)}</span
-            >
-            {#if part !== null}
-              <span
-                class="meter"
-                class:full={part >= 90}
-                role="meter"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={part}
-                aria-label={t('admin.storage.used')}><span style:width="{part}%"></span></span
-              >
-            {/if}
-          </td>
-          <td class="num">{person.files}</td>
-          <td class="num">{person.largestBytes ? bytes(person.largestBytes) : '–'}</td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-  {#if overview.people.total > PAGE}
-    <div class="pages">
-      <button class="btn" disabled={offset === 0} onclick={() => ((offset -= PAGE), load())}
-        >{t('admin.previous')}</button
-      >
-      <button
-        class="btn"
-        disabled={offset + PAGE >= overview.people.total}
-        onclick={() => ((offset += PAGE), load())}>{t('admin.next')}</button
-      >
-    </div>
+  {#if overview.people.total > 1}
+    <section class="ad-group" aria-labelledby="storage-people">
+      <h2 id="storage-people">{t('admin.storage.people')}</h2>
+      <div class="ad-table-box">
+        <table class="ad-table">
+          <thead>
+            <tr>
+              <th>{t('admin.username')}</th>
+              <th>{t('admin.storage.used')}</th>
+              <th class="num">{t('admin.storage.files')}</th>
+              <th class="num">{t('admin.storage.largest')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each overview.people.items as person (person.userId)}
+              {@const part = share(person.usedBytes, person.quotaBytes)}
+              <tr>
+                <td><b>{person.username}</b> <span class="muted">{person.displayName}</span></td>
+                <td>
+                  {person.quotaBytes
+                    ? t('admin.storage.ofQuota', {
+                        used: bytes(person.usedBytes),
+                        quota: bytes(person.quotaBytes),
+                      })
+                    : bytes(person.usedBytes)}
+                  {#if part !== null}
+                    <span
+                      class="meter"
+                      class:full={part >= 90}
+                      role="meter"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={part}
+                      aria-label={t('admin.storage.used')}><span style:width="{part}%"></span></span
+                    >
+                  {/if}
+                </td>
+                <td class="num">{person.files}</td>
+                <td class="num">{person.largestBytes ? bytes(person.largestBytes) : '–'}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+      {#if overview.people.total > PAGE}
+        <div class="pages">
+          <button class="btn" disabled={offset === 0} onclick={() => ((offset -= PAGE), load())}
+            >{t('admin.previous')}</button
+          >
+          <button
+            class="btn"
+            disabled={offset + PAGE >= overview.people.total}
+            onclick={() => ((offset += PAGE), load())}>{t('admin.next')}</button
+          >
+        </div>
+      {/if}
+    </section>
   {/if}
 
-  <h2>{t('admin.storage.policy')}</h2>
   <Policy path="/admin/policy" level="instance" onsaved={load} />
 {/if}
 
 <style>
-  .counts {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: var(--space-3);
-    margin: 0 0 var(--space-4);
-  }
-  .counts div {
-    padding: var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-popover);
-    background: var(--color-surface);
-  }
-  dt {
-    color: var(--color-text-muted);
-    font-size: 13px;
-  }
-  dd {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-  }
-  h2 {
-    margin: var(--space-5) 0 var(--space-2);
-    font-size: 16px;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  th {
-    text-align: left;
-    font-weight: 600;
-    color: var(--color-text-muted);
-    font-size: 13px;
-  }
-  th,
-  td {
-    padding: var(--space-2);
-    border-bottom: 1px solid var(--color-border);
-    vertical-align: top;
-  }
-  .num {
-    text-align: right;
-    white-space: nowrap;
-  }
   .meter {
     display: block;
-    height: 6px;
+    height: 4px;
     margin-top: 4px;
-    max-width: 220px;
-    border-radius: var(--radius-chip);
+    max-width: 200px;
     background: var(--color-surface-2);
     overflow: hidden;
   }
@@ -175,9 +132,5 @@
   .pages {
     display: flex;
     gap: var(--space-3);
-    margin-top: var(--space-3);
-  }
-  .problem {
-    color: var(--color-danger);
   }
 </style>
