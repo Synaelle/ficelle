@@ -693,8 +693,25 @@
         {:else}
           <h3 class="sign-in">{t('sync.signInTo', { server: status.server ?? '' })}</h3>
         {/if}
-        {#if byBrowser && linking}
-          <Group note={t('sync.codeHelp', { page: linking.page, appName: brand.displayName })}>
+        {#if byBrowser && linking && ANDROID}
+          <!-- the usual way first, all on this phone; the code is only for
+               approving from a computer -->
+          <p class="link-step">
+            {t('sync.codePhoneStep', { appName: brand.displayName })}
+          </p>
+          <Group
+            title={t('sync.codeElsewhereTitle')}
+            note={t('sync.codeElsewhere', { page: linking.page })}
+          >
+            <Row label={t('sync.code')}>
+              <span class="link-code">{linking.code}</span>
+            </Row>
+          </Group>
+        {:else if byBrowser && linking}
+          <p class="link-step">
+            {t('sync.codeComputerStep', { page: linking.page, appName: brand.displayName })}
+          </p>
+          <Group note={t('sync.codeLasts')}>
             <Row label={t('sync.code')}>
               <span class="link-code">{linking.code}</span>
             </Row>
@@ -825,6 +842,11 @@
 {/if}
 
 <style>
+  .link-step {
+    margin: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
   .link-code {
     font-family: var(--font-mono);
     font-size: 20px;
