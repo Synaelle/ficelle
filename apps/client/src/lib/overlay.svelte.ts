@@ -46,6 +46,8 @@ interface TextDialog {
   secret: boolean
   /** Digits only, a number pad on phones: for a PIN. */
   digits?: boolean
+  /** A field asked first, above the main one: a new link's text. */
+  before?: { message: string; value: string }
   resolve: (value: string | null) => void
 }
 
@@ -130,6 +132,27 @@ class Overlay {
     this.answer(null)
     return new Promise((resolve) => {
       this.dialog = { kind: 'text', message, value, secret: false, resolve }
+    })
+  }
+
+  /** Asks for a new link's text and address in one dialog, resolves null
+   * when dismissed. */
+  askLink(
+    textMessage: string,
+    addressMessage: string,
+    address: string,
+  ): Promise<{ text: string; href: string } | null> {
+    this.answer(null)
+    return new Promise((resolve) => {
+      const before = $state({ message: textMessage, value: '' })
+      this.dialog = {
+        kind: 'text',
+        message: addressMessage,
+        value: address,
+        secret: false,
+        before,
+        resolve: (href) => resolve(href === null ? null : { text: before.value, href }),
+      }
     })
   }
 

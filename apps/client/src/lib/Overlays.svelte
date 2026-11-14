@@ -20,6 +20,7 @@
   let flyoutPosition = $state({ left: 0, top: 0 })
   let hoverTimer: ReturnType<typeof setTimeout> | undefined
   let textInput: HTMLInputElement | undefined = $state()
+  let beforeInput: HTMLInputElement | undefined = $state()
   let draft = $state('')
   /** The seconds left before a question that asks for a pause can be confirmed. */
   let waitLeft = $state(0)
@@ -87,7 +88,7 @@
     const dialog = overlay.dialog
     if (dialog?.kind === 'text') {
       draft = dialog.value
-      void tick().then(() => textInput?.select())
+      void tick().then(() => (beforeInput ? beforeInput.focus() : textInput?.select()))
     }
   })
 
@@ -278,6 +279,17 @@
           overlay.answer(overlay.dialog?.kind === 'text' ? draft : true)
         }}
       >
+        {#if overlay.dialog.kind === 'text' && overlay.dialog.before}
+          <label class="before">
+            {overlay.dialog.before.message}
+            <input
+              class="field"
+              autocomplete="off"
+              bind:this={beforeInput}
+              bind:value={overlay.dialog.before.value}
+            />
+          </label>
+        {/if}
         <p>{overlay.dialog.message}</p>
         {#if overlay.dialog.kind === 'text'}
           <input
@@ -326,6 +338,10 @@
 {/if}
 
 <style>
+  .before {
+    display: grid;
+    gap: var(--space-2);
+  }
   .menu-catcher {
     position: fixed;
     inset: 0;

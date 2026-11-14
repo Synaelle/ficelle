@@ -551,6 +551,33 @@
   async function promptLink() {
     if (!editor) return
     const current = editor.getAttributes('link').href as string | undefined
+    // nothing selected and no link here: the text to show is asked too, a
+    // link set on nothing would only take the next letter typed
+    if (!current && editor.state.selection.empty) {
+      const asked = await overlay.askLink(t('editor.linkText'), t('editor.linkAddress'), 'https://')
+      if (!asked || !editor) return
+      const href = asked.href.trim()
+      if (!href || href === 'https://') return
+      if (!editor.can().setLink({ href })) {
+        toasts.push(t('editor.link'), t('editor.linkRefused'))
+        return
+      }
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: 'text',
+          text: asked.text.trim() || href,
+          marks: [{ type: 'link', attrs: { href } }],
+        })
+        // what is typed next is plain text again
+        .command(({ tr }) => {
+          tr.setStoredMarks([])
+          return true
+        })
+        .run()
+      return
+    }
     const href = await overlay.askText(t('editor.linkPrompt'), current ?? 'https://')
     if (href === null || !editor) return
     if (href === '') editor.chain().focus().unsetLink().run()
