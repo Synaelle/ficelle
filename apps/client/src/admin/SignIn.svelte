@@ -92,9 +92,7 @@
    * encrypted accounts: their notes open with the password only, the
    * passkey is still there as the second step. */
   const canPasskey = $derived(
-    !!options?.passkeys &&
-      passkeysSupported() &&
-      !(forApp && options.accountKinds !== 'standard'),
+    !!options?.passkeys && passkeysSupported() && !(forApp && options.accountKinds !== 'standard'),
   )
 
   /** The kind of the new account. Only asked when the server lets the
