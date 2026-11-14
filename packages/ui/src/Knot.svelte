@@ -116,15 +116,15 @@
   /* tying: the thread draws itself over and under, then a pull */
   .tie {
     animation:
-      knot-draw 520ms cubic-bezier(0.55, 0.05, 0.3, 1) forwards,
-      knot-pull-done 240ms cubic-bezier(0.3, 1.6, 0.5, 1) 520ms both;
+      knot-draw 676ms cubic-bezier(0.55, 0.05, 0.3, 1) forwards,
+      knot-pull-done 312ms cubic-bezier(0.3, 1.6, 0.5, 1) 676ms both;
   }
 
   /* untying: the knot loosens a little, then lets go */
   .untie {
     animation:
-      knot-undraw 340ms ease-in forwards,
-      knot-loosen-done 340ms cubic-bezier(0.4, 0, 0.6, 1) forwards;
+      knot-undraw 442ms ease-in forwards,
+      knot-loosen-done 442ms cubic-bezier(0.4, 0, 0.6, 1) forwards;
   }
 
   @keyframes knot-draw {
