@@ -922,7 +922,10 @@
     flex: 1;
     min-width: 0;
   }
+  /* a row's right side never shrinks: the long "last synced" line wraps
+     instead of crushing the device's name on a phone */
   .device-state {
+    max-width: min(45vw, 240px);
     color: var(--color-text-muted);
     text-align: right;
   }
