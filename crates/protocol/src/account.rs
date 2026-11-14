@@ -161,6 +161,68 @@ pub struct AppToken {
     pub sealed: Option<String>,
 }
 
+/// `POST /api/v1/auth/app/link`: an app asks for a code to sign in with,
+/// approved on the server's page on this device or another (RFC 8628 with
+/// PKCE S256). No browser has to hand anything back to the app.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AppLinkRequest {
+    /// Base64url SHA-256 of the app's secret verifier.
+    pub challenge: String,
+    /// The app's public key for this sign-in, an e2ee export key is sealed to it.
+    pub key: String,
+    /// The app's device, as the account's device list will show it.
+    pub device: DeviceInfo,
+}
+
+/// The code to type on the server's page.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppLink {
+    /// Eight letters, shown as `ABCD-EFGH`.
+    pub code: String,
+    /// When it stops working, in milliseconds.
+    pub expires_at: i64,
+    /// Seconds between the app's questions.
+    pub interval: u32,
+}
+
+/// `POST /api/v1/auth/app/link/find` and `.../approve`: a code typed on the
+/// page. Approving sends the sealed key for an e2ee account.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AppLinkCode {
+    /// As typed, any case, the dash optional.
+    pub code: String,
+    /// E2ee, on approval: the export key sealed to the app's key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sealed: Option<String>,
+}
+
+/// The app waiting behind a code, for the page to show and seal to.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppLinkInfo {
+    /// The app's device.
+    pub device: DeviceInfo,
+    /// Its public key for this sign-in.
+    pub key: String,
+    /// Its PKCE challenge, which the sealed key is bound to.
+    pub challenge: String,
+}
+
+/// `POST /api/v1/auth/app/link/token`: the app asks whether its code was
+/// approved. [`crate::error_code::LINK_PENDING`] until it is, then an
+/// [`AppToken`], once.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AppLinkTokenRequest {
+    /// The code the app was given.
+    pub code: String,
+    /// The secret the challenge was made from.
+    pub verifier: String,
+}
+
 /// Account role.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

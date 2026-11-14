@@ -156,3 +156,144 @@ async fn only_a_signed_in_page_and_the_apps_own_addresses() {
         (StatusCode::OK, &json!(true))
     );
 }
+
+const KEY: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+async fn link_code(app: &axum::Router) -> String {
+    let (status, body) = call(
+        app,
+        "POST",
+        "/auth/app/link",
+        None,
+        Some(json!({
+            "challenge": CHALLENGE,
+            "key": KEY,
+            "device": { "name": "Ficelle on IN2013", "platform": "android" },
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["interval"], 3);
+    body["code"].as_str().unwrap().to_owned()
+}
+
+async fn ask_link(app: &axum::Router, code: &str, verifier: &str) -> (StatusCode, Value) {
+    call(
+        app,
+        "POST",
+        "/auth/app/link/token",
+        None,
+        Some(json!({ "code": code, "verifier": verifier })),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn a_code_typed_on_the_page_signs_the_app_in_once() {
+    let (_state, app, page) = with_admin().await;
+    let code = link_code(&app).await;
+    assert_eq!(code.len(), 9, "{code}");
+    let (status, body) = ask_link(&app, &code, VERIFIER).await;
+    assert_eq!(
+        (status, &body["error"]),
+        (StatusCode::BAD_REQUEST, &json!("linkPending"))
+    );
+
+    // typed in lower case without the dash, before signing in
+    let typed = code.replace('-', "").to_lowercase();
+    let (status, info) = call(
+        &app,
+        "POST",
+        "/auth/app/link/find",
+        None,
+        Some(json!({ "code": typed })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{info}");
+    assert_eq!(info["device"]["name"], "Ficelle on IN2013");
+    assert_eq!(
+        (&info["key"], &info["challenge"]),
+        (&json!(KEY), &json!(CHALLENGE))
+    );
+
+    let approve = json!({ "code": typed, "sealed": "c2VhbGVkIGtleQ" });
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/auth/app/link/approve",
+        None,
+        Some(approve.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "only signed in");
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/auth/app/link/approve",
+        Some(&page),
+        Some(approve.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/auth/app/link/approve",
+        Some(&page),
+        Some(approve),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "approved once");
+
+    let wrong = "y".repeat(43);
+    let (status, body) = ask_link(&app, &code, &wrong).await;
+    assert_eq!(
+        (status, &body["error"]),
+        (StatusCode::BAD_REQUEST, &json!("linkInvalid")),
+        "another verifier hears nothing"
+    );
+    let (status, body) = ask_link(&app, &code, VERIFIER).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["sealed"], "c2VhbGVkIGtleQ");
+    let token = body["session"]["accessToken"].as_str().unwrap();
+    let (status, me) = call(&app, "GET", "/me", Some(token), None).await;
+    assert_eq!((status, &me["username"]), (StatusCode::OK, &json!("admin")));
+    let (status, _) = ask_link(&app, &code, VERIFIER).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a session once");
+}
+
+#[tokio::test]
+async fn a_code_lasts_ten_minutes_and_needs_a_real_request() {
+    let (state, app, page) = with_admin().await;
+    let code = link_code(&app).await;
+    state.clock.advance(10 * 60 * 1000 + 1);
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/auth/app/link/find",
+        None,
+        Some(json!({ "code": code })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/auth/app/link/approve",
+        Some(&page),
+        Some(json!({ "code": code })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = ask_link(&app, &code, VERIFIER).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    for bad in [
+        json!({ "challenge": "plain", "key": KEY, "device": { "name": "x", "platform": "linux" } }),
+        json!({ "challenge": CHALLENGE, "key": "not a key", "device": { "name": "x", "platform": "linux" } }),
+        json!({ "challenge": CHALLENGE, "key": KEY, "device": { "name": " ", "platform": "linux" } }),
+    ] {
+        let (status, _) = call(&app, "POST", "/auth/app/link", None, Some(bad.clone())).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
+    }
+}

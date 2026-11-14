@@ -42,6 +42,7 @@ pub fn router() -> Router<AppState> {
         .route("/setup", get(admin_page))
         // an app's sign-in, what the app sends stays after `#` too
         .route("/connect", get(admin_page))
+        .route("/link", get(admin_page))
         .route("/assets/{file}", get(asset))
         // the fonts the apps download, mirrored at build (tools/fonts-mirror.mjs)
         .route("/fonts/{font}/{file}", get(font))

@@ -154,6 +154,8 @@ pub mod error_code {
     pub const FEEDBACK_OFF: &str = "feedbackOff";
     /// The report's challenge is unknown, used, expired or not answered.
     pub const CHALLENGE_INVALID: &str = "challengeInvalid";
+    /// An app linking with a code: not approved yet, ask again later.
+    pub const LINK_PENDING: &str = "linkPending";
 }
 
 pub mod account;

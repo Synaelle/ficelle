@@ -135,6 +135,10 @@ pub fn router() -> Router<AppState> {
         .route("/web/session", post(web::session))
         .route("/auth/app/code", post(connect::code))
         .route("/auth/app/token", post(connect::token))
+        .route("/auth/app/link", post(connect::link))
+        .route("/auth/app/link/find", post(connect::link_find))
+        .route("/auth/app/link/approve", post(connect::link_approve))
+        .route("/auth/app/link/token", post(connect::link_token))
         .route("/admin/second-step", put(admin::set_second_step))
         .route(
             "/admin/one-person",

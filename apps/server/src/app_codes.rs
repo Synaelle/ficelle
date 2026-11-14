@@ -67,7 +67,7 @@ pub fn sealed_ok(sealed: &str) -> bool {
 
 /// The challenge a verifier makes (RFC 7636, S256). A verifier has 43 to
 /// 128 unreserved characters.
-fn challenge_of(verifier: &str) -> Option<String> {
+pub(crate) fn challenge_of(verifier: &str) -> Option<String> {
     let fits = (43..=128).contains(&verifier.len())
         && verifier
             .bytes()
@@ -171,7 +171,7 @@ struct Stored {
 }
 
 /// Compares in time that does not depend on where they differ.
-fn same(a: &str, b: &str) -> bool {
+pub(crate) fn same(a: &str, b: &str) -> bool {
     a.len() == b.len()
         && a.bytes()
             .zip(b.bytes())

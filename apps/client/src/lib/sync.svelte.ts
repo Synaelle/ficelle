@@ -50,6 +50,17 @@ export interface ServerCheck {
   signInPage?: boolean
 }
 
+/** A code to sign in with on the server's page, see `linkStart`. */
+export interface LinkStarted {
+  /** `ABCD-EFGH`. */
+  code: string
+  /** Where it is typed. */
+  page: string
+  /** The same page with the code filled in. */
+  url: string
+  expiresAt: number
+}
+
 /** How a sign-in through the server's page in the browser ended. */
 export interface BrowserEnded {
   status: SyncStatus | null
@@ -150,30 +161,20 @@ class Sync {
     return answer
   }
 
-  /** Opens the server's sign-in page in the browser. `page` is what the
-   * browser tab says once the app has the answer. Returns the page's
-   * address, to offer when no browser came up. */
+  /** Opens the server's sign-in page in the browser, on a computer. `page`
+   * is what the browser tab says once the app has the answer. Returns the
+   * page's address, to offer when no browser came up. */
   async browserStart(address: string, page: { done: string; failed: string }): Promise<string> {
     this.browserEnded = null
-    const url = await invoke<string>('sync_browser_start', { address, page })
-    // a computer's app opened it already, a phone's page does it
-    window.AppSystem?.openBrowser?.(url)
-    return url
+    return invoke<string>('sync_browser_start', { address, page })
   }
 
-  /** The page's answer on a phone, from the inbox. */
-  async browserFinish(url: string) {
-    try {
-      this.browserDone({
-        status: await invoke<SyncStatus>('sync_browser_finish', { url }),
-        error: null,
-      })
-    } catch (err) {
-      this.browserDone({
-        status: null,
-        error: isSyncError(err) ? err : { code: 'other', message: String(err) },
-      })
-    }
+  /** A code to type on the server's page, on this device or another. The
+   * app asks the server until it is approved, the end comes like the
+   * browser's. */
+  async linkStart(address: string): Promise<LinkStarted> {
+    this.browserEnded = null
+    return invoke<LinkStarted>('sync_link_start', { address })
   }
 
   browserCancel() {

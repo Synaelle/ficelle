@@ -54,7 +54,7 @@
   const webDoor = route() === '/web/'
 
   /** An app signing in through this page. */
-  const connectPage = route() === '/connect'
+  const connectPage = route() === '/connect' || route() === '/link'
 
   /** Signed in at the web version's door: the cookie, then the web version. */
   async function openWeb() {
@@ -155,7 +155,12 @@
 {:else if !info || !options}
   <main class="center" aria-busy="true"><p class="muted">{t('admin.loading')}</p></main>
 {:else if connectPage}
-  <Connect {options} initialProblem={ssoProblem} initialSecond={ssoSecond} />
+  <Connect
+    {options}
+    byCode={route() === '/link'}
+    initialProblem={ssoProblem}
+    initialSecond={ssoSecond}
+  />
 {:else if webDoor && auth.session}
   <main class="center" aria-busy="true"><p class="muted">{t('admin.loading')}</p></main>
 {:else if webDoor}

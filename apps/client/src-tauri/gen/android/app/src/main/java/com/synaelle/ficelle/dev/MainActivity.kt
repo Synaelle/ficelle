@@ -128,7 +128,10 @@ class SystemInfo(private val activity: Activity) {
   fun openBrowser(url: String): Boolean {
     val uri = android.net.Uri.parse(url)
     if (uri.scheme != "https" && uri.scheme != "http") return false
-    val intent = Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE)
+    // a new tab: the browser would bring back the one it had for this app
+    val intent = Intent(Intent.ACTION_VIEW, uri)
+      .addCategory(Intent.CATEGORY_BROWSABLE)
+      .putExtra(android.provider.Browser.EXTRA_CREATE_NEW_TAB, true)
     return try {
       activity.runOnUiThread { activity.startActivity(intent) }
       true

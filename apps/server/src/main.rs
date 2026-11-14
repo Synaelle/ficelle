@@ -7,6 +7,7 @@ mod accounts;
 mod admin;
 mod api;
 mod app_codes;
+mod app_links;
 mod backups;
 mod cli;
 mod clock;
@@ -410,7 +411,8 @@ fn spawn_cleanup(state: AppState) {
                     Ok(accounts::store::cleanup(c, now)?
                         + accounts::profile::trim_audit(c, now - keep)?
                         + webapp::cleanup(c, now)?
-                        + app_codes::cleanup(c, now)?)
+                        + app_codes::cleanup(c, now)?
+                        + app_links::cleanup(c, now)?)
                 })
                 .await
             {

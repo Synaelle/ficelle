@@ -340,7 +340,7 @@ function lastDevice(): string | undefined {
  * once the app has its own session. */
 export function thisDevice() {
   const web = route() === '/web/'
-  const connect = route() === '/connect'
+  const connect = route() === '/connect' || route() === '/link'
   const ua = navigator.userAgent
   const browser = /firefox/i.test(ua)
     ? 'Firefox'

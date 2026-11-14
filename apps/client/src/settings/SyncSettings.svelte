@@ -17,6 +17,7 @@
   import {
     isSyncError,
     sync,
+    type LinkStarted,
     type SecondFactor,
     type ServerCheck,
     type SyncState,
@@ -25,7 +26,7 @@
   import { localSync, type LocalDevice } from '../lib/localSync.svelte'
   import FilesSettings from './FilesSettings.svelte'
   import PairDialog from './PairDialog.svelte'
-  import { LINUX, MAC, WINDOWS } from '../lib/platform'
+  import { ANDROID, LINUX, MAC, WINDOWS } from '../lib/platform'
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'
@@ -150,7 +151,7 @@
   }
 
   function reset() {
-    if (browserLink) stopBrowser()
+    if (browserLink || linking) stopBrowser()
     checked = null
     plainOk = false
     methods = null
@@ -191,8 +192,30 @@
    * to open by hand when no browser came up. */
   let browserLink = $state('')
   let linkCopied = $state(false)
+  /** A code waiting to be typed on the server's page. */
+  let linking: LinkStarted | null = $state(null)
+
+  /** A phone signs in with a code, its browser may not hand an answer
+   * back: the page opens here with the code filled in. A computer can use
+   * one too, typed on another device that has the passkey. */
+  function signInWithCode(openHere: boolean) {
+    const server = checked?.address ?? status.server
+    if (!server) return
+    void run(async () => {
+      linking = await sync.linkStart(server)
+      if (openHere) openPage()
+    })
+  }
+
+  function openPage() {
+    if (linking) window.AppSystem?.openBrowser?.(linking.url)
+  }
 
   function signInBrowser() {
+    if (ANDROID) {
+      signInWithCode(true)
+      return
+    }
     const server = checked?.address ?? status.server
     if (!server) return
     void run(async () => {
@@ -205,11 +228,12 @@
 
   function stopBrowser() {
     browserLink = ''
+    linking = null
     void sync.browserCancel()
   }
 
   async function copyLink() {
-    await copyText(browserLink).catch(() => {})
+    await copyText(linking?.url ?? browserLink).catch(() => {})
     linkCopied = true
     setTimeout(() => (linkCopied = false), 2000)
   }
@@ -220,6 +244,7 @@
     if (!ended) return
     sync.browserEnded = null
     browserLink = ''
+    linking = null
     if (ended.error) error = explain(ended.error)
     else reset()
   })
@@ -668,7 +693,13 @@
         {:else}
           <h3 class="sign-in">{t('sync.signInTo', { server: status.server ?? '' })}</h3>
         {/if}
-        {#if byBrowser && browserLink}
+        {#if byBrowser && linking}
+          <Group note={t('sync.codeHelp', { page: linking.page, appName: brand.displayName })}>
+            <Row label={t('sync.code')}>
+              <span class="link-code">{linking.code}</span>
+            </Row>
+          </Group>
+        {:else if byBrowser && browserLink}
           <Group note={t('sync.browserWaitingHelp')}>
             <Row label={t('sync.browserWaiting')}>
               <button class="btn" type="button" onclick={copyLink}
@@ -710,7 +741,7 @@
           </label>
         {/if}
         <div class="settings-buttons">
-          {#if browserLink}
+          {#if browserLink || linking}
             <button class="btn" type="button" onclick={stopBrowser}>{t('common.cancel')}</button>
           {:else if status.state === 'signedOut'}
             <button class="btn" type="button" onclick={() => (confirming = true)}
@@ -719,7 +750,17 @@
           {:else}
             <button class="btn" type="button" onclick={reset}>{t('common.back')}</button>
           {/if}
-          {#if byBrowser}
+          {#if byBrowser && linking && !ANDROID}
+            <button class="btn" type="button" onclick={copyLink}
+              ><Icon name={linkCopied ? 'check' : 'copy'} size={16} />{linkCopied
+                ? t('sync.linkCopied')
+                : t('sync.copyLink')}</button
+            >
+          {:else if byBrowser && linking}
+            <button class="btn primary" type="button" onclick={openPage}
+              >{t('sync.browserAgain')}</button
+            >
+          {:else if byBrowser}
             <button
               class="btn primary"
               type="button"
@@ -736,6 +777,14 @@
             >
           {/if}
         </div>
+        {#if byBrowser && !ANDROID && !linking}
+          <button
+            class="link-button"
+            type="button"
+            disabled={busy || (plain && !plainOk)}
+            onclick={() => signInWithCode(false)}>{t('sync.codeInstead')}</button
+          >
+        {/if}
         {#if confirming}
           <p class="settings-help">{t('sync.disconnectHelp')}</p>
           <div class="settings-buttons">
@@ -776,6 +825,23 @@
 {/if}
 
 <style>
+  .link-code {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    letter-spacing: 0.08em;
+    user-select: all;
+  }
+  .link-button {
+    justify-self: end;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-accent);
+    font: inherit;
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
   .tabs {
     display: flex;
     gap: var(--space-1);

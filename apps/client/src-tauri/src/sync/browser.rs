@@ -5,25 +5,35 @@
 //! app's webview lacks, passkeys and single sign-on above all, and the
 //! person signs in where the server is, not in a form any app could draw.
 //!
-//! The app opens `<server>/connect` with a PKCE challenge, a state, its
-//! device name, a one-time public key and where to answer: a listener on
-//! this computer's loopback for this sign-in only, or the app's own scheme
-//! on Android. The page answers a code, the app trades it with the verifier
-//! for its session. An encrypted account's export key comes sealed to the
-//! one-time key, the server cannot open it. One sign-in waits at a time, in
-//! memory only.
+//! Two ways, one waiting at a time, in memory only:
+//!
+//! - On a computer, the app opens `<server>/connect` with a PKCE challenge,
+//!   a state, its device name, a one-time public key and a listener on this
+//!   computer's loopback for this sign-in only. The page answers a code
+//!   there, the app trades it with the verifier for its session.
+//! - With a code, on a phone or for another device's browser: the app asks
+//!   the server for a code, the person types it on `<server>/link` (the
+//!   phone opens that page with the code filled in) and agrees, and the app
+//!   asks every few seconds until the server hands over its session. No
+//!   browser has to send anything back to the app, which some phone
+//!   browsers will not do.
+//!
+//! An encrypted account's export key comes sealed to the one-time key, the
+//! server cannot open it.
 
 use std::sync::Mutex;
+use std::time::Duration;
 
 use app_e2ee::Handoff;
-use app_protocol::account::{AppToken, AppTokenRequest};
+use app_protocol::account::{AppLink, AppLinkRequest, AppLinkTokenRequest, AppToken};
 use app_protocol::e2ee::AccountKind;
-use serde::Deserialize;
-use tauri::{AppHandle, Manager, State};
+use app_protocol::error_code;
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use super::SyncStatus;
-use super::commands::{blocking, can_sign_in, invalid, link};
-use super::http::{Api, normalize};
+use super::commands::{can_sign_in, invalid, link};
+use super::http::{Api, HttpError, normalize};
 use super::sign_in::{self, SignInError};
 use crate::state::AppState;
 
@@ -33,7 +43,6 @@ pub struct PendingBrowser(Mutex<Option<Waiting>>);
 
 pub struct Waiting {
     api: Api,
-    redirect: String,
     handoff: Handoff,
 }
 
@@ -56,7 +65,7 @@ impl PendingBrowser {
         }
     }
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(desktop)]
     fn waits_for(&self, state: &str) -> bool {
         self.slot()
             .as_ref()
@@ -68,26 +77,150 @@ impl PendingBrowser {
 /// language.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    target_os = "android",
-    expect(dead_code, reason = "the phone's page shows its own words")
-)]
+#[cfg_attr(mobile, expect(dead_code, reason = "a phone signs in with a code"))]
 pub struct BrowserPage {
     done: String,
     failed: String,
 }
 
 /// How a sign-in through the browser ended, for the settings.
-#[cfg(not(target_os = "android"))]
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Ended {
     status: Option<SyncStatus>,
     error: Option<SignInError>,
 }
 
-/// Opens the server's sign-in page. Returns its address, for the page to
-/// open on Android and to offer as a link when no browser came up.
+impl Ended {
+    fn of(result: Result<SyncStatus, SignInError>) -> Self {
+        match result {
+            Ok(status) => Self {
+                status: Some(status),
+                error: None,
+            },
+            Err(error) => Self {
+                status: None,
+                error: Some(error),
+            },
+        }
+    }
+}
+
+/// Tells the settings, and brings the app to the front.
+fn announce(app: &AppHandle, ended: Ended) {
+    let _ = app.emit("sync-browser", ended);
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.set_focus();
+    }
+}
+
+/// A code to sign in with, for the settings to show.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkStarted {
+    /// `ABCD-EFGH`.
+    code: String,
+    /// Where it is typed, `<server>/link`.
+    page: String,
+    /// The same page with the code filled in, for this device's browser.
+    url: String,
+    expires_at: i64,
+}
+
+/// Asks the server for a code and waits in the background until it is
+/// approved on the server's page. The end comes as a `sync-browser` event.
+#[tauri::command]
+pub async fn sync_link_start(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    address: String,
+) -> Result<LinkStarted, SignInError> {
+    can_sign_in(&state)?;
+    let server = normalize(&address).map_err(|why| invalid(why, "not a server address"))?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let handoff = Handoff::new();
+        let api = Api::new(&server);
+        let given: AppLink = api
+            .post(
+                "/auth/app/link",
+                None,
+                &AppLinkRequest {
+                    challenge: handoff.challenge.clone(),
+                    key: handoff.public_key(),
+                    device: sign_in::device(),
+                },
+            )?
+            .parse()?;
+        let started = LinkStarted {
+            page: format!("{server}/link"),
+            // a phone's browser brings back the tab it had for this app when
+            // only the # part differs: each sign-in's address is its own
+            url: format!(
+                "{server}/link?for={}#code={}",
+                given.expires_at,
+                escape(&given.code)
+            ),
+            code: given.code.clone(),
+            expires_at: given.expires_at,
+        };
+        let id = handoff.state.clone();
+        // a newer sign-in takes the place of one still waiting
+        *app.state::<PendingBrowser>().slot() = Some(Waiting { api, handoff });
+        let wait = Duration::from_secs(u64::from(given.interval.clamp(1, 30)));
+        std::thread::spawn(move || ask_until_approved(&app, &id, &given.code, wait));
+        Ok(started)
+    })
+    .await
+    .map_err(|e| invalid("internal", &e.to_string()))?
+}
+
+/// Asks the server whether the code was approved, every `wait`, until it
+/// is, it expires, or the sign-in is cancelled or replaced. A phone that
+/// loses the network for a moment keeps asking.
+fn ask_until_approved(app: &AppHandle, id: &str, code: &str, wait: Duration) {
+    let pending = app.state::<PendingBrowser>();
+    loop {
+        std::thread::sleep(wait);
+        let Some((api, verifier)) = pending
+            .slot()
+            .as_ref()
+            .filter(|w| w.handoff.state == id)
+            .map(|w| (w.api.clone(), w.handoff.verifier.to_string()))
+        else {
+            return;
+        };
+        let answer = api.post(
+            "/auth/app/link/token",
+            None,
+            &AppLinkTokenRequest {
+                code: code.to_owned(),
+                verifier,
+            },
+        );
+        let ended = match answer {
+            Err(HttpError::Api { body, .. }) if body.error == error_code::LINK_PENDING => continue,
+            Err(HttpError::Offline(_)) => continue,
+            Err(HttpError::Api { body, .. }) if body.error == error_code::LINK_INVALID => {
+                Err(invalid("expired", "sign in again"))
+            }
+            Err(err) => Err(SignInError::from(err)),
+            Ok(answer) => answer.parse::<AppToken>().map_err(SignInError::from),
+        };
+        let Some(waiting) = pending.take(id) else {
+            return;
+        };
+        announce(
+            app,
+            Ended::of(ended.and_then(|token| finish(app, &waiting, token))),
+        );
+        return;
+    }
+}
+
+/// Opens the server's sign-in page in the browser, with a listener on the
+/// loopback for its answer. Returns its address, to offer as a link when no
+/// browser came up.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn sync_browser_start(
     app: AppHandle,
@@ -99,11 +232,7 @@ pub async fn sync_browser_start(
     can_sign_in(&state)?;
     let server = normalize(&address).map_err(|why| invalid(why, "not a server address"))?;
     let handoff = Handoff::new();
-    #[cfg(not(target_os = "android"))]
     let (redirect, listener) = loopback::bind()?;
-    // this build's own scheme, which the activity's intent filter takes
-    #[cfg(target_os = "android")]
-    let redirect = format!("{}:/connect", app.config().identifier);
     let device = sign_in::device();
     let url = format!(
         "{server}/connect#{}",
@@ -120,45 +249,30 @@ pub async fn sync_browser_start(
         .collect::<Vec<_>>()
         .join("&")
     );
-    #[cfg(not(target_os = "android"))]
     {
         let app = app.clone();
         let state = handoff.state.clone();
-        std::thread::spawn(move || loopback::listen(&app, &listener, &state, &page));
+        let redirect = redirect.clone();
+        std::thread::spawn(move || loopback::listen(&app, &listener, &state, &redirect, &page));
     }
-    // on a phone the browser comes back to the app, which shows the result
-    #[cfg(target_os = "android")]
-    drop(page);
     // a newer sign-in takes the place of one still waiting
     *pending.slot() = Some(Waiting {
         api: Api::new(&server),
-        redirect,
         handoff,
     });
     // without a browser coming up the settings still offer the link
-    #[cfg(not(target_os = "android"))]
     if let Err(err) = open_in_browser(&url) {
         eprintln!("opening the browser: {err}");
     }
     Ok(url)
 }
 
-/// Android: the page sent the browser to the app's scheme, the activity
-/// handed the address on.
+/// Phones sign in with a code, see [`sync_link_start`].
+#[cfg(mobile)]
 #[tauri::command]
-pub async fn sync_browser_finish(app: AppHandle, url: String) -> Result<SyncStatus, SignInError> {
-    let (redirect, query) = url
-        .split_once('?')
-        .ok_or_else(|| invalid("expired", "sign in again"))?;
-    let expected = {
-        let pending = app.state::<PendingBrowser>();
-        pending.slot().as_ref().map(|w| w.redirect.clone())
-    };
-    if expected.as_deref() != Some(redirect) {
-        return Err(invalid("expired", "sign in again"));
-    }
-    let query = query.to_owned();
-    blocking(move || complete(&app, &query)).await
+pub async fn sync_browser_start(address: String, page: BrowserPage) -> Result<String, SignInError> {
+    drop((address, page));
+    Err(invalid("browser", "a phone signs in with a code"))
 }
 
 /// Stops waiting, the settings closed the sign-in.
@@ -168,36 +282,8 @@ pub async fn sync_browser_cancel(pending: State<'_, PendingBrowser>) -> Result<(
     Ok(())
 }
 
-/// Trades the page's answer for the session and links this vault.
-fn complete(app: &AppHandle, query: &str) -> Result<SyncStatus, SignInError> {
-    let found = |name: &str| {
-        query
-            .split('&')
-            .find_map(|pair| pair.strip_prefix(name)?.strip_prefix('='))
-            .unwrap_or_default()
-    };
-    let waiting = app
-        .state::<PendingBrowser>()
-        .take(found("state"))
-        .ok_or_else(|| invalid("expired", "sign in again"))?;
-    if !found("error").is_empty() {
-        return Err(invalid(
-            "cancelled",
-            "the sign-in was cancelled on the server's page",
-        ));
-    }
-    let token: AppToken = waiting
-        .api
-        .post(
-            "/auth/app/token",
-            None,
-            &AppTokenRequest {
-                code: found("code").to_owned(),
-                verifier: waiting.handoff.verifier.to_string(),
-                redirect: waiting.redirect.clone(),
-            },
-        )?
-        .parse()?;
+/// The session the server handed over, checked, and this vault linked.
+fn finish(app: &AppHandle, waiting: &Waiting, token: AppToken) -> Result<SyncStatus, SignInError> {
     let state = app.state::<AppState>();
     let server = waiting.api.base().to_owned();
     // signed in to it as encrypted before: the server's word that it is
@@ -238,7 +324,7 @@ fn escape(value: &str) -> String {
 }
 
 /// Opens an address in the system's browser.
-#[cfg(not(target_os = "android"))]
+#[cfg(desktop)]
 pub fn open_in_browser(url: &str) -> std::io::Result<()> {
     let opener = if cfg!(windows) {
         "explorer"
@@ -253,22 +339,29 @@ pub fn open_in_browser(url: &str) -> std::io::Result<()> {
         .map(drop)
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(desktop)]
 mod loopback {
     use std::io::{BufRead, BufReader, Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::time::{Duration, Instant};
 
-    use tauri::{AppHandle, Emitter, Manager};
+    use app_protocol::account::{AppToken, AppTokenRequest};
+    use tauri::{AppHandle, Manager};
 
-    use super::{BrowserPage, Ended, PendingBrowser, SignInError, complete};
+    use super::{BrowserPage, Ended, PendingBrowser, SignInError, SyncStatus, announce, finish};
 
     /// How long the page has to answer: time to find a password or a key.
     const WAIT: Duration = Duration::from_mins(10);
 
     /// Takes requests on the loopback until the page's answer for `state`
     /// comes, the wait ends, or a newer sign-in takes its place.
-    pub fn listen(app: &AppHandle, listener: &TcpListener, state: &str, page: &BrowserPage) {
+    pub fn listen(
+        app: &AppHandle,
+        listener: &TcpListener,
+        state: &str,
+        redirect: &str,
+        page: &BrowserPage,
+    ) {
         let until = Instant::now() + WAIT;
         if listener.set_nonblocking(true).is_err() {
             return;
@@ -277,11 +370,8 @@ mod loopback {
         while Instant::now() < until && pending.waits_for(state) {
             match listener.accept() {
                 Ok((stream, _)) => {
-                    if let Some(ended) = serve(app, stream, state, page) {
-                        let _ = app.emit("sync-browser", ended);
-                        if let Some(main) = app.get_webview_window("main") {
-                            let _ = main.set_focus();
-                        }
+                    if let Some(ended) = serve(app, stream, state, redirect, page) {
+                        announce(app, ended);
                         return;
                     }
                 }
@@ -292,12 +382,9 @@ mod loopback {
             }
         }
         if pending.take(state).is_some() {
-            let _ = app.emit(
-                "sync-browser",
-                Ended {
-                    status: None,
-                    error: Some(super::invalid("expired", "sign in again")),
-                },
+            announce(
+                app,
+                Ended::of(Err(super::invalid("expired", "sign in again"))),
             );
         }
     }
@@ -317,6 +404,7 @@ mod loopback {
         app: &AppHandle,
         mut stream: TcpStream,
         state: &str,
+        redirect: &str,
         page: &BrowserPage,
     ) -> Option<Ended> {
         let line = request_line(&stream)?;
@@ -335,16 +423,7 @@ mod loopback {
             );
             return None;
         };
-        let ended = match complete(app, query) {
-            Ok(status) => Ended {
-                status: Some(status),
-                error: None,
-            },
-            Err(error) => Ended {
-                status: None,
-                error: Some(error),
-            },
-        };
+        let ended = Ended::of(trade(app, query, state, redirect));
         let text = if ended.error.is_none() {
             &page.done
         } else {
@@ -361,6 +440,44 @@ mod loopback {
             body.len()
         );
         Some(ended)
+    }
+
+    /// Trades the page's answer for the session and links this vault.
+    fn trade(
+        app: &AppHandle,
+        query: &str,
+        state: &str,
+        redirect: &str,
+    ) -> Result<SyncStatus, SignInError> {
+        let found = |name: &str| {
+            query
+                .split('&')
+                .find_map(|pair| pair.strip_prefix(name)?.strip_prefix('='))
+                .unwrap_or_default()
+        };
+        let waiting = app
+            .state::<PendingBrowser>()
+            .take(state)
+            .ok_or_else(|| super::invalid("expired", "sign in again"))?;
+        if !found("error").is_empty() {
+            return Err(super::invalid(
+                "cancelled",
+                "the sign-in was cancelled on the server's page",
+            ));
+        }
+        let token: AppToken = waiting
+            .api
+            .post(
+                "/auth/app/token",
+                None,
+                &AppTokenRequest {
+                    code: found("code").to_owned(),
+                    verifier: waiting.handoff.verifier.to_string(),
+                    redirect: redirect.to_owned(),
+                },
+            )?
+            .parse()?;
+        finish(app, &waiting, token)
     }
 
     /// The request line only, at most 4 KB, the rest is not needed.

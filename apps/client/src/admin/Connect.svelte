@@ -1,40 +1,65 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- An app signing in through this page. The app opened it with what the
-     sign-in needs after the #: its PKCE challenge, a state, where to send
-     the code, its device name and a one-time public key. The person signs
-     in afresh, agrees, and the page hands the app a code through that
-     address. An encrypted account's export key goes along, sealed to the
-     app's key: the server passes it on and cannot open it. -->
+<!-- An app signing in through this page, two ways. At /connect the app
+     opened it with what the sign-in needs after the #: its PKCE challenge, a
+     state, where to send the code, its device name and a one-time public
+     key, and the page hands the app a code through that address. At /link
+     the person types the code the app shows (or the app put it after the
+     #), the page finds the app behind it, and the app, asking the server
+     every few seconds, gets its session once the person agreed. Either way
+     the person signs in afresh, and an encrypted account's export key goes
+     along sealed to the app's key: the server passes it on and cannot open
+     it. -->
 <script lang="ts">
   import { brand } from '@app/brand'
   import { t } from '../lib/i18n.svelte'
-  import { api, auth, base, signOut, type AuthOptions, type SecondFactorNeeded } from './api.svelte'
+  import {
+    api,
+    ApiError,
+    auth,
+    base,
+    signOut,
+    type AuthOptions,
+    type SecondFactorNeeded,
+  } from './api.svelte'
   import { errorText } from './format'
   import SignIn from './SignIn.svelte'
 
   let {
     options,
+    byCode = false,
     initialProblem = '',
     initialSecond = null,
   }: {
     options: AuthOptions
+    /** At /link: the app waits for a typed code. */
+    byCode?: boolean
     initialProblem?: string
     initialSecond?: SecondFactorNeeded | null
   } = $props()
 
   interface Request {
     challenge: string
-    state: string
-    redirect: string
     device: string
     platform: string
     key: string
+    /** With a redirect, at /connect. */
+    state?: string
+    redirect?: string
+    /** With a code, at /link. */
+    code?: string
+  }
+
+  interface LinkInfo {
+    device: { name: string; platform: string }
+    key: string
+    challenge: string
   }
 
   /** Kept for the tab, a trip to single sign-on loses the address's #. */
   const KEY = 'connect-request'
 
   function fromAddress(): Request | null {
+    if (byCode) return null
     const found = new URLSearchParams(location.hash.slice(1))
     const take = (name: string, longest: number) => {
       const value = found.get(name) ?? ''
@@ -60,17 +85,30 @@
     }
   }
 
-  /** A new request from the app, or the one this tab was already on. */
-  const fresh = fromAddress()
-  const request = fresh ?? saved()
-  if (fresh) {
+  function keepRequest(found: Request) {
     try {
-      sessionStorage.setItem(KEY, JSON.stringify(fresh))
+      sessionStorage.setItem(KEY, JSON.stringify(found))
     } catch {
       // without storage only single sign-on loses its way back
     }
-    history.replaceState(null, '', location.pathname)
   }
+
+  /** The code the app put after the #, at /link. */
+  // svelte-ignore state_referenced_locally
+  const codeInAddress = byCode
+    ? (new URLSearchParams(location.hash.slice(1)).get('code') ?? '').slice(0, 12)
+    : ''
+
+  /** A new request from the app, or the one this tab was already on. */
+  const fresh = fromAddress()
+  // svelte-ignore state_referenced_locally
+  let request: Request | null = $state(
+    codeInAddress ? null : (fresh ?? (saved()?.code || !byCode ? saved() : null)),
+  )
+  if (fresh) keepRequest(fresh)
+  if (fresh || codeInAddress) history.replaceState(null, '', location.pathname)
+
+  let typedCode = $state(codeInAddress)
 
   /** The export key sealed at sign-in, for an encrypted account. */
   let sealed: string | undefined = $state()
@@ -79,13 +117,64 @@
   let problem = $state(initialProblem)
   /** Signing in again from the start, with this message. */
   let again = $state(0)
-  let step: 'signIn' | 'ask' | 'sent' | 'cancelled' = $state('signIn')
+  /** What the page starts on, read once. */
+  // svelte-ignore state_referenced_locally
+  const typeFirst = byCode && !request
+  let step: 'code' | 'signIn' | 'ask' | 'sent' | 'cancelled' = $state(typeFirst ? 'code' : 'signIn')
   let sentTo = $state('')
 
   // a session this tab held before the app's new request is not one the
   // person just gave for it
-  if (fresh && auth.session) void signOut()
-  else if (auth.session) void signedIn()
+  if ((fresh || typeFirst) && auth.session) void signOut()
+  else if (auth.session && !typeFirst) void signedIn()
+
+  /** The app behind a typed code, so its key is known before signing in. */
+  async function findApp(event?: SubmitEvent) {
+    event?.preventDefault()
+    busy = true
+    problem = ''
+    try {
+      const code = typedCode.trim()
+      const info = await api<LinkInfo>('POST', '/auth/app/link/find', { code })
+      request = {
+        challenge: info.challenge,
+        key: info.key,
+        device: info.device.name,
+        platform: info.device.platform,
+        code,
+      }
+      keepRequest(request)
+      step = 'signIn'
+    } catch (err) {
+      problem =
+        err instanceof ApiError && err.code === 'linkInvalid'
+          ? t('admin.connect.codeWrong', { app: brand.displayName })
+          : errorText(err)
+    } finally {
+      busy = false
+    }
+  }
+  if (codeInAddress) void findApp()
+
+  // a phone's browser may bring this tab back for the app's next code and
+  // only change what follows the #: that is a new sign-in
+  $effect(() => {
+    if (!byCode) return
+    const again = () => {
+      const code = new URLSearchParams(location.hash.slice(1)).get('code')
+      if (!code) return
+      history.replaceState(null, '', location.pathname)
+      void signOut()
+      forget()
+      request = null
+      sealed = undefined
+      typedCode = code.slice(0, 12)
+      step = 'code'
+      void findApp()
+    }
+    window.addEventListener('hashchange', again)
+    return () => window.removeEventListener('hashchange', again)
+  })
 
   async function signedIn(key?: string) {
     sealed = key
@@ -101,15 +190,19 @@
     step = 'ask'
   }
 
-  function back(params: Record<string, string>) {
-    if (!request) return
-    const query = new URLSearchParams({ ...params, state: request.state })
-    sentTo = `${request.redirect}?${query}`
+  function forget() {
     try {
       sessionStorage.removeItem(KEY)
     } catch {
       // gone with the tab anyway
     }
+  }
+
+  function back(params: Record<string, string>) {
+    if (!request?.redirect || !request.state) return
+    const query = new URLSearchParams({ ...params, state: request.state })
+    sentTo = `${request.redirect}?${query}`
+    forget()
     location.replace(sentTo)
   }
 
@@ -118,6 +211,14 @@
     busy = true
     problem = ''
     try {
+      if (request.code) {
+        await api('POST', '/auth/app/link/approve', { code: request.code, sealed })
+        // the app asks the server for its session, this page's is done
+        await signOut()
+        forget()
+        step = 'sent'
+        return
+      }
       const { code } = await api<{ code: string }>('POST', '/auth/app/code', {
         redirect: request.redirect,
         challenge: request.challenge,
@@ -138,11 +239,36 @@
   async function cancel() {
     await signOut()
     step = 'cancelled'
+    forget()
     back({ error: 'access_denied' })
   }
 </script>
 
-{#if !request}
+{#if step === 'code'}
+  <main class="screen">
+    <form class="card" onsubmit={findApp}>
+      <h1>{t('admin.connect.codeTitle', { app: brand.displayName })}</h1>
+      <p class="muted">{t('admin.connect.codeHelp', { app: brand.displayName })}</p>
+      <label>
+        {t('admin.connect.code')}
+        <input
+          class="field mono"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          maxlength="9"
+          placeholder="ABCD-EFGH"
+          required
+          bind:value={typedCode}
+        />
+      </label>
+      {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+      <button class="btn primary" type="submit" disabled={busy}
+        >{t('admin.connect.continue')}</button
+      >
+    </form>
+  </main>
+{:else if !request}
   <main class="center">
     <p role="alert">{t('admin.connect.broken', { app: brand.displayName })}</p>
   </main>
@@ -153,7 +279,7 @@
       {options}
       heading={t('admin.connect.title', { app: brand.displayName })}
       forApp={{ key: request.key, challenge: request.challenge }}
-      returnTo={`${base}connect`}
+      returnTo={`${base}${byCode ? 'link' : 'connect'}`}
       initialProblem={problem}
       initialSecond={again ? null : initialSecond}
       done={signedIn}
@@ -191,7 +317,7 @@
           : t('admin.connect.cancelled')}
       </h1>
       <p class="muted">{t('admin.connect.doneHelp')}</p>
-      {#if step === 'sent'}
+      {#if step === 'sent' && sentTo}
         <!-- a browser that held back the automatic switch still follows a tap -->
         <a class="btn" href={sentTo}>{t('admin.connect.openApp', { app: brand.displayName })}</a>
       {/if}
@@ -235,5 +361,15 @@
   }
   .btn {
     justify-content: center;
+  }
+  label {
+    display: grid;
+    gap: var(--space-1);
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 </style>
