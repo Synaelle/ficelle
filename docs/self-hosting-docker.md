@@ -4,8 +4,17 @@ The server is one container, `ghcr.io/synaelle/ficelle-server`, with its data in
 
 ## Install
 
+Docker should run without sudo for the account that runs the server. If `docker ps` asks for it, add that account to the `docker` group once, then sign out and back in. Membership in this group is as strong as root on the machine, so keep it to whoever runs the server. Rootless Docker works too.
+
 ```bash
-mkdir -p /opt/ficelle && cd /opt/ficelle
+sudo usermod -aG docker "$USER"
+```
+
+Give the server's folder to that account once. Nothing after this needs sudo, apart from installing the update timer.
+
+```bash
+sudo install -d -o "$USER" -g "$USER" /opt/ficelle
+cd /opt/ficelle
 curl -fsSLO https://raw.githubusercontent.com/Synaelle/ficelle/main/deploy/compose.yml
 curl -fsSL -o .env https://raw.githubusercontent.com/Synaelle/ficelle/main/deploy/.env.example
 ```
@@ -34,6 +43,8 @@ docker compose logs server | grep setup
 The setup checks the proxy, creates the admin with a passkey or an authenticator app, and offers backups. Then sign in from the apps with the server's address.
 
 ## Updates
+
+The timer runs as a system service, so installing it is the one step that needs sudo.
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/Synaelle/ficelle/main/deploy/update/install-server-update

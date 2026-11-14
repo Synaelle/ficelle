@@ -11,7 +11,7 @@ tools/docker/build.sh            # both
 tools/docker/build.sh appimage   # or one of them
 ```
 
-The files land in `target/docker`, or in the folder `OUT_DIR` names. If your user cannot reach Docker, run it with `DOCKER="sudo docker"`.
+The files land in `target/docker`, or in the folder `OUT_DIR` names. Your account needs to reach Docker without sudo, through the `docker` group or rootless Docker.
 
 The image is Ubuntu 22.04 with every tool at the version the workflows use, about 9 GB. Caches stay in the `ficelle-build-cache` volume, about 20 GB after both builds, so later builds only redo what changed. `docker volume rm ficelle-build-cache` frees the space. The container gets 8 GB of memory and half the cores, and `BUILD_MEMORY=12g` raises the memory if a build stops for lack of it.
 
