@@ -131,6 +131,11 @@
   // run now, later ones when MainActivity says they arrived.
   async function runInbox() {
     for (const item of takeInbox()) {
+      // the settings wait for the sign-in, they stay open
+      if (item.kind === 'connect') {
+        void sync.browserFinish(item.url)
+        continue
+      }
       settingsOpen = false
       if (item.kind === 'newNote') await workspace.create()
       else if (item.kind === 'share') await saveShare(item)

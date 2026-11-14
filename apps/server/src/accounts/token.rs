@@ -31,6 +31,8 @@ pub enum Kind {
     Setup,
     /// The web version's sign-in cookie.
     Web,
+    /// Hands a sign-in on the server's page to the app that opened it.
+    AppCode,
 }
 
 impl Kind {
@@ -44,6 +46,7 @@ impl Kind {
             Self::SetupLink => "sl_",
             Self::Setup => "su_",
             Self::Web => "wv_",
+            Self::AppCode => "ac_",
         }
     }
 }

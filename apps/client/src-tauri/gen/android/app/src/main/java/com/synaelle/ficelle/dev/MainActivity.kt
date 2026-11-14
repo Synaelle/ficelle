@@ -123,6 +123,20 @@ class SystemInfo(private val activity: Activity) {
     return dir.absolutePath
   }
 
+  /** Opens a web page in the phone's browser: the sync server's sign-in. */
+  @JavascriptInterface
+  fun openBrowser(url: String): Boolean {
+    val uri = android.net.Uri.parse(url)
+    if (uri.scheme != "https" && uri.scheme != "http") return false
+    val intent = Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE)
+    return try {
+      activity.runOnUiThread { activity.startActivity(intent) }
+      true
+    } catch (e: android.content.ActivityNotFoundException) {
+      false
+    }
+  }
+
   /** Whether the phone shows a 24-hour clock, for times in the app to match. */
   @JavascriptInterface
   fun clock24h(): Boolean = android.text.format.DateFormat.is24HourFormat(activity)

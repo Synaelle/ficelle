@@ -40,6 +40,8 @@ pub fn router() -> Router<AppState> {
         .route("/privacy", get(admin_page))
         // the setup link, its token after `#` stays in the browser
         .route("/setup", get(admin_page))
+        // an app's sign-in, what the app sends stays after `#` too
+        .route("/connect", get(admin_page))
         .route("/assets/{file}", get(asset))
         // the fonts the apps download, mirrored at build (tools/fonts-mirror.mjs)
         .route("/fonts/{font}/{file}", get(font))

@@ -47,6 +47,30 @@ pub fn sign_in_finish(
     Ok(json!({ "finalization": finish.finalization }).to_string())
 }
 
+/// Last step of signing in for an app that opened this page to sign in:
+/// `{"finalization", "sealed"}`, the export key sealed to the app's public
+/// key for this sign-in's challenge, so only that app opens it.
+///
+/// # Errors
+///
+/// As [`sign_in_finish`], or a public key that is not one.
+#[wasm_bindgen(js_name = signInFinishForApp)]
+pub fn sign_in_finish_for_app(
+    state: &str,
+    password: &str,
+    response: &str,
+    username: &str,
+    ksf: u8,
+    app_key: &str,
+    challenge: &str,
+) -> Result<String, JsError> {
+    let ksf = Ksf::from_number(ksf).ok_or_else(|| JsError::new("unknown password stretching"))?;
+    let finish = login_finish(state, password, response, username, ksf).map_err(|e| fail(&e))?;
+    let sealed =
+        app_e2ee::seal_export_key(&finish.export_key, app_key, challenge).map_err(|e| fail(&e))?;
+    Ok(json!({ "finalization": finish.finalization, "sealed": sealed }).to_string())
+}
+
 /// First step of signing up: `{"state", "request"}`.
 ///
 /// # Errors

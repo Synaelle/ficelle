@@ -876,18 +876,7 @@ mod page {
             || releases_in(app_brand::APP_UPDATES_URL).to_owned(),
             |version| release_page(&version),
         );
-        let opener = if cfg!(windows) {
-            "explorer"
-        } else if cfg!(target_os = "macos") {
-            "open"
-        } else {
-            "xdg-open"
-        };
-        std::process::Command::new(opener)
-            .arg(page)
-            .spawn()
-            .map(drop)
-            .map_err(|e| failed("unknown", e))
+        crate::sync::browser::open_in_browser(&page).map_err(|e| failed("unknown", e))
     }
 }
 

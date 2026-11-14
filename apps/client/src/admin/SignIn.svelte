@@ -22,7 +22,7 @@
     type SecondFactorNeeded,
     type Session,
   } from './api.svelte'
-  import { kindOf, signIn as e2eeSignIn, signUp as e2eeSignUp } from './e2ee'
+  import { kindOf, signIn as e2eeSignIn, signUp as e2eeSignUp, type AppKey } from './e2ee'
   import { errorText } from './format'
   import { passkeysSupported, usePasskey } from './webauthn'
 
@@ -33,6 +33,8 @@
     initialProblem = '',
     initialSecond = null,
     heading = '',
+    forApp,
+    returnTo = `${base}admin`,
     done,
   }: {
     setup: boolean
@@ -43,7 +45,12 @@
     initialSecond?: SecondFactorNeeded | null
     /** In place of the admin page's title, for the web version's sign-in. */
     heading?: string
-    done: () => void
+    /** Signing an app in: an encrypted account's export key is sealed to it. */
+    forApp?: AppKey
+    /** Where single sign-on comes back to. */
+    returnTo?: string
+    /** Signed in, with the export key sealed for `forApp`. */
+    done: (sealed?: string) => void
   } = $props()
 
   const mode = $derived(invite ? 'register' : setup ? 'setup' : 'signIn')
@@ -151,9 +158,13 @@
     }
   }
 
+  /** The export key sealed at the password step, handed on once the second
+   * step is through too. */
+  let sealed: string | undefined
+
   function signedIn(session: Session) {
     keep(session)
-    done()
+    done(sealed)
   }
 
   /** Without a username the browser offers the passkeys it holds for this
@@ -175,9 +186,7 @@
 
   async function signInWithSso() {
     await attempt(async () => {
-      const { url } = await api<{ url: string }>('POST', '/auth/sso/start', {
-        returnTo: `${base}admin`,
-      })
+      const { url } = await api<{ url: string }>('POST', '/auth/sso/start', { returnTo })
       location.assign(url)
     })
   }
@@ -216,6 +225,7 @@
 
   function startOver() {
     second = null
+    sealed = undefined
     factorCode = ''
     recovery = false
     byEmail = false
@@ -243,11 +253,17 @@
       } else if (mode === 'register')
         signedIn(await api('POST', '/auth/register', { username, password, invite, device }))
       else {
-        const answer = (
-          (await kindOf(username)) === 'e2ee'
-            ? await e2eeSignIn(username, password, device)
-            : await api('POST', '/auth/login', { username, password, device })
-        ) as Session | SecondFactorNeeded
+        let answer: Session | SecondFactorNeeded
+        if ((await kindOf(username)) === 'e2ee') {
+          const signed = await e2eeSignIn(username, password, device, forApp)
+          answer = signed.answer as Session | SecondFactorNeeded
+          sealed = signed.sealed
+        } else
+          answer = (await api('POST', '/auth/login', {
+            username,
+            password,
+            device,
+          })) as Session | SecondFactorNeeded
         if ('challenge' in answer) {
           second = answer
           password = ''

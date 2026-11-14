@@ -17,6 +17,7 @@
 
 mod client;
 mod files;
+mod handoff;
 mod keys;
 mod recovery;
 pub mod server;
@@ -33,6 +34,7 @@ pub use files::{
     SEALED_CHUNK, Sealer, file_address, files_key, files_key_from, open_file, plain_size,
     seal_file, sealed_size, space_files_key,
 };
+pub use handoff::{Handoff, open_export_key, seal_export_key};
 pub use keys::{AccountKeys, KeyBundle, MasterKey, NewAccount, new_account};
 pub use opaque_ke;
 pub use recovery::{generate as recovery_code, normalize as normalize_recovery_code};

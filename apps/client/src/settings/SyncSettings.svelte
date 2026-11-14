@@ -6,6 +6,8 @@
      one: connect to an account, see how sync stands, sync now or
      disconnect. A device uses one or the other, never both. -->
 <script lang="ts">
+  import { brand } from '@app/brand'
+  import { copyText } from '../lib/clipboard'
   import { hour12 } from '../lib/clock.svelte'
   import PasswordField from '../lib/PasswordField.svelte'
   import { currentLocale, t } from '../lib/i18n.svelte'
@@ -50,6 +52,8 @@
     'setupPending',
     'locked',
     'devicesPaired',
+    'cancelled',
+    'browser',
   ]
 
   const status = $derived(sync.status)
@@ -146,6 +150,7 @@
   }
 
   function reset() {
+    if (browserLink) stopBrowser()
     checked = null
     plainOk = false
     methods = null
@@ -175,6 +180,48 @@
     return () => {
       left = true
     }
+  })
+
+  /** The server signs apps in through its own page in the browser, where
+   * passkeys and single sign-on work. Older servers get the form. */
+  const byBrowser = $derived(
+    !!((checked as ServerCheck | null) ?? (linkedServer as ServerCheck | null))?.signInPage,
+  )
+  /** The sign-in page is open in the browser: its address, for the person
+   * to open by hand when no browser came up. */
+  let browserLink = $state('')
+  let linkCopied = $state(false)
+
+  function signInBrowser() {
+    const server = checked?.address ?? status.server
+    if (!server) return
+    void run(async () => {
+      browserLink = await sync.browserStart(server, {
+        done: t('sync.browserDone', { appName: brand.displayName }),
+        failed: t('sync.browserFailed', { appName: brand.displayName }),
+      })
+    })
+  }
+
+  function stopBrowser() {
+    browserLink = ''
+    void sync.browserCancel()
+  }
+
+  async function copyLink() {
+    await copyText(browserLink).catch(() => {})
+    linkCopied = true
+    setTimeout(() => (linkCopied = false), 2000)
+  }
+
+  // the browser answered: linked, or why not
+  $effect(() => {
+    const ended = sync.browserEnded
+    if (!ended) return
+    sync.browserEnded = null
+    browserLink = ''
+    if (ended.error) error = explain(ended.error)
+    else reset()
   })
 
   const protocolProblem = $derived.by(() => {
@@ -621,26 +668,40 @@
         {:else}
           <h3 class="sign-in">{t('sync.signInTo', { server: status.server ?? '' })}</h3>
         {/if}
-        <Group note={t('sync.passwordHelp')}>
-          <div class="field-row">
-            <input
-              class="field"
-              autocomplete="username"
-              placeholder={t('sync.username')}
-              aria-label={t('sync.username')}
-              bind:value={username}
-            />
-          </div>
-          <div class="field-row">
-            <PasswordField
-              class="field"
-              autocomplete="current-password"
-              placeholder={t('sync.password')}
-              aria-label={t('sync.password')}
-              bind:value={password}
-            />
-          </div>
-        </Group>
+        {#if byBrowser && browserLink}
+          <Group note={t('sync.browserWaitingHelp')}>
+            <Row label={t('sync.browserWaiting')}>
+              <button class="btn" type="button" onclick={copyLink}
+                ><Icon name={linkCopied ? 'check' : 'copy'} size={16} />{linkCopied
+                  ? t('sync.linkCopied')
+                  : t('sync.copyLink')}</button
+              >
+            </Row>
+          </Group>
+        {:else if byBrowser}
+          <p class="settings-help">{t('sync.browserHelp', { appName: brand.displayName })}</p>
+        {:else}
+          <Group note={t('sync.passwordHelp')}>
+            <div class="field-row">
+              <input
+                class="field"
+                autocomplete="username"
+                placeholder={t('sync.username')}
+                aria-label={t('sync.username')}
+                bind:value={username}
+              />
+            </div>
+            <div class="field-row">
+              <PasswordField
+                class="field"
+                autocomplete="current-password"
+                placeholder={t('sync.password')}
+                aria-label={t('sync.password')}
+                bind:value={password}
+              />
+            </div>
+          </Group>
+        {/if}
         {#if plain}
           <p role="alert">{t('sync.plainWarning')}</p>
           <label class="settings-check">
@@ -649,19 +710,31 @@
           </label>
         {/if}
         <div class="settings-buttons">
-          {#if status.state === 'signedOut'}
+          {#if browserLink}
+            <button class="btn" type="button" onclick={stopBrowser}>{t('common.cancel')}</button>
+          {:else if status.state === 'signedOut'}
             <button class="btn" type="button" onclick={() => (confirming = true)}
               >{t('sync.disconnect')}</button
             >
           {:else}
             <button class="btn" type="button" onclick={reset}>{t('common.back')}</button>
           {/if}
-          <button
-            class="btn primary"
-            type="submit"
-            disabled={busy || !username.trim() || !password || (plain && !plainOk)}
-            >{busy ? t('sync.signingIn') : t('sync.signIn')}</button
-          >
+          {#if byBrowser}
+            <button
+              class="btn primary"
+              type="button"
+              disabled={busy || (plain && !plainOk)}
+              onclick={signInBrowser}
+              >{browserLink ? t('sync.browserAgain') : t('sync.browserSignIn')}</button
+            >
+          {:else}
+            <button
+              class="btn primary"
+              type="submit"
+              disabled={busy || !username.trim() || !password || (plain && !plainOk)}
+              >{busy ? t('sync.signingIn') : t('sync.signIn')}</button
+            >
+          {/if}
         </div>
         {#if confirming}
           <p class="settings-help">{t('sync.disconnectHelp')}</p>

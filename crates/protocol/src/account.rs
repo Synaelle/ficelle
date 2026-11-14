@@ -111,6 +111,56 @@ pub struct Session {
     pub user: User,
 }
 
+/// `POST /api/v1/auth/app/code`: sent by the server's sign-in page once the
+/// person, signed in there, agreed to connect an app. The app opened that
+/// page with these in its address (RFC 8252, PKCE S256).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AppCodeRequest {
+    /// Where the browser goes back to the app: a loopback address on a
+    /// computer, the app's own scheme on a phone.
+    pub redirect: String,
+    /// Base64url SHA-256 of the app's secret verifier.
+    pub challenge: String,
+    /// The app's device, as the account's device list will show it.
+    pub device: DeviceInfo,
+    /// E2ee: the password's export key, sealed by the page to the app's key
+    /// for this sign-in. The server only passes it along.
+    #[serde(default)]
+    pub sealed: Option<String>,
+}
+
+/// The one-use code the page hands back to the app through its address.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppCode {
+    /// Works once, for two minutes.
+    pub code: String,
+}
+
+/// `POST /api/v1/auth/app/token`: the app trades the code for its session.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AppTokenRequest {
+    /// The code the page handed back.
+    pub code: String,
+    /// The secret the challenge was made from.
+    pub verifier: String,
+    /// The same redirect the page was given.
+    pub redirect: String,
+}
+
+/// The app's session, and for an e2ee account the sealed export key.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppToken {
+    /// The app's own session, a device of its own.
+    pub session: Session,
+    /// E2ee: what the page sealed for the app, as it was given.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sealed: Option<String>,
+}
+
 /// Account role.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

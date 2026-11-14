@@ -36,6 +36,8 @@ pub struct ServerCheck {
     /// The protocol versions it speaks, shown in About.
     min_protocol: u32,
     max_protocol: u32,
+    /// It signs apps in through its own page, see [`super::browser`].
+    sign_in_page: bool,
 }
 
 /// How a sign-in went.
@@ -48,7 +50,7 @@ pub struct SignInAnswer {
     second_factor: Option<Vec<SecondFactor>>,
 }
 
-fn invalid(code: &str, message: &str) -> SignInError {
+pub(super) fn invalid(code: &str, message: &str) -> SignInError {
     SignInError {
         code: code.into(),
         message: message.into(),
@@ -56,7 +58,7 @@ fn invalid(code: &str, message: &str) -> SignInError {
     }
 }
 
-async fn blocking<T: Send + 'static>(
+pub(super) async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, SignInError> + Send + 'static,
 ) -> Result<T, SignInError> {
     tauri::async_runtime::spawn_blocking(f)
@@ -103,10 +105,11 @@ fn check(address: &str) -> Result<ServerCheck, SignInError> {
         options,
         min_protocol: info.min_protocol,
         max_protocol: info.max_protocol,
+        sign_in_page: info.sign_in_page,
     })
 }
 
-fn link(
+pub(super) fn link(
     app: &AppHandle,
     state: &AppState,
     server: &str,
@@ -174,6 +177,18 @@ fn answer(
     }
 }
 
+/// A vault open and not syncing with paired devices.
+pub(super) fn can_sign_in(state: &AppState) -> Result<(), SignInError> {
+    if state.session().is_none() {
+        return Err(invalid("locked", "unlock the vault first"));
+    }
+    // one way to sync per vault: forget the paired devices first
+    if state.quietly(|s| s.store.devices_paired()).unwrap_or(false) {
+        return Err(invalid("devicesPaired", app_core::store::DEVICES_PAIRED));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sync_sign_in(
     app: AppHandle,
@@ -183,13 +198,7 @@ pub async fn sync_sign_in(
     username: String,
     password: String,
 ) -> Result<SignInAnswer, SignInError> {
-    if state.session().is_none() {
-        return Err(invalid("locked", "unlock the vault first"));
-    }
-    // one way to sync per vault: forget the paired devices first
-    if state.quietly(|s| s.store.devices_paired()).unwrap_or(false) {
-        return Err(invalid("devicesPaired", app_core::store::DEVICES_PAIRED));
-    }
+    can_sign_in(&state)?;
     let address = normalize(&address).map_err(|why| invalid(why, "not a server address"))?;
     let server = address.clone();
     let known_e2ee = state

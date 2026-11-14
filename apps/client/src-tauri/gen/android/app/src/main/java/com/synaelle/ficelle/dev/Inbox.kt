@@ -18,8 +18,8 @@ import org.json.JSONObject
 /** The largest file a share copies in, 512 MB. */
 private const val MAX_SHARED_BYTES = 512L * 1024 * 1024
 
-// Shares from other apps, the icon's quick actions and taps on the home
-// screen widget arrive as intents, often before the page is loaded or the
+// Shares from other apps, the icon's quick actions, taps on the home
+// screen widget and the sync server's sign-in answer arrive as intents, often before the page is loaded or the
 // notes are unlocked. They wait here until the page takes them
 // (lib/inbox.ts). Shared files are copied into the app's cache right away,
 // the other app's permission to read them ends with its intent.
@@ -40,6 +40,13 @@ class Inbox(private val activity: Activity) {
       search -> add(JSONObject().put("kind", "search"))
       openNote -> intent.getStringExtra("noteId")?.let {
         add(JSONObject().put("kind", "openNote").put("id", it))
+      }
+      Intent.ACTION_VIEW -> intent.data?.let { uri ->
+        // the sync server's page answering a sign-in, the Rust side checks
+        // it against the one it started
+        if (uri.scheme == activity.packageName && uri.path == "/connect") {
+          add(JSONObject().put("kind", "connect").put("url", uri.toString()))
+        }
       }
     }
   }

@@ -336,9 +336,11 @@ function lastDevice(): string | undefined {
 
 /** A short device name for the admin page in the device list, and the
  * sign-in it takes the place of. The web version's sign-in is a device of
- * its own, it replaces none. */
+ * its own, it replaces none, and so is connecting an app, which signs out
+ * once the app has its own session. */
 export function thisDevice() {
   const web = route() === '/web/'
+  const connect = route() === '/connect'
   const ua = navigator.userAgent
   const browser = /firefox/i.test(ua)
     ? 'Firefox'
@@ -349,6 +351,7 @@ export function thisDevice() {
         : /safari/i.test(ua)
           ? 'Safari'
           : 'Browser'
+  if (connect) return { name: `${browser}, connecting an app`, platform: 'web' }
   return web
     ? { name: `${browser}, web version`, platform: 'web' }
     : { name: `${browser}, admin page`, platform: 'web', replaces: lastDevice() }

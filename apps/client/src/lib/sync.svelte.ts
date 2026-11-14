@@ -46,6 +46,14 @@ export interface ServerCheck {
   /** The sync protocol versions the server speaks. */
   minProtocol?: number
   maxProtocol?: number
+  /** It signs apps in through its own page in the browser. */
+  signInPage?: boolean
+}
+
+/** How a sign-in through the server's page in the browser ended. */
+export interface BrowserEnded {
+  status: SyncStatus | null
+  error: SyncError | null
 }
 
 export type SecondFactor = 'totp' | 'recoveryCode' | 'passkey' | 'email'
@@ -84,6 +92,8 @@ const native = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 class Sync {
   readonly available = native
   status: SyncStatus = $state(OFF)
+  /** The last sign-in through the browser that ended, for the settings. */
+  browserEnded: BrowserEnded | null = $state(null)
   private started = false
 
   /** Follows the sync thread. Called once the vault is open. */
@@ -102,6 +112,8 @@ class Sync {
       void workspace.remoteChanged()
       void takeSyncedPrefs()
     })
+    // the browser answered a sign-in on this computer
+    await listen<BrowserEnded>('sync-browser', (event) => this.browserDone(event.payload))
     // files that arrived: the open note shows them
     await listen('files-changed', () => window.dispatchEvent(new Event(FILES_CHANGED)))
     this.status = await invoke<SyncStatus>('sync_status')
@@ -136,6 +148,41 @@ class Sync {
     const answer = await invoke<SignInAnswer>('sync_sign_in', { address, username, password })
     if (answer.status) this.status = answer.status
     return answer
+  }
+
+  /** Opens the server's sign-in page in the browser. `page` is what the
+   * browser tab says once the app has the answer. Returns the page's
+   * address, to offer when no browser came up. */
+  async browserStart(address: string, page: { done: string; failed: string }): Promise<string> {
+    this.browserEnded = null
+    const url = await invoke<string>('sync_browser_start', { address, page })
+    // a computer's app opened it already, a phone's page does it
+    window.AppSystem?.openBrowser?.(url)
+    return url
+  }
+
+  /** The page's answer on a phone, from the inbox. */
+  async browserFinish(url: string) {
+    try {
+      this.browserDone({
+        status: await invoke<SyncStatus>('sync_browser_finish', { url }),
+        error: null,
+      })
+    } catch (err) {
+      this.browserDone({
+        status: null,
+        error: isSyncError(err) ? err : { code: 'other', message: String(err) },
+      })
+    }
+  }
+
+  browserCancel() {
+    return invoke('sync_browser_cancel')
+  }
+
+  private browserDone(ended: BrowserEnded) {
+    if (ended.status) this.status = ended.status
+    this.browserEnded = ended
   }
 
   /** Asks the server to email a code for the sign-in waiting. */

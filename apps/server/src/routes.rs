@@ -181,6 +181,7 @@ async fn info() -> Json<ServerInfo> {
         version: app_brand::VERSION.into(),
         min_protocol: MIN_PROTOCOL_VERSION,
         max_protocol: PROTOCOL_VERSION,
+        sign_in_page: true,
     })
 }
 
@@ -218,6 +219,7 @@ async fn check_protocol(req: Request, next: Next) -> Response {
         version: String::new(),
         min_protocol: MIN_PROTOCOL_VERSION,
         max_protocol: PROTOCOL_VERSION,
+        sign_in_page: true,
     };
     let refused = |code, side: &str| {
         Error::new(

@@ -6,6 +6,7 @@
 mod admin;
 mod auth;
 mod backups;
+mod connect;
 mod e2ee;
 pub mod extract;
 mod feedback;
@@ -132,6 +133,8 @@ pub fn router() -> Router<AppState> {
         .route("/admin/web", get(web::get).put(web::set))
         .route("/admin/web/limits", put(web::set_limits))
         .route("/web/session", post(web::session))
+        .route("/auth/app/code", post(connect::code))
+        .route("/auth/app/token", post(connect::token))
         .route("/admin/second-step", put(admin::set_second_step))
         .route(
             "/admin/one-person",
@@ -297,6 +300,8 @@ fn user_json(user: &UserRow) -> User {
 mod admin_tests;
 #[cfg(test)]
 mod backups_tests;
+#[cfg(test)]
+mod connect_tests;
 #[cfg(test)]
 mod e2ee_tests;
 #[cfg(test)]

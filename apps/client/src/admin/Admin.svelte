@@ -24,6 +24,7 @@
     type Session,
   } from './api.svelte'
   import { errorText } from './format'
+  import Connect from './Connect.svelte'
   import Panel from './Panel.svelte'
   import Public from './Public.svelte'
   import Setup from './Setup.svelte'
@@ -51,6 +52,9 @@
   /** The web version's sign-in: the server shows this page at `/web/` until
    * the browser holds the web version's cookie. */
   const webDoor = route() === '/web/'
+
+  /** An app signing in through this page. */
+  const connectPage = route() === '/connect'
 
   /** Signed in at the web version's door: the cookie, then the web version. */
   async function openWeb() {
@@ -150,6 +154,8 @@
   </main>
 {:else if !info || !options}
   <main class="center" aria-busy="true"><p class="muted">{t('admin.loading')}</p></main>
+{:else if connectPage}
+  <Connect {options} initialProblem={ssoProblem} initialSecond={ssoSecond} />
 {:else if webDoor && auth.session}
   <main class="center" aria-busy="true"><p class="muted">{t('admin.loading')}</p></main>
 {:else if webDoor}

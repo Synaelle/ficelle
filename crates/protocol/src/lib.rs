@@ -190,6 +190,11 @@ pub struct ServerInfo {
     pub min_protocol: u32,
     /// Highest protocol version the server accepts.
     pub max_protocol: u32,
+    /// The server has a sign-in page apps open in the browser (`/connect`,
+    /// see [`account::AppCodeRequest`]). Servers before 0.6.0-beta.6 leave
+    /// it out.
+    #[serde(default)]
+    pub sign_in_page: bool,
 }
 
 impl ServerInfo {
@@ -216,6 +221,7 @@ mod tests {
 
     fn info() -> ServerInfo {
         ServerInfo {
+            sign_in_page: true,
             name: "server".into(),
             version: "0.1.0".into(),
             min_protocol: 2,

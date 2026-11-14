@@ -106,6 +106,7 @@ pub fn run() {
             }
             app.manage(AppState::new(dir));
             app.manage(sync::commands::PendingSignIn::default());
+            app.manage(sync::browser::PendingBrowser::default());
             app.manage(commands::import::Imports::default());
             app.manage(sync::local::Local::default());
             // after manage: the thread reads the state from the handle
@@ -235,6 +236,9 @@ pub fn run() {
             commands::dev_report::dev_report_folder,
             sync::commands::sync_check_server,
             sync::commands::sync_sign_in,
+            sync::browser::sync_browser_start,
+            sync::browser::sync_browser_finish,
+            sync::browser::sync_browser_cancel,
             sync::commands::sync_second_factor,
             sync::commands::sync_email_code,
             sync::commands::sync_status,

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // What the system hands over while the app is busy or locked: shares from
-// other apps ("share to"), the icon's quick actions and widget taps. Android
-// keeps them in MainActivity's Inbox.kt until the workspace takes them here,
-// once the notes are open. Other platforms have no inbox yet and take nothing.
+// other apps ("share to"), the icon's quick actions, widget taps and the
+// sync server's sign-in answer. Android keeps them in MainActivity's
+// Inbox.kt until the workspace takes them here, once the notes are open.
+// Other platforms have no inbox yet and take nothing.
 
 import { attachmentMarkdown } from './attachments'
 import { backend } from './backend'
@@ -19,6 +20,7 @@ export type InboxItem =
   | { kind: 'newNote' }
   | { kind: 'search' }
   | { kind: 'openNote'; id: string }
+  | { kind: 'connect'; url: string }
 
 declare global {
   interface Window {

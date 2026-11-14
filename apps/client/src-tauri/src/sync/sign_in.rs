@@ -53,7 +53,7 @@ pub struct Pending {
 
 /// An account whose record stretches the password less than this build
 /// would: the password, kept until the session comes, to register again.
-struct Stretch {
+pub(super) struct Stretch {
     username: String,
     password: Zeroizing<String>,
     /// How the record stretches it now.
@@ -73,7 +73,7 @@ pub struct Signed {
 }
 
 /// What failed, for the sign-in screen.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SignInError {
     /// The server's error code, `offline`, or `keys` when an e2ee account
@@ -99,7 +99,7 @@ impl From<HttpError> for SignInError {
 }
 
 impl SignInError {
-    fn keys(why: &impl std::fmt::Display) -> Self {
+    pub(super) fn keys(why: &impl std::fmt::Display) -> Self {
         Self {
             code: "keys".into(),
             message: format!("the account key does not open: {why}"),
@@ -136,7 +136,7 @@ fn two_ways(
     .map(Outcome::Done)
 }
 
-fn finish(
+pub(super) fn finish(
     api: &Api,
     session: Session,
     export_key: Option<&[u8]>,
@@ -261,7 +261,7 @@ fn update_needed() -> SignInError {
 }
 
 /// A server calling an account standard that this vault knows as e2ee.
-fn downgraded() -> SignInError {
+pub(super) fn downgraded() -> SignInError {
     SignInError {
         code: "downgraded".into(),
         message: "this server says the account is no longer end-to-end encrypted, which it cannot become: the password is not sent".into(),

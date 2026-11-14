@@ -23,15 +23,23 @@ export async function kindOf(username: string): Promise<AccountKind> {
   return (await api<{ kind: AccountKind }>('POST', '/auth/kind', { username })).kind
 }
 
+/** An app signing in through this page: its one-time public key and the
+ * sign-in's challenge, the export key is sealed to them. */
+export interface AppKey {
+  key: string
+  challenge: string
+}
+
 /** Runs an OPAQUE sign-in through `start` and `finish` endpoints: the
- * finish answer. */
+ * finish answer, and for an app the export key sealed to it. */
 async function exchange<T>(
   password: string,
   username: string,
   start: string,
   finish: string,
   extra: Record<string, unknown>,
-): Promise<T> {
+  forApp?: AppKey,
+): Promise<{ answer: T; sealed?: string }> {
   const wasm = await client()
   const first = JSON.parse(wasm.signInStart(password)) as { state: string; request: string }
   const started = await api<{ challenge: string; response: string; ksf?: number }>('POST', start, {
@@ -39,37 +47,54 @@ async function exchange<T>(
     request: first.request,
   })
   let finalization: string
+  let sealed: string | undefined
   try {
     // how the account's record stretches the password, 1 from an older server
     const ksf = started.ksf ?? 1
-    finalization = (
-      JSON.parse(wasm.signInFinish(first.state, password, started.response, username, ksf)) as {
-        finalization: string
-      }
-    ).finalization
+    const done = JSON.parse(
+      forApp
+        ? wasm.signInFinishForApp(
+            first.state,
+            password,
+            started.response,
+            username,
+            ksf,
+            forApp.key,
+            forApp.challenge,
+          )
+        : wasm.signInFinish(first.state, password, started.response, username, ksf),
+    ) as { finalization: string; sealed?: string }
+    finalization = done.finalization
+    sealed = done.sealed
   } catch {
     // a wrong password fails here already: the server still gets an answer
     // so it counts the failure, and replies like for any wrong password
     finalization = 'AA'
   }
-  return api<T>('POST', finish, { challenge: started.challenge, finalization, ...extra })
+  const answer = await api<T>('POST', finish, {
+    challenge: started.challenge,
+    finalization,
+    ...extra,
+  })
+  return { answer, sealed }
 }
 
 /** Signs in to an e2ee account. Answers like a password sign-in: a session,
- * or the second factor challenge. */
-export function signIn(username: string, password: string, device: unknown) {
+ * or the second factor challenge. For an app, also its sealed export key. */
+export function signIn(username: string, password: string, device: unknown, forApp?: AppKey) {
   return exchange<unknown>(
     password,
     username,
     '/auth/opaque/login/start',
     '/auth/opaque/login/finish',
     { device },
+    forApp,
   )
 }
 
 /** A proof of the signed in account's password, for a sensitive change. */
 export async function proofOf(username: string, password: string): Promise<string> {
-  const answer = await exchange<{ proof: string }>(
+  const { answer } = await exchange<{ proof: string }>(
     password,
     username,
     '/me/confirm/start',

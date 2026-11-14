@@ -9,6 +9,7 @@
 //! through two events: `sync-status` with a [`SyncStatus`], and
 //! `sync-changed` when changes from elsewhere were taken in.
 
+pub mod browser;
 pub mod commands;
 pub mod feedback;
 pub mod files;

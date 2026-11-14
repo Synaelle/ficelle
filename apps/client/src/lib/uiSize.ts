@@ -36,6 +36,8 @@ declare global {
       setHidden?(on: boolean): void
       /** The colour behind the status and navigation bars, and their icons. */
       setBars?(color: string, light: boolean): void
+      /** Opens a web page in the phone's browser. */
+      openBrowser?(url: string): boolean
     }
   }
 }
