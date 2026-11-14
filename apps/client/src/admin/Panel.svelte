@@ -102,7 +102,7 @@
     <Icon name={icon} size={16} /><span class="name">{t(`admin.${s}.title`)}</span>
     {#if s === 'web' && web}
       <span class={['tag', web.access !== 'off' && 'on']}
-        >{web.access === 'off' ? t('admin.web.tagOff') : t('admin.web.tagOn')}</span
+        >{web.access === 'off' ? t('admin.account.off') : t('admin.account.on')}</span
       >
     {:else if s === 'feedback' && newReports > 0}
       <span class="tag count">{newReports}</span>

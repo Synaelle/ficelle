@@ -270,8 +270,8 @@
       <div class="row">
         <button class="btn" type="button" onclick={copyCode}
           ><Icon name={copied ? 'check' : 'copy'} size={16} />{copied
-            ? t('admin.invites.copied')
-            : t('admin.invites.copy')}</button
+            ? t('admin.copied')
+            : t('admin.copy')}</button
         >
         <button class="btn" type="button" onclick={saveCode}
           ><Icon name="export" size={16} />{t('admin.account.saveTxt')}</button

@@ -127,7 +127,9 @@
     {#if web}
       <a href="#web">
         <span class="k">{t('admin.web.title')}</span>
-        <span class="v">{web.access === 'off' ? t('admin.web.tagOff') : t('admin.web.tagOn')}</span>
+        <span class="v"
+          >{web.access === 'off' ? t('admin.account.off') : t('admin.account.on')}</span
+        >
         <span class="s">{t(`admin.web.short_${web.access}`)}</span>
       </a>
     {/if}

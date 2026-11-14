@@ -312,8 +312,8 @@
     <div class="actions">
       <button class="btn" onclick={copyCodes}
         ><Icon name={copied ? 'check' : 'copy'} size={16} />{copied
-          ? t('admin.invites.copied')
-          : t('admin.invites.copy')}</button
+          ? t('admin.copied')
+          : t('admin.copy')}</button
       >
       <button class="btn" onclick={saveCodes}
         ><Icon name="export" size={16} />{t('admin.account.saveTxt')}</button

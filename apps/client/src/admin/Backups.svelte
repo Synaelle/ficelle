@@ -399,8 +399,8 @@
             <span class="ad-ctl">
               <input
                 class="field person"
-                aria-label={t('admin.backups.username')}
-                placeholder={t('admin.backups.username')}
+                aria-label={t('admin.username')}
+                placeholder={t('admin.username')}
                 bind:value={person}
               />
               <select

@@ -674,7 +674,7 @@
       </ul>
       <form class="actions" onsubmit={addReader}>
         <label class="field-label small-field">
-          {t('admin.feedback.username')}
+          {t('admin.username')}
           <input class="field" bind:value={reader} autocomplete="off" />
         </label>
         <button class="btn" disabled={busy || !reader.trim()}

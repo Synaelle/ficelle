@@ -516,7 +516,7 @@
         </ol>
         <div class="row">
           <button class="btn" type="button" onclick={copyCodes}
-            >{copied ? t('admin.setup.copied') : t('admin.setup.copy')}</button
+            >{copied ? t('admin.copied') : t('admin.copy')}</button
           >
           <button class="btn" type="button" onclick={saveCodes}>{t('admin.setup.save')}</button>
         </div>

@@ -276,8 +276,8 @@
     {#if changes > 0}
       <div class="ad-savebar">
         <span>{t('admin.unsaved', { count: changes })}</span>
-        <button class="btn quiet" type="button" onclick={reset}>{t('admin.policy.undo')}</button>
-        <button class="btn primary" type="submit">{t('admin.policy.save')}</button>
+        <button class="btn quiet" type="button" onclick={reset}>{t('admin.undo')}</button>
+        <button class="btn primary" type="submit">{t('admin.save')}</button>
       </div>
     {/if}
   </form>

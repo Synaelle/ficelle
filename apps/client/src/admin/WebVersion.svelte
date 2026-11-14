@@ -66,7 +66,7 @@
   async function turnOff(box: HTMLInputElement) {
     if (
       !(await overlay.ask(t('admin.web.turnOffConfirm'), {
-        confirmLabel: t('admin.web.turnOffYes'),
+        confirmLabel: t('admin.account.turnOff'),
         danger: true,
       }))
     ) {
@@ -127,7 +127,7 @@
       <li class="ad-row">
         <span class="ad-lead"><Icon name="globe" size={18} /></span>
         <span class="ad-words">
-          <span class="ad-label">{t('admin.web.offLabel')}</span>
+          <span class="ad-label">{t('admin.account.off')}</span>
           <span class="ad-help">{t('admin.web.offHelp')}</span>
         </span>
       </li>
@@ -157,7 +157,7 @@
         <span class="ad-ctl">
           <button class="btn" onclick={copy}
             ><Icon name="copy" size={14} />{copied
-              ? t('admin.web.copied')
+              ? t('admin.copied')
               : t('admin.web.copy')}</button
           >
           <a class="btn" href={address} target="_blank" rel="noreferrer">{t('admin.web.open')}</a>
@@ -257,8 +257,8 @@
   {#if changes > 0}
     <div class="ad-savebar">
       <span>{t('admin.unsaved', { count: changes })}</span>
-      <button class="btn quiet" disabled={busy} onclick={undo}>{t('admin.web.undo')}</button>
-      <button class="btn primary" disabled={busy} onclick={save}>{t('admin.web.save')}</button>
+      <button class="btn quiet" disabled={busy} onclick={undo}>{t('admin.undo')}</button>
+      <button class="btn primary" disabled={busy} onclick={save}>{t('admin.save')}</button>
     </div>
   {/if}
 {/if}
