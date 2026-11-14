@@ -22,7 +22,9 @@ A report holds what you write, a contact if you give one, the images you add, th
 
 Each install also sends a random id made once, tied to nothing else, so reports from the same app can be grouped.
 
-ficelle.synaelle.com keeps reports 180 days, unless one is kept to follow a bug. Your network address is never stored, only a keyed fingerprint of it, used against spam and dropped after a day.
+ficelle.synaelle.com deletes each report 30 days after it came, with its images and my answer, whatever its state. Its backups leave reports out, so no copy stays behind. Your network address is never stored, only a keyed fingerprint of it, used against spam and dropped after a day. When I block a sender for spam, the block keeps their install id, fingerprint or contact until it ends.
+
+I keep reports only to find bugs and answer you. To see or delete yours sooner, write to me at synaelle@protonmail.com. You can also complain to the CNIL, the French data protection authority.
 
 ## Sync
 
