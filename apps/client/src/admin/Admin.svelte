@@ -18,6 +18,7 @@
     sectionHref,
     signOut,
     thisDevice,
+    webPath,
     type AuthOptions,
     type SecondFactorNeeded,
     type ServerInfo,
@@ -49,9 +50,10 @@
   /** Opened from the setup link in the server log. */
   const setupPage = route() === '/setup'
 
-  /** The web version's sign-in: the server shows this page at `/web/` until
+  /** The web version's sign-in: the server shows this page at `/web/` (or
+   * where its admin moved it) until
    * the browser holds the web version's cookie. */
-  const webDoor = route() === '/web/'
+  const webDoor = route() === webPath
 
   /** An app signing in through this page. */
   const connectPage = route() === '/connect' || route() === '/link'

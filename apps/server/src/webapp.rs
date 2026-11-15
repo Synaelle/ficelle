@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The web version at `/web`: the notes app in a browser, its notes kept in
+//! The web version at `/web`, or `server.web_path`: the notes app in a browser, its notes kept in
 //! that browser and none of them here. Its files are the web build, in the
 //! `web` folder of `server.web_dir`. Off until an admin turns it on, and off
 //! every path under `/web` answers 404 like an unknown one. Open to people
@@ -151,17 +151,18 @@ pub fn cookie(state: &AppState, token: &str) -> String {
     let max_age = i64::from(state.config.auth.refresh_token_days) * DAY / 1000;
     let secure = if state.config.hsts() { "; Secure" } else { "" };
     format!(
-        "{COOKIE}={token}; Path={}/web/; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}",
-        state.config.base_path()
+        "{COOKIE}={token}; Path={}{}/; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}",
+        state.config.base_path(),
+        state.config.web_path()
     )
 }
 
-/// Web version routes.
-pub fn router() -> Router<AppState> {
+/// Web version routes, at `path`.
+pub fn router(path: &str) -> Router<AppState> {
     Router::new()
-        .route("/web", get(to_folder))
-        .route("/web/", get(index))
-        .route("/web/{*path}", get(file))
+        .route(path, get(to_folder))
+        .route(&format!("{path}/"), get(index))
+        .route(&format!("{path}/{{*path}}"), get(file))
 }
 
 enum Gate {
@@ -212,8 +213,9 @@ async fn to_folder(State(state): State<AppState>, headers: HeaderMap) -> Result<
     match gate(&state, &headers).await? {
         Gate::Closed => Err(Error::not_found()),
         _ => Ok(Redirect::temporary(&format!(
-            "{}/web/",
-            state.config.base_path()
+            "{}{}/",
+            state.config.base_path(),
+            state.config.web_path()
         ))),
     }
 }

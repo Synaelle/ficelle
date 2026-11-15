@@ -10,6 +10,11 @@
 // eslint-disable-next-line svelte/prefer-svelte-reactivity
 export const base = new URL('.', document.baseURI).pathname
 
+/** Where the server serves the web version below `base`, `/web/` unless
+ * its admin moved it. The server says it beside `<base>`. */
+export const webPath =
+  document.querySelector<HTMLMetaElement>('meta[name=web-path]')?.content ?? '/web/'
+
 /** The page's own path below `base`, `/admin` or `/invite/<token>`. */
 export function route(): string {
   const path = location.pathname
@@ -339,7 +344,7 @@ function lastDevice(): string | undefined {
  * its own, it replaces none, and so is connecting an app, which signs out
  * once the app has its own session. */
 export function thisDevice() {
-  const web = route() === '/web/'
+  const web = route() === webPath
   const connect = route() === '/connect' || route() === '/link'
   const ua = navigator.userAgent
   const browser = /firefox/i.test(ua)

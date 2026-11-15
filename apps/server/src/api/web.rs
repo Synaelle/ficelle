@@ -78,7 +78,7 @@ async fn view(state: &AppState) -> Result<WebView, Error> {
         address: if public.is_empty() {
             String::new()
         } else {
-            format!("{public}/web/")
+            format!("{public}{}/", state.config.web_path())
         },
         limits,
         defaults: defaults(state),

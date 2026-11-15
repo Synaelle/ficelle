@@ -140,13 +140,14 @@ pub fn router(state: AppState) -> Router {
         usize::try_from(state.config.server.max_body_mb).unwrap_or(usize::MAX) * 1024 * 1024;
     let hsts = state.config.hsts();
     let base = state.config.base_path();
+    let web_path = state.config.web_path();
     let app = Router::new()
         .route(INFO_PATH, get(info))
         .route("/health", get(health))
         .route(crate::sso::CALLBACK_PATH, get(crate::api::sso::callback))
         .nest("/api/v1", crate::api::router())
         .merge(crate::web::router())
-        .merge(crate::webapp::router())
+        .merge(crate::webapp::router(&web_path))
         .fallback(|| async { Error::not_found() })
         .layer(middleware::from_fn_with_state(state.clone(), setup_pending))
         .layer(middleware::from_fn(check_protocol))

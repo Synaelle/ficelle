@@ -373,3 +373,43 @@ async fn sign_in_limits_set_on_the_admin_page_count() {
     .await;
     assert_eq!(view["limits"]["attempts"], json!(null));
 }
+
+#[tokio::test]
+async fn a_moved_web_version_leaves_web_to_the_site_beside_it() {
+    let dir = pages();
+    let mut config = Config::default();
+    config.server.web_dir = Some(dir.path().to_path_buf());
+    config.server.web_path = Some("/notes-web".into());
+    let (_state, app, admin) = admin_on(server_with(config).await).await;
+    let (status, view) = call(
+        &app,
+        "PUT",
+        "/admin/web",
+        Some(&admin),
+        Some(json!({ "access": "signedIn" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+
+    for gone in ["/web", "/web/", "/web/assets/main-abc.js"] {
+        assert_eq!(
+            get(&app, gone, None).await.0,
+            StatusCode::NOT_FOUND,
+            "{gone}"
+        );
+    }
+    let (status, headers, _) = get(&app, "/notes-web", None).await;
+    assert_eq!(
+        (status, headers[header::LOCATION].to_str().unwrap()),
+        (StatusCode::TEMPORARY_REDIRECT, "/notes-web/")
+    );
+    // the door is the admin page, told where it is
+    let (status, _, body) = get(&app, "/notes-web/", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body.contains(r#"<meta name="web-path" content="/notes-web/" />"#),
+        "{body}"
+    );
+    let (_, cookie) = session(&app, &admin).await;
+    assert!(cookie.unwrap().contains("Path=/notes-web/;"));
+}

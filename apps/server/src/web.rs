@@ -69,9 +69,11 @@ pub(crate) async fn admin_page(State(state): State<AppState>) -> Result<Response
     let html = tokio::fs::read_to_string(&path)
         .await
         .map_err(|_| Error::not_found())?;
+    // and where the web version is, its sign-in is this page too
     let base = format!(
-        "<head>\n    <base href=\"{}/\" />",
-        state.config.base_path()
+        "<head>\n    <base href=\"{}/\" />\n    <meta name=\"web-path\" content=\"{}/\" />",
+        state.config.base_path(),
+        state.config.web_path()
     );
     let html = html.replacen("<head>", &base, 1);
     Ok(respond(
