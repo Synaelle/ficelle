@@ -112,7 +112,7 @@
       <span class="v">{overview.devices}</span>
     </a>
     {#if storage}
-      <a href={sectionHref('storage')}>
+      <a href={sectionHref('advanced')}>
         <span class="k">{t('admin.storage.title')}</span>
         <span class="v">{bytes(storage.storedBytes)}</span>
         <span class="s">{t('admin.overview.files', { count: storage.files })}</span>

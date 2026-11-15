@@ -1168,15 +1168,10 @@ user = "Member"
 
 [admin.storage]
 title = "Storage"
-stored = "On disk"
-files = "Files"
-saved = "Saved by keeping one copy"
-notes = "Synced notes"
-people = "What each member uses"
-used = "Used"
-largest = "Largest file"
-ofQuota = "{used} of {quota}"
-policy = "Rules for everyone"
+
+[admin.advanced]
+title = "Advanced"
+help = "Limits for the files on this server. The defaults suit most people, change them only if something does not fit."
 
 [admin.policy]
 title = "Files"

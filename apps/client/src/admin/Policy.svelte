@@ -179,68 +179,72 @@
         <span class="dash-help">{t(`admin.policy.zero.${kind}`)}</span>
       {/if}
     </span>
-    <span class="dash-val value">
-      {#if !set}
-        <button
-          type="button"
-          class="dash-val"
-          aria-label={t('admin.policy.change', {
-            rule: name,
-            value: shown(key, kind, current.effective[eff]),
-          })}
-          onclick={() => toggle(current, key, eff, true)}
-          >{shown(key, kind, current.effective[eff])}</button
-        >
-      {:else if kind === 'bool'}
-        <input
-          class="dash-switch"
-          type="checkbox"
-          role="switch"
-          aria-label={name}
-          checked={draft.thumbnails}
-          onchange={(e) => (draft = { ...draft, thumbnails: e.currentTarget.checked })}
-        />
-      {:else if kind === 'types'}
-        <input
-          class="field edit types"
-          aria-label={name}
-          placeholder=".pdf, image/*"
-          bind:value={lists[key]}
-        />
-      {:else}
-        <input
-          class="field edit"
-          type="number"
-          min={kind === 'quality' ? 1 : 0}
-          max={kind === 'quality' ? 100 : undefined}
-          aria-label={name}
-          value={draft[key] as number}
-          oninput={(e) =>
-            (draft = {
-              ...draft,
-              [key]: Math.max(0, Math.round(Number(e.currentTarget.value))),
+    <!-- the value and where it comes from move together -->
+    <span class="end">
+      <span class="dash-val value">
+        {#if !set}
+          <button
+            type="button"
+            class="dash-val"
+            aria-label={t('admin.policy.change', {
+              rule: name,
+              value: shown(key, kind, current.effective[eff]),
             })}
-        />
-        {#if kind !== 'count'}<span class="dash-unit unit">{t(`admin.policy.units.${kind}`)}</span
-          >{/if}
-      {/if}
-    </span>
-    <span class="dash-src">
-      {#if set}
-        <button
-          type="button"
-          class="icon-btn undo"
-          aria-label={t('admin.policy.unset', { rule: name })}
-          title={t('admin.policy.unset', { rule: name })}
-          onclick={() => toggle(current, key, eff, false)}><Icon name="restore" size={14} /></button
-        >
-      {:else}
-        <span class="from" title={source(current, eff)}
-          ><Icon name={sourceIcon(current, eff)} size={14} /><span class="visually-hidden"
-            >{source(current, eff)}</span
-          ></span
-        >
-      {/if}
+            onclick={() => toggle(current, key, eff, true)}
+            >{shown(key, kind, current.effective[eff])}</button
+          >
+        {:else if kind === 'bool'}
+          <input
+            class="dash-switch"
+            type="checkbox"
+            role="switch"
+            aria-label={name}
+            checked={draft.thumbnails}
+            onchange={(e) => (draft = { ...draft, thumbnails: e.currentTarget.checked })}
+          />
+        {:else if kind === 'types'}
+          <input
+            class="field edit types"
+            aria-label={name}
+            placeholder=".pdf, image/*"
+            bind:value={lists[key]}
+          />
+        {:else}
+          <input
+            class="field edit"
+            type="number"
+            min={kind === 'quality' ? 1 : 0}
+            max={kind === 'quality' ? 100 : undefined}
+            aria-label={name}
+            value={draft[key] as number}
+            oninput={(e) =>
+              (draft = {
+                ...draft,
+                [key]: Math.max(0, Math.round(Number(e.currentTarget.value))),
+              })}
+          />
+          {#if kind !== 'count'}<span class="dash-unit unit">{t(`admin.policy.units.${kind}`)}</span
+            >{/if}
+        {/if}
+      </span>
+      <span class="dash-src">
+        {#if set}
+          <button
+            type="button"
+            class="icon-btn undo"
+            aria-label={t('admin.policy.unset', { rule: name })}
+            title={t('admin.policy.unset', { rule: name })}
+            onclick={() => toggle(current, key, eff, false)}
+            ><Icon name="restore" size={14} /></button
+          >
+        {:else}
+          <span class="from" title={source(current, eff)}
+            ><Icon name={sourceIcon(current, eff)} size={14} /><span class="visually-hidden"
+              >{source(current, eff)}</span
+            ></span
+          >
+        {/if}
+      </span>
     </span>
   </li>
 {/snippet}
@@ -302,6 +306,27 @@
   }
   .legend .here {
     color: var(--color-accent-text);
+  }
+  .end {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--space-4);
+    margin-left: auto;
+  }
+  /* on a phone every name has its own line and every value sits under it,
+     the same way in every row and every language */
+  @media (max-width: 560px) {
+    .policy :global(.dash-words) {
+      flex-basis: 100%;
+    }
+    .policy :global(.dash-group > h2) {
+      flex-wrap: wrap;
+    }
+    .legend {
+      flex-basis: 100%;
+      margin-left: 0;
+    }
   }
   /* one column for values, read or being changed, so nothing moves */
   .value {

@@ -13,7 +13,7 @@
   import AuditLog from './AuditLog.svelte'
   import Overview from './Overview.svelte'
   import OnePerson from './OnePerson.svelte'
-  import Storage from './Storage.svelte'
+  import Policy from './Policy.svelte'
   import Backups from './Backups.svelte'
   import Feedback from './Feedback.svelte'
   import WebVersion from './WebVersion.svelte'
@@ -22,13 +22,13 @@
 
   let { info, admin }: { info: ServerInfo; admin: boolean } = $props()
 
-  type Section = 'overview' | 'onePerson' | 'web' | 'storage' | 'backups' | 'feedback' | 'security'
+  type Section = 'overview' | 'onePerson' | 'web' | 'backups' | 'advanced' | 'feedback' | 'security'
   const SERVER: [Section, IconName][] = [
     ['overview', 'dashboard'],
     ['onePerson', 'user'],
     ['web', 'globe'],
-    ['storage', 'database'],
     ['backups', 'backup'],
+    ['advanced', 'settings'],
   ]
   const PEOPLE: [Section, IconName][] = [
     ['feedback', 'feedback'],
@@ -49,7 +49,11 @@
   )
   const shown = $derived([...server, ...people])
   // the log and the account had sections of their own before
-  const OLD: Record<string, Section> = { '#log': 'security', '#account': 'security' }
+  const OLD: Record<string, Section> = {
+    '#log': 'security',
+    '#account': 'security',
+    '#storage': 'advanced',
+  }
   const fromHash = (): Section =>
     OLD[location.hash] ??
     shown.find(([s]) => `#${s}` === location.hash)?.[0] ??
@@ -150,8 +154,9 @@
         />
       {:else if section === 'web'}
         <WebVersion onchange={(view) => (web = view)} />
-      {:else if section === 'storage'}
-        <Storage />
+      {:else if section === 'advanced'}
+        <p class="muted">{t('admin.advanced.help')}</p>
+        <Policy path="/admin/policy" level="instance" />
       {:else if section === 'backups'}
         <Backups />
       {:else if section === 'feedback'}
