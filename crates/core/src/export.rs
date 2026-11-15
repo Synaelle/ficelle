@@ -362,8 +362,12 @@ fn safe_name(raw: &str) -> String {
             bytes <= MAX_BYTES
         })
         .collect();
-    // Windows drops trailing dots and spaces, which would make names collide
-    let mut name = name.trim_end_matches(['.', ' ']).trim_start().to_owned();
+    // Windows drops trailing dots and spaces, which would make names collide,
+    // and a leading dot hides a name: importers skip it as an app's own
+    let mut name = name
+        .trim_end_matches(['.', ' '])
+        .trim_start_matches(['.', ' '])
+        .to_owned();
     let stem = name.split('.').next().unwrap_or("").to_ascii_uppercase();
     if name.is_empty() || RESERVED.contains(&stem.as_str()) {
         name.insert_str(0, "Untitled ");
@@ -572,6 +576,33 @@ mod tests {
             .unwrap();
         assert!(text.ends_with("dig\n"));
         assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn no_name_starts_with_a_dot_an_import_would_skip() {
+        let (mut store, _) = store();
+        store
+            .create_note(&NewNote {
+                tags: vec![".net/.config".into()],
+                title: ".hidden plan".into(),
+                ..NewNote::default()
+            })
+            .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("notes.zip");
+        export_markdown_zip(&store, &out, &NoAttachments).unwrap();
+        let zip = zip::ZipArchive::new(std::fs::File::open(&out).unwrap()).unwrap();
+        let names: Vec<String> = zip.file_names().map(|n| n.unwrap().into_owned()).collect();
+        assert!(
+            names.contains(&"net/config/hidden plan.md".to_owned()),
+            "{names:?}"
+        );
+        assert!(
+            names
+                .iter()
+                .all(|n| n.split('/').all(|part| !part.starts_with('.'))),
+            "{names:?}"
+        );
     }
 
     #[test]
