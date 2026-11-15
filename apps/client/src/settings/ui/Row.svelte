@@ -1,7 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- One setting in a Group: its name and an optional short help on the
-     left, its control on the right. A row with `onclick` is a button as a
-     whole (a choice in a list, with `checked` showing the picked one). -->
+     left, its control on the right. When both do not fit, in a long
+     language or on a phone, the control moves under the name instead of
+     squeezing it. A row with `onclick` is a button as a whole (a choice in
+     a list, with `checked` showing the picked one). -->
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import Icon from '../../lib/icons/Icon.svelte'
@@ -64,8 +66,9 @@
   .row {
     position: relative;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--space-1) var(--space-3);
     width: 100%;
     min-height: 44px;
     padding: var(--space-2) var(--space-3);
@@ -101,9 +104,10 @@
       background: color-mix(in srgb, var(--color-text) 4%, transparent);
     }
   }
+  /* the name keeps room for a few words, else the control takes the next line */
   .text {
     display: grid;
-    flex: 1;
+    flex: 1 1 11rem;
     min-width: 0;
     gap: 1px;
   }
@@ -117,9 +121,12 @@
   }
   .control {
     display: flex;
-    flex: none;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
     align-items: center;
     gap: var(--space-2);
+    overflow-wrap: anywhere;
   }
   .check {
     display: grid;
