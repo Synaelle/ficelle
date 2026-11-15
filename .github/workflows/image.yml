@@ -2,9 +2,11 @@ name: image
 
 # The server image on ghcr.io, built only for a real change to the server: a
 # release of the apps builds none. A tag server-vX.Y.Z publishes X.Y.Z, X.Y, X
-# and latest. A tag server-vX.Y.Z-beta.N publishes that version and beta, never
-# the others. beta always names the newest image of either kind: a stable
-# image moves it too when it is newer than the image it names. release.yml
+# and latest. A tag server-vX.Y.Z-beta.N publishes that version and beta, and
+# server-vX.Y.Z-rc.N, a release candidate to try a server before its release,
+# that version and rc, never the others. beta and rc always name the newest
+# image of their kind or newer: a stable image moves both when it is newer
+# than the image they name, so a server on rc never falls behind. release.yml
 # does not take these tags, so the apps are not built and their latest.json
 # stays where it is. Each image carries its SBOM and build provenance, and is
 # signed with cosign by this workflow's own GitHub identity, no key to keep:
@@ -15,6 +17,7 @@ on:
     tags:
       - 'server-v[0-9]+.[0-9]+.[0-9]+'
       - 'server-v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+'
+      - 'server-v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
   workflow_dispatch:
 
 permissions:
@@ -61,21 +64,26 @@ jobs:
           major=${version%%.*}
           minor=${version#*.}
           minor=${minor%%.*}
-          # the version the beta tag names now: none when there is no such
-          # image, unknown when its label cannot be read (with its SBOM and
-          # provenance the image is an index, the label under its platform)
-          moveBeta=no
-          if ! docker buildx imagetools inspect "$image:beta" > /dev/null 2>&1; then
-            moveBeta=yes
-          else
-            held=$(docker buildx imagetools inspect "$image:beta" --format '{{ json .Image }}' | jq -r '
+          # whether a moving tag (beta, rc) should name this version: yes when
+          # there is no such image yet or it holds an older one, no when its
+          # label cannot be read (with its SBOM and provenance the image is an
+          # index, the label under its platform)
+          moves() {
+            if ! docker buildx imagetools inspect "$image:$1" > /dev/null 2>&1; then
+              echo yes
+              return
+            fi
+            held=$(docker buildx imagetools inspect "$image:$1" --format '{{ json .Image }}' | jq -r '
               (if has("config") then . else [.[]][0] end).config.Labels["org.opencontainers.image.version"] // ""')
             if [ -z "$held" ]; then
-              echo "::warning::the beta image's version cannot be read, beta stays where it is"
+              echo "::warning::the $1 image's version cannot be read, $1 stays where it is" >&2
+              echo no
             elif node tools/version.mjs newer "$version" "$held"; then
-              moveBeta=yes
+              echo yes
+            else
+              echo no
             fi
-          fi
+          }
           {
             echo "channel=release"
             echo "version=$version"
@@ -83,11 +91,13 @@ jobs:
             echo "$image:$version"
             case "$version" in
               *-beta.*) echo "$image:beta" ;;
+              *-rc.*) echo "$image:rc" ;;
               *)
                 echo "$image:$major.$minor"
                 echo "$image:$major"
                 echo "$image:latest"
-                if [ "$moveBeta" = yes ]; then echo "$image:beta"; fi ;;
+                if [ "$(moves beta)" = yes ]; then echo "$image:beta"; fi
+                if [ "$(moves rc)" = yes ]; then echo "$image:rc"; fi ;;
             esac
             echo "EOF"
           } >> "$GITHUB_OUTPUT"

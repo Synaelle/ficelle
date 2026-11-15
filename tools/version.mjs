@@ -71,27 +71,34 @@ export function buildDate() {
 /** @param {string} version */
 export function androidVersionCode(version) {
   const parts = versionParts(version)
-  if (!parts) throw new Error(`not a release version: ${version}`)
-  const [major, minor, micro, beta] = parts
+  // a server's release candidate has no app
+  if (!parts || parts[3] === STAGE.rc) throw new Error(`not an app version: ${version}`)
+  const [major, minor, micro, , beta] = parts
   if (minor > 999 || micro > 999 || (beta !== Infinity && (beta < 1 || beta > 98)))
     throw new Error(`no room in the version code for ${version}`)
   return (major * 1000 + minor) * 100000 + micro * 100 + (beta === Infinity ? 99 : beta)
 }
 
+/** Before a release come its betas, then the server's release candidates. */
+const STAGE = { beta: 1, rc: 2, release: 3 }
+
 /**
- * `major.minor.micro` and a beta's number, `Infinity` for a release, so they
- * order the way they come out. Null for anything else.
+ * `major.minor.micro`, the stage and its number (`Infinity` for a release),
+ * so they order the way they come out. Null for anything else.
  * @param {string} version
- * @returns {[number, number, number, number] | null}
+ * @returns {[number, number, number, number, number] | null}
  */
 function versionParts(version) {
-  const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/.exec(version.trim())
+  const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-(beta|rc)\.(\d+))?$/.exec(version.trim())
   if (!m) return null
-  return [Number(m[1]), Number(m[2]), Number(m[3]), m[4] === undefined ? Infinity : Number(m[4])]
+  const stage = m[4] === 'rc' ? STAGE.rc : m[4] === 'beta' ? STAGE.beta : STAGE.release
+  const n = m[5] === undefined ? Infinity : Number(m[5])
+  return [Number(m[1]), Number(m[2]), Number(m[3]), stage, n]
 }
 
 /**
- * `a` comes out after `b`: numbers in order, a beta before its release.
+ * `a` comes out after `b`: numbers in order, betas then release candidates
+ * before their release.
  * @param {string} a
  * @param {string} b
  */
