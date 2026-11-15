@@ -194,6 +194,9 @@
   let linkCopied = $state(false)
   /** A code waiting to be typed on the server's page. */
   let linking: LinkStarted | null = $state(null)
+  /** The code's page was opened in this device's browser, not only shown
+   * for another device. */
+  let linkedHere = $state(false)
 
   /** A phone signs in with a code, its browser may not hand an answer
    * back: the page opens here with the code filled in. A computer can use
@@ -203,6 +206,7 @@
     if (!server) return
     void run(async () => {
       linking = await sync.linkStart(server)
+      linkedHere = openHere
       if (openHere) openPage()
     })
   }
@@ -693,7 +697,7 @@
         {:else}
           <h3 class="sign-in">{t('sync.signInTo', { server: status.server ?? '' })}</h3>
         {/if}
-        {#if byBrowser && linking && ANDROID}
+        {#if byBrowser && linking && linkedHere}
           <!-- the usual way first, all on this phone; the code is only for
                approving from a computer -->
           <p class="link-step">
@@ -767,17 +771,17 @@
           {:else}
             <button class="btn" type="button" onclick={reset}>{t('common.back')}</button>
           {/if}
-          {#if byBrowser && linking && !ANDROID}
+          {#if byBrowser && linking && !linkedHere && !ANDROID}
             <button class="btn" type="button" onclick={copyLink}
               ><Icon name={linkCopied ? 'check' : 'copy'} size={16} />{linkCopied
                 ? t('sync.linkCopied')
                 : t('sync.copyLink')}</button
             >
-          {:else if byBrowser && linking}
+          {:else if byBrowser && linking && linkedHere}
             <button class="btn primary" type="button" onclick={openPage}
               >{t('sync.browserAgain')}</button
             >
-          {:else if byBrowser}
+          {:else if byBrowser && !linking}
             <button
               class="btn primary"
               type="button"
@@ -785,7 +789,7 @@
               onclick={signInBrowser}
               >{browserLink ? t('sync.browserAgain') : t('sync.browserSignIn')}</button
             >
-          {:else}
+          {:else if !byBrowser}
             <button
               class="btn primary"
               type="submit"
@@ -794,7 +798,7 @@
             >
           {/if}
         </div>
-        {#if byBrowser && !ANDROID && !linking}
+        {#if byBrowser && !linking}
           <button
             class="link-button"
             type="button"
@@ -1010,10 +1014,7 @@
     flex: 1;
     min-width: 0;
   }
-  /* a row's right side never shrinks: the long "last synced" line wraps
-     instead of crushing the device's name on a phone */
   .device-state {
-    max-width: min(45vw, 240px);
     color: var(--color-text-muted);
     text-align: right;
   }
