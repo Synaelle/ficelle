@@ -418,7 +418,7 @@ mod tests {
         let config = FilesConfig::default();
         let mut levels = Levels::default();
         let (p, sources) = resolve(&config, &levels);
-        assert_eq!(p.max_file_bytes, 100 * MB);
+        assert_eq!(p.max_file_bytes, 250 * MB);
         assert_eq!(sources["maxFileBytes"].level, "config");
         levels.instance.max_file_mb = Some(50);
         levels.instance.quota_mb = Some(1000);

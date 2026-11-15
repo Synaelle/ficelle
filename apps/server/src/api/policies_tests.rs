@@ -53,7 +53,7 @@ async fn people_get_their_own_then_their_groups_then_the_instance() {
     let (_, view) = call(&app, "GET", "/admin/policy", Some(&admin), None).await;
     assert_eq!(view["settings"], json!({}));
     assert_eq!(view["sources"]["maxFileBytes"]["level"], "config");
-    assert_eq!(mine(&app, &anna).await["maxFileBytes"], 100 * MB);
+    assert_eq!(mine(&app, &anna).await["maxFileBytes"], 250 * MB);
 
     let (status, view) = put(
         &app,

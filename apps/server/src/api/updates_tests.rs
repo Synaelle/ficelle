@@ -324,8 +324,8 @@ async fn the_checklist_warns_when_storage_has_no_limit() {
     let storage = line(&list, "storage").unwrap();
     assert_eq!(
         (&storage["state"], &storage["values"]["mb"]),
-        (&json!("ok"), &json!("1024")),
-        "1 GB per person by default"
+        (&json!("ok"), &json!("10240")),
+        "10 GB per person by default"
     );
 
     let mut config = Config::default();

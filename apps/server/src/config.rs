@@ -432,8 +432,8 @@ pub struct FilesConfig {
     /// Largest file in megabytes, 0 for no limit.
     pub max_file_mb: u32,
     /// Storage per account in megabytes (its files and notes, and the
-    /// spaces it shares), 0 for no limit. 1 GB by default: without a limit
-    /// one account, or anyone with open sign-up, could fill the disk.
+    /// spaces it shares), 0 for no limit. 10 GB by default: room for years
+    /// of notes and attachments, yet one account cannot fill the disk.
     pub quota_mb: u32,
     /// Types allowed: extensions (`.pdf`) and MIME patterns (`image/*`).
     /// Empty allows every type not blocked.
@@ -456,8 +456,8 @@ pub struct FilesConfig {
 impl Default for FilesConfig {
     fn default() -> Self {
         Self {
-            max_file_mb: 100,
-            quota_mb: 1024,
+            max_file_mb: 250,
+            quota_mb: 10240,
             allowed_types: Vec::new(),
             blocked_types: Vec::new(),
             max_files_per_note: 0,
