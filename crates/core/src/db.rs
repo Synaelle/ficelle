@@ -499,6 +499,86 @@ mod tests {
     }
 
     #[test]
+    fn a_vault_reading_a_shared_space_still_takes_the_nested_tags() {
+        let [own_folder, shared_folder, ab, _, _, mine, theirs, tagged] = FOLDER_IDS;
+        // spaces came with step 8
+        for from in 8..19 {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("old.db");
+            let conn = Connection::open(&path).unwrap();
+            migrate_to(&conn, from).unwrap();
+            insert_any(
+                &conn,
+                "spaces",
+                &[("id", "shared"), ("role", "read"), ("kind", "standard")],
+            );
+            insert_any(&conn, "folders", &[("id", own_folder), ("name", "Mine")]);
+            insert_any(
+                &conn,
+                "folders",
+                &[
+                    ("id", shared_folder),
+                    ("name", "Theirs"),
+                    ("space_id", "shared"),
+                ],
+            );
+            insert_any(
+                &conn,
+                "notes",
+                &[("id", mine), ("folder_id", own_folder), ("title", "Kept")],
+            );
+            insert_any(
+                &conn,
+                "notes",
+                &[
+                    ("id", theirs),
+                    ("folder_id", shared_folder),
+                    ("title", "Shared"),
+                    ("space_id", "shared"),
+                ],
+            );
+            // a tag an importer made with a slash before tags nested
+            insert_any(&conn, "notes", &[("id", tagged), ("title", "Nested")]);
+            insert_any(&conn, "tags", &[("id", ab), ("name", "a/b")]);
+            insert_any(&conn, "note_tags", &[("note_id", tagged), ("tag_id", ab)]);
+            // a vault at rest has sent its changes, a shared note came in quietly
+            conn.execute("DELETE FROM sync_touched", []).unwrap();
+            drop(conn);
+
+            let conn = open(&path, None).unwrap_or_else(|e| panic!("from version {from}: {e}"));
+            let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+            assert_eq!(
+                count("SELECT count(*) FROM notes"),
+                3,
+                "from {from}: every note is there"
+            );
+            let tags_of = |note: &str| -> Vec<String> {
+                let mut stmt = conn
+                    .prepare(
+                        "SELECT t.name FROM tags t JOIN note_tags nt ON nt.tag_id = t.id
+                         WHERE nt.note_id = ?1 ORDER BY t.name",
+                    )
+                    .unwrap();
+                stmt.query_map([note], |r| r.get(0))
+                    .unwrap()
+                    .map(|r| r.unwrap())
+                    .collect()
+            };
+            assert_eq!(tags_of(mine), ["Mine"], "from {from}");
+            assert!(
+                tags_of(theirs).is_empty(),
+                "from {from}: the sharer's to tag"
+            );
+            assert_eq!(tags_of(tagged), ["a/b"], "from {from}");
+            assert_eq!(
+                count("SELECT count(*) FROM tags WHERE name = 'a'"),
+                1,
+                "from {from}: a/b has its parent, it shows in the tree"
+            );
+        }
+    }
+
+    #[test]
     fn refuses_a_database_from_the_future() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("a.db");

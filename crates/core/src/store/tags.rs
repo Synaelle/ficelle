@@ -218,9 +218,12 @@ pub(crate) fn tags_from_folders(
              WHERE id = ?1",
             params![tag, folder],
         )?;
+        // a space shared with this account read only is the sharer's: their
+        // devices tag its notes, and its changes would be refused from here
         conn.execute(
             "INSERT OR IGNORE INTO note_tags (note_id, tag_id)
-             SELECT id, ?2 FROM notes WHERE folder_id = ?1",
+             SELECT id, ?2 FROM notes WHERE folder_id = ?1
+             AND space_id NOT IN (SELECT id FROM spaces WHERE role = 'read')",
             params![folder, tag],
         )?;
     }
@@ -237,7 +240,13 @@ pub(crate) fn convert_folders_to_tags(conn: &Connection) -> Result<()> {
     // and two that now mean the same tag become one
     for (id, name) in all_tags(conn)? {
         let clean = normalize(&name);
-        if clean.is_empty() || clean == name {
+        if clean.is_empty() {
+            continue;
+        }
+        if clean == name {
+            // "a/b" from an older version gets its "a", or it would stay out
+            // of every tag tree
+            tag_id_for(conn, &name, now)?;
             continue;
         }
         let target = tag_id_for(conn, &clean, now)?;
@@ -251,7 +260,9 @@ pub(crate) fn convert_folders_to_tags(conn: &Connection) -> Result<()> {
         }
     }
     let folders: Vec<FolderId> = {
-        let mut stmt = conn.prepare("SELECT id FROM folders")?;
+        let mut stmt = conn.prepare(
+            "SELECT id FROM folders WHERE space_id NOT IN (SELECT id FROM spaces WHERE role = 'read')",
+        )?;
         stmt.query_map([], |row| row.get(0))?
             .collect::<rusqlite::Result<Vec<_>>>()?
     };
@@ -267,7 +278,8 @@ pub(crate) fn convert_folders_to_tags(conn: &Connection) -> Result<()> {
     tags_from_folders(conn, &folders, now)?;
     super::rebuild_search_index(conn)?;
     conn.execute(
-        "INSERT OR IGNORE INTO sync_touched (kind, space, id) SELECT 'note', space_id, id FROM notes",
+        "INSERT OR IGNORE INTO sync_touched (kind, space, id) SELECT 'note', space_id, id FROM notes
+         WHERE space_id NOT IN (SELECT id FROM spaces WHERE role = 'read')",
         [],
     )?;
     conn.execute(
