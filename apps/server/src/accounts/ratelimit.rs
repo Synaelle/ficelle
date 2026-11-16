@@ -85,7 +85,7 @@ impl RateLimit {
 /// The bucket an address counts in: an IPv6 address by its /64, which one
 /// home or one server is given whole, so a new address in it is not a new
 /// allowance. IPv4 as it is.
-fn network(ip: IpAddr) -> IpAddr {
+pub(crate) fn network(ip: IpAddr) -> IpAddr {
     match ip {
         IpAddr::V6(v6) => match v6.to_ipv4_mapped() {
             Some(v4) => IpAddr::V4(v4),

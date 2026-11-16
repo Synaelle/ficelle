@@ -6,6 +6,8 @@
 
 use app_protocol::account::{DeviceInfo, Registration, Role};
 use app_protocol::e2ee::AccountKind;
+use std::net::IpAddr;
+
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::token::{self, Kind, TokenHash};
@@ -30,8 +32,6 @@ pub struct UserRow {
     pub created_at: i64,
     /// Set when an admin turned the account off.
     pub disabled_at: Option<i64>,
-    /// Set while sign-ins are refused.
-    pub locked_until: Option<i64>,
     /// Standard or end-to-end encrypted.
     pub kind: AccountKind,
     /// Must add a second factor before acting as an admin.
@@ -140,8 +140,7 @@ pub fn new_id() -> String {
     uuid::Uuid::now_v7().to_string()
 }
 
-const USER_COLUMNS: &str = "id, username, display_name, password_hash, role, created_at, disabled_at, locked_until, kind, \
-     factor_required";
+const USER_COLUMNS: &str = "id, username, display_name, password_hash, role, created_at, disabled_at, kind, factor_required";
 
 fn user_from(row: &rusqlite::Row<'_>) -> rusqlite::Result<UserRow> {
     Ok(UserRow {
@@ -152,9 +151,8 @@ fn user_from(row: &rusqlite::Row<'_>) -> rusqlite::Result<UserRow> {
         role: role_of(&row.get::<_, String>(4)?),
         created_at: row.get(5)?,
         disabled_at: row.get(6)?,
-        locked_until: row.get(7)?,
-        kind: super::e2ee::kind_of(&row.get::<_, String>(8)?),
-        factor_required: row.get(9)?,
+        kind: super::e2ee::kind_of(&row.get::<_, String>(7)?),
+        factor_required: row.get(8)?,
     })
 }
 
@@ -341,50 +339,121 @@ pub fn set_limits(conn: &Connection, limits: &Limits) -> Result<(), DbError> {
     Ok(())
 }
 
-/// Counts a failed sign-in. Returns the end of the lock it caused, if any.
-/// Each lock lasts twice the previous one, up to the longest wait, from the
-/// limits set on the admin page or else the config file.
+/// Who failed to sign in: an account, or a username no account has.
+#[derive(Debug, Clone, Copy)]
+pub enum Subject<'a> {
+    /// An account's id.
+    Account(&'a str),
+    /// A lower case username no account has.
+    Name(&'a str),
+}
+
+impl Subject<'_> {
+    /// The account's id, or a hash of the name: the table keeps no list of
+    /// the names people tried.
+    fn key(self) -> String {
+        match self {
+            Subject::Account(id) => id.to_owned(),
+            Subject::Name(name) => {
+                use sha2::Digest;
+                use std::fmt::Write;
+                let hash = sha2::Sha256::digest(format!("sign-in name\0{name}"));
+                hash.iter().fold(String::from("name:"), |mut key, b| {
+                    let _ = write!(key, "{b:02x}");
+                    key
+                })
+            }
+        }
+    }
+}
+
+/// Failures from all networks together lock an account after this many times
+/// the failures one network may make.
+const ACCOUNT_WIDE: u32 = 10;
+
+/// The network a failure counts for, as the rate limit counts addresses.
+fn network_of(ip: IpAddr) -> String {
+    super::ratelimit::network(ip).to_string()
+}
+
+/// The end of the lock in force on `subject` for someone at `ip`: their
+/// network's own, or the whole account's.
+///
+/// # Errors
+///
+/// Database errors only.
+pub fn lock_end(
+    conn: &Connection,
+    subject: Subject<'_>,
+    ip: IpAddr,
+    now: i64,
+) -> Result<Option<i64>, DbError> {
+    Ok(conn.query_row(
+        "SELECT MAX(locked_until) FROM sign_in_locks
+         WHERE subject = ?1 AND network IN (?2, '') AND locked_until > ?3",
+        params![subject.key(), network_of(ip), now],
+        |r| r.get(0),
+    )?)
+}
+
+/// Counts a failed sign-in, for the network it came from and for the whole
+/// account. Returns the end of the lock it caused, if any. Each lock lasts
+/// twice the previous one, up to the longest wait, from the limits set on
+/// the admin page or else the config file.
 ///
 /// # Errors
 ///
 /// Database errors only.
 pub fn record_failure(
     conn: &Connection,
-    user_id: &str,
+    subject: Subject<'_>,
+    ip: IpAddr,
     now: i64,
     auth: &AuthConfig,
 ) -> Result<Option<i64>, DbError> {
     let auth = &limits(conn)?.apply(auth);
-    let (failed, locks): (i64, i64) = conn.query_row(
-        "UPDATE users SET failed_logins = failed_logins + 1 WHERE id = ?1
-         RETURNING failed_logins, lock_count",
-        [user_id],
-        |r| Ok((r.get(0)?, r.get(1)?)),
-    )?;
-    if failed < i64::from(auth.lockout_attempts) {
-        return Ok(None);
+    let key = subject.key();
+    let mut caused = None;
+    for (network, attempts) in [
+        (network_of(ip), auth.lockout_attempts),
+        (
+            String::new(),
+            auth.lockout_attempts.saturating_mul(ACCOUNT_WIDE),
+        ),
+    ] {
+        let (failed, locks): (i64, i64) = conn.query_row(
+            "INSERT INTO sign_in_locks (subject, network, failed, lock_count, last_at)
+             VALUES (?1, ?2, 1, 0, ?3)
+             ON CONFLICT (subject, network) DO UPDATE SET failed = failed + 1, last_at = ?3
+             RETURNING failed, lock_count",
+            params![key, network, now],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        if failed < i64::from(attempts) {
+            continue;
+        }
+        let doubling = 1_i64 << locks.clamp(0, 20);
+        let minutes =
+            (i64::from(auth.lockout_minutes) * doubling).min(i64::from(auth.lockout_max_minutes));
+        let until = now + minutes * MINUTE;
+        conn.execute(
+            "UPDATE sign_in_locks SET failed = 0, lock_count = lock_count + 1, locked_until = ?3
+             WHERE subject = ?1 AND network = ?2",
+            params![key, network, until],
+        )?;
+        caused = caused.max(Some(until));
     }
-    let doubling = 1_i64 << locks.clamp(0, 20);
-    let minutes =
-        (i64::from(auth.lockout_minutes) * doubling).min(i64::from(auth.lockout_max_minutes));
-    let until = now + minutes * MINUTE;
-    conn.execute(
-        "UPDATE users SET failed_logins = 0, lock_count = lock_count + 1, locked_until = ?2 WHERE id = ?1",
-        params![user_id, until],
-    )?;
-    Ok(Some(until))
+    Ok(caused)
 }
 
-/// A good sign-in clears the failure count and the lock history.
+/// A good sign-in clears the failure counts and the lock history, from
+/// every network.
 ///
 /// # Errors
 ///
 /// Database errors only.
 pub fn record_success(conn: &Connection, user_id: &str) -> Result<(), DbError> {
-    conn.execute(
-        "UPDATE users SET failed_logins = 0, lock_count = 0, locked_until = NULL WHERE id = ?1",
-        [user_id],
-    )?;
+    conn.execute("DELETE FROM sign_in_locks WHERE subject = ?1", [user_id])?;
     Ok(())
 }
 
@@ -842,7 +911,12 @@ pub fn cleanup(conn: &Connection, now: i64) -> Result<usize, DbError> {
         [now],
     )?;
     let challenges = super::factors::cleanup(conn, now)?;
-    Ok(access + refresh + challenges)
+    // counts nobody added to for a day, once their lock is over
+    let failures = conn.execute(
+        "DELETE FROM sign_in_locks WHERE last_at <= ?1 AND (locked_until IS NULL OR locked_until <= ?2)",
+        params![now - DAY, now],
+    )?;
+    Ok(access + refresh + challenges + failures)
 }
 
 #[cfg(test)]
@@ -1089,19 +1163,21 @@ mod tests {
     async fn failures_lock_with_doubling_waits_and_a_good_sign_in_resets() {
         let (db, user) = with_user().await;
         let id = user.id.clone();
+        let ip: IpAddr = "203.0.113.7".parse().unwrap();
         let locks = db
             .call(move |c| {
+                let me = Subject::Account(&id);
                 let mut ends = Vec::new();
                 for round in 0..3 {
                     let now = round * 10 * MINUTE;
                     for _ in 0..5 {
-                        if let Some(until) = record_failure(c, &id, now, &auth())? {
+                        if let Some(until) = record_failure(c, me, ip, now, &auth())? {
                             ends.push((until - now) / MINUTE);
                         }
                     }
                 }
                 record_success(c, &id)?;
-                ends.push(record_failure(c, &id, 0, &auth())?.unwrap_or(-1));
+                ends.push(record_failure(c, me, ip, 0, &auth())?.unwrap_or(-1));
                 Ok(ends)
             })
             .await
@@ -1111,6 +1187,55 @@ mod tests {
             vec![1, 2, 4, -1],
             "1, 2 then 4 minutes, and no lock after a reset"
         );
+    }
+
+    #[tokio::test]
+    async fn a_lock_holds_for_its_network_until_many_networks_fail() {
+        let (db, user) = with_user().await;
+        let id = user.id.clone();
+        db.call(move |c| {
+            let me = Subject::Account(&id);
+            let ip = |n: u8| IpAddr::from([203, 0, 113, n]);
+            for _ in 0..5 {
+                record_failure(c, me, ip(1), 0, &auth())?;
+            }
+            assert!(lock_end(c, me, ip(1), 0)?.is_some(), "locked from there");
+            assert!(lock_end(c, me, ip(2), 0)?.is_none(), "not from elsewhere");
+            // the same /64 is the same network
+            let v6 = |n: u16| IpAddr::from([0x2001, 0xdb8, 0, 0, 0, 0, 0, n]);
+            for n in 0..5 {
+                record_failure(c, me, v6(n), 0, &auth())?;
+            }
+            assert!(lock_end(c, me, v6(99), 0)?.is_some());
+            // ten networks' worth of failures lock the account everywhere
+            for n in 10..18 {
+                for _ in 0..5 {
+                    record_failure(c, me, ip(n), 0, &auth())?;
+                }
+            }
+            assert!(lock_end(c, me, ip(99), 0)?.is_some());
+            Ok(())
+        })
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_name_no_account_has_locks_like_one() {
+        let (db, _) = with_user().await;
+        db.call(move |c| {
+            let ip = IpAddr::from([203, 0, 113, 1]);
+            let nobody = Subject::Name("nobody");
+            let ends: Vec<_> = (0..5)
+                .map(|_| record_failure(c, nobody, ip, 0, &auth()))
+                .collect::<Result<_, _>>()?;
+            assert_eq!(ends.last(), Some(&Some(MINUTE)));
+            assert!(lock_end(c, nobody, ip, 0)?.is_some());
+            assert!(lock_end(c, Subject::Name("somebody"), ip, 0)?.is_none());
+            Ok(())
+        })
+        .await
+        .unwrap();
     }
 
     #[tokio::test]

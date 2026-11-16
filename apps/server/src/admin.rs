@@ -74,7 +74,7 @@ pub fn overview(conn: &Connection) -> Result<Overview, DbError> {
 }
 
 const ADMIN_USER_SELECT: &str = "SELECT u.id, u.username, u.display_name, u.role, u.created_at,
-        u.disabled_at, u.locked_until,
+        u.disabled_at, (SELECT MAX(l.locked_until) FROM sign_in_locks l WHERE l.subject = u.id),
         (SELECT MAX(last_seen_at) FROM devices d WHERE d.user_id = u.id),
         (SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id AND d.revoked_at IS NULL),
         (SELECT group_concat(g.name, char(31)) FROM group_members m JOIN groups g ON g.id = m.group_id

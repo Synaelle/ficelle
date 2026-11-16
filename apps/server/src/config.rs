@@ -341,7 +341,9 @@ pub struct AuthConfig {
     /// Life of a refresh token. Each refresh starts a new one, so a device
     /// used at least this often stays signed in.
     pub refresh_token_days: u32,
-    /// Failed sign-ins in a row before the account locks.
+    /// Failed sign-ins in a row from one network before the account locks
+    /// for that network. Ten times as many from all networks together lock
+    /// it for everyone.
     pub lockout_attempts: u32,
     /// First lock length, each further lock doubles it.
     pub lockout_minutes: u32,

@@ -525,7 +525,8 @@ mod tests {
             )?;
             factors::activate_totp(c, &id, 1)?;
             c.execute(
-                "UPDATE users SET locked_until = 9999999999999 WHERE id = ?1",
+                "INSERT INTO sign_in_locks (subject, network, failed, lock_count, locked_until, last_at)
+                 VALUES (?1, '', 0, 1, 9999999999999, 0)",
                 [&id],
             )?;
             Ok(())
@@ -539,7 +540,15 @@ mod tests {
             .await
             .unwrap();
         assert!(root.factor_required);
-        assert!(root.locked_until.is_none());
+        let id = root.id.clone();
+        let lock = db
+            .call(move |c| {
+                let ip = std::net::IpAddr::from([127, 0, 0, 1]);
+                store::lock_end(c, store::Subject::Account(&id), ip, 0)
+            })
+            .await
+            .unwrap();
+        assert!(lock.is_none());
         let check = Passwords::new(&config.auth).check(&password, Some(&root.password_hash));
         assert_ne!(check, crate::accounts::password::Check::Bad);
         let id = root.id.clone();

@@ -60,17 +60,18 @@ pub(super) async fn confirm(
     };
     // as a sign-in: a stolen session guesses no faster than anyone
     super::auth::rate_limit(state, ip)?;
-    super::auth::not_locked(&me.user, now)?;
+    super::auth::not_locked(state, Some(&me.user), &me.user.username, ip, now).await?;
     if check_password(state, password, Some(me.user.password_hash.clone())).await? != Check::Bad {
         return Ok(());
     }
     let id = me.user.id.clone();
     let auth = state.config.auth.clone();
+    let addr = ip.0;
     let ip = ip.0.to_string();
     state
         .db
         .call(move |c| {
-            store::record_failure(c, &id, now, &auth)?;
+            store::record_failure(c, store::Subject::Account(&id), addr, now, &auth)?;
             store::audit(
                 c,
                 now,

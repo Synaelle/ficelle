@@ -220,6 +220,7 @@ async fn start_login(
     name: String,
     request: &str,
     kind: ChallengeKind,
+    ip: ClientIp,
 ) -> Result<OpaqueLoginStarted, Error> {
     let now = state.clock.now();
     let lookup = name.clone();
@@ -235,9 +236,7 @@ async fn start_login(
             Ok((user, record, old_remain))
         })
         .await?;
-    if let Some(user) = &user {
-        not_locked(user, now)?;
-    }
+    not_locked(state, user.as_ref(), &name, ip, now).await?;
     let setup = setup(state).await?;
     let ksf = match &record {
         Some((_, ksf)) => *ksf,
@@ -320,7 +319,7 @@ async fn finish_login(
     if passed {
         return Ok(user);
     }
-    failed_sign_in(state, user.map(|u| u.id), ip.0.to_string(), now).await?;
+    failed_sign_in(state, user.map(|u| u.id), login.username, ip, now).await?;
     Ok(None)
 }
 
@@ -336,6 +335,7 @@ pub async fn login_start(
         username(&req.username),
         &req.request,
         ChallengeKind::OpaqueLogin,
+        ip,
     )
     .await?;
     Ok(Json(started))
@@ -393,6 +393,7 @@ pub async fn confirm_start(
         me.user.username.clone(),
         &req.request,
         ChallengeKind::OpaqueConfirm,
+        ip,
     )
     .await?;
     Ok(Json(started))
@@ -621,13 +622,14 @@ pub async fn recovery_start(
     rate_limit(&state, ip)?;
     let now = state.clock.now();
     let name = username(&req.username);
+    let lookup = name.clone();
     let user = state
         .db
-        .call(move |c| store::user_by_name(c, &name))
+        .call(move |c| store::user_by_name(c, &lookup))
         .await?;
-    if let Some(user) = &user {
-        not_locked(user, now)?;
-    }
+    not_locked(&state, user.as_ref(), &name, ip, now).await?;
+    // failures count for the account whatever its kind, as the lock does
+    let counted = user.as_ref().map(|u| u.id.clone());
     let user = user.filter(|u| u.kind == AccountKind::E2ee);
     let lookup = user.as_ref().map(|u| u.id.clone());
     let verifier = req.verifier;
@@ -654,7 +656,7 @@ pub async fn recovery_start(
         })
         .await?;
     let Some((challenge, keys)) = granted else {
-        failed_sign_in(&state, user.map(|u| u.id), ip.0.to_string(), now).await?;
+        failed_sign_in(&state, counted, name, ip, now).await?;
         return Err(recovery_invalid());
     };
     Ok(Json(RecoveryStarted { challenge, keys }))

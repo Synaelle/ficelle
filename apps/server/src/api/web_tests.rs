@@ -353,9 +353,11 @@ async fn sign_in_limits_set_on_the_admin_page_count() {
                 c.query_row("SELECT id FROM users WHERE username = 'admin'", [], |r| {
                     r.get(0)
                 })?;
+            let me = store::Subject::Account(&id);
+            let ip = std::net::IpAddr::from([203, 0, 113, 1]);
             Ok((
-                store::record_failure(c, &id, 0, &auth)?,
-                store::record_failure(c, &id, 0, &auth)?,
+                store::record_failure(c, me, ip, 0, &auth)?,
+                store::record_failure(c, me, ip, 0, &auth)?,
             ))
         })
         .await

@@ -40,7 +40,7 @@ pub async fn change_password(
     let now = state.clock.now();
     // as a sign-in: a stolen session guesses no faster than anyone
     super::auth::rate_limit(&state, ip)?;
-    super::auth::not_locked(&me.user, now)?;
+    super::auth::not_locked(&state, Some(&me.user), &me.user.username, ip, now).await?;
     let ip_text = ip.0.to_string();
     if check_password(&state, req.current, Some(me.user.password_hash.clone())).await? == Check::Bad
     {
@@ -49,7 +49,7 @@ pub async fn change_password(
         state
             .db
             .call(move |c| {
-                store::record_failure(c, &id, now, &auth)?;
+                store::record_failure(c, store::Subject::Account(&id), ip.0, now, &auth)?;
                 store::audit(
                     c,
                     now,

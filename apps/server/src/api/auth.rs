@@ -255,13 +255,12 @@ pub async fn login(
     rate_limit(&state, ip)?;
     let now = state.clock.now();
     let name = req.username.trim().to_ascii_lowercase();
+    let lookup = name.clone();
     let user = state
         .db
-        .call(move |c| store::user_by_name(c, &name))
+        .call(move |c| store::user_by_name(c, &lookup))
         .await?;
-    if let Some(user) = &user {
-        not_locked(user, now)?;
-    }
+    not_locked(&state, user.as_ref(), &name, ip, now).await?;
     // an account without a password (made by single sign-on) is checked
     // against the dummy hash, it takes as long and always fails
     let stored = user
@@ -274,7 +273,7 @@ pub async fn login(
     let user = match (user, check == Check::Bad || !has_password) {
         (Some(user), false) => user,
         (user, _) => {
-            failed_sign_in(&state, user.map(|u| u.id), ip_text, now).await?;
+            failed_sign_in(&state, user.map(|u| u.id), name, ip, now).await?;
             return Err(bad_credentials());
         }
     };
@@ -294,9 +293,22 @@ pub async fn login(
     Ok(Json(session).into_response())
 }
 
-/// Refuses while the account is locked, saying for how long.
-pub(super) fn not_locked(user: &UserRow, now: i64) -> Result<(), Error> {
-    match user.locked_until.filter(|&t| t > now) {
+/// Refuses while sign-ins to the account, or to the name when no account
+/// has it, are locked for someone at `ip`, saying for how long.
+pub(super) async fn not_locked(
+    state: &AppState,
+    user: Option<&UserRow>,
+    name: &str,
+    ip: ClientIp,
+    now: i64,
+) -> Result<(), Error> {
+    let id = user.map(|u| u.id.clone());
+    let name = name.to_owned();
+    let end = state
+        .db
+        .call(move |c| store::lock_end(c, subject(id.as_deref(), &name), ip.0, now))
+        .await?;
+    match end {
         Some(until) => {
             let seconds = u64::try_from((until - now + 999) / 1000).unwrap_or(1);
             Err(Error::new(
@@ -308,6 +320,11 @@ pub(super) fn not_locked(user: &UserRow, now: i64) -> Result<(), Error> {
         }
         None => Ok(()),
     }
+}
+
+/// The account, or else the name, sign-in failures count for.
+fn subject<'a>(id: Option<&'a str>, name: &'a str) -> store::Subject<'a> {
+    id.map_or(store::Subject::Name(name), store::Subject::Account)
 }
 
 pub(super) fn not_disabled(user: &UserRow) -> Result<(), Error> {
@@ -359,37 +376,32 @@ pub(super) async fn finish_sign_in(
 }
 
 /// Counts a failure against the account, locking it when there are too
-/// many, and logs it. An unknown username is logged too, so the answer takes
-/// as long as for a real account and nobody learns which usernames exist.
+/// many, and logs it. An unknown username is counted and logged too, so the
+/// answer takes as long, and locks the same way, as for a real account:
+/// nobody learns which usernames exist.
 pub(super) async fn failed_sign_in(
     state: &AppState,
     user_id: Option<String>,
-    ip: String,
+    name: String,
+    ip: ClientIp,
     now: i64,
 ) -> Result<(), Error> {
     let auth = state.config.auth.clone();
     state
         .db
         .call(move |c| {
+            let ip_text = ip.0.to_string();
             let event = |name| Event {
                 name,
                 user_id: user_id.as_deref(),
-                ip: Some(&ip),
+                ip: Some(&ip_text),
+                detail: user_id.is_none().then_some("no such account"),
                 ..Event::default()
             };
-            let Some(id) = user_id.as_deref() else {
-                return store::audit(
-                    c,
-                    now,
-                    &Event {
-                        detail: Some("no such account"),
-                        ..event("sign_in_failed")
-                    },
-                );
-            };
-            let locked = store::record_failure(c, id, now, &auth)?;
+            let locked =
+                store::record_failure(c, subject(user_id.as_deref(), &name), ip.0, now, &auth)?;
             store::audit(c, now, &event("sign_in_failed"))?;
-            if locked.is_some() {
+            if locked.is_some() && user_id.is_some() {
                 store::audit(c, now, &event("locked_out"))?;
             }
             Ok(())

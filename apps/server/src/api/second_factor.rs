@@ -200,7 +200,7 @@ pub async fn second_factor(
     if challenge.attempts >= MAX_ATTEMPTS {
         return Err(invalid());
     }
-    not_locked(&user, now)?;
+    not_locked(&state, Some(&user), &user.username, ip, now).await?;
     not_disabled(&user)?;
     let ip_text = ip.0.to_string();
     let id = user.id.clone();
@@ -235,7 +235,8 @@ pub async fn second_factor(
                     if attempts >= MAX_ATTEMPTS {
                         factors::end_challenge(&tx, &hash)?;
                     }
-                    let locked = store::record_failure(&tx, &id, now, &auth)?;
+                    let locked =
+                        store::record_failure(&tx, store::Subject::Account(&id), ip.0, now, &auth)?;
                     let event = |name| Event {
                         name,
                         user_id: Some(&id),

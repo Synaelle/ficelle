@@ -400,11 +400,12 @@ async fn a_device_can_be_signed_out_from_another() {
 #[tokio::test]
 async fn sign_in_attempts_are_rate_limited_per_address() {
     let (_, app) = server().await;
-    for _ in 0..20 {
-        let (status, _) = login(&app, "nobody", "whatever password").await;
+    // a new name each time: one name alone locks after five, as an account does
+    for n in 0..20 {
+        let (status, _) = login(&app, &format!("nobody{n}"), "whatever password").await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
-    let (status, body) = login(&app, "nobody", "whatever password").await;
+    let (status, body) = login(&app, "nobody20", "whatever password").await;
     assert_eq!(
         (status, body["error"].as_str()),
         (StatusCode::TOO_MANY_REQUESTS, Some("rateLimited"))

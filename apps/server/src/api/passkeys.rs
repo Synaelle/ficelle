@@ -476,7 +476,7 @@ pub async fn sign_in_finish(
     let Some((user, rows)) = found else {
         return Err(invalid());
     };
-    not_locked(&user, now)?;
+    not_locked(&state, Some(&user), &user.username, ip, now).await?;
     not_disabled(&user)?;
     let checked = match data {
         SignIn {
