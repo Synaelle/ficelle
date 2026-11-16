@@ -47,6 +47,12 @@ What it can read depends on the account.
 
 The server keeps a log of sign-ins, failures and account changes with the network address, 365 days by default. It keeps no log of other requests. Each admin can change these lengths, see their server's privacy page.
 
+## The web version
+
+web.ficelle.synaelle.com runs Ficelle in your browser. Your notes, files and settings stay in that browser's storage, encrypted once you set a password in Settings, Security, and never reach the server. The server only hands out the app's files. It keeps no log of visits, not even your network address, sets no cookies and loads nothing from anywhere else. Feedback and sync are off there.
+
+Clearing the site's data in your browser deletes the notes, so download a backup now and then. On an iPhone or iPad, Safari may delete a site's data after a week without a visit, unless you add it to your Home Screen.
+
 ## On your devices
 
 Notes and attachments are encrypted on the device once you turn on encryption in Settings, Security. New installs start without it. Settings (appearance, language) are kept unencrypted, they hold nothing about your notes. Warnings and errors stay in memory for feedback and are never written to disk.
