@@ -62,7 +62,8 @@
     {@render item({ kind: 'all' }, 'allNotes', t('sidebar.allNotes'))}
   </div>
 
-  <div class="group">
+  <!-- many tags scroll on their own: Trash and Settings stay in view -->
+  <div class="group tags">
     <!-- a tag dropped on the heading goes back to the top -->
     <div class="heading" use:tagDropTarget={(name) => moveTag(name, '')}>
       <span>{t('sidebar.tags')}</span>
@@ -141,6 +142,12 @@
   .small {
     width: 24px;
     height: 24px;
+  }
+  .tags {
+    flex: 0 1 auto;
+    min-height: 120px;
+    overflow-y: auto;
+    align-content: start;
   }
   .spacer {
     flex: 1;
