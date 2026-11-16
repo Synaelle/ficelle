@@ -9,7 +9,7 @@ import { prefs } from './prefs.svelte'
 
 /** Lines kept, the newest. */
 export const MAX_LINES = 50
-/** As the server's caps (crates/protocol/src/feedback.rs). */
+/** As the server's caps (crates/protocol/src/feedback.rs), feedbackLimits.test.ts checks. */
 export const MAX_ABOUT = 120
 export const MAX_MESSAGE = 5_000
 export const MAX_CONTACT = 254
