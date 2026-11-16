@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::io::Read;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream, UdpSocket};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -172,6 +172,50 @@ struct State {
     unreachable: HashMap<[u8; 32], Instant>,
     /// Names of the devices that told this one they forgot it.
     forgotten_by: Vec<String>,
+    /// Connections not through their handshake yet, by address.
+    greeting: HashMap<IpAddr, usize>,
+}
+
+/// Connections waiting on their handshake at once, in all and from one
+/// address: anyone on the network can open one, a thread each.
+const MOST_GREETING: usize = 16;
+const MOST_GREETING_FROM_ONE: usize = 4;
+
+impl State {
+    /// Counts a new connection from `ip`, `false` when there are too many.
+    fn admit(&mut self, ip: IpAddr) -> bool {
+        let total: usize = self.greeting.values().sum();
+        let theirs = self.greeting.entry(ip).or_default();
+        if total >= MOST_GREETING || *theirs >= MOST_GREETING_FROM_ONE {
+            if *theirs == 0 {
+                self.greeting.remove(&ip);
+            }
+            return false;
+        }
+        *theirs += 1;
+        true
+    }
+
+    fn greeted(&mut self, ip: IpAddr) {
+        if let Some(n) = self.greeting.get_mut(&ip) {
+            *n -= 1;
+            if *n == 0 {
+                self.greeting.remove(&ip);
+            }
+        }
+    }
+}
+
+/// A connection counted in [`State::greeting`] until its handshake ends.
+struct Greeting<H: Host> {
+    shared: Arc<Shared<H>>,
+    ip: IpAddr,
+}
+
+impl<H: Host> Drop for Greeting<H> {
+    fn drop(&mut self) {
+        self.shared.lock().greeted(self.ip);
+    }
 }
 
 pub(crate) struct Shared<H: Host> {
@@ -586,7 +630,7 @@ impl<H: Host> Shared<H> {
         }
     }
 
-    fn accept(self: &Arc<Self>, mut stream: TcpStream) {
+    fn accept(self: &Arc<Self>, mut stream: TcpStream, greeting: Greeting<H>) {
         let _ = stream.set_read_timeout(Some(CONNECT));
         let mut first = [0u8; 1];
         if stream.read_exact(&mut first).is_err() {
@@ -597,7 +641,9 @@ impl<H: Host> Shared<H> {
             WANTS_SYNC => {
                 // one forgotten here gets through, only to hear it
                 let known = |k: &[u8; 32]| self.paired(k) || self.forgot(k);
-                if let Ok(ch) = channel::answer_sync(stream, &secret, known) {
+                let answered = channel::answer_sync(stream, &secret, known);
+                drop(greeting);
+                if let Ok(ch) = answered {
                     self.sync_session(ch, None);
                 }
             }
@@ -790,12 +836,19 @@ impl<H: Host> Shared<H> {
     fn listen(self: &Arc<Self>, listener: &TcpListener, generation: u64) {
         while self.generation_alive(generation) {
             match listener.accept() {
-                Ok((stream, _)) => {
+                Ok((stream, from)) => {
+                    if !self.lock().admit(from.ip()) {
+                        continue;
+                    }
+                    let greeting = Greeting {
+                        shared: self.clone(),
+                        ip: from.ip(),
+                    };
                     let _ = stream.set_nonblocking(false);
                     let shared = self.clone();
                     let _ = std::thread::Builder::new()
                         .name("peer-accept".into())
-                        .spawn(move || shared.accept(stream));
+                        .spawn(move || shared.accept(stream, greeting));
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     std::thread::sleep(Duration::from_millis(100));
@@ -1254,5 +1307,25 @@ impl<H: Host> Node<H> {
                 .map(|(k, _)| hex(k))
                 .collect(),
         }
+    }
+}
+
+#[cfg(test)]
+mod greeting_tests {
+    use super::*;
+
+    #[test]
+    fn a_few_handshakes_wait_at_once() {
+        let mut state = State::default();
+        let ip = |n: u8| IpAddr::from([192, 168, 1, n]);
+        assert!((0..4).all(|_| state.admit(ip(1))));
+        assert!(!state.admit(ip(1)), "four from one address");
+        for n in 2..5 {
+            assert!((0..4).all(|_| state.admit(ip(n))));
+        }
+        assert!(!state.admit(ip(9)), "sixteen in all");
+        assert_eq!(state.greeting.len(), 4);
+        state.greeted(ip(1));
+        assert!(state.admit(ip(9)), "a place freed");
     }
 }
