@@ -239,14 +239,44 @@ mod list {
         rank(app_brand::VERSION, app_brand::BUILD.parse().ok())
     }
 
+    /// A nightly's day and its number that day, from its name:
+    /// `nightly-2026-11-16.2` is `("2026-11-16", 2)`, the day's first is 1.
+    fn nightly_day(version: &str) -> Option<(&str, u64)> {
+        let rest = version.trim().strip_prefix("nightly-")?;
+        let (day, n) = match rest.split_once('.') {
+            Some((day, n)) => (day, n.parse().ok()?),
+            None => (rest, 1),
+        };
+        (day.len() == 10).then_some((day, n))
+    }
+
+    /// Where the list's version stands, for an app built on `built` (its
+    /// commit's day) running `here`. The list's `build` is not signed, the
+    /// version is, by the file's signature: the build counts only for a
+    /// nightly dated no earlier than this app and after its own nightly, so
+    /// an old signed file listed with a high number is never offered.
+    pub fn listed_rank(latest: &Latest, built: &str, here: &str) -> Option<u64> {
+        match nightly_day(&latest.version) {
+            Some(day) if day.0 >= built && nightly_day(here).is_none_or(|h| day > h) => {
+                rank(&latest.version, latest.build)
+            }
+            Some(_) => None,
+            None => rank(&latest.version, None),
+        }
+    }
+
+    fn listed(latest: &Latest) -> Option<u64> {
+        listed_rank(latest, app_brand::BUILD_DATE, app_brand::VERSION)
+    }
+
     /// The list's version is newer than `current`.
     pub fn newer(latest: &Latest, current: Option<u64>) -> bool {
-        matches!((rank(&latest.version, latest.build), current), (Some(l), Some(c)) if l > c)
+        matches!((listed(latest), current), (Some(l), Some(c)) if l > c)
     }
 
     /// The list's version is older than `current`.
     pub fn older(latest: &Latest, current: Option<u64>) -> bool {
-        matches!((rank(&latest.version, latest.build), current), (Some(l), Some(c)) if l < c)
+        matches!((listed(latest), current), (Some(l), Some(c)) if l < c)
     }
 
     /// A version that reads this build's database: the same schema steps.
@@ -1011,7 +1041,7 @@ pub use platform::Pending;
 #[cfg(test)]
 mod tests {
     use super::list::{
-        Latest, clean, newer, offered, older, rank, same_schema, signed_for, verify,
+        Latest, clean, listed_rank, newer, offered, older, rank, same_schema, signed_for, verify,
     };
     use super::{Channel, release_page, releases_in};
 
@@ -1177,15 +1207,50 @@ mod tests {
             ..list(name, None)
         };
         // the day's fix after the day's first, the next release after both
-        assert!(newer(&nightly("nightly-2026-11-16.2", fix), first));
-        assert!(!newer(&nightly("nightly-2026-11-16", first), fix));
+        // (named far ahead, so the app running the test is older)
+        assert!(newer(&nightly("nightly-2999-11-16.2", fix), first));
+        assert!(!newer(&nightly("nightly-2999-11-16", first), fix));
         assert!(newer(&list("0.6.1", None), fix));
         // a nightly is newer than the release before it, older than the next
         assert!(newer(
-            &nightly("nightly-2026-11-16", first),
+            &nightly("nightly-2999-11-16", first),
             rank("0.6.0", None)
         ));
         assert!(older(&list("0.6.0", None), first));
+    }
+
+    #[test]
+    fn a_build_number_only_counts_for_a_newer_nightly() {
+        let high = |name: &str| Latest {
+            build: Some(99_999_999),
+            ..list(name, None)
+        };
+        let ranked = |name: &str, built, here| listed_rank(&high(name), built, here);
+        // an old release listed with a high number keeps its own
+        assert_eq!(ranked("0.3.0", "2026-11-16", "0.6.2"), rank("0.3.0", None));
+        // a nightly older than this app, or than its own nightly, is not ranked
+        assert_eq!(ranked("nightly-2026-11-10", "2026-11-16", "0.6.2"), None);
+        assert_eq!(
+            ranked("nightly-2026-11-16", "2026-11-16", "nightly-2026-11-16.2"),
+            None
+        );
+        assert_eq!(
+            ranked("nightly-2026-11-16", "2026-11-16", "nightly-2026-11-16"),
+            None
+        );
+        // the next nightly, and the day's fix, are
+        assert_eq!(
+            ranked("nightly-2026-11-17", "2026-11-16", "nightly-2026-11-16"),
+            Some(99_999_999)
+        );
+        assert_eq!(
+            ranked("nightly-2026-11-16.2", "2026-11-16", "nightly-2026-11-16"),
+            Some(99_999_999)
+        );
+        assert_eq!(
+            ranked("nightly-2026-11-16", "2026-11-16", "0.6.2"),
+            Some(99_999_999)
+        );
     }
 
     // signed with a throwaway key by `tauri signer sign`
