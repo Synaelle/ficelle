@@ -1,8 +1,11 @@
 name: ci
 
-# text-only changes cannot break the build, they skip it
+# text-only changes cannot break the build, they skip it. Pushes to main
+# only: a tag names a commit main already checked, and a pull request's
+# branch is checked once, as the pull request
 on:
   push:
+    branches: [main]
     paths-ignore: ['**.md', 'LICENSE']
   pull_request:
     paths-ignore: ['**.md', 'LICENSE']
