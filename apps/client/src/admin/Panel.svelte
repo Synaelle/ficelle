@@ -156,7 +156,7 @@
         <WebVersion onchange={(view) => (web = view)} />
       {:else if section === 'advanced'}
         <p class="muted">{t('admin.advanced.help')}</p>
-        <Policy path="/admin/policy" level="instance" />
+        <Policy path="/admin/policy" />
       {:else if section === 'backups'}
         <Backups />
       {:else if section === 'feedback'}

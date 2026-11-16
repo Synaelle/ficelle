@@ -182,6 +182,7 @@ impl Store {
         Ok(())
     }
 
+    #[cfg(test)]
     /// The whole state of a document, for a device starting from nothing.
     ///
     /// # Errors

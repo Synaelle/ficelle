@@ -43,7 +43,6 @@
     onchange,
     onpending,
     onopenlink,
-    readonly = false,
   }: {
     noteId: string
     markdown: string
@@ -52,8 +51,6 @@
      * (false): the header says Saving from the first key. */
     onpending?: (pending: boolean) => void
     onopenlink: (title: string, heading: string | null) => Promise<boolean>
-    /** Shared with this account to read only: shown, never changed. */
-    readonly?: boolean
   } = $props()
 
   /** Idle time before the document is turned back into markdown. */
@@ -140,17 +137,10 @@
 
   /** What can be done with a file of the note: save a copy, remove it. */
   function fileItems(file: AttachmentFile): MenuItem[] {
-    const items: MenuItem[] = [
+    return [
       { label: t('files.saveCopy'), icon: 'export', run: () => void saveCopy(file) },
+      { label: t('files.remove'), icon: 'trash', danger: true, run: () => void removeFile(file) },
     ]
-    if (!readonly)
-      items.push({
-        label: t('files.remove'),
-        icon: 'trash',
-        danger: true,
-        run: () => void removeFile(file),
-      })
-    return items
   }
 
   /** The picture itself goes on the clipboard; Android's takes text only. */
@@ -206,7 +196,6 @@
     return [
       {
         label: t('menu.cut'),
-        disabled: readonly,
         run: () =>
           void copy().then((done) => done && current.chain().focus().deleteSelection().run()),
       },
@@ -425,7 +414,7 @@
    * its own when the note ends with something that takes no text after it
    * (images alone, a table, code). */
   export function writeAtEnd() {
-    if (!editor || readonly) return
+    if (!editor) return
     const last = editor.state.doc.lastChild
     if (last?.type.name === 'paragraph' && !imagesOnly(last)) {
       editor.view.focus()
@@ -480,7 +469,7 @@
    * and the page's own drop (handleDrop) gets the files.
    */
   async function dropFromSystem(x: number, y: number) {
-    if (!editor || readonly) return
+    if (!editor) return
     const found = await backend.droppedImages().catch(() => [])
     const files: File[] = []
     for (const [index, image] of found.entries()) {
@@ -651,7 +640,6 @@
       }),
       content: markdown,
       contentType: 'markdown',
-      editable: !readonly,
       editorProps: {
         attributes: {
           class: 'prose',
@@ -704,12 +692,12 @@
           // under the last block, in the editor's own room below the text:
           // as a tap under the note
           const last = view.dom.lastElementChild
-          if (!readonly && last && event.clientY > last.getBoundingClientRect().bottom) {
+          if (last && event.clientY > last.getBoundingClientRect().bottom) {
             writeAtEnd()
             return true
           }
           const at = view.state.doc.resolve(pos)
-          if (!readonly && !target?.closest('.image-view') && imagesOnly(at.parent)) {
+          if (!target?.closest('.image-view') && imagesOnly(at.parent)) {
             writeAfter(at.after())
             return true
           }
@@ -778,7 +766,7 @@
       scrollToHeading(workspace.pendingHeading)
       workspace.pendingHeading = null
     }
-    if (!readonly) workspace.serializeEditor = save
+    workspace.serializeEditor = save
   })
 
   /** A right click outside the selection takes the word under the pointer,
@@ -880,7 +868,7 @@
 </script>
 
 <div class="editor">
-  {#if editor && !readonly}
+  {#if editor}
     <Toolbar {editor} {tick} onlink={promptLink} onimage={() => fileInput.click()} />
   {/if}
   <div class="surface" bind:this={element} oncontextmenu={editorMenu} role="presentation">
@@ -905,7 +893,7 @@
         {/each}
       </div>
     {/if}
-    {#if editor && !readonly}
+    {#if editor}
       <TableTools {editor} {tick} />
     {/if}
   </div>

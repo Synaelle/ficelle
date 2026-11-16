@@ -1,7 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- The files policy of one level, the instance, a group or a person: each
-     rule either set here or inherited, with the value in effect and where it
-     comes from. -->
+<!-- The instance's files policy: each rule either set here or taken from the
+     config file, with the value in effect and where it comes from. -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
@@ -9,16 +8,7 @@
   import { api, type FilesPolicy, type PolicySettings, type PolicyView } from './api.svelte'
   import { bytes, errorText } from './format'
 
-  let {
-    path,
-    level,
-    onsaved,
-  }: {
-    path: string
-    level: 'instance' | 'group' | 'user'
-    /** After a save, for what shows the policy's effects. */
-    onsaved?: () => void
-  } = $props()
+  let { path }: { path: string } = $props()
 
   type Kind = 'mb' | 'count' | 'px' | 'quality' | 'days' | 'types' | 'bool'
   type Key = keyof PolicySettings
@@ -124,18 +114,14 @@
 
   function source(current: PolicyView, eff: keyof FilesPolicy): string {
     const from = current.sources[eff]
-    if (!from || from.level === level) return t('admin.policy.setHere')
-    if (from.level === 'group') {
-      const groups = from.groups ?? []
-      return t('admin.policy.fromGroups', { count: groups.length, names: groups.join(', ') })
-    }
+    if (!from || from.level === 'instance') return t('admin.policy.setHere')
     return t(`admin.policy.from.${from.level}`)
   }
 
   /** Where a value comes from, as an icon: the words go to its title. */
   function sourceIcon(current: PolicyView, eff: keyof FilesPolicy): IconName {
     const from = current.sources[eff]
-    if (!from || from.level === level) return 'restore'
+    if (!from || from.level === 'instance') return 'restore'
     return { config: 'configFile', instance: 'settings', group: 'groups', user: 'user' }[
       from.level
     ] as IconName
@@ -157,7 +143,6 @@
       view = await api<PolicyView>('PUT', path, body)
       reset()
       saved = true
-      onsaved?.()
     } catch (err) {
       problem = errorText(err)
     }
@@ -251,7 +236,6 @@
 
 {#if view}
   <form class="dash-page policy" onsubmit={save}>
-    {#if level !== 'instance'}<p class="dash-help">{t(`admin.policy.help.${level}`)}</p>{/if}
     <section class="dash-group">
       <h2>
         {t('admin.policy.groupFiles')}

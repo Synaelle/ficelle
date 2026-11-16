@@ -414,6 +414,7 @@ impl<H: Host> Shared<H> {
     /// Moves the first failure toward a device back in time, as if dials
     /// had failed for that long.
     #[cfg(test)]
+    #[cfg(test)]
     pub(crate) fn unreachable_for(&self, key: [u8; 32], long: Duration) -> bool {
         let mut state = self.lock();
         let Some(since) = state.unreachable.get_mut(&key) else {
@@ -552,6 +553,7 @@ impl<H: Host> Shared<H> {
         }
     }
 
+    #[cfg(test)]
     #[cfg(test)]
     pub(crate) fn codes_checked(&self) -> u8 {
         self.lock().pairing.as_ref().map_or(0, |p| p.checked)
