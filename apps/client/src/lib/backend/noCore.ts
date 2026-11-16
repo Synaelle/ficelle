@@ -10,7 +10,7 @@ const missing = () => {
 export default async function init() {
   missing()
 }
-export const start = missing
+export const start: (scope: string) => Promise<void> = missing
 export const call: (name: string, args: string) => string = missing
 export const callBytes: (name: string, args: string, bytes: Uint8Array) => string = missing
 export const readBytes: (name: string, args: string) => Uint8Array = missing

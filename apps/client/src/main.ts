@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// first: the web version's storage is its own path's before anything reads it
+import './lib/webStorage'
 import { brand } from '@app/brand'
 import { mount } from 'svelte'
 import App from './App.svelte'

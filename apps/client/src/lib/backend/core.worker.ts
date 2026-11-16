@@ -34,7 +34,9 @@ function asError(err: unknown): { kind: string; message: string } {
   return { kind: 'unknown', message }
 }
 
-const ready = init().then(() => start())
+// the page names the worker after its scope (webScope.ts): the core keeps the
+// notes in that scope's own folder, and opens none without it
+const ready = init().then(() => start(self.name))
 
 self.onmessage = async ({ data }: MessageEvent<CoreRequest>) => {
   const { id, name, args, bytes, binary } = data

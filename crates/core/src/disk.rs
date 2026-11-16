@@ -159,3 +159,33 @@ impl Disk for NativeDisk {
             .and_then(|t| t.elapsed().ok())
     }
 }
+
+/// The web version's folder of a scope's notes, `None` for anything that is not a scope as
+/// the page makes them (apps/client/src/lib/webScope.ts): never a folder another scope, or the
+/// versions before scopes, could share.
+pub fn web_scope_folder(scope: &str) -> Option<String> {
+    let plain = !scope.is_empty()
+        && scope.len() <= 200
+        && scope
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'%' | b'.' | b'_' | b'~' | b'-'))
+        && scope.starts_with("%2F");
+    plain.then(|| format!(".ficelle-{scope}"))
+}
+
+#[cfg(test)]
+mod scope_tests {
+    use super::web_scope_folder as scope_folder;
+
+    #[test]
+    fn each_path_has_its_own_folder_and_nothing_else_has_one() {
+        assert_eq!(scope_folder("%2Fweb").as_deref(), Some(".ficelle-%2Fweb"));
+        assert_eq!(scope_folder("%2Fapp").as_deref(), Some(".ficelle-%2Fapp"));
+        assert_ne!(scope_folder("%2Fweb"), scope_folder("%2Fapp"));
+        // the root is a scope of its own, never the folder of the versions before
+        assert_eq!(scope_folder("%2F").as_deref(), Some(".ficelle-%2F"));
+        for bad in ["", "web", "%2Fa/b", "..", "%2Fé", ".opfs-sahpool"] {
+            assert_eq!(scope_folder(bad), None, "{bad}");
+        }
+    }
+}

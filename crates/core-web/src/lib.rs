@@ -20,7 +20,7 @@ use app_core::vault::Vault;
 use serde::Serialize;
 use serde_json::Value;
 use sqlite_wasm_rs::WasmOsCallback;
-use sqlite_wasm_vfs::sahpool::{OpfsSAHPoolCfg, install};
+use sqlite_wasm_vfs::sahpool::{OpfsSAHPoolCfgBuilder, install};
 use wasm_bindgen::prelude::*;
 
 /// An unlocked vault.
@@ -73,14 +73,20 @@ impl From<CommandError> for JsError {
 type CommandResult<T> = Result<T, CommandError>;
 
 /// Makes the browser's private file storage SQLite's, for the notes and
-/// their files.
+/// their files, in the folder of `scope`: the path the page is served from,
+/// encoded. Two web versions on one address (a public one at /web, a
+/// server's at /app) keep their notes apart, each in its own folder.
 ///
 /// # Errors
 ///
-/// Outside a worker, or while another tab holds the storage.
+/// Not a scope (none, or not one the page makes), outside a worker, or while
+/// another tab holds the storage.
 #[wasm_bindgen]
-pub async fn start() -> Result<(), JsError> {
-    let pool = install::<WasmOsCallback>(&OpfsSAHPoolCfg::default(), true)
+pub async fn start(scope: &str) -> Result<(), JsError> {
+    let directory = app_core::disk::web_scope_folder(scope)
+        .ok_or_else(|| CommandError::new("storage", "the page gave no scope for its notes"))?;
+    let config = OpfsSAHPoolCfgBuilder::new().directory(&directory).build();
+    let pool = install::<WasmOsCallback>(&config, true)
         .await
         .map_err(|e| CommandError::new("storage", e.to_string()))?;
     disk::start(pool).map_err(CommandError::from)?;

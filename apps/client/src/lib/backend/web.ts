@@ -7,6 +7,7 @@
 import type { invoke } from '@tauri-apps/api/core'
 import type { Backend } from './backend'
 import type { CoreAnswer, CoreRequest } from './core.worker'
+import { pageScope } from '../webScope'
 import { download } from '../download'
 import { pickedFile } from '../pick'
 import { backupMade, notesMade } from '../webBackups'
@@ -22,9 +23,13 @@ async function pickedBytes(path: string): Promise<Uint8Array<ArrayBuffer>> {
   return new Uint8Array(await file.arrayBuffer())
 }
 
+/** This page's scope (webScope.ts): its notes, and the lock below, are its own. */
+const SCOPE = pageScope()
+
 /** Held by the one tab whose worker has the notes: the browser lets one
- * page at a time keep the storage the core writes to. */
-const LOCK = 'notes'
+ * page at a time keep the storage the core writes to. One per scope, a web
+ * version at another path has notes and a lock of its own. */
+const LOCK = `notes:${SCOPE}`
 
 export function createWebBackend(): Backend {
   const waiting = new Map<number, { resolve(value: unknown): void; reject(err: unknown): void }>()
@@ -51,6 +56,8 @@ export function createWebBackend(): Backend {
         }
         const started = new Worker(new URL('./core.worker.ts', import.meta.url), {
           type: 'module',
+          // the worker's name carries the scope its notes are kept under
+          name: SCOPE,
         })
         started.onmessage = ({ data }: MessageEvent<CoreAnswer>) => {
           const pending = waiting.get(data.id)
