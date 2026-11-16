@@ -588,8 +588,10 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     importRead: async () => {
       throw { kind: 'unsupported', message: 'opening an export needs the app' }
     },
+    // as the core: imported before, or a Ficelle export's own note (id:<id>)
     importKnown: async (importer, keys) =>
       keys.filter((k) => {
+        if (k.startsWith('id:') && notes.has(k.slice(3))) return true
         const noteId = imported.get(`${importer}
 ${k}`)
         return noteId !== undefined && notes.has(noteId)

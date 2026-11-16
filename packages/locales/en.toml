@@ -483,8 +483,8 @@ showWhich = "Show which"
 folderName = "{app}, {date}"
 
 [import.skipped]
-one = "{count} note is already here from an earlier import and will be left as it is."
-other = "{count} notes are already here from an earlier import and will be left as they are."
+one = "{count} note is already here and will be left as it is."
+other = "{count} notes are already here and will be left as they are."
 
 [import.start]
 one = "Import {count} note"

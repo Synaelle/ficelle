@@ -107,20 +107,29 @@ impl ImportPlace {
 }
 
 impl Store {
-    /// The keys among `keys` already imported by `importer` whose note is
-    /// still in the vault (in the trash too).
+    /// The keys among `keys` whose note is already in the vault (in the trash
+    /// too): imported before by `importer`, or, for `id:<note id>` (a Ficelle
+    /// export names each note by its id), the very note it was exported from,
+    /// here or synced from another device.
     ///
     /// # Errors
     ///
     /// Database errors.
     pub fn imported(&self, importer: &str, keys: &[String]) -> Result<HashSet<String>> {
-        let mut stmt = self.conn.prepare_cached(
+        let mut before = self.conn.prepare_cached(
             "SELECT 1 FROM imports i JOIN notes n ON n.id = i.note_id
              WHERE i.importer = ?1 AND i.source_key = ?2",
         )?;
+        let mut own = self
+            .conn
+            .prepare_cached("SELECT 1 FROM notes WHERE id = ?1")?;
         let mut found = HashSet::new();
         for key in keys {
-            if stmt.exists(params![importer, key])? {
+            let here = match key.strip_prefix("id:") {
+                Some(id) if own.exists([id])? => true,
+                _ => before.exists(params![importer, key])?,
+            };
+            if here {
                 found.insert(key.clone());
             }
         }
@@ -370,6 +379,31 @@ mod tests {
         store.purge_note(written[0].1).unwrap();
         assert_eq!(store.imported("joplin", &keys).unwrap().len(), 1);
         assert!(store.imported_note("joplin", "2").unwrap().is_none());
+    }
+
+    #[test]
+    fn a_ficelle_export_brought_back_finds_its_own_notes() {
+        let (mut store, _) = store();
+        let note = store
+            .create_note(&super::super::NewNote {
+                title: "Weekly plan".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        let keys = vec![
+            format!("id:{}", note.id),
+            format!("id:{}", NoteId::new()),
+            "notes/plan.md".to_owned(),
+        ];
+        let known = store.imported("markdown", &keys).unwrap();
+        assert_eq!(
+            known,
+            HashSet::from([keys[0].clone()]),
+            "only the note still here"
+        );
+        // in the trash it is still here
+        store.trash_note(note.id).unwrap();
+        assert_eq!(store.imported("markdown", &keys).unwrap().len(), 1);
     }
 
     #[test]
