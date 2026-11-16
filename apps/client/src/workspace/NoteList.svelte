@@ -14,7 +14,7 @@
   import { thud } from '../lib/haptics'
   import { startNoteDrag } from '../lib/noteDrag'
   import { tagItems } from '../lib/noteMenu'
-  import { tagLabel, tagLeaf, tagParent } from '../lib/tagMark.svelte'
+  import { tagLabel, tagLeaf, tagParent, tagShort } from '../lib/tagMark.svelte'
   import { overlay, SEPARATOR } from '../lib/overlay.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import { UNFILED, workspace } from '../lib/workspace.svelte'
@@ -420,8 +420,8 @@
                     <span class="chip" title={tagLabel(tag)}
                       >{#if color}<span class="tag-mark" data-color={color}
                         ></span>{/if}{prefs.tagMark === 'hash'
-                        ? `#${tagLeaf(tag)}`
-                        : tagLeaf(tag)}</span
+                        ? `#${tagShort(tag, note.tags)}`
+                        : tagShort(tag, note.tags)}</span
                     >
                   {/each}
                 </span>
