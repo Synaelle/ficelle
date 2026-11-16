@@ -553,6 +553,7 @@ strike = "Strikethrough"
 code = "Inline code"
 link = "Link"
 checklist = "Checklist"
+deleteLine = "Delete the line"
 
 [editor]
 codeLanguage = "Code language"

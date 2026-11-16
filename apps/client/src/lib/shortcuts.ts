@@ -18,6 +18,7 @@ export const ACTIONS = [
   'code',
   'link',
   'checklist',
+  'deleteLine',
 ] as const
 
 export type ActionId = (typeof ACTIONS)[number]
@@ -25,7 +26,7 @@ export type ActionId = (typeof ACTIONS)[number]
 export const DEFAULT_SHORTCUTS: Record<ActionId, string> = {
   // a browser keeps Ctrl+N for a new window, a page never gets it
   newNote: WEB ? 'Alt+N' : 'Mod+N',
-  search: 'Mod+K',
+  search: 'Mod+F',
   pin: 'Mod+Shift+P',
   trash: 'Mod+Backspace',
   settings: 'Mod+,',
@@ -35,6 +36,7 @@ export const DEFAULT_SHORTCUTS: Record<ActionId, string> = {
   code: 'Mod+E',
   link: 'Mod+L',
   checklist: 'Mod+Shift+9',
+  deleteLine: 'Mod+K',
 }
 
 export const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform)

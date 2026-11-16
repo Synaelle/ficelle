@@ -268,6 +268,23 @@
     }
   }
 
+  /** Deletes the line the caret is on: its paragraph or heading, or the
+   * whole item of a list when the item holds only that line. */
+  function deleteLine(): boolean {
+    if (!editor) return false
+    const at = editor.state.selection.$from
+    let depth = at.depth
+    while (depth > 0 && !at.node(depth).isTextblock) depth -= 1
+    if (depth === 0) return false
+    const item = at.node(depth - 1)
+    if (depth > 1 && item.type.name.endsWith('Item') && item.childCount === 1) depth -= 1
+    return editor
+      .chain()
+      .focus()
+      .deleteRange({ from: at.before(depth), to: at.after(depth) })
+      .run()
+  }
+
   /** Editor bindings for formatting actions, from the user's shortcut settings. */
   function keyBindings(): Record<string, () => boolean> {
     const run = (action: ActionId) => {
@@ -279,6 +296,7 @@
         code: () => chain()?.toggleCode().run() ?? false,
         checklist: () => chain()?.toggleTaskList().run() ?? false,
         link: () => (void promptLink(), true),
+        deleteLine: deleteLine,
       }
       return commands[action]?.() ?? false
     }
@@ -287,7 +305,15 @@
         .split('+')
         .map((part) => (part.length === 1 ? part.toLowerCase() : part))
         .join('-')
-    const actions: ActionId[] = ['bold', 'italic', 'strike', 'code', 'checklist', 'link']
+    const actions: ActionId[] = [
+      'bold',
+      'italic',
+      'strike',
+      'code',
+      'checklist',
+      'link',
+      'deleteLine',
+    ]
     return Object.fromEntries(actions.map((a) => [tiptapKey(shortcutFor(a)), () => run(a)]))
   }
 
