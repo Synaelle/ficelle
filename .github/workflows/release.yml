@@ -81,6 +81,43 @@ jobs:
       signed: true
     secrets: inherit
 
+  # the web version, for the public demo the website serves: notes stay in
+  # each visitor's browser, nothing runs on the server
+  web:
+    needs: draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      # rust-toolchain.toml brings the wasm32 target
+      - run: rustup show
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: false
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: wasm-bindgen@0.2.129
+      - run: pnpm install --frozen-lockfile
+      - name: build
+        env:
+          APP_RELEASE: '1'
+        run: |
+          set -eu
+          pnpm --filter @app/client build:web
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p out
+          (cd apps/client/dist-web && zip -qr "../../../out/ficelle-web-$version.zip" .)
+          ls -l out
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web
+          path: out/
+          retention-days: 7
+
   # untested for want of a Mac, so a failed Mac build does not hold back the
   # others: that release then has no Mac files and Macs stay where they are
   mac:
@@ -91,11 +128,11 @@ jobs:
     secrets: inherit
 
   publish:
-    needs: [list, windows, linux, android, mac]
+    needs: [list, windows, linux, android, web, mac]
     if: >-
       ${{ !cancelled() && needs.list.result == 'success'
       && needs.windows.result == 'success' && needs.linux.result == 'success'
-      && needs.android.result == 'success' }}
+      && needs.android.result == 'success' && needs.web.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -115,7 +152,8 @@ jobs:
           portable=$(find out -name '*_portable.exe' | head -1)
           appimage=$(find out -name '*.AppImage' | head -1)
           apk=$(find out -name '*.apk' | head -1)
-          for file in "$setup" "$portable" "$appimage" "$apk"; do test -f "$file"; done
+          webzip=$(find out -name 'ficelle-web-*.zip' | head -1)
+          for file in "$setup" "$portable" "$appimage" "$apk" "$webzip"; do test -f "$file"; done
           # the Mac app, when built: the .dmg to download, the archive it updates from
           mapfile -t dmgs < <(find out -name '*.dmg')
           macapp=$(find out -name '*.app.tar.gz' | head -1)
@@ -172,7 +210,7 @@ jobs:
             > latest.json
           cat latest.json
           # the signatures travel in latest.json, not on the release page
-          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$apk" "${dmgs[@]}" "${macfiles[@]}" latest.json --clobber
+          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$apk" "$webzip" "${dmgs[@]}" "${macfiles[@]}" latest.json --clobber
           case "$TAG" in
             *-beta.*) gh release edit "$TAG" --draft=false --prerelease --latest=false ;;
             *) gh release edit "$TAG" --draft=false --latest ;;
