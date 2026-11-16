@@ -21,8 +21,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use webauthn_rs::Webauthn;
 use webauthn_rs::prelude::{
-    AuthenticationResult, DiscoverableAuthentication, DiscoverableKey, PasskeyAuthentication,
-    PasskeyRegistration, PublicKeyCredential, RegisterPublicKeyCredential, Uuid,
+    AuthenticationResult, DiscoverableAuthentication, PasskeyAuthentication, PasskeyRegistration,
+    PublicKeyCredential, RegisterPublicKeyCredential, Uuid,
 };
 
 use super::auth::{finish_sign_in, not_disabled, not_locked, rate_limit};
@@ -340,13 +340,13 @@ fn finish_discoverable(
     check: DiscoverableAuthentication,
     answer: &PublicKeyCredential,
 ) -> Option<webauthn_rs::prelude::Passkey> {
-    let keys: Vec<DiscoverableKey> = rows.iter().map(|r| (&r.passkey).into()).collect();
-    let result = webauthn
-        .finish_discoverable_authentication(answer, check, &keys)
-        .ok()?;
+    // the passkey the answer names, among the account's own
     let row = rows
         .iter()
-        .find(|r| r.passkey.cred_id() == result.cred_id())?;
+        .find(|r| AsRef::<[u8]>::as_ref(r.passkey.cred_id()) == answer.raw_id.as_slice())?;
+    let result = webauthn
+        .finish_discoverable_authentication_v2(answer, check, &row.passkey)
+        .ok()?;
     let mut passkey = row.passkey.clone();
     passkey.update_credential(&result);
     Some(passkey)
