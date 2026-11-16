@@ -60,7 +60,6 @@ pub fn check(secret: &str, code: &str, now: i64, last_step: Option<i64>) -> Opti
 
 /// The code an app shows at `now`, for tests.
 #[cfg(test)]
-#[cfg(test)]
 pub fn code_now(secret: &str, now: i64) -> String {
     let key = BASE32_NOPAD
         .decode(secret.as_bytes())

@@ -182,7 +182,6 @@ impl Db {
 
 /// A migrated feedback connection in memory, for tests of the store.
 #[cfg(test)]
-#[cfg(test)]
 pub fn feedback_connection() -> Connection {
     let mut conn = Connection::open_in_memory().expect("sqlite opens in memory");
     conn.pragma_update(None, "foreign_keys", "ON")
