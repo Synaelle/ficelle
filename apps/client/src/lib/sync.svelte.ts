@@ -5,7 +5,6 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { backend } from './backend'
 import { localSync } from './localSync.svelte'
 import { prefs } from './prefs.svelte'
 import { takeSyncedPrefs } from './syncedPrefs.svelte'
@@ -128,9 +127,6 @@ class Sync {
     // files that arrived: the open note shows them
     await listen('files-changed', () => window.dispatchEvent(new Event(FILES_CHANGED)))
     this.status = await invoke<SyncStatus>('sync_status')
-    $effect.root(() => {
-      $effect(() => void backend.setAutoFetch(prefs.autoFetchMb))
-    })
     // coming back to the app is when other devices' changes are wanted:
     // pull then rather than at the next minute
     const back = () => {

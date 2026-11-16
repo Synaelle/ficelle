@@ -57,7 +57,7 @@ impl Host for LocalHost {
     }
 
     fn fetch_up_to(&self) -> u64 {
-        self.app.state::<AppState>().sync.auto_fetch()
+        super::files::AUTO_FETCH
     }
 
     fn default_name(&self) -> String {

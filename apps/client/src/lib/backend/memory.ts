@@ -562,7 +562,6 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     },
     setAttachmentThumb: async () => {},
     filesInfo: async () => null,
-    setAutoFetch: async () => {},
     exportMarkdown: async () => {
       throw { kind: 'unsupported', message: 'export needs the desktop app' }
     },

@@ -254,7 +254,6 @@ pub fn run() {
             sync::files::read_attachment,
             sync::files::files_info,
             sync::files::files_refused,
-            sync::files::files_set_auto_fetch,
             commands::dev_report::dev_report_create,
             commands::dev_report::dev_report_add_image,
             commands::dev_report::dev_report_folder,

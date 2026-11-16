@@ -19,7 +19,7 @@ use super::{Vault, wire};
 use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
 
-/// Files up to this size come with the rounds unless the ui says otherwise.
+/// Files up to this size come with the rounds, larger ones when opened.
 pub(super) const AUTO_FETCH: u64 = 10 * 1024 * 1024;
 /// Removed files are cleaned up here this often.
 const CLEAN_EVERY: Duration = Duration::from_hours(6);
@@ -119,8 +119,7 @@ fn after_round(state: &AppState, wire: &mut super::Wire<'_>) -> Result<bool, Syn
     let blobs = state
         .quietly(|s| Ok(s.blobs.clone()))
         .map_err(|_| RemoteError::Offline("the vault is locked".into()))?;
-    let limit = state.sync.lock().auto_fetch.unwrap_or(AUTO_FETCH);
-    let done = app_core::sync::files::transfer(&Vault(state), &blobs, wire, limit)?;
+    let done = app_core::sync::files::transfer(&Vault(state), &blobs, wire, AUTO_FETCH)?;
     let clean = {
         let mut shared = state.sync.lock();
         let due = shared.cleaned.is_none_or(|t| t.elapsed() >= CLEAN_EVERY);
@@ -319,12 +318,4 @@ pub async fn files_refused(state: State<'_, AppState>) -> CommandResult<Vec<Refu
             .map(|(name, note, reason)| RefusedFile { name, note, reason })
             .collect())
     })
-}
-
-/// Files up to `mb` megabytes come with each round, larger ones when opened.
-#[tauri::command]
-pub async fn files_set_auto_fetch(state: State<'_, AppState>, mb: u32) -> CommandResult<()> {
-    state.sync.lock().auto_fetch = Some(u64::from(mb) * 1024 * 1024);
-    state.sync.kick();
-    Ok(())
 }

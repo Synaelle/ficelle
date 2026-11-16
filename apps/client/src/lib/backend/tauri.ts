@@ -131,7 +131,6 @@ export function createTauriBackend(call: typeof invoke = invoke): Backend {
         headers: { 'x-attachment-id': id },
       }),
     filesInfo: () => call('files_info'),
-    setAutoFetch: (mb) => call('files_set_auto_fetch', { mb }),
     exportMarkdown: (dir) => call('export_markdown', { dir }),
     exportMarkdownZip: (path) => call('export_markdown_zip', { path }),
 

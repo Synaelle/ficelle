@@ -558,7 +558,6 @@
         <p class="settings-help">{t('local.discoveryProblem', { error: local.discoveryError })}</p>
       {/if}
       {#if localError}<p class="error" role="alert">{localError}</p>{/if}
-      {#if devicesPaired && !linked}<FilesSettings local />{/if}
     {/if}
   </div>
 {/if}

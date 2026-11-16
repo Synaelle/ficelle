@@ -244,7 +244,6 @@ export function createWebBackend(): Backend {
     },
     // every file is here: nothing to fetch from a server
     fetchAttachment: async () => {},
-    setAutoFetch: async () => {},
 
     // feedback goes to the feedback service once it is up, never elsewhere
     feedbackWhere: async () => ({

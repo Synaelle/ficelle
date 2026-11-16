@@ -1,27 +1,20 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Attachments with the server: what the account uses of its storage,
-     which files come with each sync, and files the server refused. Shown
-     under the sync settings once connected. With `local`, for sync between
-     devices: only which files come with each sync. -->
+     and files the server refused. Shown under the sync settings once
+     connected. -->
 <script lang="ts">
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
   import { invoke } from '@tauri-apps/api/core'
   import { backend, type FilesInfo } from '../lib/backend'
   import { currentLocale, t } from '../lib/i18n.svelte'
-  import { prefs } from '../lib/prefs.svelte'
   import { sync } from '../lib/sync.svelte'
-
-  let { local = false }: { local?: boolean } = $props()
 
   interface RefusedFile {
     name: string
     note: string
     reason: string
   }
-
-  /** Sizes offered for files that come with each sync, in megabytes. */
-  const SIZES = [1, 10, 50, 200, 100_000]
 
   let info = $state<FilesInfo | null>(null)
   let refused = $state<RefusedFile[]>([])
@@ -61,40 +54,27 @@
   )
 </script>
 
-{#if info || local}
-  <Group title={local ? undefined : t('files.title')}>
-    {#if info}
-      <Row
-        label={info.policy.quotaBytes > 0
-          ? t('files.usedOf', {
-              used: bytes(info.usage.usedBytes),
-              quota: bytes(info.policy.quotaBytes),
-            })
-          : t('files.used', { used: bytes(info.usage.usedBytes) })}
-      >
-        {#if share !== null}
-          <span
-            class="meter"
-            class:full={share >= 90}
-            role="meter"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={share}
-            aria-label={t('files.title')}><span style:width="{share}%"></span></span
-          >
-        {/if}
-      </Row>
-    {/if}
-    <Row label={t('files.autoFetch')}>
-      <select
-        class="field compact"
-        aria-label={t('files.autoFetch')}
-        bind:value={prefs.autoFetchMb}
-      >
-        {#each SIZES as mb (mb)}
-          <option value={mb}>{mb >= 100_000 ? t('files.always') : bytes(mb * 1024 * 1024)}</option>
-        {/each}
-      </select>
+{#if info}
+  <Group title={t('files.title')}>
+    <Row
+      label={info.policy.quotaBytes > 0
+        ? t('files.usedOf', {
+            used: bytes(info.usage.usedBytes),
+            quota: bytes(info.policy.quotaBytes),
+          })
+        : t('files.used', { used: bytes(info.usage.usedBytes) })}
+    >
+      {#if share !== null}
+        <span
+          class="meter"
+          class:full={share >= 90}
+          role="meter"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={share}
+          aria-label={t('files.title')}><span style:width="{share}%"></span></span
+        >
+      {/if}
     </Row>
   </Group>
   {#if refused.length > 0}

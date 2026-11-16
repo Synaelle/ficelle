@@ -129,9 +129,6 @@ struct Shared {
     presence: std::collections::HashMap<String, Vec<String>>,
     /// The account's files policy and usage, as the last round heard.
     files: Option<app_protocol::files::FilesInfo>,
-    /// Files up to this size are fetched by the rounds, larger ones when
-    /// opened. `None` until the ui says, then the default.
-    auto_fetch: Option<u64>,
     /// A round of the notes ended: the files thread makes a pass.
     files_wanted: bool,
     /// When removed files were last cleaned up here.
@@ -160,11 +157,6 @@ impl Sync {
     /// a server that keeps files.
     pub fn files_policy(&self) -> Option<app_protocol::files::FilesPolicy> {
         self.lock().files.as_ref().map(|info| info.policy.clone())
-    }
-
-    /// Files up to this size come with a sync, larger ones when opened.
-    pub fn auto_fetch(&self) -> u64 {
-        self.lock().auto_fetch.unwrap_or(files::AUTO_FETCH)
     }
 
     /// Asks for a round soon. Cheap, every command calls it.

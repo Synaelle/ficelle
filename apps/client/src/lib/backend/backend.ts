@@ -187,8 +187,6 @@ export interface Backend {
   setAttachmentThumb(id: Id, thumb: Blob): Promise<void>
   /** The server's rules and usage for this account, null without one. */
   filesInfo(): Promise<FilesInfo | null>
-  /** Files up to this many megabytes come with each sync. */
-  setAutoFetch(mb: number): Promise<void>
   exportMarkdown(dir: string): Promise<ExportSummary>
   /** The same export as one zip file. */
   exportMarkdownZip(path: string): Promise<ExportSummary>

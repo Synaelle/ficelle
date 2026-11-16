@@ -62,8 +62,6 @@ export interface Prefs {
   coediting: boolean
   /** Lock an encrypted vault after this many idle minutes, 0 never. */
   autoLockMinutes: number
-  /** Files up to this many megabytes come with each sync, larger ones when opened. */
-  autoFetchMb: number
   /** Pane widths in px, set by dragging the dividers. */
   sidebarWidth: number
   listWidth: number
@@ -110,7 +108,6 @@ export const DEFAULT_PREFS: Prefs = {
   channelAsked: false,
   coediting: true,
   autoLockMinutes: 15,
-  autoFetchMb: 10,
   sidebarWidth: 220,
   listWidth: 320,
   feedbackInstall: '',
