@@ -2,7 +2,14 @@
 
 import { brand } from '@app/brand'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { channel, isBigJump, isFix, updateLines, waitingForStable } from './appUpdate.svelte'
+import {
+  channel,
+  channelChoice,
+  isBigJump,
+  isFix,
+  updateLines,
+  waitingForStable,
+} from './appUpdate.svelte'
 import { prefs } from './prefs.svelte'
 
 beforeEach(() => {
@@ -44,17 +51,18 @@ describe('isFix', () => {
 })
 
 describe('channels', () => {
-  it('follows the chosen list', () => {
+  it('offers Nightly only where nightlies are built, Linux and Android', () => {
+    // the tests run as the web version
+    expect(channelChoice).toBe(false)
+    prefs.channel = 'nightly'
     expect(channel()).toBe('stable')
-    prefs.channel = 'beta'
-    expect(channel()).toBe('beta')
   })
 
-  it('a beta on Stable waits for Stable to catch up', () => {
+  it('a nightly or a beta on Stable waits for Stable to catch up', () => {
+    expect(waitingForStable('nightly-2026-11-16')).toBe(true)
+    expect(waitingForStable('nightly-2026-11-16.2')).toBe(true)
     expect(waitingForStable('0.4.0-beta.2')).toBe(true)
-    expect(waitingForStable('0.4.0')).toBe(false)
-    prefs.channel = 'beta'
-    expect(waitingForStable('0.4.0-beta.2')).toBe(false)
+    expect(waitingForStable('0.6.0')).toBe(false)
   })
 })
 

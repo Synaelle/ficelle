@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- The updates group of About: how versions come, the beta versions and a
+<!-- The updates group of About: how versions come, the nightly versions and a
      check right now. Only release builds update themselves, the others show
      nothing. -->
 <script lang="ts">
@@ -86,12 +86,13 @@
         onclick={() => void setNotifications(!prefs.updateNotifications)}
       />
     {/if}
-    {#if channelChoice}
+    {#if channelChoice && !packaged}
       <Row
-        label={t('appUpdate.betaVersions')}
-        help={t('appUpdate.betaHelp')}
-        on={prefs.channel === 'beta'}
-        onclick={() => void channelSwitch.choose(prefs.channel === 'beta' ? 'stable' : 'beta')}
+        label={t('appUpdate.nightlyVersions')}
+        help={t('appUpdate.nightlyHelp')}
+        on={prefs.channel === 'nightly'}
+        onclick={() =>
+          void channelSwitch.choose(prefs.channel === 'nightly' ? 'stable' : 'nightly')}
       />
     {/if}
     {#if appUpdates.ready}
@@ -114,7 +115,7 @@
         help={appUpdates.upToDate
           ? t('appUpdate.upToDate')
           : waitingForStable()
-            ? t('appUpdate.channelWaiting')
+            ? t('appUpdate.nightlyWaiting')
             : undefined}
         disabled={appUpdates.checking}
         onclick={() => void appUpdates.check()}

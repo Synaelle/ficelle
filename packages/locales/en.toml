@@ -73,14 +73,18 @@ check = "Check for updates"
 checking = "Checking…"
 upToDate = "This is the latest version."
 title = "Updates"
-betaVersions = "Get beta versions"
-betaHelp = "Early versions of the next release. They may have bugs and breaking changes can happen, so keep backups."
 help = "New versions download on their own. Nothing changes until you restart into them."
 helpPhone = "New versions download on their own, then Android asks you to install them."
-channelWaiting = "This beta is newer than the latest stable version. Updates come again once Stable catches up."
+
+nightlyVersions = "Nightly versions"
+nightlyHelp = "A build of each night's changes, on Linux and Android. It may have bugs and change how notes are stored, so keep backups."
+nightlyWaiting = "This nightly is newer than the latest stable version. Updates come again with the next stable version."
+betasEndedTitle = "Betas have ended"
+betasEnded = "You are back on Stable. For early versions, turn on Nightly versions in About."
 
 # What a release is about, shown on the update card in the app's language.
 # Each release picks one or two; the full list of changes stays in English.
+
 [appUpdate.message]
 fixes = "Fixes and small improvements."
 features = "New features and fixes."
@@ -599,9 +603,9 @@ wrap_full = "Full width"
 
 [beta]
 feedback = "Send feedback"
-welcomeLabel = "Welcome to the beta"
-welcome = "Welcome to the beta. Thanks for testing what comes next, it may have bugs, so please report them with the feedback button at the bottom right."
-welcomePhone = "Welcome to the beta. Thanks for testing what comes next, it may have bugs, so please report them with the feedback button at the top of the notes list."
+nightlyWelcomeLabel = "Welcome to Nightly"
+nightlyWelcome = "Welcome to Nightly. Thanks for trying each night's changes. They may have bugs, so please report them with the feedback button at the bottom right."
+nightlyWelcomePhone = "Welcome to Nightly. Thanks for trying each night's changes. They may have bugs, so please report them with the feedback button at the top of the notes list."
 macLabel = "About the Mac version"
 mac = "The Mac version is mostly untested, I have no Mac to try it on, and after this version it only gets major security and bug fixes. Please report issues on GitHub or to {address}, contributions are credited."
 
@@ -2006,7 +2010,7 @@ one = "Wrong PIN. {count} try left before the password is needed."
 other = "Wrong PIN. {count} tries left before the password is needed."
 
 [betaSwitch]
-message = "Betas may have bugs. Make a backup of your notes before switching?"
+nightlyMessage = "Nightly versions may have bugs. Make a backup of your notes before switching?"
 backUp = "Back up and switch"
 skip = "Switch without a backup"
 backingUp = "Backing up…"

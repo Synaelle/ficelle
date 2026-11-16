@@ -18,10 +18,13 @@
 //! aside by macOS because it was opened where it was downloaded.
 //!
 //! Two lists: Stable's (`appUpdatesUrl`, GitHub's newest release, never a
-//! pre-release) and Beta's (`appBetaUpdatesUrl`, on the release tagged
-//! `beta`, which holds the newest of the betas and the stable versions). An
-//! older version is only offered when asked for (`allow_older`): a beta
-//! going back to Stable on purpose, never on a regular look. Going back also
+//! pre-release) and Nightly's (`appNightlyUpdatesUrl`, on the release tagged
+//! `nightly`, which holds the newest of the nightlies and the stable
+//! versions, Linux and Android only). Versions are ordered by build number
+//! (`list::rank`): a nightly's name holds none, and nightlies sit between
+//! two releases, so the next release updates a nightly in place. An older
+//! version is only offered when asked for (`allow_older`): going back to
+//! Stable at once on purpose, never on a regular look. Going back also
 //! needs the stable version to read the same database: the list's `schema`
 //! (the number of database steps it knows, `devtool schema`) must equal this
 //! build's, a list without one counts as different.
@@ -71,7 +74,7 @@ impl AppUpdate {
             changelog: latest.changelog.clone(),
             page,
             critical: latest.critical,
-            older: list::older(&latest.version, app_brand::VERSION),
+            older: list::older(latest, list::here()),
             same_schema: list::same_schema(latest.schema),
             go_back: can_go_back(),
         }
@@ -91,11 +94,13 @@ fn can_go_back() -> bool {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Channel {
-    /// Tested versions, and small fixes in between.
+    /// Tested versions, and small fixes in between. Beta, which nightlies
+    /// replaced, reads as Stable.
     #[default]
+    #[serde(alias = "beta")]
     Stable,
-    /// Early versions of the next release too.
-    Beta,
+    /// A build of each night's changes too, Linux and Android.
+    Nightly,
 }
 
 impl Channel {
@@ -103,7 +108,7 @@ impl Channel {
     fn url(self) -> &'static str {
         match self {
             Self::Stable => app_brand::APP_UPDATES_URL,
-            Self::Beta => app_brand::APP_BETA_UPDATES_URL,
+            Self::Nightly => app_brand::APP_NIGHTLY_UPDATES_URL,
         }
     }
 }
@@ -150,10 +155,9 @@ fn release_page(version: &str) -> String {
     )
 }
 
-/// This build updates itself: a numbered version and an update key.
+/// This build updates itself: a release or a nightly, with an update key.
 fn enabled() -> bool {
-    !app_brand::APP_UPDATES_KEY.is_empty()
-        && app_protocol::releases::version_parts(app_brand::VERSION).is_some()
+    !app_brand::APP_UPDATES_KEY.is_empty() && list::here().is_some()
 }
 
 fn failed(kind: &'static str, err: impl std::fmt::Display) -> CommandError {
@@ -199,6 +203,10 @@ mod list {
         /// lists made before it was written.
         #[serde(default)]
         pub schema: Option<usize>,
+        /// Where the version stands, see [`rank`]: given for a nightly,
+        /// whose name holds no number, `None` in lists made before.
+        #[serde(default)]
+        pub build: Option<u64>,
     }
 
     /// One platform's file.
@@ -214,14 +222,31 @@ mod list {
         app_protocol::releases::version_parts(version.trim().trim_start_matches('v'))
     }
 
+    /// Where a version stands among releases and nightlies: the build
+    /// number given (a nightly's, `nightly-2026-11-16` holds none), else the
+    /// one its release version makes, Android's version code. Nightlies sit
+    /// between two releases, so the next release is newer than each.
+    pub fn rank(version: &str, build: Option<u64>) -> Option<u64> {
+        build.filter(|b| *b > 0).or_else(|| {
+            parts(version).map(|(major, minor, micro, beta)| {
+                (major * 1000 + minor) * 100_000 + micro * 100 + beta.min(99)
+            })
+        })
+    }
+
+    /// This build's place, see [`rank`]. `None` for a dev or preview build.
+    pub fn here() -> Option<u64> {
+        rank(app_brand::VERSION, app_brand::BUILD.parse().ok())
+    }
+
     /// The list's version is newer than `current`.
-    pub fn newer(latest: &str, current: &str) -> bool {
-        matches!((parts(latest), parts(current)), (Some(l), Some(c)) if l > c)
+    pub fn newer(latest: &Latest, current: Option<u64>) -> bool {
+        matches!((rank(&latest.version, latest.build), current), (Some(l), Some(c)) if l > c)
     }
 
     /// The list's version is older than `current`.
-    pub fn older(latest: &str, current: &str) -> bool {
-        matches!((parts(latest), parts(current)), (Some(l), Some(c)) if l < c)
+    pub fn older(latest: &Latest, current: Option<u64>) -> bool {
+        matches!((rank(&latest.version, latest.build), current), (Some(l), Some(c)) if l < c)
     }
 
     /// A version that reads this build's database: the same schema steps.
@@ -232,9 +257,9 @@ mod list {
 
     /// The list's version is offered: newer, or, asked for, older with the
     /// same schema. The same version never is.
-    pub fn offered(latest: &Latest, current: &str, allow_older: bool) -> bool {
-        newer(&latest.version, current)
-            || (allow_older && older(&latest.version, current) && same_schema(latest.schema))
+    pub fn offered(latest: &Latest, current: Option<u64>, allow_older: bool) -> bool {
+        newer(latest, current)
+            || (allow_older && older(latest, current) && same_schema(latest.schema))
     }
 
     /// `latest.json`'s key for this device: `windows-x86_64`,
@@ -324,7 +349,12 @@ mod list {
         name.match_indices(version).any(|(at, _)| {
             let before = name[..at].chars().next_back();
             let after = &name[at + version.len()..];
+            // nor the day's first nightly read out of its fix's name, `.2`
+            let fix = after
+                .strip_prefix('.')
+                .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()));
             matches!(before, Some('_' | '-'))
+                && !fix
                 && (after.starts_with(['_', '.'])
                     || (after.starts_with('-') && !after.starts_with("-beta.")))
         })
@@ -611,7 +641,7 @@ mod platform {
 
     use tauri::{AppHandle, Manager};
 
-    use super::list::{Latest, download, latest, offered, platform_key};
+    use super::list::{Latest, download, here, latest, offered, platform_key};
     use super::{AppUpdate, Channel, failed};
     use crate::error::CommandResult;
 
@@ -654,7 +684,7 @@ mod platform {
             }
         }
         let list: Latest = latest(channel)?;
-        if !offered(&list, app_brand::VERSION, allow_older) {
+        if !offered(&list, here(), allow_older) {
             return Ok(None);
         }
         let Some(file) = list.platforms.get(&platform_key()) else {
@@ -790,7 +820,7 @@ mod platform {
 
     use tauri::{AppHandle, Manager};
 
-    use super::list::{clean, download, latest, offered, platform_key};
+    use super::list::{clean, download, here, latest, offered, platform_key};
     use super::{AppUpdate, Channel, failed};
     use crate::error::CommandResult;
 
@@ -814,7 +844,7 @@ mod platform {
     ) -> CommandResult<Option<AppUpdate>> {
         let dir = folder(app)?;
         let latest = latest(channel)?;
-        let current = offered(&latest, app_brand::VERSION, allow_older);
+        let current = offered(&latest, here(), allow_older);
         let name = format!("{}-{}.apk", app_brand::SLUG, clean(&latest.version));
         // only the newest file stays, an installed or older one goes
         for entry in fs::read_dir(&dir).map_err(|e| failed("file", e))?.flatten() {
@@ -851,7 +881,7 @@ mod page {
 
     use std::sync::Mutex;
 
-    use super::list::{latest, newer};
+    use super::list::{here, latest, newer};
     use super::{AppUpdate, Channel, failed, for_this_app, release_page, releases_in};
     use crate::error::CommandResult;
 
@@ -860,7 +890,7 @@ mod page {
 
     pub fn check(channel: Channel) -> CommandResult<Option<AppUpdate>> {
         let latest = latest(channel)?;
-        let found = (newer(&latest.version, app_brand::VERSION) && for_this_app(&latest))
+        let found = (newer(&latest, here()) && for_this_app(&latest))
             .then(|| AppUpdate::new(&latest, Some(release_page(&latest.version))));
         *FOUND.lock().map_err(|e| failed("unknown", e))? =
             found.as_ref().map(|update| update.version.clone());
@@ -931,8 +961,8 @@ pub async fn app_update_latest(
     tauri::async_runtime::spawn_blocking(move || {
         let latest = list::latest(channel)?;
         let shown = for_this_app(&latest)
-            && (list::newer(&latest.version, app_brand::VERSION)
-                || (allow_older && list::older(&latest.version, app_brand::VERSION)));
+            && (list::newer(&latest, list::here())
+                || (allow_older && list::older(&latest, list::here())));
         Ok(shown
             .then(|| AppUpdate::new(&latest, page_only().then(|| release_page(&latest.version)))))
     })
@@ -980,7 +1010,9 @@ pub use platform::Pending;
 
 #[cfg(test)]
 mod tests {
-    use super::list::{Latest, clean, newer, offered, older, same_schema, signed_for, verify};
+    use super::list::{
+        Latest, clean, newer, offered, older, rank, same_schema, signed_for, verify,
+    };
     use super::{Channel, release_page, releases_in};
 
     fn list(version: &str, schema: Option<usize>) -> Latest {
@@ -992,6 +1024,7 @@ mod tests {
             critical: false,
             platforms: std::collections::HashMap::new(),
             schema,
+            build: None,
         }
     }
 
@@ -1030,40 +1063,43 @@ mod tests {
     #[test]
     fn an_older_version_only_when_asked() {
         let here = Some(app_core::db::schema_version());
-        assert!(older("0.4.1", "0.5.0-beta.2"));
-        assert!(!older("0.5.0", "0.5.0-beta.2"));
-        assert!(!older("0.4.1", "0.4.1"));
-        assert!(!older("latest", "0.4.1"));
+        let beta = rank("0.5.0-beta.2", None);
+        assert!(older(&list("0.4.1", None), beta));
+        assert!(!older(&list("0.5.0", None), beta));
+        assert!(!older(&list("0.4.1", None), rank("0.4.1", None)));
+        assert!(!older(&list("latest", None), rank("0.4.1", None)));
         // newer is always offered, asked or not
-        assert!(offered(&list("0.5.0", None), "0.5.0-beta.2", false));
-        assert!(offered(&list("0.5.0", None), "0.5.0-beta.2", true));
+        assert!(offered(&list("0.5.0", None), beta, false));
+        assert!(offered(&list("0.5.0", None), beta, true));
         // older only when asked, and only with the same schema
-        assert!(!offered(&list("0.4.1", here), "0.5.0-beta.2", false));
-        assert!(offered(&list("0.4.1", here), "0.5.0-beta.2", true));
-        assert!(!offered(&list("0.4.1", Some(1)), "0.5.0-beta.2", true));
-        assert!(!offered(&list("0.4.1", None), "0.5.0-beta.2", true));
+        assert!(!offered(&list("0.4.1", here), beta, false));
+        assert!(offered(&list("0.4.1", here), beta, true));
+        assert!(!offered(&list("0.4.1", Some(1)), beta, true));
+        assert!(!offered(&list("0.4.1", None), beta, true));
         // the same version never
-        assert!(!offered(&list("0.4.1", here), "0.4.1", true));
+        assert!(!offered(&list("0.4.1", here), rank("0.4.1", None), true));
     }
 
     #[test]
     fn the_channel_comes_from_the_ui() {
         let read = |text: &str| serde_json::from_str::<Channel>(text).ok();
         assert_eq!(read(r#""stable""#), Some(Channel::Stable));
-        assert_eq!(read(r#""beta""#), Some(Channel::Beta));
-        assert_eq!(read(r#""nightly""#), None);
+        assert_eq!(read(r#""nightly""#), Some(Channel::Nightly));
+        // betas ended: someone who followed them follows Stable
+        assert_eq!(read(r#""beta""#), Some(Channel::Stable));
+        assert_eq!(read(r#""weekly""#), None);
         assert_eq!(Channel::default(), Channel::Stable);
     }
 
     #[test]
     fn each_channel_has_its_list() {
         assert_eq!(Channel::Stable.url(), app_brand::APP_UPDATES_URL);
-        assert_eq!(Channel::Beta.url(), app_brand::APP_BETA_UPDATES_URL);
-        assert_ne!(Channel::Stable.url(), Channel::Beta.url());
+        assert_eq!(Channel::Nightly.url(), app_brand::APP_NIGHTLY_UPDATES_URL);
+        assert_ne!(Channel::Stable.url(), Channel::Nightly.url());
         // both lists live in the same repository, whose pages the app opens
         assert_eq!(
             releases_in(Channel::Stable.url()),
-            releases_in(Channel::Beta.url())
+            releases_in(Channel::Nightly.url())
         );
     }
 
@@ -1109,6 +1145,7 @@ mod tests {
 
     #[test]
     fn newer_compares_numbers_only() {
+        let newer = |a: &str, b: &str| newer(&list(a, None), rank(b, None));
         assert!(newer("0.1.1", "0.1.0"));
         assert!(newer("v0.2.0", "0.1.9"));
         assert!(newer("0.10.0", "0.9.0"));
@@ -1121,6 +1158,34 @@ mod tests {
         assert!(newer("0.4.0", "0.4.0-beta.3"));
         assert!(newer("0.4.0-beta.1", "0.3.3"));
         assert!(!newer("0.4.0-beta.3", "0.4.0"));
+    }
+
+    #[test]
+    fn nightlies_sit_between_two_releases() {
+        // the build numbers tools/version.mjs gives: 0.6.0 is 600099
+        assert_eq!(rank("0.6.0", None), Some(600_099));
+        assert_eq!(rank("0.6.1", None), Some(600_199));
+        assert_eq!(
+            rank("nightly-2026-11-16", None),
+            None,
+            "a name alone says nothing"
+        );
+        let first = Some(600_100);
+        let fix = Some(600_101);
+        let nightly = |name: &str, build| Latest {
+            build,
+            ..list(name, None)
+        };
+        // the day's fix after the day's first, the next release after both
+        assert!(newer(&nightly("nightly-2026-11-16.2", fix), first));
+        assert!(!newer(&nightly("nightly-2026-11-16", first), fix));
+        assert!(newer(&list("0.6.1", None), fix));
+        // a nightly is newer than the release before it, older than the next
+        assert!(newer(
+            &nightly("nightly-2026-11-16", first),
+            rank("0.6.0", None)
+        ));
+        assert!(older(&list("0.6.0", None), first));
     }
 
     // signed with a throwaway key by `tauri signer sign`
@@ -1167,6 +1232,17 @@ mod tests {
             "0.5.0-beta.1"
         ));
         assert!(!signed_for("", "0.2.2"));
+        // a nightly by its name, never the day's first read out of its fix
+        let fix = "timestamp:1\tfile:ficelle-nightly-2026-11-16.2-android.apk";
+        assert!(signed_for(fix, "nightly-2026-11-16.2"));
+        assert!(
+            !signed_for(fix, "nightly-2026-11-16"),
+            "a fix passed off as the first"
+        );
+        assert!(signed_for(
+            "timestamp:1\tfile:Ficelle_nightly-2026-11-16_amd64.AppImage",
+            "nightly-2026-11-16"
+        ));
         // the test file's own signature carries its comment back
         let comment = verify(FILE, SIGNATURE, KEY).unwrap();
         assert!(comment.contains("file:update-file.bin"), "{comment}");

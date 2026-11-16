@@ -28,7 +28,7 @@
 import { brand } from '@app/brand'
 import { appUpdates, isBigJump, thisVersion } from './appUpdate.svelte'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
-import { isMacApp, pretendRelease } from './beta.svelte'
+import { isMacApp, NIGHTLY, pretendRelease } from './beta.svelte'
 import { ANDROID } from './platform'
 import { prefs } from './prefs.svelte'
 import { sync, type SyncState } from './sync.svelte'
@@ -67,7 +67,9 @@ export function leaveBeta(o: {
   return o.android ? 'backAndroid' : 'back'
 }
 
-const installedBeta = /-beta\.\d+$/.test(thisVersion)
+/** A beta or a nightly is installed: going back to Stable means an older
+ * version, or waiting for the next one. */
+const installedBeta = /-beta\.\d+$/.test(thisVersion) || NIGHTLY.test(thisVersion)
 
 /** The stable version a pretend beta goes back to. */
 const PRETEND_STABLE: AppUpdate = {
@@ -78,8 +80,8 @@ const PRETEND_STABLE: AppUpdate = {
   goBack: true,
 }
 
-/** Until a channel is chosen, a beta install follows Beta. */
-if (installedBeta && !prefs.channelAsked) prefs.channel = 'beta'
+/** Until a channel is chosen, a nightly install follows Nightly. */
+if (NIGHTLY.test(thisVersion) && !prefs.channelAsked) prefs.channel = 'nightly'
 
 export type Step =
   | 'join'
@@ -112,8 +114,8 @@ class ChannelSwitch {
 
   /** The way every choice of channel goes. */
   async choose(next: UpdateChannel) {
-    if (next === 'beta') {
-      if (prefs.channel === 'beta') return appUpdates.setChannel('beta')
+    if (next === 'nightly') {
+      if (prefs.channel === 'nightly') return appUpdates.setChannel('nightly')
       if (await betaChangesLittle()) return this.join()
       return this.show('join')
     }
@@ -171,12 +173,12 @@ class ChannelSwitch {
 
   private async join() {
     if (pretendRelease) {
-      appUpdates.setChannel('beta', false)
+      appUpdates.setChannel('nightly', false)
       this.step = 'testBuild'
       return
     }
     this.step = null
-    appUpdates.setChannel('beta')
+    appUpdates.setChannel('nightly')
     await appUpdates.check()
   }
 
@@ -227,7 +229,7 @@ export const betaJoinsGently = (beta: AppUpdate | null, current: string = thisVe
 async function betaChangesLittle(): Promise<boolean> {
   if (pretendRelease) return false
   try {
-    return betaJoinsGently(await backend.appUpdateLatest('beta'))
+    return betaJoinsGently(await backend.appUpdateLatest('nightly'))
   } catch {
     return false
   }

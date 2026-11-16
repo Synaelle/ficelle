@@ -15,9 +15,9 @@
 
 import { brand } from '@app/brand'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
-import { isMacApp, pretendRelease, resetBetaWelcome } from './beta.svelte'
+import { isMacApp, NIGHTLY, pretendRelease, resetBetaWelcome } from './beta.svelte'
 import { currentLocale, t } from './i18n.svelte'
-import { ANDROID, PLATFORM } from './platform'
+import { ANDROID, LINUX, PLATFORM } from './platform'
 import { prefs } from './prefs.svelte'
 import { lastNotified, rememberNotified, worthNotifying } from './updateNotify'
 import { isBackendError } from './workspace.svelte'
@@ -74,12 +74,13 @@ export const thisVersion = pretendRelease ? '0.4.0-beta.1' : __APP_VERSION__
  * Dev and preview builds don't (unless they pretend, with nothing
  * downloaded), nor the web version, which is always the one served. */
 export const updatesHere =
-  (PLATFORM !== 'web' && /^\d+\.\d+\.\d+(-beta\.\d+)?$/.test(thisVersion)) ||
+  (PLATFORM !== 'web' &&
+    (/^\d+\.\d+\.\d+(-beta\.\d+)?$/.test(thisVersion) || NIGHTLY.test(thisVersion))) ||
   !!pretend?.has('updates')
 
-/** Stable or Beta can be chosen: everywhere but the Mac, on Stable, whose
- * releases are few. Betas have no Mac file. */
-export const channelChoice = !isMacApp
+/** Stable or Nightly can be chosen: nightlies are built for Linux and
+ * Android only. A Linux package, which its store updates, hides it too. */
+export const channelChoice = (ANDROID || LINUX) && !isMacApp
 
 /** System notifications can be turned on: not on a Mac, not in the portable
  * exe, which has no installed identity for Windows to show them under. */
@@ -117,7 +118,7 @@ export function isBigJump(next: string, current: string = thisVersion): boolean 
 /** This version is a beta and Stable is chosen: nothing comes until a
  * stable version is newer, never a step back. */
 export const waitingForStable = (current: string = thisVersion) =>
-  channel() === 'stable' && parts(current)?.[3] != null
+  channel() === 'stable' && (parts(current)?.[3] != null || NIGHTLY.test(current))
 
 class AppUpdates {
   ready: AppUpdate | null = $state(null)
@@ -256,7 +257,7 @@ class AppUpdates {
     if (prefs.channel === next) return
     prefs.channel = next
     // the beta welcome greets someone joining Beta, again if they left it
-    if (next === 'beta') resetBetaWelcome()
+    if (next === 'nightly') resetBetaWelcome()
     this.ready = null
     this.critical = null
     this.upToDate = false

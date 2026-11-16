@@ -297,7 +297,7 @@
     ['info', 'settings.credits', 'about'],
   ]
   if (updatesHere) inner.push(['info', 'appUpdate.check', 'about'])
-  if (updatesHere && channelChoice) inner.push(['info', 'appUpdate.betaVersions', 'about'])
+  if (updatesHere && channelChoice) inner.push(['info', 'appUpdate.nightlyVersions', 'about'])
   const innerRows = $derived<SettingRow[]>(
     inner.map(([icon, label, to]) => ({
       icon,

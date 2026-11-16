@@ -77,6 +77,8 @@ export interface Prefs {
   pretendBeta: boolean
   /** The welcome of a beta build was read, see resetBetaWelcome. */
   betaWelcomed: boolean
+  /** Moved off the Beta channel when betas ended: told once. */
+  betasEnded: boolean
   /** The web version's welcome was read (lib/WebWelcome.svelte). */
   webWelcomed: boolean
 }
@@ -113,6 +115,7 @@ export const DEFAULT_PREFS: Prefs = {
   reportScreenshot: true,
   pretendBeta: false,
   betaWelcomed: false,
+  betasEnded: false,
   webWelcomed: false,
 }
 
@@ -129,6 +132,11 @@ function load(): Prefs {
     // from older versions: following the system is dark now, a custom arrow the default
     if (loaded.mode !== 'light') loaded.mode = 'dark'
     if (!ARROW_CHOICES.includes(loaded.arrow)) loaded.arrow = DEFAULT_PREFS.arrow
+    // betas ended, nightlies took their place: back on Stable, told once
+    if ((loaded.channel as string) === 'beta') {
+      loaded.channel = 'stable'
+      loaded.betasEnded = true
+    }
     return loaded
   } catch {
     // storage can be unavailable (private mode) or hold broken json

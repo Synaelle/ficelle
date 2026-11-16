@@ -113,7 +113,7 @@
               })
             : back
               ? t('backToStable.backupMessage')
-              : t('betaSwitch.message')}
+              : t('betaSwitch.nightlyMessage')}
         </p>
         {#if safety === 'synced'}
           <p class="muted">{t('betaSwitch.synced')}</p>

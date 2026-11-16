@@ -198,7 +198,7 @@ export const PIN_LENGTH = 6
 
 /** Which update list the app follows. Stable: tested versions and their
  * fixes. Beta: early versions of the next release too. */
-export type UpdateChannel = 'stable' | 'beta'
+export type UpdateChannel = 'stable' | 'nightly'
 
 /** A newer version of the app, downloaded and waiting to be installed. */
 export interface AppUpdate {

@@ -64,12 +64,14 @@
       class="dialog"
       role="alertdialog"
       aria-modal="true"
-      aria-label={isBeta ? t('beta.welcomeLabel') : t('beta.macLabel')}
+      aria-label={isBeta ? t('beta.nightlyWelcomeLabel') : t('beta.macLabel')}
       aria-describedby="beta-welcome"
       use:modal
     >
       <div id="beta-welcome" class="text">
-        {#if isBeta}<p>{touchScreen ? t('beta.welcomePhone') : t('beta.welcome')}</p>{/if}
+        {#if isBeta}<p>
+            {touchScreen ? t('beta.nightlyWelcomePhone') : t('beta.nightlyWelcome')}
+          </p>{/if}
         {#if isMacApp}<p>{t('beta.mac', { address: brand.contactEmail })}</p>{/if}
       </div>
       <div class="actions">

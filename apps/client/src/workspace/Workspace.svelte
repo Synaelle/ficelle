@@ -54,6 +54,10 @@
   void workspace.load()
   onMount(() => {
     if (WEB && backupDue()) toasts.push(t('backups.title'), t('backups.webReminder'))
+    if (prefs.betasEnded) {
+      toasts.push(t('appUpdate.betasEndedTitle'), t('appUpdate.betasEnded'))
+      prefs.betasEnded = false
+    }
     // scheduled backups run while the notes are open
     backups.start()
     return () => backups.stop()

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// What only the Beta channel has: the feedback button and a welcome shown
-// once. Beta versions look like 0.4.0-beta.2. The browser dev server can
-// pretend with ?beta (and ?mac for the Mac text), builds for people cannot.
+// What only early versions have: the feedback button and a welcome shown
+// once. A nightly looks like nightly-2026-11-16, an older beta like
+// 0.4.0-beta.2. The browser dev server can pretend with ?beta (and ?mac for
+// the Mac text), builds for people cannot.
 
 import { MAC } from './platform'
 import { prefs } from './prefs.svelte'
@@ -14,8 +15,14 @@ const pretend = import.meta.env.DEV ? new URLSearchParams(location.search) : nul
  * reloads the page. Never in a release build. */
 export const pretendRelease = __APP_DEV_TOOLS__ && prefs.pretendBeta
 
+/** A nightly's name, `.2` and on for a fix the same day. */
+export const NIGHTLY = /^nightly-\d{4}-\d{2}-\d{2}(\.\d+)?$/
+
 export const isBeta =
-  /-beta\.\d+$/.test(__APP_VERSION__) || !!pretend?.has('beta') || pretendRelease
+  /-beta\.\d+$/.test(__APP_VERSION__) ||
+  NIGHTLY.test(__APP_VERSION__) ||
+  !!pretend?.has('beta') ||
+  pretendRelease
 
 /** The Mac app: macOS in the desktop shell, not an iPad. It gets few releases,
  * all stable. */
@@ -31,8 +38,8 @@ class BetaFeedback {
 
 export const betaFeedback = new BetaFeedback()
 
-/** Shows the welcome again at the next start in a beta, for when someone
- * switches to the Beta channel. */
+/** Shows the welcome again at the next start in a nightly, for when someone
+ * switches to the Nightly channel. */
 export function resetBetaWelcome() {
   prefs.betaWelcomed = false
 }
