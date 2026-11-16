@@ -35,8 +35,16 @@ const IMAGES: &[(&str, &str)] = &[
     ("bmp", "image/bmp"),
 ];
 /// Copied file lists are short; a whole folder is not taken as images.
+#[cfg_attr(
+    mobile,
+    expect(dead_code, reason = "a phone has no copied file lists or drops")
+)]
 const MOST_FILES: usize = 20;
 /// The largest image read from a file, a guard against a huge file.
+#[cfg_attr(
+    mobile,
+    expect(dead_code, reason = "a phone has no copied file lists or drops")
+)]
 const LARGEST: u64 = 64 * 1024 * 1024;
 
 fn mime_of(path: &Path) -> Option<&'static str> {
@@ -45,6 +53,10 @@ fn mime_of(path: &Path) -> Option<&'static str> {
 }
 
 /// An image file a note can take: an image by its name, not too large.
+#[cfg_attr(
+    mobile,
+    expect(dead_code, reason = "a phone has no copied file lists or drops")
+)]
 fn usable(path: &Path) -> bool {
     mime_of(path).is_some()
         && path
@@ -54,6 +66,10 @@ fn usable(path: &Path) -> bool {
 
 /// The image files a copied file list names: `file://` addresses (KDE, the
 /// `text/uri-list` form) or absolute paths (GNOME), one per line.
+#[cfg_attr(
+    mobile,
+    expect(dead_code, reason = "a phone has no copied file lists or drops")
+)]
 fn image_files(text: &str) -> Vec<PathBuf> {
     text.lines()
         .map(str::trim)
@@ -164,6 +180,10 @@ pub struct Dropped(Mutex<Vec<PathBuf>>);
 
 /// Keeps the image files of a drop, before the page hears of it. Drops reach
 /// here only where the window takes them itself (Linux, see the window config).
+#[cfg_attr(
+    mobile,
+    expect(dead_code, reason = "a phone has no copied file lists or drops")
+)]
 pub fn remember_drop<R: Runtime>(window: &Window<R>, event: &WindowEvent) {
     if let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = event
         && let Some(dropped) = window.try_state::<Dropped>()
