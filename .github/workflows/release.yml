@@ -234,4 +234,3 @@ jobs:
           else
             echo "the Beta list keeps $held, newer than $version"
           fi
-
