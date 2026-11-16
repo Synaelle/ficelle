@@ -7,6 +7,8 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import { keepCaret } from '../lib/caret'
+  import { shortcutFor } from '../lib/prefs.svelte'
+  import { bindingOf } from '../lib/shortcuts'
 
   let {
     value,
@@ -25,6 +27,22 @@
     const restore = field ? keepCaret(field, value) : undefined
     if (restore) void tick().then(restore)
   })
+
+  /** The delete-line shortcut, as in the formatted view: the caret's line
+   * goes, its newline with it. */
+  function keydown(event: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+    if (bindingOf(event) !== shortcutFor('deleteLine')) return
+    event.preventDefault()
+    const area = event.currentTarget
+    const text = area.value
+    const caret = area.selectionStart
+    let from = text.lastIndexOf('\n', caret - 1) + 1
+    let to = text.indexOf('\n', caret)
+    if (to === -1) [from, to] = [Math.max(0, from - 1), text.length]
+    else to += 1
+    area.setRangeText('', from, to, 'start')
+    oninput(area.value)
+  }
 
   /** The Markdown marks of a line, dimmed: what starts a heading, a list
    * item, a task or a quote, a fence, and the marks around bold, struck
@@ -79,7 +97,8 @@
     spellcheck="false"
     aria-label={label}
     {value}
-    oninput={(e) => oninput(e.currentTarget.value)}></textarea>
+    oninput={(e) => oninput(e.currentTarget.value)}
+    onkeydown={keydown}></textarea>
 </div>
 
 <style>
