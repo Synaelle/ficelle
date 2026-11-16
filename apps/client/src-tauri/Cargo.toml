@@ -8,9 +8,10 @@ rust-version.workspace = true
 publish.workspace = true
 
 [lib]
-# mobile targets load the app as a library, desktop links it into main.rs
+# Android loads the app as a library, desktop links it into main.rs. No
+# staticlib: only iOS links one, and building it wrote 2 GB each time
 name = "client_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build.workspace = true
