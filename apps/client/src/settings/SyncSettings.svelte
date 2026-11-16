@@ -80,6 +80,8 @@
   let busy = $state(false)
   let error = $state('')
   let confirming = $state(false)
+  /** The server, account and versions, folded away until asked for. */
+  let details = $state(false)
 
   function explain(err: unknown) {
     if (!isSyncError(err)) return t('sync.error.other')
@@ -294,6 +296,9 @@
     const server = linkedServer as ServerCheck | null
     return server && protocolGap(__APP_PROTOCOL__, server.minProtocol, server.maxProtocol)
   })
+
+  /** Open when asked, and always while the versions do not work together. */
+  const showDetails = $derived(details || !!protocolProblem)
 
   /** The advice about versions, none when a protocol problem says more. */
   function versionNote(server: ServerCheck | null): string | undefined {
@@ -591,44 +596,59 @@
               <p role="alert">{t('sync.rejected', { count: status.rejected })}</p>
             {/if}
           </div>
-          <button class="btn" disabled={status.state === 'syncing'} onclick={() => void sync.now()}
-            ><Icon name="syncing" size={16} />{t('sync.now')}</button
+          <button
+            class="icon-btn"
+            aria-label={t('sync.now')}
+            title={t('sync.now')}
+            disabled={status.state === 'syncing'}
+            onclick={() => void sync.now()}><Icon name="syncing" size={18} /></button
           >
         </div>
-        <Row label={t('sync.server')}><span class="value">{status.server}</span></Row>
-        <Row label={t('sync.account')}>
-          <span class="value">{status.username}</span>
-          <span class="kind">{status.e2ee ? t('sync.kindE2ee') : t('sync.kindStandard')}</span>
+        <Row label={t('sync.details')} onclick={() => (details = !details)}>
+          <span class="chevron" class:open={showDetails}><Icon name="down" size={16} /></span>
         </Row>
-        <Row label={t('sync.lastSync')}>
-          <span class="value">{status.lastSyncAt ? when(status.lastSyncAt) : t('sync.never')}</span>
-        </Row>
-        <Row label={t('sync.connection')}>
-          <span class="value">{status.live ? t('sync.live') : t('sync.everyMinute')}</span>
-        </Row>
+        {#if showDetails}
+          <div class="fold-rows">
+            <Row label={t('sync.server')}><span class="value">{status.server}</span></Row>
+            <Row label={t('sync.account')}>
+              <span class="value">{status.username}</span>
+              <span class="kind">{status.e2ee ? t('sync.kindE2ee') : t('sync.kindStandard')}</span>
+            </Row>
+            <Row label={t('sync.lastSync')}>
+              <span class="value"
+                >{status.lastSyncAt ? when(status.lastSyncAt) : t('sync.never')}</span
+              >
+            </Row>
+            <Row label={t('sync.connection')}>
+              <span class="value">{status.live ? t('sync.live') : t('sync.everyMinute')}</span>
+            </Row>
+            {#if linkedServer}
+              <Row label={t('sync.thisApp')}>
+                <span class="value"
+                  >{t('sync.versionLine', {
+                    version: __APP_VERSION__,
+                    protocol: __APP_PROTOCOL__,
+                  })}</span
+                >
+              </Row>
+              <Row label={t('sync.serverVersion')}>
+                <span class="value"
+                  >{t('sync.versionLine', {
+                    version: linkedServer.version,
+                    protocol:
+                      protocolRange(linkedServer.minProtocol, linkedServer.maxProtocol) ?? '?',
+                  })}</span
+                >
+              </Row>
+            {/if}
+          </div>
+        {/if}
       </Group>
       {#if linkedServer}
         {#if protocolProblem}<p class="error" role="alert">
             {t(`sync.error.${protocolProblem}`)}
           </p>{/if}
-        <Group title={t('sync.versions')} note={versionNote(linkedServer)}>
-          <Row label={t('sync.thisApp')}>
-            <span class="value"
-              >{t('sync.versionLine', {
-                version: __APP_VERSION__,
-                protocol: __APP_PROTOCOL__,
-              })}</span
-            >
-          </Row>
-          <Row label={t('sync.server')}>
-            <span class="value"
-              >{t('sync.versionLine', {
-                version: linkedServer.version,
-                protocol: protocolRange(linkedServer.minProtocol, linkedServer.maxProtocol) ?? '?',
-              })}</span
-            >
-          </Row>
-        </Group>
+        {#if versionNote(linkedServer)}<p class="settings-help">{versionNote(linkedServer)}</p>{/if}
       {/if}
       <Group title={t('sync.more')} note={status.coediting ? undefined : t('sync.coeditingOff')}>
         <Row label={t('sync.coediting')}>
@@ -1131,5 +1151,13 @@
     font-size: 13px;
     overflow-wrap: anywhere;
     user-select: all;
+  }
+  .chevron {
+    display: grid;
+    color: var(--color-text-faint);
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .chevron.open {
+    transform: rotate(180deg);
   }
 </style>
