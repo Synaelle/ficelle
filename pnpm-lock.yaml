@@ -164,6 +164,7 @@ settings:
 
 overrides:
   minimatch: ^11.0.1
+  highlight.js: 11.12.0
 
 importers:
 
@@ -1164,10 +1165,6 @@ packages:
   hashery@1.5.1:
     resolution: {integrity: sha512-iZyKG96/JwPz1N55vj2Ie2vXbhu440zfUfJvSwEqEbeLluk7NnapfGqa7LH0mOsnDxTF85Mx8/dyR6HfqcbmbQ==}
     engines: {node: '>=20'}
-
-  highlight.js@11.11.2:
-    resolution: {integrity: sha512-oaXMACAU0kzOMXBjWpNcX+vlwSBCIAiZ9BHa7gA15NOTtT2L/l8OSZDuqS2XppOhZBPJ7hm4o8ep2kyuip2uEQ==}
-    engines: {node: '>=12.0.0'}
 
   highlight.js@11.12.0:
     resolution: {integrity: sha512-nbfWpyRMcMrPMmDwJB+dhX/eiaPKtc2RB+0QZskqJ3WjRA/FDS0e9hZrx8EC/lbEv8gXy98FcDbNa/dspAaJMg==}
@@ -2507,8 +2504,6 @@ snapshots:
     dependencies:
       hookified: 1.15.1
 
-  highlight.js@11.11.2: {}
-
   highlight.js@11.12.0: {}
 
   hookified@1.15.1: {}
@@ -2611,7 +2606,7 @@ snapshots:
     dependencies:
       '@types/hast': 3.0.5
       devlop: 1.1.0
-      highlight.js: 11.11.2
+      highlight.js: 11.12.0
 
   lucide-static@1.61.0: {}
 

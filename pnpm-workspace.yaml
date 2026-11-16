@@ -4,6 +4,8 @@ packages:
 
 overrides:
   minimatch: ^11.0.1
+  # lowlight's own copy would mix two releases: its core, the app's grammars
+  highlight.js: 11.12.0
 
 # Supply-chain guards. A version published less than a week ago is not taken,
 # not even when named exactly: a hijacked package is usually found and pulled
