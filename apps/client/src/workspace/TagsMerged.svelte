@@ -5,7 +5,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { backend } from '../lib/backend'
-  import { isBeta } from '../lib/beta.svelte'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { modal } from '../lib/modal'
@@ -85,7 +84,6 @@
         </div>
       </div>
       <p>{t('merged.body')}</p>
-      {#if isBeta}<p class="muted">{t('merged.beta')}</p>{/if}
       <div class="actions">
         {#if prefs.tagMark !== 'hash'}
           <button class="link" onclick={useHash}>{t('merged.hash')}</button>
