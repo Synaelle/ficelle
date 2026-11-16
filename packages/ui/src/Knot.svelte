@@ -12,10 +12,10 @@
   }: { motion?: 'still' | 'tie' | 'untie'; size?: number; onend?: () => void } = $props()
 
   const THREAD =
-    'M40 340C140 340 210 320 260 250C300 195 320 130 280 110C240 90 195 120 205 175C215 230 280 300 340 325C390 345 430 340 472 340'
+    'M72 340C153 340 212 316 260 250C300 195 320 130 280 110C240 90 195 120 205 175C215 230 280 300 340 325C382 342 411 340 440 340'
   // the thread's second pass, from the bottom of the loop on, drawn again
   // over the cut thread
-  const SECOND = 'M205 175C215 230 280 300 340 325C390 345 430 340 472 340'
+  const SECOND = 'M205 175C215 230 280 300 340 325C382 342 411 340 440 340'
   // the part of it that crosses the first pass, where the gap is cut
   const CROSSING = 'M218.9 212.8C234.3 241.7 259.8 271 288.3 293.6'
   const gap = $props.id()
@@ -25,7 +25,7 @@
   class="knot {motion}"
   width={size}
   height={size}
-  viewBox="0 -30 512 512"
+  viewBox="27 -4 458 458"
   aria-hidden="true"
   onanimationend={(e) => {
     // the last of each motion's animations says it is over
@@ -67,8 +67,8 @@
 
   /* One drawn length drives every piece: --head is how far the thread is
      drawn, --tail how much has let go at the start. The second pass starts
-     at 0.6089 of the thread's length and follows it, the crossing runs from
-     0.6552 to 0.7776. The gap is cut behind the thread's end as it crosses,
+     at 0.6181 of the thread's length and follows it, the crossing runs from
+     0.6679 to 0.7998. The gap is cut behind the thread's end as it crosses,
      with a round end around its tip, so it opens as an even margin around
      the strand and the first pass stays whole until the strand reaches it. */
   @property --head {
@@ -95,21 +95,21 @@
   .over {
     stroke-dashoffset: calc(
       (
-          1 - clamp(0, (var(--head) - 0.6089) / 0.3911, 1) -
-            clamp(0, (var(--tail) - 0.6089) / 0.3911, 1)
+          1 - clamp(0, (var(--head) - 0.6181) / 0.3819, 1) -
+            clamp(0, (var(--tail) - 0.6181) / 0.3819, 1)
         ) *
         1px
     );
   }
   .cut {
-    stroke-dashoffset: calc((1 - clamp(0, (var(--head) - 0.6552) / 0.1224, 1)) * 1px);
+    stroke-dashoffset: calc((1 - clamp(0, (var(--head) - 0.6679) / 0.1319, 1)) * 1px);
   }
   /* a dot at the thread's end, there only while it crosses */
   .cut-end {
     stroke-dasharray: 0 2;
-    stroke-dashoffset: calc(-1px * clamp(0, (var(--head) - 0.6552) / 0.1224, 1));
+    stroke-dashoffset: calc(-1px * clamp(0, (var(--head) - 0.6679) / 0.1319, 1));
     stroke-opacity: calc(
-      clamp(0, (var(--head) - 0.6552) * 10000, 1) * clamp(0, (0.7776 - var(--head)) * 10000, 1)
+      clamp(0, (var(--head) - 0.6679) * 10000, 1) * clamp(0, (0.7998 - var(--head)) * 10000, 1)
     );
   }
 
