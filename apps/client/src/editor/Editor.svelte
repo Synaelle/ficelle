@@ -556,7 +556,7 @@
     if (!current && editor.state.selection.empty) {
       const asked = await overlay.askLink(t('editor.linkText'), t('editor.linkAddress'), 'https://')
       if (!asked || !editor) return
-      const href = asked.href.trim()
+      const href = linkAddress(asked.href)
       if (!href || href === 'https://') return
       if (!editor.can().setLink({ href })) {
         toasts.push(t('editor.link'), t('editor.linkRefused'))
@@ -578,8 +578,9 @@
         .run()
       return
     }
-    const href = await overlay.askText(t('editor.linkPrompt'), current ?? 'https://')
-    if (href === null || !editor) return
+    const asked = await overlay.askText(t('editor.linkPrompt'), current ?? 'https://')
+    if (asked === null || !editor) return
+    const href = asked === '' ? '' : linkAddress(asked)
     if (href === '') editor.chain().focus().unsetLink().run()
     else if (!editor.chain().focus().extendMarkRange('link').setLink({ href }).run())
       toasts.push(t('editor.link'), t('editor.linkRefused'))
