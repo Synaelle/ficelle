@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The web version at `/web`, or `server.web_path`: the notes app in a browser, its notes kept in
+//! The web version at `/app`, or `server.web_path`: the notes app in a browser, its notes kept in
 //! that browser and none of them here. Its files are the web build, in the
 //! `web` folder of `server.web_dir`. Off until an admin turns it on, and off
-//! every path under `/web` answers 404 like an unknown one. Open to people
-//! signed in to this server, `/web/` shows the admin page's sign-in until
+//! every path under `/app` answers 404 like an unknown one. Open to people
+//! signed in to this server, `/app/` shows the admin page's sign-in until
 //! the browser holds a session cookie, and every other file answers 404
 //! without one: nothing of the app loads before the sign-in.
 
@@ -146,7 +146,7 @@ pub fn folder(state: &AppState) -> Option<PathBuf> {
 /// The cookie that keeps a browser signed in to the web version. Lax, not
 /// strict: a strict one stays behind when the address is opened from a link
 /// in another app, which would show the sign-in again. The paths under
-/// `/web` only hand out files, nothing a request from elsewhere could change.
+/// `/app` only hand out files, nothing a request from elsewhere could change.
 pub fn cookie(state: &AppState, token: &str) -> String {
     let max_age = i64::from(state.config.auth.refresh_token_days) * DAY / 1000;
     let secure = if state.config.hsts() { "; Secure" } else { "" };
@@ -157,12 +157,20 @@ pub fn cookie(state: &AppState, token: &str) -> String {
     )
 }
 
-/// Web version routes, at `path`.
-pub fn router(path: &str) -> Router<AppState> {
-    Router::new()
+/// Web version routes, at `path`. Where the path was left to its default,
+/// `/web`, its home until 0.6.0, sends every old link to it.
+pub fn router(path: &str, moved_from: Option<&str>) -> Router<AppState> {
+    let router = Router::new()
         .route(path, get(to_folder))
         .route(&format!("{path}/"), get(index))
-        .route(&format!("{path}/{{*path}}"), get(file))
+        .route(&format!("{path}/{{*path}}"), get(file));
+    match moved_from {
+        Some(old) => router
+            .route(old, get(to_folder))
+            .route(&format!("{old}/"), get(to_folder))
+            .route(&format!("{old}/{{*path}}"), get(to_folder)),
+        None => router,
+    }
 }
 
 enum Gate {

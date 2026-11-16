@@ -89,10 +89,10 @@ async fn off_until_an_admin_turns_it_on() {
     let dir = pages();
     let (_state, app, admin) = with_pages(&dir).await;
     for path in [
-        "/web",
-        "/web/",
-        "/web/assets/main-abc.js",
-        "/web/index.html",
+        "/app",
+        "/app/",
+        "/app/assets/main-abc.js",
+        "/app/index.html",
     ] {
         assert_eq!(
             get(&app, path, None).await.0,
@@ -129,17 +129,17 @@ async fn open_to_anyone_serves_the_build_and_nothing_beside_it() {
         (StatusCode::OK, &json!("anyone"))
     );
 
-    let (status, headers, _) = get(&app, "/web", None).await;
+    let (status, headers, _) = get(&app, "/app", None).await;
     assert_eq!(
         (status, headers[header::LOCATION].to_str().unwrap()),
-        (StatusCode::TEMPORARY_REDIRECT, "/web/")
+        (StatusCode::TEMPORARY_REDIRECT, "/app/")
     );
-    let (status, _, body) = get(&app, "/web/", None).await;
+    let (status, _, body) = get(&app, "/app/", None).await;
     assert_eq!(
         (status, body.contains("<title>notes")),
         (StatusCode::OK, true)
     );
-    let (status, headers, _) = get(&app, "/web/assets/main-abc.js", None).await;
+    let (status, headers, _) = get(&app, "/app/assets/main-abc.js", None).await;
     assert_eq!(status, StatusCode::OK);
     assert!(
         headers[header::CACHE_CONTROL]
@@ -154,15 +154,15 @@ async fn open_to_anyone_serves_the_build_and_nothing_beside_it() {
             .contains("wasm-unsafe-eval")
     );
     assert_eq!(
-        get(&app, "/web/fonts/inter/latin-400.woff2", None).await.0,
+        get(&app, "/app/fonts/inter/latin-400.woff2", None).await.0,
         StatusCode::OK
     );
     for outside in [
-        "/web/..%2Fadmin.html",
-        "/web/assets/..%2F..%2Fadmin.html",
-        "/web/.hidden",
-        "/web/assets/missing.js",
-        "/web/a/b/c/d",
+        "/app/..%2Fadmin.html",
+        "/app/assets/..%2F..%2Fadmin.html",
+        "/app/.hidden",
+        "/app/assets/missing.js",
+        "/app/a/b/c/d",
     ] {
         assert_eq!(
             get(&app, outside, None).await.0,
@@ -186,16 +186,16 @@ async fn behind_the_sign_in_nothing_loads_without_the_cookie() {
     .await;
 
     // the sign-in page, and no file of the app
-    let (status, _, body) = get(&app, "/web/", None).await;
+    let (status, _, body) = get(&app, "/app/", None).await;
     assert_eq!(
         (status, body.contains("<title>admin")),
         (StatusCode::OK, true)
     );
     assert!(!body.contains("notes"));
     for path in [
-        "/web/assets/main-abc.js",
-        "/web/index.html",
-        "/web/fonts/inter/latin-400.woff2",
+        "/app/assets/main-abc.js",
+        "/app/index.html",
+        "/app/fonts/inter/latin-400.woff2",
     ] {
         assert_eq!(
             get(&app, path, None).await.0,
@@ -213,17 +213,17 @@ async fn behind_the_sign_in_nothing_loads_without_the_cookie() {
     assert_eq!(status, StatusCode::NO_CONTENT);
     let cookie = cookie.unwrap();
     assert!(cookie.starts_with("web_session=wv_"), "{cookie}");
-    for part in ["Path=/web/", "HttpOnly", "SameSite=Lax"] {
+    for part in ["Path=/app/", "HttpOnly", "SameSite=Lax"] {
         assert!(cookie.contains(part), "{cookie}");
     }
     let pair = cookie.split(';').next().unwrap();
-    let (status, _, body) = get(&app, "/web/", Some(pair)).await;
+    let (status, _, body) = get(&app, "/app/", Some(pair)).await;
     assert_eq!(
         (status, body.contains("<title>notes")),
         (StatusCode::OK, true)
     );
     assert_eq!(
-        get(&app, "/web/assets/main-abc.js", Some(pair)).await.0,
+        get(&app, "/app/assets/main-abc.js", Some(pair)).await.0,
         StatusCode::OK
     );
 
@@ -247,7 +247,7 @@ async fn behind_the_sign_in_nothing_loads_without_the_cookie() {
         .await
         .unwrap();
     assert_eq!(
-        get(&app, "/web/assets/main-abc.js", Some(pair)).await.0,
+        get(&app, "/app/assets/main-abc.js", Some(pair)).await.0,
         StatusCode::NOT_FOUND
     );
 }
@@ -289,7 +289,7 @@ async fn turning_it_off_ends_every_session() {
     )
     .await;
     assert_eq!(
-        get(&app, "/web/assets/main-abc.js", Some(&pair)).await.0,
+        get(&app, "/app/assets/main-abc.js", Some(&pair)).await.0,
         StatusCode::NOT_FOUND
     );
 }
@@ -412,4 +412,28 @@ async fn a_moved_web_version_leaves_web_to_the_site_beside_it() {
     );
     let (_, cookie) = session(&app, &admin).await;
     assert!(cookie.unwrap().contains("Path=/notes-web/;"));
+}
+
+#[tokio::test]
+async fn old_web_links_lead_to_app() {
+    let dir = pages();
+    let (_state, app, admin) = with_pages(&dir).await;
+    // closed, nothing answers there either
+    assert_eq!(get(&app, "/web", None).await.0, StatusCode::NOT_FOUND);
+    call(
+        &app,
+        "PUT",
+        "/admin/web",
+        Some(&admin),
+        Some(json!({ "access": "signedIn" })),
+    )
+    .await;
+    for old in ["/web", "/web/", "/web/assets/main-abc.js"] {
+        let (status, headers, _) = get(&app, old, None).await;
+        assert_eq!(
+            (status, headers[header::LOCATION].to_str().unwrap()),
+            (StatusCode::TEMPORARY_REDIRECT, "/app/"),
+            "{old}"
+        );
+    }
 }

@@ -200,9 +200,9 @@ pub struct ServerConfig {
     /// the path of `public_url`. Empty when the proxy removes the path
     /// before passing requests on.
     pub base_path: Option<String>,
-    /// Where the web version is served below `base_path`, `/web` when unset.
+    /// Where the web version is served below `base_path`, `/app` when unset.
     /// For a server that shares its address with a site already using
-    /// `/web`: `/notes-web`. One plain name, none of the server's own.
+    /// `/app`: `/notes-web`. One plain name, none of the server's own.
     pub web_path: Option<String>,
 }
 
@@ -805,12 +805,12 @@ impl Config {
         Ok(())
     }
 
-    /// The web version's path below `base_path`: `/web` unless set.
+    /// The web version's path below `base_path`: `/app` unless set.
     pub fn web_path(&self) -> String {
         self.server
             .web_path
             .as_deref()
-            .map_or_else(|| "/web".to_owned(), |p| p.trim_end_matches('/').to_owned())
+            .map_or_else(|| "/app".to_owned(), |p| p.trim_end_matches('/').to_owned())
     }
 
     /// The path everything is served under, empty or `/notes`: the one set,
@@ -1138,7 +1138,7 @@ password = \"in the file\"
     #[test]
     fn the_web_version_moves_only_to_a_plain_name_of_its_own() {
         let at = |file: &str| Config::from_sources(file, env(&[]));
-        assert_eq!(at("").unwrap().web_path(), "/web");
+        assert_eq!(at("").unwrap().web_path(), "/app");
         assert_eq!(
             at("[server]\nweb_path = \"/notes-web/\"")
                 .unwrap()

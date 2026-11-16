@@ -10,10 +10,10 @@
 // eslint-disable-next-line svelte/prefer-svelte-reactivity
 export const base = new URL('.', document.baseURI).pathname
 
-/** Where the server serves the web version below `base`, `/web/` unless
+/** Where the server serves the web version below `base`, `/app/` unless
  * its admin moved it. The server says it beside `<base>`. */
 export const webPath =
-  document.querySelector<HTMLMetaElement>('meta[name=web-path]')?.content ?? '/web/'
+  document.querySelector<HTMLMetaElement>('meta[name=web-path]')?.content ?? '/app/'
 
 /** The page's own path below `base`, `/admin` or `/invite/<token>`. */
 export function route(): string {

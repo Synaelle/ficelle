@@ -50,7 +50,7 @@
   /** Opened from the setup link in the server log. */
   const setupPage = route() === '/setup'
 
-  /** The web version's sign-in: the server shows this page at `/web/` (or
+  /** The web version's sign-in: the server shows this page at `/app/` (or
    * where its admin moved it) until
    * the browser holds the web version's cookie. */
   const webDoor = route() === webPath
