@@ -19,6 +19,10 @@ on:
         description: Signed for the app updater too
         type: boolean
         default: false
+  # twice a week on main, so a release finds the build cache: only main saves
+  # one, and GitHub drops a cache unused for a week
+  schedule:
+    - cron: '30 2 * * 1,4'
 
 permissions:
   contents: read
@@ -61,9 +65,6 @@ jobs:
           echo "$archs" | grep -q x86_64
           echo "$archs" | grep -q arm64
           codesign --verify --deep --strict --verbose=2 "$app"
-      # the running app replaced by a new one, only a Mac can run this
-      - name: the update's swap
-        run: cargo test -p client --lib mac_app
       - name: the archive the app updates itself from
         if: inputs.signed
         env:
@@ -92,3 +93,17 @@ jobs:
             out/*
           if-no-files-found: error
           retention-days: 7
+
+  # the running app replaced by a new one, only a Mac can run this: beside the
+  # build, not after it, a debug build of its own takes about ten minutes
+  swap:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup show
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: mac-swap-test
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: the update's swap
+        run: cargo test -p client --lib mac_app
