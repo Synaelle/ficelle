@@ -12,6 +12,7 @@ export const SYNCED = [
   'tagMark',
   'sort',
   'openNoteFirst',
+  'nameFromAttachment',
   'autoLists',
   'emojiShortcodes',
   'arrow',

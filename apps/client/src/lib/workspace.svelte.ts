@@ -347,6 +347,13 @@ class Workspace {
     await this.flush()
     if (this.unsaved) return false
     const note = this.current
+    if (note && note.id !== next && !note.title.trim() && prefs.nameFromAttachment) {
+      try {
+        if (await this.nameAfterAttachment(note.id)) return true
+      } catch (err) {
+        this.report(err)
+      }
+    }
     if (!note || note.id === next || note.title.trim() || note.body.trim() || note.pinned)
       return true
     try {
@@ -354,6 +361,17 @@ class Workspace {
     } catch (err) {
       this.report(err)
     }
+    return true
+  }
+
+  /** Gives an untitled note its first attachment's name, without the
+   * extension. True when it did. */
+  private async nameAfterAttachment(id: Id) {
+    const [first] = (await backend.listAttachments(id)).sort((a, b) => a.createdAt - b.createdAt)
+    const title = first?.fileName.replace(/\.[^.]+$/, '').trim()
+    if (!title) return false
+    await backend.updateNote(id, { title, baseTitle: '' })
+    await this.refreshNotes()
     return true
   }
 

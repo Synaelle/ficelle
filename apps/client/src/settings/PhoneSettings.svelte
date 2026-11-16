@@ -292,6 +292,7 @@
     ['textStyle', 'settings.dyslexicFont', 'accessibility'],
     ['list', 'settings.autoLists', 'editor'],
     ['emoji', 'settings.emojiShortcodes', 'editor'],
+    ['attachment', 'settings.nameFromAttachment', 'editor'],
     ['right', 'settings.arrow', 'editor'],
     ['timer', 'settings.clock', 'language'],
     ['info', 'settings.credits', 'about'],
@@ -553,6 +554,12 @@
             label: t('settings.emojiShortcodes'),
             on: prefs.emojiShortcodes,
             run: () => (prefs.emojiShortcodes = !prefs.emojiShortcodes),
+          })}
+          {@render row({
+            icon: 'attachment',
+            label: t('settings.nameFromAttachment'),
+            on: prefs.nameFromAttachment,
+            run: () => (prefs.nameFromAttachment = !prefs.nameFromAttachment),
           })}
         </Group>
         <Group title={t('settings.arrow')} typed>

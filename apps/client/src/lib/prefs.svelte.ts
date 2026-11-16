@@ -45,6 +45,8 @@ export interface Prefs {
   clock: 'system' | '24' | '12'
   /** The open note stays first in the note list, whatever the sort. */
   openNoteFirst: boolean
+  /** A note left without a title takes its first attachment's name. */
+  nameFromAttachment: boolean
   /** Newer versions download by themselves and a card offers them. Off,
    * only a critical security fix is told, in the middle of the screen. */
   autoUpdates: boolean
@@ -100,6 +102,7 @@ export const DEFAULT_PREFS: Prefs = {
   spellcheck: false,
   clock: 'system',
   openNoteFirst: false,
+  nameFromAttachment: true,
   autoUpdates: true,
   securityChecks: true,
   updateNotifications: false,

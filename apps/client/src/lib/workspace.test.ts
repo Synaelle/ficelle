@@ -2,6 +2,7 @@
 // Runs on the in-memory backend, the one a plain browser gets.
 import { describe, expect, it, vi } from 'vitest'
 import { backend, type NoteChange } from './backend'
+import { prefs } from './prefs.svelte'
 import { toasts } from './toast.svelte'
 import { workspace } from './workspace.svelte'
 
@@ -48,6 +49,28 @@ describe('blank notes', () => {
     await workspace.open(blank.id)
     expect(await ids()).toContain(blank.id)
     expect(workspace.current?.id).toBe(blank.id)
+  })
+})
+
+describe('an untitled note with an attachment', () => {
+  it('takes the name of its attachment once left', async () => {
+    const note = await create({ body: 'see the photo' })
+    await backend.addAttachment(note.id, new File(['x'], 'Garden plan.jpg', { type: 'image/jpeg' }))
+    await workspace.open(null)
+    expect((await backend.getNote(note.id)).title).toBe('Garden plan')
+  })
+
+  it('keeps no title when the setting is off, and a title it has', async () => {
+    prefs.nameFromAttachment = false
+    const plain = await create({ body: 'see the photo' })
+    await backend.addAttachment(plain.id, new File(['x'], 'scan.pdf', { type: 'application/pdf' }))
+    await workspace.open(null)
+    expect((await backend.getNote(plain.id)).title).toBe('')
+    prefs.nameFromAttachment = true
+    const titled = await create({ title: 'Receipts', body: 'kept' })
+    await backend.addAttachment(titled.id, new File(['x'], 'scan.pdf', { type: 'application/pdf' }))
+    await workspace.open(null)
+    expect((await backend.getNote(titled.id)).title).toBe('Receipts')
   })
 })
 

@@ -277,6 +277,12 @@
               <Row label={t('settings.openNoteFirst')}>
                 <Switch label={t('settings.openNoteFirst')} bind:checked={prefs.openNoteFirst} />
               </Row>
+              <Row label={t('settings.nameFromAttachment')}>
+                <Switch
+                  label={t('settings.nameFromAttachment')}
+                  bind:checked={prefs.nameFromAttachment}
+                />
+              </Row>
               {#if quickNoteSupported}
                 <Row label={t('settings.quickNote')}>
                   {#if prefs.quickNoteShortcut}
