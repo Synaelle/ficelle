@@ -19,7 +19,9 @@ name: nightly
 
 on:
   schedule:
-    - cron: '0 3 * * *'
+    # 01:00 UTC, 02:00 in Paris in winter and 03:00 in summer, never earlier:
+    # done well before the servers that follow nightly update, from 4:00
+    - cron: '0 1 * * *'
   workflow_dispatch:
 
 permissions:
