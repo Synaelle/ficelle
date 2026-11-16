@@ -2116,7 +2116,8 @@ exIdeas = "ideas"
 
 [web]
 welcomeTitle = "Welcome to {app}"
-welcomeText = "Thanks for trying it. Everything works here, but your notes stay in this browser only, so download a backup now and then."
+welcomeIntro = "Everything works here, and your notes stay in this browser only, so download a backup now and then."
+welcomeHomeScreen = "Add it to your Home Screen, or Safari may delete your notes after a week away."
 welcomeApps = "If you like it, the apps keep your notes for good."
 welcomeStart = "Start writing"
 welcomeGetApps = "Get the apps"

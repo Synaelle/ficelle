@@ -1,7 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The web version's welcome, once per browser: what it is, where the notes
-     stay, and the apps. A card over the dimmed notes, a sheet from the
-     bottom on a phone; the knot ties itself as it arrives. -->
+     stay, and the apps where there are some. On an iPhone, an iPad, the BSDs
+     or Haiku it is the way to use Ficelle, nothing points to apps they do
+     not have. A card over the dimmed notes, a sheet from the bottom on a
+     phone; the knot ties itself as it arrives. -->
 <script lang="ts">
   import { brand } from '@app/brand'
   import Knot from '@app/ui/Knot.svelte'
@@ -14,6 +16,13 @@
   const site = new URL(brand.releasesUrl).origin
 
   const close = () => (prefs.webWelcomed = true)
+
+  const ua = navigator.userAgent
+  // an iPad asks for the desktop page and says Mac, but it has touch
+  const apple =
+    /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+  /** No app for this system: the web version is the way, not a taste. */
+  const noApp = apple || /Haiku|FreeBSD|OpenBSD|NetBSD|DragonFly/.test(ua)
 </script>
 
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
@@ -29,17 +38,23 @@
     <div class="words">
       <h1 id="welcome-title">{t('web.welcomeTitle', { app: brand.displayName })}</h1>
       <div id="welcome-text">
-        <p>{t('web.welcomeText')}</p>
-        <p class="muted">{t('web.welcomeApps')}</p>
+        <p>{t('web.welcomeIntro')}</p>
+        {#if apple}
+          <p class="muted">{t('web.welcomeHomeScreen')}</p>
+        {:else if !noApp}
+          <p class="muted">{t('web.welcomeApps')}</p>
+        {/if}
       </div>
     </div>
     <div class="actions">
       <button class="btn primary" type="button" data-autofocus="" onclick={close}
         >{t('web.welcomeStart')}</button
       >
-      <a class="btn" href={site} target="_blank" rel="noopener"
-        >{t('web.welcomeGetApps')}<Icon name="export" size={14} /></a
-      >
+      {#if !noApp}
+        <a class="btn" href={site} target="_blank" rel="noopener"
+          >{t('web.welcomeGetApps')}<Icon name="export" size={14} /></a
+        >
+      {/if}
     </div>
   </div>
 </div>
