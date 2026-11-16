@@ -3,8 +3,9 @@ name: linux
 # The Linux AppImage, built on the oldest supported Ubuntu (its glibc is the
 # oldest the AppImage runs on). release.yml calls it for each release, signed
 # for the app updater with the TAURI_SIGNING_PRIVATE_KEY secret, and attaches
-# it. A manual run builds an unsigned AppImage of the chosen branch, kept as
-# an artifact for a week.
+# it. nightly.yml calls it with a nightly's name and build number. A manual
+# run builds an unsigned AppImage of the chosen branch, kept as an artifact
+# for a week.
 
 on:
   workflow_call:
@@ -12,6 +13,13 @@ on:
       signed:
         type: boolean
         default: false
+      # a nightly: its name (nightly-2026-11-16) and build number
+      nightly:
+        type: string
+        default: ''
+      build:
+        type: string
+        default: ''
   workflow_dispatch:
 
 permissions:
@@ -52,12 +60,26 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APP_NIGHTLY: ${{ inputs.nightly }}
+          APP_BUILD: ${{ inputs.build }}
         run: |
+          set -eu
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             echo "::error::the TAURI_SIGNING_PRIVATE_KEY secret is missing"
             exit 1
           fi
           node tools/build-release.mjs -- --bundles appimage
+          if [ -n "$APP_NIGHTLY" ]; then
+            # the bundler named and signed it for the release number: a
+            # nightly's file carries its own name, signed for it
+            dir=target/release/bundle/appimage
+            built=$(ls "$dir"/*.AppImage | head -1)
+            name="$(jq -r .displayName packages/brand/brand.json | tr ' ' '-')_${APP_NIGHTLY}_amd64.AppImage"
+            rm -f "$dir"/*.AppImage.sig
+            mv "$built" "$dir/$name"
+            pnpm --filter @app/client tauri signer sign --app-version "$APP_NIGHTLY" "$PWD/$dir/$name"
+            test -f "$dir/$name.sig"
+          fi
       - name: build, unsigned
         if: ${{ !inputs.signed }}
         run: node tools/build-release.mjs --unsigned -- --bundles appimage

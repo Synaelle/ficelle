@@ -76,12 +76,21 @@ pub const APP_UPDATES_URL: &str =
 /// the newest of the betas and the stable versions.
 pub const APP_BETA_UPDATES_URL: &str =
     "https://github.com/Synaelle/ficelle/releases/download/beta/latest.json";
+/// The Nightly channel's `latest.json`, on the GitHub release tagged
+/// `nightly`: the newest of the nightlies and the stable versions.
+pub const APP_NIGHTLY_UPDATES_URL: &str =
+    "https://github.com/Synaelle/ficelle/releases/download/nightly/latest.json";
 /// The minisign public key (base64, as tauri writes it) the app files in it
 /// are signed with. Empty: no app updates in this build.
 pub const APP_UPDATES_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENEOTEzOUVENDdFMzYyMjcKUldRbll1Tkg3VG1SelhSalBqMlF3KzA5WkU5SmJRZENHWjFkM2NvVE5hZGxQWWNXM2pRSGo4NlMK";
 
 /// Version shown to users: `major.minor.micro` for releases,
-/// `preview-{commit}` for a preview, `dev-{commit}` (maybe `-dirty`) otherwise.
+/// `nightly-{date}` for a nightly, `preview-{commit}` for a preview,
+/// `dev-{commit}` (maybe `-dirty`) otherwise.
 pub const VERSION: &str = env!("APP_VERSION");
+/// Where this build stands in the order of releases and nightlies, Android's
+/// version code: a release's from its version, a nightly's given at build.
+/// Empty for dev and preview builds.
+pub const BUILD: &str = env!("APP_BUILD");
 /// Date of the built commit, `YYYY-MM-DD`, empty outside git.
 pub const BUILD_DATE: &str = env!("APP_BUILD_DATE");

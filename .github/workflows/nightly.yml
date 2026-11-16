@@ -1,0 +1,170 @@
+name: nightly
+
+# A nightly: the Linux AppImage and the Android APK of main as it is when the
+# run starts, signed like a release, for the people who chose Nightly in the
+# app. Published apart from the releases, on the one pre-release tagged
+# `nightly`, whose latest.json the apps on Nightly read and whose files each
+# nightly replaces.
+#
+# Named by the date, nightly-2026-11-16; a second one the same day, run by
+# hand for a serious bug or a security problem, is nightly-2026-11-16.2. Its
+# build number (tools/version.mjs nightlyBuild) is the last release's plus
+# how many nightlies came after it, so nightlies sit between two releases and
+# the next release updates them in place. 99 fit, then a release is due and
+# the run stops saying so.
+#
+# Nothing is built when main has not changed since the last nightly, when CI
+# did not pass on it, or while main is at a beta version.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.plan.outputs.go }}
+      name: ${{ steps.plan.outputs.name }}
+      build: ${{ steps.plan.outputs.build }}
+      release: ${{ steps.plan.outputs.release }}
+      n: ${{ steps.plan.outputs.n }}
+      last_commit: ${{ steps.plan.outputs.last_commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: what to build
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          skip() { echo "::notice::no nightly: $1"; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0; }
+          ci=$(gh run list --workflow ci.yml --commit "$SHA" --limit 1 --json conclusion --jq '.[0].conclusion // ""')
+          [ "$ci" = success ] || skip "CI on ${SHA:0:9} is ${ci:-not there}"
+          release=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          case "$release" in *-*) skip "main is at $release, nightlies follow a release" ;; esac
+          last_name="" last_release="" last_n=0 last_commit=""
+          if gh release download nightly -p nightly.json -O last.json --clobber 2>/dev/null; then
+            last_name=$(jq -r .name last.json)
+            last_release=$(jq -r .release last.json)
+            last_n=$(jq -r .n last.json)
+            last_commit=$(jq -r .commit last.json)
+          fi
+          [ "$last_commit" != "$SHA" ] || skip "main has not changed since $last_name"
+          if [ "$last_release" = "$release" ]; then n=$((last_n + 1)); else n=1; fi
+          build=$(node tools/version.mjs nightly-build "$n")
+          name="nightly-$(date -u +%Y-%m-%d)"
+          # a fix the same day comes after the day's first: .2, .3
+          case "$last_name" in
+            "$name") name="$name.2" ;;
+            "$name".*) name="$name.$(( ${last_name##*.} + 1 ))" ;;
+          esac
+          {
+            echo "go=true"
+            echo "name=$name"
+            echo "build=$build"
+            echo "release=$release"
+            echo "n=$n"
+            echo "last_commit=$last_commit"
+          } >> "$GITHUB_OUTPUT"
+          echo "$name, build $build, nightly $n after $release, from ${SHA:0:9}"
+
+  linux:
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    uses: ./.github/workflows/linux.yml
+    with:
+      signed: true
+      nightly: ${{ needs.plan.outputs.name }}
+      build: ${{ needs.plan.outputs.build }}
+    secrets: inherit
+
+  android:
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    uses: ./.github/workflows/android.yml
+    with:
+      signed: true
+      nightly: ${{ needs.plan.outputs.name }}
+      build: ${{ needs.plan.outputs.build }}
+    secrets: inherit
+
+  publish:
+    needs: [plan, linux, android]
+    if: needs.plan.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: out
+      - name: latest.json, the files, the rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          NAME: ${{ needs.plan.outputs.name }}
+          BUILD: ${{ needs.plan.outputs.build }}
+          RELEASE: ${{ needs.plan.outputs.release }}
+          N: ${{ needs.plan.outputs.n }}
+          LAST_COMMIT: ${{ needs.plan.outputs.last_commit }}
+        run: |
+          set -eu
+          appimage=$(find out -name '*.AppImage' | head -1)
+          apk=$(find out -name '*.apk' | head -1)
+          for file in "$appimage" "$apk"; do test -f "$file" && test -f "$file.sig"; done
+          if ! gh release view nightly > /dev/null 2>&1; then
+            gh release create nightly --prerelease --latest=false --target "$SHA" --title "Nightly" \
+              --notes "A build of each night's changes, for the app's Nightly channel. Not a release."
+          fi
+          # what changed since the last nightly, its commit titles
+          if [ -n "$LAST_COMMIT" ] && git cat-file -e "$LAST_COMMIT" 2>/dev/null; then
+            changelog=$(git log --no-merges --format='- %s' "$LAST_COMMIT..$SHA")
+          else
+            changelog=$(git log --no-merges --format='- %s' -20 "$SHA")
+          fi
+          schema=$(grep -c 'include_str!("db/' crates/core/src/db.rs)
+          base="https://github.com/$GH_REPO/releases/download/nightly"
+          entry() { jq -n --arg sig "$(cat "$1.sig")" --arg url "$base/$(basename "$1")" '{signature: $sig, url: $url}'; }
+          jq -n --arg version "$NAME" --argjson build "$BUILD" --arg changelog "$changelog" \
+            --argjson schema "$schema" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson linux "$(entry "$appimage")" --argjson android "$(entry "$apk")" \
+            '{version: $version, build: $build, notes: "", messages: [], changelog: $changelog,
+              critical: false, schema: $schema, pub_date: $date, platforms: {
+              "linux-x86_64": $linux,
+              "android-aarch64": $android, "android-arm": $android, "android-x86_64": $android }}' \
+            > latest.json
+          jq -n --arg name "$NAME" --arg release "$RELEASE" --argjson n "$N" --arg commit "$SHA" \
+            --argjson build "$BUILD" '{name: $name, release: $release, n: $n, commit: $commit, build: $build}' \
+            > nightly.json
+          cat latest.json nightly.json
+          # the files first, the lists last: an app never reads a list whose
+          # files are not there yet
+          gh release upload nightly "$appimage" "$apk" --clobber
+          gh release upload nightly latest.json nightly.json --clobber
+          # last night's files go, the ones just added stay
+          keep="$(basename "$appimage")|$(basename "$apk")|latest.json|nightly.json|releases.json"
+          gh release view nightly --json assets --jq '.assets[].name' | grep -Ev "^($keep)$" \
+            | while read -r old; do gh release delete-asset nightly "$old" --yes; done
+          {
+            echo "A build of each night's changes, for the app's Nightly channel. Not a release."
+            echo
+            echo "Now $NAME, from ${SHA:0:9}."
+            echo
+            echo "$changelog"
+          } > notes.md
+          gh release edit nightly --prerelease --latest=false --notes-file notes.md
+          echo "published $NAME"

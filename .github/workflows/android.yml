@@ -7,6 +7,7 @@ name: android
 # TAURI_SIGNING_PRIVATE_KEY one too, and attaches it. A manual run builds the
 # APK of the chosen branch, or of `ref` (a released tag, to build its APK
 # again), kept as an artifact for a week, signed for the updater if asked.
+# nightly.yml calls it with a nightly's name and build number.
 
 on:
   workflow_call:
@@ -14,6 +15,13 @@ on:
       signed:
         type: boolean
         default: false
+      # a nightly: its name (nightly-2026-11-16) and build number
+      nightly:
+        type: string
+        default: ''
+      build:
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       ref:
@@ -99,6 +107,9 @@ jobs:
           } > apps/client/src-tauri/gen/android/keystore.properties
 
       - name: version
+        env:
+          APP_NIGHTLY: ${{ inputs.nightly }}
+          APP_BUILD: ${{ inputs.build }}
         run: |
           set -eu
           # Android only updates to a higher version code, a beta before its
@@ -108,6 +119,8 @@ jobs:
           # out that way)
           version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
           code=$(node tools/version.mjs android-code)
+          # a nightly: its name, and its number between two releases
+          if [ -n "$APP_NIGHTLY" ]; then version=$APP_NIGHTLY; fi
           {
             echo "tauri.android.versionName=$version"
             echo "tauri.android.versionCode=$code"
@@ -117,6 +130,8 @@ jobs:
       - name: build
         env:
           APP_RELEASE: '1'
+          APP_NIGHTLY: ${{ inputs.nightly }}
+          APP_BUILD: ${{ inputs.build }}
         run: pnpm --filter @app/client tauri android build --target aarch64 armv7 x86_64 --apk
 
       - name: name and updater signature
@@ -133,6 +148,7 @@ jobs:
           echo "$libs"
           test "$libs" = "lib/arm64-v8a/ lib/armeabi-v7a/ lib/x86_64/"
           version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          if [ -n "${{ inputs.nightly }}" ]; then version="${{ inputs.nightly }}"; fi
           # the version Android reads, or phones refuse it as an update
           aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
           badging=$("$aapt2" dump badging "$built" | sed -n 1p)

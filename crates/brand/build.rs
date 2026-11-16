@@ -3,7 +3,9 @@
 //! Stamps the version and build date users see, and picks the release or dev
 //! identity. tools/version.mjs mirrors this logic for the ui, keep both in sync.
 //!
-//! - `APP_RELEASE=1`: the workspace version, release identity.
+//! - `APP_RELEASE=1`: the workspace version, release identity. With
+//!   `APP_NIGHTLY` too, a nightly: that name, `nightly-2026-11-16`, and
+//!   `APP_BUILD` its build number.
 //! - `APP_PREVIEW=1`: `preview-{version}-{commit}`, the preview identity (its
 //!   own name, id and data), for trying a build before the next release; the
 //!   version is the release it is based on.
@@ -44,7 +46,10 @@ fn main() {
     if preview && !release {
         println!("cargo:rustc-cfg=app_preview");
     }
-    let version = if release {
+    let nightly = given("APP_NIGHTLY").filter(|_| release);
+    let version = if let Some(name) = &nightly {
+        name.clone()
+    } else if release {
         env!("CARGO_PKG_VERSION").to_owned()
     } else if preview {
         format!("preview-{}-{commit}", env!("CARGO_PKG_VERSION"))
@@ -59,8 +64,32 @@ fn main() {
         .or_else(|| git(&root, &["show", "-s", "--format=%cs", "HEAD"]))
         .unwrap_or_default();
 
+    // the order every build takes: Android's version code, a nightly's given
+    let build = if nightly.is_some() {
+        given("APP_BUILD").unwrap_or_default()
+    } else if release {
+        release_build(env!("CARGO_PKG_VERSION")).to_string()
+    } else {
+        String::new()
+    };
     println!("cargo:rustc-env=APP_VERSION={version}");
+    println!("cargo:rustc-env=APP_BUILD={build}");
     println!("cargo:rustc-env=APP_BUILD_DATE={date}");
+}
+
+/// A release's build number, as tools/version.mjs `androidVersionCode`:
+/// `(major * 1000 + minor) * 100000 + micro * 100`, plus a beta's number or
+/// 99 for the release. 0 for anything else.
+fn release_build(version: &str) -> u64 {
+    let (numbers, beta) = match version.split_once("-beta.") {
+        Some((numbers, n)) => (numbers, n.parse().unwrap_or(0)),
+        None => (version, 99),
+    };
+    let parts: Vec<u64> = numbers.split('.').filter_map(|n| n.parse().ok()).collect();
+    match parts[..] {
+        [major, minor, micro] => (major * 1000 + minor) * 100_000 + micro * 100 + beta,
+        _ => 0,
+    }
 }
 
 /// Reruns when the commit, the index or any source changes, so the dirty flag
@@ -68,6 +97,8 @@ fn main() {
 fn watch(root: &Path) {
     println!("cargo:rerun-if-env-changed=APP_RELEASE");
     println!("cargo:rerun-if-env-changed=APP_PREVIEW");
+    println!("cargo:rerun-if-env-changed=APP_NIGHTLY");
+    println!("cargo:rerun-if-env-changed=APP_BUILD");
     println!("cargo:rerun-if-env-changed=CI");
     println!("cargo:rerun-if-env-changed=APP_COMMIT");
     println!("cargo:rerun-if-env-changed=APP_COMMIT_DATE");
