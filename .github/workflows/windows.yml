@@ -13,6 +13,10 @@ on:
         type: boolean
         default: false
   workflow_dispatch:
+  # twice a week on main, so a release finds the build cache: only main saves
+  # one, and GitHub drops a cache unused for a week
+  schedule:
+    - cron: '0 2 * * 1,4'
 
 permissions:
   contents: read
