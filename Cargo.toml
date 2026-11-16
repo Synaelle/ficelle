@@ -60,6 +60,12 @@ opt-level = 3
 [profile.dev.package.blake2]
 opt-level = 3
 
+# the backups' chunking reads every byte through a rolling hash, and its deep
+# test runs it over many megabytes: unoptimized, that test alone took four
+# minutes of every CI run
+[profile.dev.package.app-repo]
+opt-level = 2
+
 # the release keeps password hashing at full speed: unlocking waits on it
 [profile.release.package.argon2]
 opt-level = 3
