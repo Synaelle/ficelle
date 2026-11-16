@@ -2,7 +2,7 @@ name: nightly
 
 # A nightly: the Linux AppImage and the Android APK of main as it is when the
 # run starts, signed like a release, for the people who chose Nightly in the
-# app. Published apart from the releases, on the one pre-release tagged
+# app, and the server image of the same commit, tagged nightly (image.yml). Published apart from the releases, on the one pre-release tagged
 # `nightly`, whose latest.json the apps on Nightly read and whose files each
 # nightly replaces.
 #
@@ -100,8 +100,21 @@ jobs:
       build: ${{ needs.plan.outputs.build }}
     secrets: inherit
 
+  server:
+    needs: plan
+    if: needs.plan.outputs.go == 'true'
+    uses: ./.github/workflows/image.yml
+    # image.yml signs the image with its own identity and pushes it to ghcr.io
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      nightly: ${{ needs.plan.outputs.name }}
+      build: ${{ needs.plan.outputs.build }}
+
   publish:
-    needs: [plan, linux, android]
+    needs: [plan, linux, android, server]
     if: needs.plan.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:

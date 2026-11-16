@@ -2,8 +2,10 @@ name: image
 
 # The server image on ghcr.io, built only for a real change to the server: a
 # release of the apps builds none. A tag server-vX.Y.Z publishes X.Y.Z, X.Y, X
-# and latest. release.yml does not take these tags, so the apps are not built
-# and their latest.json stays where it is. Each image carries its SBOM and build
+# and latest. nightly.yml calls this workflow with a nightly's name: the image
+# of main as it is that night, tagged with that name and nightly, never the
+# others. release.yml does not take these tags, so the apps are not built and
+# their latest.json stays where it is. Each image carries its SBOM and build
 # provenance, and is signed with cosign by this workflow's own GitHub
 # identity, no key to keep: deploy/update/server-update checks it.
 
@@ -11,6 +13,15 @@ on:
   push:
     tags:
       - 'server-v[0-9]+.[0-9]+.[0-9]+'
+  workflow_call:
+    inputs:
+      # a nightly: its name (nightly-2026-11-16) and build number
+      nightly:
+        type: string
+        required: true
+      build:
+        type: string
+        required: true
   workflow_dispatch:
 
 permissions:
@@ -35,6 +46,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: what to publish
         id: plan
+        env:
+          NIGHTLY: ${{ inputs.nightly }}
         run: |
           set -eu
           # brand.json names the image, ghcr wants it lowercase
@@ -43,8 +56,19 @@ jobs:
           echo "image=$image" >> "$GITHUB_OUTPUT"
           echo "commit=$revision" >> "$GITHUB_OUTPUT"
           echo "date=$(git show -s --format=%cs HEAD)" >> "$GITHUB_OUTPUT"
+          if [ -n "$NIGHTLY" ]; then
+            {
+              echo "channel=release"
+              echo "version=$NIGHTLY"
+              echo "tags<<EOF"
+              echo "$image:$NIGHTLY"
+              echo "$image:nightly"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ "$GITHUB_REF_TYPE" != tag ]; then
-            echo "images are only published from a version tag" >&2
+            echo "images are only published from a version tag or a nightly" >&2
             exit 1
           fi
           version=${GITHUB_REF_NAME#server-}
@@ -82,6 +106,8 @@ jobs:
             CHANNEL=${{ steps.plan.outputs.channel }}
             COMMIT=${{ steps.plan.outputs.commit }}
             COMMIT_DATE=${{ steps.plan.outputs.date }}
+            NIGHTLY=${{ inputs.nightly }}
+            BUILD=${{ inputs.build }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ steps.plan.outputs.commit }}

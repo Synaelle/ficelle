@@ -5,9 +5,10 @@
 # web version, off until an admin turns it on) on
 # distroless, no shell, not root. Build from the repository root:
 #   docker build -f deploy/Dockerfile -t ficelle-server .
-# CHANNEL=release stamps the workspace version, preview stamps
-# preview-{commit}. COMMIT and COMMIT_DATE stand in for git, which the build
-# does not see (Dockerfile.dockerignore, beside this file, keeps .git out).
+# CHANNEL=release stamps the workspace version, or with NIGHTLY and BUILD a
+# nightly's name and build number, preview stamps preview-{commit}. COMMIT and
+# COMMIT_DATE stand in for git, which the build does not see
+# (Dockerfile.dockerignore, beside this file, keeps .git out).
 
 # the names below, and the binary's path at the end, are written by
 # tools/brand.mjs from brand.json
@@ -21,6 +22,8 @@ FROM rust:1.99.0-trixie@sha256:81015672d6939b0265f09adf96d5de125482bb13301060769
 ARG CHANNEL=preview
 ARG COMMIT=
 ARG COMMIT_DATE=
+ARG NIGHTLY=
+ARG BUILD=
 ARG BINARY
 ARG SLUG
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
@@ -47,7 +50,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target,id=target-${CHANNEL} \
     set -eu; \
     case "$CHANNEL" in \
-      release) export APP_RELEASE=1 ;; \
+      release) export APP_RELEASE=1 APP_NIGHTLY="$NIGHTLY" APP_BUILD="$BUILD" ;; \
       preview) export APP_PREVIEW=1 ;; \
       *) echo "CHANNEL is release or preview" >&2; exit 1 ;; \
     esac; \
