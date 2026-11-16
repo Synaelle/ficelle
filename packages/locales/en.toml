@@ -817,6 +817,7 @@ browser = "The sign-in could not start on this device. Try again."
 [local]
 intro = "Your devices sync with each other on the same network while {appName} is open. No account needed."
 thisDevice = "This device"
+forgottenBy = "{name} removed this device from its devices, so the two no longer sync. Pair them again to sync."
 name = "Name"
 rename = "Rename this device"
 save = "Save"

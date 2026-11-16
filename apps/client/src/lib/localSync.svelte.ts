@@ -47,6 +47,8 @@ export interface LocalStatus {
   discoveryError: string | null
   pairing: Pairing | null
   devices: LocalDevice[]
+  /** Devices that forgot this one since it opened, by name. */
+  forgottenBy: string[]
 }
 
 /** A failed command: `kind` is stable, see the shell's error.rs. */
@@ -68,6 +70,7 @@ const EMPTY: LocalStatus = {
   discoveryError: null,
   pairing: null,
   devices: [],
+  forgottenBy: [],
 }
 
 const native = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window

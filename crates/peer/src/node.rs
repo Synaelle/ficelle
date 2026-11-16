@@ -94,6 +94,9 @@ pub struct Status {
     /// Device keys (hex) seen but out of reach for a while, as when a
     /// firewall on one of the two drops the connection.
     pub blocked: Vec<String>,
+    /// Names of the devices that forgot this one since it opened: they are
+    /// forgotten here too, and the person told why they went.
+    pub forgotten_by: Vec<String>,
 }
 
 struct Identity {
@@ -167,6 +170,8 @@ struct State {
     /// Since when dials to a device fail as a firewall makes them fail,
     /// until a connection with it works, either way.
     unreachable: HashMap<[u8; 32], Instant>,
+    /// Names of the devices that told this one they forgot it.
+    forgotten_by: Vec<String>,
 }
 
 pub(crate) struct Shared<H: Host> {
@@ -347,11 +352,14 @@ impl<H: Host> Shared<H> {
     }
 
     pub(crate) fn ended(&self, key: &[u8; 32], id: u64, error: Option<Error>) {
+        if matches!(error, Some(Error::Forgotten)) {
+            self.forgotten_by(*key);
+        }
         let mut state = self.lock();
         if state.sessions.get(key).is_some_and(|s| s.id == id) {
             state.sessions.remove(key);
             match error {
-                None | Some(Error::Closed | Error::Timeout | Error::Locked) => {
+                None | Some(Error::Closed | Error::Timeout | Error::Locked | Error::Forgotten) => {
                     if matches!(state.live.get(key), Some(Live::Syncing | Live::Synced)) {
                         state.live.remove(key);
                     }
@@ -413,7 +421,6 @@ impl<H: Host> Shared<H> {
 
     /// Moves the first failure toward a device back in time, as if dials
     /// had failed for that long.
-    #[cfg(test)]
     #[cfg(test)]
     pub(crate) fn unreachable_for(&self, key: [u8; 32], long: Duration) -> bool {
         let mut state = self.lock();
@@ -487,6 +494,35 @@ impl<H: Host> Shared<H> {
             .is_ok_and(|devices| devices.iter().any(|d| d.key == key && d.active()))
     }
 
+    /// Whether `key` is a device paired here once and forgotten since.
+    pub(crate) fn forgot(&self, key: &[u8; 32]) -> bool {
+        store(&*self.host, |s, _| s.peer_devices())
+            .is_ok_and(|devices| devices.iter().any(|d| d.key == key && !d.active()))
+    }
+
+    /// `key` said it forgot this device: it is forgotten here too, its name
+    /// kept for the person, and nothing calls it any more.
+    fn forgotten_by(&self, key: [u8; 32]) {
+        let name = store(&*self.host, |s, _| s.peer_devices())
+            .ok()
+            .and_then(|devices| devices.into_iter().find(|d| d.key == key))
+            .map(|d| d.name);
+        if store(&*self.host, |s, _| s.peer_forget(&key)).is_err() {
+            return;
+        }
+        let mut state = self.lock();
+        state.unreachable.remove(&key);
+        state.live.remove(&key);
+        if let Some(name) = name
+            && !state.forgotten_by.contains(&name)
+        {
+            state.forgotten_by.push(name);
+        }
+        drop(state);
+        self.devices_changed();
+        self.host.status_changed();
+    }
+
     fn cool(&self, address: SocketAddr, key: [u8; 32], wait: Duration) {
         self.lock()
             .cooldown
@@ -494,9 +530,16 @@ impl<H: Host> Shared<H> {
     }
 
     /// After the handshake of a sync connection, either way.
-    fn sync_session(self: &Arc<Self>, ch: Channel, dialled: Option<SocketAddr>) {
+    fn sync_session(self: &Arc<Self>, mut ch: Channel, dialled: Option<SocketAddr>) {
         let key = ch.remote_key;
         if !self.paired(&key) {
+            // a device forgotten here hears it, or it would keep calling and
+            // take the silence for a firewall; a stranger hears nothing
+            if dialled.is_none() && self.forgot(&key) {
+                let _ = ch.send(&crate::wire::encode(&crate::wire::Msg::Bye {
+                    reason: session::FORGOTTEN.into(),
+                }));
+            }
             ch.close();
             if let Some(address) = dialled {
                 self.cool(address, key, RETRY_STRANGER);
@@ -509,9 +552,17 @@ impl<H: Host> Shared<H> {
     /// Hellos, version check, then the session on its own thread.
     fn start_session(self: &Arc<Self>, mut ch: Channel, dialled: Option<SocketAddr>, starts: bool) {
         let key = ch.remote_key;
-        let Ok(hello) = session::hellos(self, &mut ch) else {
-            ch.close();
-            return;
+        let hello = match session::hellos(self, &mut ch) {
+            Ok(hello) => hello,
+            Err(Error::Forgotten) => {
+                ch.close();
+                self.forgotten_by(key);
+                return;
+            }
+            Err(_) => {
+                ch.close();
+                return;
+            }
         };
         if let Err(live) = session::check_hello(self, &mut ch, &hello, dialled) {
             ch.close();
@@ -544,7 +595,9 @@ impl<H: Host> Shared<H> {
         let Some(secret) = self.secret() else { return };
         match first[0] {
             WANTS_SYNC => {
-                if let Ok(ch) = channel::answer_sync(stream, &secret, |k| self.paired(k)) {
+                // one forgotten here gets through, only to hear it
+                let known = |k: &[u8; 32]| self.paired(k) || self.forgot(k);
+                if let Ok(ch) = channel::answer_sync(stream, &secret, known) {
                     self.sync_session(ch, None);
                 }
             }
@@ -553,7 +606,6 @@ impl<H: Host> Shared<H> {
         }
     }
 
-    #[cfg(test)]
     #[cfg(test)]
     pub(crate) fn codes_checked(&self) -> u8 {
         self.lock().pairing.as_ref().map_or(0, |p| p.checked)
@@ -624,6 +676,8 @@ impl<H: Host> Shared<H> {
             }));
             return Err(e);
         }
+        // paired again: no longer one that forgot this device
+        self.lock().forgotten_by.retain(|name| *name != hello.name);
         self.devices_changed();
         Ok(hello.name)
     }
@@ -1190,6 +1244,7 @@ impl<H: Host> Node<H> {
                         .map(|k| (hex(k), Live::Syncing)),
                 )
                 .collect(),
+            forgotten_by: state.forgotten_by.clone(),
             blocked: state
                 .unreachable
                 .iter()

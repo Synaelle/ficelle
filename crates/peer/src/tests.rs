@@ -679,3 +679,33 @@ fn a_connection_that_still_answers_is_kept_when_the_device_dials_twice() {
     std::thread::sleep(Duration::from_secs(6));
     assert!(answers(&mut first), "the live connection was dropped");
 }
+
+#[test]
+fn a_forgotten_device_hears_it_and_forgets_back_instead_of_blaming_a_firewall() {
+    let (a, ha) = node("Desktop");
+    let (b, hb) = node("Tablet");
+    let shown = a.start_pairing().unwrap();
+    b.pair_with_code(&shown.code, Some(&address(&a))).unwrap();
+    until("a and b synced", || {
+        a.status().live.values().any(|l| *l == Live::Synced)
+    });
+    let b_key = channel::public_key(&hb.s(|s, _| s.peer_secret()).unwrap().unwrap()).unwrap();
+    ha.s(|s, _| s.peer_forget(&b_key)).unwrap();
+    a.forget(&b_key);
+    let active = |h: &TestHost, name: &str| {
+        h.s(|s, _| s.peer_devices())
+            .unwrap()
+            .iter()
+            .any(|d| d.name == name && d.active())
+    };
+    until("b is told and forgets a too", || !active(&hb, "Desktop"));
+    let status = b.status();
+    assert_eq!(status.forgotten_by, vec!["Desktop".to_owned()]);
+    assert!(status.blocked.is_empty(), "no firewall advice");
+
+    // paired again, the notice goes
+    let shown = a.start_pairing().unwrap();
+    b.pair_with_code(&shown.code, Some(&address(&a))).unwrap();
+    until("b knows a again", || active(&hb, "Desktop"));
+    assert!(b.status().forgotten_by.is_empty());
+}

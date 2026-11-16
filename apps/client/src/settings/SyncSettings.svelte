@@ -477,6 +477,9 @@
     <p class="settings-help">{t('local.intro')}</p>
 
     {#if local.open}
+      {#each local.forgottenBy ?? [] as name (name)}
+        <p class="settings-help" role="status">{t('local.forgottenBy', { name })}</p>
+      {/each}
       <Group
         title={t('local.devices')}
         note={local.serverLinked

@@ -157,6 +157,8 @@ pub struct LocalStatus {
     discovery_error: Option<String>,
     pairing: Option<PairingView>,
     devices: Vec<LocalDevice>,
+    /// Devices that forgot this one since it opened, by name.
+    forgotten_by: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -248,6 +250,7 @@ impl Local {
                 discovery_error: None,
                 pairing: None,
                 devices: Vec::new(),
+                forgotten_by: Vec::new(),
             };
         };
         let devices = devices
@@ -285,6 +288,10 @@ impl Local {
             running: live.as_ref().is_some_and(|l| l.running),
             port: live.as_ref().and_then(|l| l.port),
             discovery_error: live.as_ref().and_then(|l| l.discovery_error.clone()),
+            forgotten_by: live
+                .as_ref()
+                .map(|l| l.forgotten_by.clone())
+                .unwrap_or_default(),
             pairing: live.and_then(|l| l.pairing).map(PairingView::from),
             devices,
         }

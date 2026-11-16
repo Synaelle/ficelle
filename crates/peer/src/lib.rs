@@ -49,6 +49,9 @@ pub enum Error {
     /// The code was not the one shown.
     #[error("wrong code")]
     WrongCode,
+    /// The other device forgot this one: it no longer syncs with it.
+    #[error("the other device forgot this one")]
+    Forgotten,
     /// No device showing a code was found.
     #[error("no device is waiting for a code")]
     NotFound,

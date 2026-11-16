@@ -73,9 +73,13 @@ pub(crate) fn hellos<H: Host>(shared: &Shared<H>, ch: &mut Channel) -> Result<He
         Incoming::Msg(Msg::Bye { reason }) if reason == "server" => Err(Error::Handshake(
             "the other device syncs with a server".into(),
         )),
+        Incoming::Msg(Msg::Bye { reason }) if reason == FORGOTTEN => Err(Error::Forgotten),
         _ => Err(Error::Protocol("no hello")),
     }
 }
+
+/// The goodbye a device says to one it forgot, when that one calls.
+pub(crate) const FORGOTTEN: &str = "forgotten";
 
 /// Whether two devices can sync, from the other's hello: `None` when they
 /// can, else who has to update.
@@ -238,6 +242,9 @@ impl<H: Host> Session<'_, H> {
             Incoming::Msg(Msg::Missing { .. } | Msg::Pong | Msg::Hello { .. }) => {}
             Incoming::Msg(Msg::Devices { devices }) => self.learn(devices)?,
             Incoming::Msg(Msg::Ping) => self.say(&Msg::Pong)?,
+            Incoming::Msg(Msg::Bye { reason }) if reason == FORGOTTEN => {
+                return Err(Error::Forgotten);
+            }
             Incoming::Msg(Msg::Bye { .. }) => return Ok(false),
         }
         Ok(true)
@@ -269,8 +276,14 @@ impl<H: Host> Session<'_, H> {
         }
         loop {
             if !self.shared.session_wanted(&self.key, self.id) {
+                // forgotten here: the other device is told, not left waiting
+                let reason = if self.shared.forgot(&self.key) {
+                    FORGOTTEN
+                } else {
+                    "stopped"
+                };
                 let _ = self.say(&Msg::Bye {
-                    reason: "stopped".into(),
+                    reason: reason.into(),
                 });
                 return Ok(());
             }
