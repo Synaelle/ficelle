@@ -66,7 +66,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cp -r apps/client/dist-web/. /out/web/web/; \
     node tools/fonts-mirror.mjs /out/web/fonts
 
-FROM gcr.io/distroless/cc-debian13:nonroot@sha256:cc66d222f0a7ec996b78a99fe76a969bc80b539a5016ad866c14d1949bc6d0ab
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:cb87acc574abe719b6e5c547384defa2f7b1f24af9605d3f618cf852495d8be2
 ARG BINARY
 ARG ENV_PREFIX
 ARG SLUG
