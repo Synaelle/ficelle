@@ -171,10 +171,11 @@ class Sync {
 
   /** A code to type on the server's page, on this device or another. The
    * app asks the server until it is approved, the end comes like the
-   * browser's. */
-  async linkStart(address: string): Promise<LinkStarted> {
+   * browser's. With `offer`, the token of the QR code scanned on the
+   * server's page, which then shows this app to approve instead. */
+  async linkStart(address: string, offer?: string): Promise<LinkStarted> {
     this.browserEnded = null
-    return invoke<LinkStarted>('sync_link_start', { address })
+    return invoke<LinkStarted>('sync_link_start', { address, offer: offer ?? null })
   }
 
   browserCancel() {

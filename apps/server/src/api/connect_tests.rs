@@ -297,3 +297,154 @@ async fn a_code_lasts_ten_minutes_and_needs_a_real_request() {
         assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
     }
 }
+
+async fn with_address() -> (crate::routes::AppState, axum::Router, String) {
+    let mut config = crate::config::Config::default();
+    config.server.public_url = "https://notes.example.org".into();
+    super::tests::admin_on(super::tests::server_with(config).await).await
+}
+
+/// The page's QR code: its token, after `#offer=`.
+async fn offer(app: &axum::Router) -> String {
+    let (status, body) = call(app, "POST", "/auth/app/link/offer", None, None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let link = body["link"].as_str().unwrap();
+    assert!(body["qr"].as_str().unwrap().contains("<svg"));
+    link.strip_prefix("https://notes.example.org/link#offer=")
+        .unwrap_or_else(|| panic!("{link}"))
+        .to_owned()
+}
+
+/// A phone that scanned `offer` asks for its code.
+async fn scan(app: &axum::Router, offer: &str, name: &str) -> (StatusCode, Value) {
+    call(
+        app,
+        "POST",
+        "/auth/app/link",
+        None,
+        Some(json!({
+            "challenge": CHALLENGE,
+            "key": KEY,
+            "device": { "name": name, "platform": "android" },
+            "offer": offer,
+        })),
+    )
+    .await
+}
+
+async fn offer_status(app: &axum::Router, offer: &str) -> (StatusCode, Value) {
+    call(
+        app,
+        "POST",
+        "/auth/app/link/offer/status",
+        None,
+        Some(json!({ "offer": offer })),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn a_scanned_qr_code_signs_the_phone_in_once_approved() {
+    let (_state, app, page) = with_address().await;
+    let offer = offer(&app).await;
+    assert!(offer.starts_with("lo_"), "{offer}");
+    let (status, body) = offer_status(&app, &offer).await;
+    assert_eq!((status, &body), (StatusCode::OK, &json!({})), "no app yet");
+
+    let (status, body) = scan(&app, &offer, "Ficelle on Pixel 8").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let code = body["code"].as_str().unwrap().to_owned();
+    let (status, body) = ask_link(&app, &code, VERIFIER).await;
+    assert_eq!(body["error"], "linkPending", "{status}");
+
+    let (status, body) = offer_status(&app, &offer).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["app"]["device"]["name"], "Ficelle on Pixel 8");
+    assert_eq!(
+        (&body["app"]["key"], &body["app"]["challenge"]),
+        (&json!(KEY), &json!(CHALLENGE))
+    );
+
+    let approve = json!({ "offer": offer, "sealed": "c2VhbGVkIGtleQ" });
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/auth/app/link/offer/approve",
+        None,
+        Some(approve.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "only signed in");
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/auth/app/link/offer/approve",
+        Some(&page),
+        Some(approve.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/auth/app/link/offer/approve",
+        Some(&page),
+        Some(approve),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "approved once");
+    let (status, _) = offer_status(&app, &offer).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "the QR code is used up");
+
+    let (status, body) = ask_link(&app, &code, VERIFIER).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["sealed"], "c2VhbGVkIGtleQ");
+    let token = body["session"]["accessToken"].as_str().unwrap();
+    let (status, me) = call(&app, "GET", "/me", Some(token), None).await;
+    assert_eq!((status, &me["username"]), (StatusCode::OK, &json!("admin")));
+}
+
+#[tokio::test]
+async fn a_qr_code_takes_one_phone_and_lasts_five_minutes() {
+    let (state, app, page) = with_address().await;
+    let first = offer(&app).await;
+    let (status, _) = scan(&app, &first, "Ficelle on Pixel 8").await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = scan(&app, &first, "Ficelle on someone else's phone").await;
+    assert_eq!(
+        (status, &body["error"]),
+        (StatusCode::BAD_REQUEST, &json!("linkInvalid")),
+        "a second scan gets nothing"
+    );
+    let (_, body) = offer_status(&app, &first).await;
+    assert_eq!(
+        body["app"]["device"]["name"], "Ficelle on Pixel 8",
+        "the first stays"
+    );
+
+    let (status, _) = scan(&app, "lo_made-up", "Ficelle on Pixel 8").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "an unknown QR code");
+
+    let second = offer(&app).await;
+    state.clock.advance(5 * 60 * 1000 + 1);
+    let (status, _) = scan(&app, &second, "Ficelle on Pixel 8").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "expired");
+    let (status, _) = offer_status(&app, &second).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "expired for the page too");
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/auth/app/link/offer/approve",
+        Some(&page),
+        Some(json!({ "offer": first })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "nothing left to approve");
+}
+
+#[tokio::test]
+async fn a_qr_code_needs_the_servers_address() {
+    let (_state, app, _page) = with_admin().await;
+    let (status, body) = call(&app, "POST", "/auth/app/link/offer", None, None).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+}

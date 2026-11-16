@@ -33,6 +33,8 @@ pub enum Kind {
     Web,
     /// Hands a sign-in on the server's page to the app that opened it.
     AppCode,
+    /// A QR code on the server's page that a phone scans to sign in.
+    LinkOffer,
 }
 
 impl Kind {
@@ -47,6 +49,7 @@ impl Kind {
             Self::Setup => "su_",
             Self::Web => "wv_",
             Self::AppCode => "ac_",
+            Self::LinkOffer => "lo_",
         }
     }
 }

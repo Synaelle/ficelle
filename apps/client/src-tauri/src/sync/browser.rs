@@ -128,12 +128,15 @@ pub struct LinkStarted {
 }
 
 /// Asks the server for a code and waits in the background until it is
-/// approved on the server's page. The end comes as a `sync-browser` event.
+/// approved on the server's page. With `offer`, the token of the QR code the
+/// phone scanned there: the page then shows this app to approve, no code to
+/// type. The end comes as a `sync-browser` event.
 #[tauri::command]
 pub async fn sync_link_start(
     app: AppHandle,
     state: State<'_, AppState>,
     address: String,
+    offer: Option<String>,
 ) -> Result<LinkStarted, SignInError> {
     can_sign_in(&state)?;
     let server = normalize(&address).map_err(|why| invalid(why, "not a server address"))?;
@@ -148,6 +151,7 @@ pub async fn sync_link_start(
                     challenge: handoff.challenge.clone(),
                     key: handoff.public_key(),
                     device: sign_in::device(),
+                    offer,
                 },
             )?
             .parse()?;

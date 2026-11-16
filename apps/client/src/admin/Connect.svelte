@@ -5,7 +5,9 @@
      key, and the page hands the app a code through that address. At /link
      the person types the code the app shows (or the app put it after the
      #), the page finds the app behind it, and the app, asking the server
-     every few seconds, gets its session once the person agreed. Either way
+     every few seconds, gets its session once the person agreed. Or the page
+     shows a QR code, a phone scans it and asks for its code naming it, and
+     the page, asking every few seconds, sees which app answered. Either way
      the person signs in afresh, and an encrypted account's export key goes
      along sealed to the app's key: the server passes it on and cannot open
      it. -->
@@ -47,6 +49,8 @@
     redirect?: string
     /** With a code, at /link. */
     code?: string
+    /** With a QR code a phone scanned, at /link. */
+    offer?: string
   }
 
   interface LinkInfo {
@@ -103,7 +107,7 @@
   const fresh = fromAddress()
   // svelte-ignore state_referenced_locally
   let request: Request | null = $state(
-    codeInAddress ? null : (fresh ?? (saved()?.code || !byCode ? saved() : null)),
+    codeInAddress ? null : (fresh ?? (saved()?.code || saved()?.offer || !byCode ? saved() : null)),
   )
   if (fresh) keepRequest(fresh)
   if (fresh || codeInAddress) history.replaceState(null, '', location.pathname)
@@ -120,7 +124,9 @@
   /** What the page starts on, read once. */
   // svelte-ignore state_referenced_locally
   const typeFirst = byCode && !request
-  let step: 'code' | 'signIn' | 'ask' | 'sent' | 'cancelled' = $state(typeFirst ? 'code' : 'signIn')
+  let step: 'code' | 'qr' | 'signIn' | 'ask' | 'sent' | 'cancelled' = $state(
+    typeFirst ? 'code' : 'signIn',
+  )
   let sentTo = $state('')
 
   // a session this tab held before the app's new request is not one the
@@ -176,6 +182,73 @@
     return () => window.removeEventListener('hashchange', again)
   })
 
+  /** The QR code shown, its token after `#offer=` in what it holds. */
+  let shown: { offer: string; qr: string; expiresAt: number } | null = $state(null)
+  let qrExpired = $state(false)
+
+  async function showQr() {
+    busy = true
+    problem = ''
+    qrExpired = false
+    try {
+      const made = await api<{ link: string; qr: string; expiresAt: number }>(
+        'POST',
+        '/auth/app/link/offer',
+      )
+      shown = { offer: made.link.split('#offer=')[1] ?? '', qr: made.qr, expiresAt: made.expiresAt }
+      step = 'qr'
+    } catch (err) {
+      problem = errorText(err)
+    } finally {
+      busy = false
+    }
+  }
+
+  // while the QR code shows, which app scanned it
+  $effect(() => {
+    if (step !== 'qr' || !shown || qrExpired) return
+    const { offer, expiresAt } = shown
+    let stopped = false
+    const ask = async () => {
+      if (stopped) return
+      if (Date.now() > expiresAt) {
+        qrExpired = true
+        return
+      }
+      try {
+        const { app } = await api<{ app?: LinkInfo }>('POST', '/auth/app/link/offer/status', {
+          offer,
+        })
+        if (stopped) return
+        if (app) {
+          request = {
+            challenge: app.challenge,
+            key: app.key,
+            device: app.device.name,
+            platform: app.device.platform,
+            offer,
+          }
+          keepRequest(request)
+          step = 'signIn'
+          return
+        }
+      } catch (err) {
+        if (stopped) return
+        if (err instanceof ApiError && err.code === 'linkInvalid') {
+          qrExpired = true
+          return
+        }
+        // a dropped connection: the next question tries again
+      }
+      timer = setTimeout(ask, 3000)
+    }
+    let timer = setTimeout(ask, 3000)
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+    }
+  })
+
   async function signedIn(key?: string) {
     sealed = key
     // a passkey or single sign-on has no password: an encrypted account's
@@ -211,8 +284,10 @@
     busy = true
     problem = ''
     try {
-      if (request.code) {
-        await api('POST', '/auth/app/link/approve', { code: request.code, sealed })
+      if (request.code || request.offer) {
+        await (request.offer
+          ? api('POST', '/auth/app/link/offer/approve', { offer: request.offer, sealed })
+          : api('POST', '/auth/app/link/approve', { code: request.code, sealed }))
         // the app asks the server for its session, this page's is done
         await signOut()
         forget()
@@ -266,7 +341,32 @@
       <button class="btn primary" type="submit" disabled={busy}
         >{t('admin.connect.continue')}</button
       >
+      <button class="btn" type="button" disabled={busy} onclick={showQr}
+        >{t('admin.connect.qrButton')}</button
+      >
     </form>
+  </main>
+{:else if step === 'qr' && shown}
+  <main class="screen">
+    <div class="card">
+      <h1>{t('admin.connect.qrTitle', { app: brand.displayName })}</h1>
+      {#if qrExpired}
+        <p role="alert">{t('admin.connect.qrExpired')}</p>
+        <button class="btn primary" type="button" disabled={busy} onclick={showQr}
+          >{t('admin.connect.qrAgain')}</button
+        >
+      {:else}
+        <img
+          class="qr"
+          src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(shown.qr)}`}
+          alt={t('admin.connect.qrAlt', { app: brand.displayName })}
+          width="240"
+          height="240"
+        />
+        <p class="muted">{t('admin.connect.qrHelp', { app: brand.displayName })}</p>
+      {/if}
+      {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+    </div>
   </main>
 {:else if !request}
   <main class="center">
@@ -296,7 +396,11 @@
           name: auth.session?.user.username ?? '',
         })}
       </p>
-      <p class="muted">{t('admin.connect.askOnly', { app: brand.displayName })}</p>
+      <p class="muted">
+        {request.offer
+          ? t('admin.connect.askOnlyQr')
+          : t('admin.connect.askOnly', { app: brand.displayName })}
+      </p>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
       <div class="row">
         <button class="btn" type="button" disabled={busy} onclick={cancel}
@@ -365,6 +469,13 @@
   label {
     display: grid;
     gap: var(--space-1);
+  }
+  .qr {
+    justify-self: center;
+    width: min(240px, 100%);
+    height: auto;
+    border-radius: var(--radius-control);
+    background: #fff;
   }
   .mono {
     font-family: var(--font-mono);

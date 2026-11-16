@@ -13,6 +13,7 @@ pub mod images;
 pub mod import;
 pub mod links;
 pub mod notes;
+pub mod qr;
 pub mod quick;
 pub mod updates;
 pub mod vault;

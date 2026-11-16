@@ -173,6 +173,47 @@ pub struct AppLinkRequest {
     pub key: String,
     /// The app's device, as the account's device list will show it.
     pub device: DeviceInfo,
+    /// The token of the QR code the app scanned on the server's page, which
+    /// then shows the app for the person to approve. Without it, the app
+    /// shows a code to type there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offer: Option<String>,
+}
+
+/// `POST /api/v1/auth/app/link/offer`: a QR code for the signed-in page to
+/// show, which a phone scans to sign in.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppLinkOffer {
+    /// What the QR code holds: the page's address with the one-time token
+    /// after `#offer=`.
+    pub link: String,
+    /// The QR code, an svg document.
+    pub qr: String,
+    /// When it stops working, in milliseconds.
+    pub expires_at: i64,
+}
+
+/// `POST /api/v1/auth/app/link/offer/status` and `.../approve`, from the
+/// page that shows the QR code. Approving sends the sealed key for an e2ee
+/// account.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AppLinkOfferCode {
+    /// The token, as in the QR code.
+    pub offer: String,
+    /// E2ee, on approval: the export key sealed to the app's key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sealed: Option<String>,
+}
+
+/// Whether an app scanned the QR code yet.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppLinkOfferStatus {
+    /// The app that scanned it, `None` while none did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub app: Option<AppLinkInfo>,
 }
 
 /// The code to type on the server's page.

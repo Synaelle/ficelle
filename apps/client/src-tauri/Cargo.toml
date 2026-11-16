@@ -42,6 +42,9 @@ zeroize = "1.9.1"
 tauri-plugin-biometric = "2.5.0"
 # vibration for touch gestures
 tauri-plugin-haptics = "2.4.2"
+# reads the QR code a phone scans on the server's page to sign in, in the
+# app itself: no Google Play services
+rqrr = { version = "0.11.0", default-features = false }
 
 # the quick note window opens from a shortcut that works in any app
 [target.'cfg(not(target_os = "android"))'.dependencies]
@@ -68,6 +71,11 @@ windows = { version = "0.62.2", features = [
   "Storage_Streams",
 ] }
 winsafe = { version = "0.0.29", features = ["user"] }
+
+[dev-dependencies]
+# the QR code reader's tests draw their codes
+qrcode = { version = "0.14.1", default-features = false }
+rqrr = { version = "0.11.0", default-features = false }
 
 [lints]
 workspace = true

@@ -124,6 +124,7 @@ pub fn run() {
         })
         .register_uri_scheme_protocol(protocol::SCHEME, protocol::handle)
         .invoke_handler(tauri::generate_handler![
+            commands::qr::qr_read,
             sync::feedback::feedback_where,
             sync::feedback::feedback_send,
             sync::feedback::feedback_answers,

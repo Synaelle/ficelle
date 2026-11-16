@@ -26,6 +26,7 @@
   import { localSync, type LocalDevice } from '../lib/localSync.svelte'
   import FilesSettings from './FilesSettings.svelte'
   import PairDialog from './PairDialog.svelte'
+  import QrScan from './QrScan.svelte'
   import { ANDROID, LINUX, MAC, WINDOWS } from '../lib/platform'
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
@@ -152,6 +153,8 @@
 
   function reset() {
     if (browserLink || linking) stopBrowser()
+    byQr = false
+    qrOffer = ''
     checked = null
     plainOk = false
     methods = null
@@ -197,6 +200,38 @@
   /** The code's page was opened in this device's browser, not only shown
    * for another device. */
   let linkedHere = $state(false)
+  /** The camera is open, to scan the QR code of a server's page. */
+  let scanning = $state(false)
+  /** Signing in with the QR code scanned: the page that shows it approves. */
+  let byQr = $state(false)
+  /** A QR code scanned from a server without https, waiting for the person
+   * to accept that, as when its address is typed. */
+  let qrOffer = $state('')
+
+  /** A server's QR code was read: check the server, then ask for a code
+   * naming the QR code, which its page then shows to approve. A server
+   * without https stops at its warning, as when typed. */
+  function scanned(server: string, offer: string) {
+    scanning = false
+    void run(async () => {
+      checked = await sync.checkServer(server)
+      if (!checked.compatible) {
+        error = t('sync.error.incompatible')
+        return
+      }
+      qrOffer = offer
+      if (!(checked.address ?? server).startsWith('http://')) await startQr()
+    })
+  }
+
+  async function startQr() {
+    const server = checked?.address ?? status.server
+    if (!server || !qrOffer) return
+    linking = await sync.linkStart(server, qrOffer)
+    qrOffer = ''
+    linkedHere = false
+    byQr = true
+  }
 
   /** A phone signs in with a code, its browser may not hand an answer
    * back: the page opens here with the code filled in. A computer can use
@@ -233,6 +268,7 @@
   function stopBrowser() {
     browserLink = ''
     linking = null
+    byQr = false
     void sync.browserCancel()
   }
 
@@ -249,6 +285,7 @@
     sync.browserEnded = null
     browserLink = ''
     linking = null
+    byQr = false
     if (ended.error) error = explain(ended.error)
     else reset()
   })
@@ -697,7 +734,12 @@
         {:else}
           <h3 class="sign-in">{t('sync.signInTo', { server: status.server ?? '' })}</h3>
         {/if}
-        {#if byBrowser && linking && linkedHere}
+        {#if byBrowser && linking && byQr}
+          <p class="link-step">{t('sync.scanWaitingTitle')}</p>
+          <p class="settings-help">
+            {t('sync.scanWaitingHelp', { appName: brand.displayName })}
+          </p>
+        {:else if byBrowser && linking && linkedHere}
           <!-- the usual way first, all on this phone; the code is only for
                approving from a computer -->
           <p class="link-step">
@@ -781,6 +823,13 @@
             <button class="btn primary" type="button" onclick={openPage}
               >{t('sync.browserAgain')}</button
             >
+          {:else if byBrowser && !linking && qrOffer}
+            <button
+              class="btn primary"
+              type="button"
+              disabled={busy || (plain && !plainOk)}
+              onclick={() => void run(startQr)}>{t('sync.continue')}</button
+            >
           {:else if byBrowser && !linking}
             <button
               class="btn primary"
@@ -798,7 +847,7 @@
             >
           {/if}
         </div>
-        {#if byBrowser && !linking}
+        {#if byBrowser && !linking && !qrOffer}
           <button
             class="link-button"
             type="button"
@@ -838,7 +887,18 @@
             >{busy ? t('sync.checking') : t('sync.continue')}</button
           >
         </div>
+        {#if ANDROID}
+          <p class="settings-help">{t('sync.scanHelp')}</p>
+          <div class="settings-buttons">
+            <button class="btn" type="button" disabled={busy} onclick={() => (scanning = true)}
+              ><Icon name="qrCode" size={16} />{t('sync.scan')}</button
+            >
+          </div>
+        {/if}
       </form>
+    {/if}
+    {#if scanning}
+      <QrScan found={scanned} close={() => (scanning = false)} />
     {/if}
 
     {#if error}<p class="error" role="alert">{error}</p>{/if}
