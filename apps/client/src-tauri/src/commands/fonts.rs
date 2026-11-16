@@ -34,6 +34,39 @@ pub const FILES: [&str; 8] = [
     "latin-ext-700-italic",
 ];
 
+/// The SHA-256 of each file of the release above, as both hosts serve them.
+/// Anything else, from either, is refused: the web view's font engine reads
+/// these files, so only the ones checked here may reach it.
+const HASHES: [(&str, &str, &str); 4] = [
+    (
+        "opendyslexic",
+        "latin-400-normal",
+        "f007004af3cda5d8076e57c943f8cc8d00a0da25988b1ae1048683d60e7cac1a",
+    ),
+    (
+        "opendyslexic",
+        "latin-700-normal",
+        "dd9fa9c7991113b0dddefe9506a30ad26b48e302b7a8fb91719a4726e8fde85b",
+    ),
+    (
+        "opendyslexic",
+        "latin-400-italic",
+        "eb6a1bacf7e7c87a08116af4cd00a82064fbe61647b9a0d4d70a339890268f88",
+    ),
+    (
+        "opendyslexic",
+        "latin-700-italic",
+        "a20d82c2a1a0a6ab74796529aca31bfbae93e3e58f5a7360cba854dd98a15214",
+    ),
+];
+
+/// The file is the one known for this font and name.
+fn known(id: &str, name: &str, bytes: &[u8]) -> bool {
+    HASHES
+        .iter()
+        .any(|&(i, n, hash)| i == id && n == name && app_core::blobs::sha256_hex(bytes) == hash)
+}
+
 fn invalid(what: &str) -> CommandError {
     CommandError::new("invalid", format!("not a font {what}"))
 }
@@ -134,7 +167,7 @@ pub async fn font_download(
                 id
             );
             let fetched = match fetch(&agent, &mirrored) {
-                Ok(Some(bytes)) if bytes.starts_with(b"wOF2") => Ok(Some(bytes)),
+                Ok(Some(bytes)) if known(&id, name, &bytes) => Ok(Some(bytes)),
                 // not mirrored, or the host does not answer: Fontsource's own
                 _ => fetch(
                     &agent,
@@ -152,8 +185,7 @@ pub async fn font_download(
                 // that did not come this time
                 Ok(None) | Err(_) => continue,
             };
-            // a woff2 file starts with wOF2, anything else is not kept
-            if bytes.len() as u64 > MAX_FILE || !bytes.starts_with(b"wOF2") {
+            if !known(&id, name, &bytes) {
                 continue;
             }
             let part = dir.join(format!("{name}.part"));
@@ -182,7 +214,19 @@ pub async fn font_files(
     let dir = folder(&state, &id)?;
     Ok(checked_files(files)?
         .into_iter()
-        .filter(|name| dir.join(format!("{name}.woff2")).is_file())
+        .filter(|name| {
+            let path = dir.join(format!("{name}.woff2"));
+            let Ok(bytes) = std::fs::read(&path) else {
+                return false;
+            };
+            // one kept before the files were checked, or changed since, goes
+            // and is downloaded again
+            let good = known(&id, name, &bytes);
+            if !good {
+                let _ = std::fs::remove_file(&path);
+            }
+            good
+        })
         .collect())
 }
 
@@ -194,13 +238,28 @@ pub async fn font_file(
     name: String,
 ) -> CommandResult<Response> {
     let path = folder(&state, &id)?.join(format!("{}.woff2", checked_file(&name)?));
-    let bytes = std::fs::read(path).map_err(|e| CommandError::new("notFound", e.to_string()))?;
+    let bytes = std::fs::read(&path).map_err(|e| CommandError::new("notFound", e.to_string()))?;
+    if !known(&id, &name, &bytes) {
+        let _ = std::fs::remove_file(&path);
+        return Err(CommandError::new(
+            "notFound",
+            "the font file is not the known one",
+        ));
+    }
     Ok(Response::new(bytes))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{FILES, checked_file, checked_files, checked_id};
+    use super::{FILES, HASHES, checked_file, checked_files, checked_id, known};
+
+    #[test]
+    fn only_the_known_files_are_kept() {
+        assert!(!known("opendyslexic", "latin-400-normal", b"wOF2 anything"));
+        assert!(!known("opendyslexic", "latin-400-normal", b""));
+        // every name with a hash is one the app asks for
+        assert!(HASHES.iter().all(|(_, name, _)| FILES.contains(name)));
+    }
 
     #[test]
     fn only_plain_ids_and_known_files() {
