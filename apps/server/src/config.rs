@@ -824,8 +824,7 @@ impl Config {
             return base.trim_end_matches('/').to_owned();
         }
         url::Url::parse(&self.server.public_url)
-            .map(|u| u.path().trim_end_matches('/').to_owned())
-            .unwrap_or_default()
+            .map_or_default(|u| u.path().trim_end_matches('/').to_owned())
     }
 
     /// Whether responses should carry HSTS: only when people reach the

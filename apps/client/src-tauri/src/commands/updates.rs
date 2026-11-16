@@ -808,8 +808,7 @@ mod platform {
         }
         let name = current
             .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
+            .map_or_default(|n| n.to_string_lossy().into_owned());
         let next = current.with_file_name(format!(".{name}.update"));
         let permissions = std::fs::metadata(&current)
             .map_err(|e| failed("file", e))?

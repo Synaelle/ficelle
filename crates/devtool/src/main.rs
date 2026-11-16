@@ -147,9 +147,7 @@ fn search(dir: &Path, query: &str) -> app_core::Result<()> {
 }
 
 fn profiles(data: &Path) {
-    let entries = std::fs::read_dir(data)
-        .map(Iterator::collect::<Vec<_>>)
-        .unwrap_or_default();
+    let entries = std::fs::read_dir(data).map_or_default(Iterator::collect::<Vec<_>>);
     for entry in entries
         .into_iter()
         .flatten()

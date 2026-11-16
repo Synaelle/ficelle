@@ -185,7 +185,7 @@ fn set_hidden(conn: &Connection, lines: &[String]) -> Result<(), DbError> {
 /// The backups line: none set, failing, late, or fine.
 fn backups_item(facts: &Facts, now: i64) -> ChecklistItem {
     let status = &facts.status;
-    let at = |t: Option<i64>| t.map(|t| t.to_string()).unwrap_or_default();
+    let at = |t: Option<i64>| t.map_or_default(|t| t.to_string());
     let config = match &facts.backups {
         Ok(Some(config)) => config,
         Ok(None) => return item("backups", CheckState::Warn, &[("state", "none".into())]),
@@ -244,7 +244,7 @@ fn updates_item(view: UpdatesView) -> ChecklistItem {
     if !view.available || !view.enabled {
         item("updates", CheckState::Warn, &[("state", "off".into())])
     } else if view.security {
-        let latest = view.latest.map(|r| r.version).unwrap_or_default();
+        let latest = view.latest.map_or_default(|r| r.version);
         item(
             "updates",
             CheckState::Fail,
@@ -255,7 +255,7 @@ fn updates_item(view: UpdatesView) -> ChecklistItem {
             ],
         )
     } else if view.newer {
-        let latest = view.latest.map(|r| r.version).unwrap_or_default();
+        let latest = view.latest.map_or_default(|r| r.version);
         item(
             "updates",
             CheckState::Warn,

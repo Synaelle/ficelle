@@ -140,14 +140,13 @@ fn run(
         .into_iter()
         .rev()
         .find(|s| s.kind == KIND && s.host == host)
-        .map(|s| {
+        .map_or_default(|s| {
             s.items
                 .into_iter()
                 .filter(|i| i.name.starts_with("files/"))
                 .map(|i| (i.name.clone(), i))
                 .collect()
-        })
-        .unwrap_or_default();
+        });
 
     let mut writer = Writer::new(repo, &index);
     let mut items = Vec::new();

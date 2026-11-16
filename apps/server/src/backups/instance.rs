@@ -97,8 +97,7 @@ fn run(
         .into_iter()
         .rev()
         .find(|s| s.kind == KIND)
-        .map(|s| s.items.into_iter().map(|i| (i.name.clone(), i)).collect())
-        .unwrap_or_default();
+        .map_or_default(|s| s.items.into_iter().map(|i| (i.name.clone(), i)).collect());
     let mut writer = Writer::new(repo, &index);
     let mut items = Vec::new();
     let add = |writer: &mut Writer<'_>,

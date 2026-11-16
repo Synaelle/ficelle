@@ -391,8 +391,7 @@ impl<H: Host> Shared<H> {
             .sessions
             .get_mut(key)
             .filter(|s| s.id == id)
-            .map(|s| std::mem::take(&mut s.wants))
-            .unwrap_or_default()
+            .map_or_default(|s| std::mem::take(&mut s.wants))
     }
 
     pub(crate) fn ended(&self, key: &[u8; 32], id: u64, error: Option<Error>) {

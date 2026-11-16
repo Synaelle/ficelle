@@ -288,10 +288,7 @@ impl Local {
             running: live.as_ref().is_some_and(|l| l.running),
             port: live.as_ref().and_then(|l| l.port),
             discovery_error: live.as_ref().and_then(|l| l.discovery_error.clone()),
-            forgotten_by: live
-                .as_ref()
-                .map(|l| l.forgotten_by.clone())
-                .unwrap_or_default(),
+            forgotten_by: live.as_ref().map_or_default(|l| l.forgotten_by.clone()),
             pairing: live.and_then(|l| l.pairing).map(PairingView::from),
             devices,
         }

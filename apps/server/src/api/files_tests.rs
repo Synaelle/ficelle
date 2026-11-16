@@ -70,7 +70,7 @@ pub(super) async fn raw(
 }
 
 fn in_space(space: Option<&str>, sep: char) -> String {
-    space.map(|s| format!("{sep}space={s}")).unwrap_or_default()
+    space.map_or_default(|s| format!("{sep}space={s}"))
 }
 
 /// Sends one part, returns the status and the answer.

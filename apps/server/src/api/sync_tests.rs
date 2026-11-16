@@ -699,7 +699,7 @@ impl app_core::sync::engine::Remote for Wire {
 
 /// `space=` for a shared space's calls, nothing for the personal space.
 fn in_space(space: Option<&str>, sep: char) -> String {
-    space.map(|s| format!("{sep}space={s}")).unwrap_or_default()
+    space.map_or_default(|s| format!("{sep}space={s}"))
 }
 
 /// A vault linked from a sign-in answer, and its wire.

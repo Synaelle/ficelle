@@ -242,8 +242,7 @@ fn export_attachments(
                 let path = names.claim(&target, &safe_name(&attachment.file_name));
                 let written = path
                     .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default();
+                    .map_or_default(|n| n.to_string_lossy().into_owned());
                 if written != attachment.file_name {
                     renamed.push((attachment.file_name.clone(), written));
                 }

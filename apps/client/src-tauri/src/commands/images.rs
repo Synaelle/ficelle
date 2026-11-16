@@ -93,8 +93,7 @@ fn described(paths: &[PathBuf]) -> Vec<ImageFile> {
         .map(|path| ImageFile {
             name: path
                 .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default(),
+                .map_or_default(|n| n.to_string_lossy().into_owned()),
             mime: mime_of(path).unwrap_or("image/png").to_owned(),
         })
         .collect()
@@ -110,8 +109,7 @@ fn copied_files<R: Runtime>(app: &AppHandle<R>) -> Vec<PathBuf> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
     app.clipboard()
         .read_text()
-        .map(|text| image_files(&text))
-        .unwrap_or_default()
+        .map_or_default(|text| image_files(&text))
 }
 
 /// A copied picture (not a file), as PNG.

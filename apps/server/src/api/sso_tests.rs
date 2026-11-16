@@ -175,8 +175,7 @@ async fn start(
     let cookie = response
         .headers()
         .get("set-cookie")
-        .map(|v| v.to_str().unwrap().to_owned())
-        .unwrap_or_default();
+        .map_or_default(|v| v.to_str().unwrap().to_owned());
     let bytes = to_bytes(response.into_body(), 1 << 16).await.unwrap();
     let answer = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     let pair = cookie.split(';').next().unwrap_or("").to_owned();

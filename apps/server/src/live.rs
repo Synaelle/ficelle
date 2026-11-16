@@ -146,8 +146,7 @@ impl Live {
         let mut out: Vec<Viewer> = self
             .seats()
             .get(space)
-            .map(|list| list.iter().map(|s| s.viewer.clone()).collect())
-            .unwrap_or_default();
+            .map_or_default(|list| list.iter().map(|s| s.viewer.clone()).collect());
         out.sort_by(|a, b| (&a.name, &a.note).cmp(&(&b.name, &b.note)));
         out.dedup();
         out

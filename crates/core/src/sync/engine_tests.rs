@@ -2260,8 +2260,7 @@ mod files_deep {
             let note = only(&va, &vb)
                 .split("note=")
                 .nth(1)
-                .map(|n| n[..36].to_owned())
-                .unwrap_or_default();
+                .map_or_default(|n| n[..36].to_owned());
             let waiting = (
                 holders[0].device.s().waiting_for_tests(),
                 holders[1].device.s().waiting_for_tests(),

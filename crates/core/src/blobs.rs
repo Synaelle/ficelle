@@ -382,8 +382,7 @@ impl BlobStore {
             for file in self.disk.list(&shard)? {
                 let name = file
                     .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default();
+                    .map_or_default(|n| n.to_string_lossy().into_owned());
                 if name.len() == 64 && name.chars().all(|c| c.is_ascii_hexdigit()) {
                     names.push(name);
                 }
@@ -408,8 +407,7 @@ impl BlobStore {
             for file in self.disk.list(&shard)? {
                 let name = file
                     .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default();
+                    .map_or_default(|n| n.to_string_lossy().into_owned());
                 // a write under way: left alone unless a day old (a crash)
                 let fresh = Path::new(&name)
                     .extension()

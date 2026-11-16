@@ -87,9 +87,8 @@ const ADMIN_USER_SELECT: &str = "SELECT u.id, u.username, u.display_name, u.role
 
 fn admin_user_from(row: &rusqlite::Row<'_>) -> rusqlite::Result<AdminUser> {
     let groups: Option<String> = row.get(9)?;
-    let mut groups: Vec<String> = groups
-        .map(|g| g.split('\u{1f}').map(str::to_owned).collect())
-        .unwrap_or_default();
+    let mut groups: Vec<String> =
+        groups.map_or_default(|g| g.split('\u{1f}').map(str::to_owned).collect());
     groups.sort_by_key(|g| g.to_lowercase());
     Ok(AdminUser {
         id: row.get(0)?,

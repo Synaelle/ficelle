@@ -423,9 +423,7 @@ fn paired() -> (Device, Device) {
 }
 
 fn body(host: &TestHost, id: app_core::id::NoteId) -> String {
-    host.s(|s, _| s.note(id))
-        .map(|n| n.body)
-        .unwrap_or_default()
+    host.s(|s, _| s.note(id)).map_or_default(|n| n.body)
 }
 
 fn edit(host: &TestHost, id: app_core::id::NoteId, body: &str) {
