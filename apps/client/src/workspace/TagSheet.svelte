@@ -3,6 +3,7 @@
      the notes with no tag, all notes, the tags as a tree that folds, and the
      trash. Typing finds a tag at any level and says where it lives. -->
 <script lang="ts">
+  import { onBack } from '../lib/back'
   import type { Scope, Tag } from '../lib/backend'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
@@ -13,6 +14,9 @@
   import { tagKey, UNFILED, workspace } from '../lib/workspace.svelte'
 
   let { close }: { close: () => void } = $props()
+
+  // the phone's Back closes the sheet, not the app
+  $effect(() => onBack(close))
 
   let query = $state('')
   let sheet: HTMLDivElement | undefined = $state()
