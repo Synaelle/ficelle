@@ -119,7 +119,12 @@
   }
 
   async function showHistory() {
-    if (note) versions = await backend.listVersions(note.id)
+    // a version with neither title nor text, as a note is the moment it is
+    // made, is nothing to go back to
+    if (note)
+      versions = (await backend.listVersions(note.id)).filter(
+        (v) => v.title.trim() || v.body.trim(),
+      )
   }
 
   function noteMenu(button: HTMLElement) {

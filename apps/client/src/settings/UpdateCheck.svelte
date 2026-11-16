@@ -47,28 +47,31 @@
 
   /** One line: how updates come while on, what is still looked for when off. */
   const help = $derived(
-    !prefs.autoUpdates
-      ? prefs.securityChecks
-        ? t('appUpdate.autoOffHelp')
-        : t('appUpdate.noChecksHelp')
-      : phone
-        ? t('appUpdate.helpPhone')
-        : __APP_PORTABLE__
-          ? t('appUpdate.helpPortable')
-          : packaged
-            ? t('appUpdate.helpPackage')
+    packaged
+      ? t('appUpdate.helpPackage')
+      : !prefs.autoUpdates
+        ? prefs.securityChecks
+          ? t('appUpdate.autoOffHelp')
+          : t('appUpdate.noChecksHelp')
+        : phone
+          ? t('appUpdate.helpPhone')
+          : __APP_PORTABLE__
+            ? t('appUpdate.helpPortable')
             : t('appUpdate.help'),
   )
 </script>
 
 {#if updatesHere}
   <Group title={t('appUpdate.title')} note={help}>
-    <Row
-      label={t('appUpdate.auto')}
-      on={prefs.autoUpdates}
-      onclick={() => (prefs.autoUpdates = !prefs.autoUpdates)}
-    />
-    {#if !prefs.autoUpdates}
+    <!-- a package's updates are its package manager's: nothing to switch -->
+    {#if !packaged}
+      <Row
+        label={t('appUpdate.auto')}
+        on={prefs.autoUpdates}
+        onclick={() => (prefs.autoUpdates = !prefs.autoUpdates)}
+      />
+    {/if}
+    {#if !prefs.autoUpdates && !packaged}
       <Row
         label={t('appUpdate.securityChecks')}
         on={prefs.securityChecks}
