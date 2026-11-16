@@ -41,11 +41,6 @@ dc pull -q "$service"
 new=$(docker image inspect -f '{{.Id}}' "$image")
 version() { docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' "$1" 2>/dev/null || true; }
 
-if [ -z "$old" ]; then
-  log "not running, starting $(version "$new")"
-  dc up -d "$service"
-  exit 0
-fi
 if [ "$new" = "$old" ]; then
   log "up to date, $(version "$old")"
   exit 0
@@ -58,13 +53,16 @@ fi
 # an image the project's workflow did not build and sign is not run, even
 # from the right registry. It is not added to the refused ones: a signature
 # can come a little after the image, or the check fail on the network, and
-# the next night tries again
+# the next night tries again. Until then the tag goes back to the running
+# image, or off the unchecked one, so a later `docker compose up` cannot
+# start it either
 digest=$(docker image inspect -f '{{index .RepoDigests 0}}' "$image" 2>/dev/null || true)
 if command -v cosign > /dev/null; then
   if ! cosign verify --certificate-identity-regexp "^${signer}@" \
     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
     "$digest" > /dev/null 2>&1; then
     log "$(version "$new") is not signed by $signer, not updating tonight"
+    if [ -n "$old" ]; then docker tag "$old" "$image"; else docker image rm "$image" > /dev/null; fi
     exit 1
   fi
 elif [ "${ALLOW_UNSIGNED:-}" = 1 ]; then
@@ -72,6 +70,12 @@ elif [ "${ALLOW_UNSIGNED:-}" = 1 ]; then
 else
   log "cosign is not installed, not updating: install it, or set ALLOW_UNSIGNED=1 to update unchecked"
   exit 1
+fi
+
+if [ -z "$old" ]; then
+  log "not running, starting $(version "$new")"
+  dc up -d "$service"
+  exit 0
 fi
 
 healthy() { # waits for the running container to report healthy
