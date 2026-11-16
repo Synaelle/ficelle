@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest'
-import { scopeOf, scopedStorage } from './webScope'
+import { isScoped, scopeOf, scopedStorage } from './webScope'
 
 describe('scopeOf', () => {
   it('gives each path its own scope', () => {
@@ -39,5 +39,12 @@ describe('scopedStorage', () => {
     app.removeItem('prefs')
     expect(app.length).toBe(0)
     real.clear()
+  })
+})
+
+describe('isScoped', () => {
+  it('knows a scoped storage from the browser one', () => {
+    expect(isScoped(window.localStorage)).toBe(false)
+    expect(isScoped(scopedStorage(window.localStorage, '%2Fweb'))).toBe(true)
   })
 })

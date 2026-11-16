@@ -3,10 +3,9 @@
 // sessionStorage become its scope's own (webScope.ts) before any other module
 // reads them. The apps keep theirs as they are.
 
-import { WEB } from './platform'
 import { pageScope, scopedStorage } from './webScope'
 
-if (WEB) {
+if (__APP_WEB__) {
   const scope = pageScope()
   for (const name of ['localStorage', 'sessionStorage'] as const) {
     const scoped = scopedStorage(window[name], scope)

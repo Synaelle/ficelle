@@ -23,6 +23,11 @@ export function pageScope(): string {
   return scope
 }
 
+const scopedOnes = new WeakSet<Storage>()
+
+/** Whether `storage` is a scope's own, made by scopedStorage. */
+export const isScoped = (storage: Storage) => scopedOnes.has(storage)
+
 /** `real` seen through `scope`: every key read, written, listed or cleared is
  * this scope's own, another scope's keys are out of reach, even for clear(). */
 export function scopedStorage(real: Storage, scope: string): Storage {
@@ -31,7 +36,7 @@ export function scopedStorage(real: Storage, scope: string): Storage {
     Array.from({ length: real.length }, (_, i) => real.key(i)).filter(
       (key): key is string => key?.startsWith(prefix) ?? false,
     )
-  return {
+  const scoped: Storage = {
     get length() {
       return own().length
     },
@@ -43,4 +48,6 @@ export function scopedStorage(real: Storage, scope: string): Storage {
       for (const key of own()) real.removeItem(key)
     },
   }
+  scopedOnes.add(scoped)
+  return scoped
 }

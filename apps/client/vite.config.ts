@@ -86,6 +86,10 @@ export default defineConfig(({ mode }) => ({
           ? {}
           : { admin: fileURLToPath(new URL('admin.html', import.meta.url)) }),
       },
+      // modules run in the order they are imported, wherever a chunk puts
+      // them: the web version's storage is scoped (main.ts's first import)
+      // before anything reads it, never another path's
+      output: mode === 'web' ? { strictExecutionOrder: true } : {},
     },
   },
 }))
