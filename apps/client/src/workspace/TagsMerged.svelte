@@ -130,9 +130,6 @@
   p {
     margin: 0;
   }
-  .muted {
-    font-size: 13px;
-  }
   .swap {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
