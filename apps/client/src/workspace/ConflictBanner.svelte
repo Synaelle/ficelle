@@ -3,7 +3,7 @@
      same passage (compare, then keep this device's, the other's, both, or
      the merge), or an edit made elsewhere while the note was deleted here.
      Every choice keeps the rest in the note's history. It also says when
-     another device moved the note to the trash while it was typed in here. -->
+     the open note is in the trash, moved there here or on another device. -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'

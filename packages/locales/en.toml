@@ -266,10 +266,10 @@ version_mineBeforeMerge = "This device's text before a merge"
 version_theirsBeforeMerge = "The other device's text before a merge"
 version_beforeRestore = "Before a restore"
 restore = "Restore"
-restoreConfirm = "Restore the text of {when}? The note as it is now stays in its history."
+restoreConfirm = "Go back to the note as it was on {when}, title and text? The note as it is now stays in its history."
 trash = "Move to trash"
 trashedElsewhere = "Moved to the trash on another device."
-trashedOpen = "This note was moved to the trash on another device. What you type is still saved in it."
+trashedOpen = "This note is in the trash. What you type is still saved in it."
 
 tags = "Tags"
 
