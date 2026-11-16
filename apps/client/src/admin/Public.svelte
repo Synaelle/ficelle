@@ -309,7 +309,7 @@
     gap: var(--space-1);
   }
   .mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     letter-spacing: 0.04em;
   }
   .problem {

@@ -550,7 +550,7 @@
     min-width: 0;
   }
   code {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 13px;
     overflow-wrap: anywhere;
   }

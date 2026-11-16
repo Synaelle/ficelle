@@ -559,7 +559,7 @@
     border-radius: var(--radius-chip);
     background: var(--color-surface-2);
     color: var(--color-text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 12px;
   }
   .tag button {

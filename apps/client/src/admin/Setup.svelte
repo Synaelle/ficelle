@@ -692,7 +692,7 @@
     background: #fff;
   }
   .secret {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     overflow-wrap: anywhere;
   }
   .codes {
@@ -701,7 +701,7 @@
     gap: var(--space-2);
     margin: 0;
     padding-left: var(--space-5);
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
   }
   .row {
     display: flex;

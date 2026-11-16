@@ -627,7 +627,7 @@
   .key {
     min-width: 110px;
     justify-content: center;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
   }
   .message {
     margin: var(--space-5) 0 0;

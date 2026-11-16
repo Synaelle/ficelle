@@ -478,7 +478,7 @@
     background: #fff;
   }
   .mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 18px;
     letter-spacing: 0.08em;
     text-transform: uppercase;

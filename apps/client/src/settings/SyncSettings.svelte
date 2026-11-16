@@ -923,7 +923,7 @@
     overflow-wrap: anywhere;
   }
   .link-code {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 20px;
     letter-spacing: 0.08em;
     user-select: all;
@@ -1128,7 +1128,7 @@
     color: var(--color-text-muted);
   }
   .mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
   }
   .firewall {
     display: grid;

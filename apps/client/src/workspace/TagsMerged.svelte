@@ -118,7 +118,7 @@
     border-radius: var(--radius-window);
   }
   .eyebrow {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 12px;
     color: var(--color-text-muted);
   }
@@ -174,7 +174,7 @@
   }
   .hash {
     width: 14px;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     text-align: center;
   }
   .actions {

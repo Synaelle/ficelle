@@ -106,7 +106,7 @@
   }
   .mono {
     color: var(--color-text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 13px;
   }
 </style>

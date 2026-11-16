@@ -197,7 +197,7 @@
     height: 18px;
   }
   .version {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 12px;
   }
   .who {

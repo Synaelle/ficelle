@@ -225,7 +225,7 @@
     color: var(--color-text-muted);
   }
   .failed .folder {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 13px;
     overflow-wrap: anywhere;
     user-select: text;

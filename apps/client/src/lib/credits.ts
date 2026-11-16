@@ -371,8 +371,8 @@ export const CREDIT_GROUPS: CreditGroup[] = [
         license: 'OFL-1.1',
       },
       {
-        name: 'IBM Plex Mono',
-        url: 'https://fontsource.org/fonts/ibm-plex-mono',
+        name: 'JetBrains Mono',
+        url: 'https://fontsource.org/fonts/jetbrains-mono',
         use: 'the code font',
         license: 'OFL-1.1',
       },

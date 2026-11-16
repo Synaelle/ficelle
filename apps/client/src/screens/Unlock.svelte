@@ -403,7 +403,7 @@
     text-align: center;
   }
   .code {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     text-transform: uppercase;
   }
   .actions {

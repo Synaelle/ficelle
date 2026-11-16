@@ -307,7 +307,7 @@
     font-size: 13px;
   }
   .mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
   }
   .grow {
     flex: 1;
@@ -324,7 +324,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-control);
     background: var(--color-bg);
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 44px;
     font-weight: 500;
     letter-spacing: 0.08em;
@@ -332,7 +332,7 @@
   }
   .code-field {
     height: 64px;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 32px;
     letter-spacing: 0.12em;
     text-align: center;

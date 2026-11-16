@@ -288,6 +288,6 @@
     margin: 0;
   }
   .mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
   }
 </style>

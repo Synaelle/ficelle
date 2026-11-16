@@ -669,7 +669,7 @@
   }
   .mono,
   code {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
   }
   .secret {
     overflow-wrap: anywhere;

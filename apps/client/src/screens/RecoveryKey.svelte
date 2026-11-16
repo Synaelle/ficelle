@@ -118,7 +118,7 @@
     border: 1px dashed var(--color-border-strong);
     border-radius: var(--radius-popover);
     background: var(--color-bg);
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 17px;
     letter-spacing: 0.04em;
     text-align: center;

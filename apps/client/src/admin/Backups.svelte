@@ -626,7 +626,7 @@
     gap: 6px;
   }
   .mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
   }
   h2 {
     margin: 0;

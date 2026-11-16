@@ -90,7 +90,7 @@
   code {
     overflow-wrap: anywhere;
     color: var(--color-text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 12px;
   }
 </style>

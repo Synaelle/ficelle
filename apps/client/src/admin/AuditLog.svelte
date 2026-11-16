@@ -123,7 +123,7 @@
     color: var(--color-danger);
   }
   .mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 12px;
   }
   .detail {

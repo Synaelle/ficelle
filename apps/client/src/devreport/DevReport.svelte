@@ -312,7 +312,7 @@
   }
   code {
     overflow-wrap: anywhere;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 13px;
   }
   .images {

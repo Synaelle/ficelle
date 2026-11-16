@@ -563,7 +563,7 @@
     gap: var(--space-1);
   }
   .mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     letter-spacing: 0.05em;
   }
   .problem {
@@ -619,7 +619,7 @@
     padding: var(--space-3);
     border: 1px solid var(--color-accent);
     border-radius: var(--radius-control);
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     font-size: 17px;
     letter-spacing: 0.04em;
     text-align: center;
