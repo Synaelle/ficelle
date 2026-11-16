@@ -19,7 +19,7 @@ use crate::routes::AppState;
 const ORIGIN: &str = "https://notes.example.org";
 const PASSWORD: &str = "admin password";
 
-type Authenticator = WebauthnAuthenticator<SoftPasskey>;
+type Authenticator = SoftPasskey;
 
 fn origin() -> Url {
     Url::parse(ORIGIN).unwrap()
@@ -147,7 +147,7 @@ async fn a_passkey_signs_in_without_a_username() {
         ceremony["options"]["publicKey"]["authenticatorSelection"]["residentKey"], "required",
         "the authenticator keeps the account"
     );
-    let mut key = WebauthnAuthenticator::new(SoftPasskey::new(true));
+    let mut key = SoftPasskey::new(true);
     let options = serde_json::from_value(ceremony["options"].clone()).unwrap();
     let registered = serde_json::to_value(key.do_registration(origin(), options).unwrap()).unwrap();
     let (status, _) = call(
@@ -199,7 +199,7 @@ async fn a_passkey_signs_in_alone() {
     let (state, app, token) = with_passkeys().await;
     let (_, options) = call(&app, "GET", "/auth/options", None, None).await;
     assert_eq!(options["passkeys"], true);
-    let mut key = WebauthnAuthenticator::new(SoftPasskey::new(true));
+    let mut key = SoftPasskey::new(true);
     let (status, added) = add(&app, &token, &mut key, " Blue key ").await;
     assert_eq!(status, StatusCode::CREATED, "{added}");
     assert_eq!(added["passkey"]["name"], "Blue key");
@@ -220,10 +220,10 @@ async fn a_passkey_signs_in_alone() {
 #[tokio::test]
 async fn another_key_or_another_account_does_not_sign_in() {
     let (_, app, token) = with_passkeys().await;
-    let mut key = WebauthnAuthenticator::new(SoftPasskey::new(true));
+    let mut key = SoftPasskey::new(true);
     add(&app, &token, &mut key, "Phone").await;
 
-    let mut stranger = WebauthnAuthenticator::new(SoftPasskey::new(true));
+    let mut stranger = SoftPasskey::new(true);
     let (status, body) = passkey_sign_in(&app, "admin", &mut stranger).await;
     assert_eq!(
         (status, body["error"].as_str()),
@@ -237,7 +237,7 @@ async fn another_key_or_another_account_does_not_sign_in() {
 #[tokio::test]
 async fn a_passkey_is_also_the_second_factor_after_a_password() {
     let (_, app, token) = with_passkeys().await;
-    let mut key = WebauthnAuthenticator::new(SoftPasskey::new(true));
+    let mut key = SoftPasskey::new(true);
     add(&app, &token, &mut key, "Phone").await;
 
     let (status, needed) = login(&app, "admin", PASSWORD).await;
@@ -260,7 +260,7 @@ async fn a_passkey_is_also_the_second_factor_after_a_password() {
 #[tokio::test]
 async fn removing_the_last_passkey_drops_the_second_step() {
     let (_, app, token) = with_passkeys().await;
-    let mut key = WebauthnAuthenticator::new(SoftPasskey::new(true));
+    let mut key = SoftPasskey::new(true);
     let (_, added) = add(&app, &token, &mut key, "Phone").await;
     let id = added["passkey"]["id"].as_str().unwrap();
 

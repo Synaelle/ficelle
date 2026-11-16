@@ -368,7 +368,7 @@ async fn a_passkey_admin_signs_in_without_a_username() {
         "required"
     );
     let origin = Url::parse(ORIGIN).unwrap();
-    let mut key = WebauthnAuthenticator::new(SoftPasskey::new(true));
+    let mut key = SoftPasskey::new(true);
     let credential = key
         .do_registration(origin, serde_json::from_value(options).unwrap())
         .unwrap();
