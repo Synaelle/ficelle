@@ -26,11 +26,14 @@ const unfrozen = new Set([
   'contactEmail',
   'feedbackUrl',
   'fontsUrl',
+  'fontsSourceUrl',
+  'translateUrl',
+  'makerName',
+  'makerUrl',
   'releasesUrl',
   'releasesBetaUrl',
   'releasesKey',
   'appUpdatesUrl',
-  'appBetaUpdatesUrl',
   'appNightlyUpdatesUrl',
   'appUpdatesKey',
   'serverSeries',
@@ -113,6 +116,9 @@ pub const FEEDBACK_URL: &str = ${JSON.stringify(brand.feedbackUrl)};
 /// Where the apps download fonts first: the project's own host, which
 /// mirrors them (tools/fonts-mirror.mjs). jsDelivr only when it fails.
 pub const FONTS_URL: &str = ${JSON.stringify(brand.fontsUrl)};
+/// Fontsource's own files on jsDelivr: what the project's host mirrors, and
+/// where the apps go when the mirror fails.
+pub const FONTS_SOURCE_URL: &str = ${JSON.stringify(brand.fontsSourceUrl)};
 /// The signed list of releases servers check for update notices.
 pub const RELEASES_URL: &str = ${JSON.stringify(brand.releasesUrl)};
 /// The same list for servers running a beta, on the GitHub release tagged
@@ -124,9 +130,6 @@ pub const RELEASES_KEY: &str = ${JSON.stringify(brand.releasesKey)};
 /// Where release apps look for a newer version of themselves: tauri's
 /// \`latest.json\`, attached to the newest GitHub release.
 pub const APP_UPDATES_URL: &str = ${JSON.stringify(brand.appUpdatesUrl)};
-/// The Beta channel's \`latest.json\`, on the GitHub release tagged \`beta\`:
-/// the newest of the betas and the stable versions.
-pub const APP_BETA_UPDATES_URL: &str = ${JSON.stringify(brand.appBetaUpdatesUrl)};
 /// The Nightly channel's \`latest.json\`, on the GitHub release tagged
 /// \`nightly\`: the newest of the nightlies and the stable versions.
 pub const APP_NIGHTLY_UPDATES_URL: &str = ${JSON.stringify(brand.appNightlyUpdatesUrl)};

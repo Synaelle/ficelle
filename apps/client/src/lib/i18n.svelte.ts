@@ -39,7 +39,7 @@ export const LOCALES = Object.keys(loaders)
   .sort((a, b) => (a.code === 'en' ? -1 : b.code === 'en' ? 1 : a.name.localeCompare(b.name)))
 
 /** Where anyone can help translate. */
-export const LOCALES_URL = 'https://hosted.weblate.org/projects/ficelle/'
+export const LOCALES_URL = brand.translateUrl
 
 export type Locale = string
 

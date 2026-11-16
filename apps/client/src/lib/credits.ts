@@ -3,6 +3,8 @@
 // says the same, credits.test.ts keeps the two equal. Licenses are those the
 // projects state in their package metadata.
 
+import { brand } from '@app/brand'
+
 export interface Credit {
   name: string
   /** The project's page. */
@@ -17,7 +19,7 @@ export interface CreditGroup {
   credits: Credit[]
 }
 
-export const MAKER = { name: 'Synaelle', url: 'https://github.com/Synaelle' }
+export const MAKER = { name: brand.makerName, url: brand.makerUrl }
 
 const DUAL = 'Apache-2.0 or MIT'
 const DUAL_MIT = 'MIT or Apache-2.0'

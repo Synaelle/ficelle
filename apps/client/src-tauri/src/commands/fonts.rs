@@ -17,7 +17,6 @@ use tauri::ipc::Response;
 use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
 
-const CDN: &str = "https://cdn.jsdelivr.net/fontsource/fonts";
 /// The Fontsource release asked for, the one the project's host mirrors.
 const FONTSOURCE: &str = "5.3.0";
 /// A font file is tens of kilobytes, this is far above any.
@@ -137,7 +136,13 @@ pub async fn font_download(
             let fetched = match fetch(&agent, &mirrored) {
                 Ok(Some(bytes)) if bytes.starts_with(b"wOF2") => Ok(Some(bytes)),
                 // not mirrored, or the host does not answer: Fontsource's own
-                _ => fetch(&agent, &format!("{CDN}/{id}@{FONTSOURCE}/{name}.woff2")),
+                _ => fetch(
+                    &agent,
+                    &format!(
+                        "{}/{id}@{FONTSOURCE}/{name}.woff2",
+                        app_brand::FONTS_SOURCE_URL
+                    ),
+                ),
             };
             let bytes = match fetched {
                 Ok(Some(bytes)) => bytes,

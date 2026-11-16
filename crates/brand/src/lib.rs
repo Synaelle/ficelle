@@ -59,6 +59,9 @@ pub const FEEDBACK_URL: &str = "https://ficelle.synaelle.com";
 /// Where the apps download fonts first: the project's own host, which
 /// mirrors them (tools/fonts-mirror.mjs). jsDelivr only when it fails.
 pub const FONTS_URL: &str = "https://ficelle.synaelle.com/fonts";
+/// Fontsource's own files on jsDelivr: what the project's host mirrors, and
+/// where the apps go when the mirror fails.
+pub const FONTS_SOURCE_URL: &str = "https://cdn.jsdelivr.net/fontsource/fonts";
 /// The signed list of releases servers check for update notices.
 pub const RELEASES_URL: &str = "https://ficelle.synaelle.com/releases.json";
 /// The same list for servers running a beta, on the GitHub release tagged
@@ -72,10 +75,6 @@ pub const RELEASES_KEY: &str = "b87ba069a2e5ab6807cd59bd3f5c06186e62f3519a5d2bc1
 /// `latest.json`, attached to the newest GitHub release.
 pub const APP_UPDATES_URL: &str =
     "https://github.com/Synaelle/ficelle/releases/latest/download/latest.json";
-/// The Beta channel's `latest.json`, on the GitHub release tagged `beta`:
-/// the newest of the betas and the stable versions.
-pub const APP_BETA_UPDATES_URL: &str =
-    "https://github.com/Synaelle/ficelle/releases/download/beta/latest.json";
 /// The Nightly channel's `latest.json`, on the GitHub release tagged
 /// `nightly`: the newest of the nightlies and the stable versions.
 pub const APP_NIGHTLY_UPDATES_URL: &str =

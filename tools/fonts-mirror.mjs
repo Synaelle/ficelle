@@ -14,7 +14,7 @@
 // The Docker build runs it into the web pages' folder: the image carries
 // them, a few megabytes.
 
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const out = process.argv[2]
@@ -23,7 +23,9 @@ if (!out) {
   process.exit(1)
 }
 
-const CDN = 'https://cdn.jsdelivr.net/fontsource/fonts'
+const CDN = JSON.parse(
+  readFileSync(new URL('../packages/brand/brand.json', import.meta.url), 'utf8'),
+).fontsSourceUrl
 /** The Fontsource release mirrored, as FONTSOURCE in commands/fonts.rs. */
 const VERSION = '5.3.0'
 /** As FILES in commands/fonts.rs. */

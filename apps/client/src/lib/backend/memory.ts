@@ -3,6 +3,7 @@
 // It follows the core rules closely enough to exercise the ui, the real
 // rules and their tests live in crates/core.
 
+import { brand } from '@app/brand'
 import type { Backend } from './backend'
 import { sampleData } from './sample'
 import {
@@ -191,9 +192,7 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     fontDownload: async (_id, files) => files ?? ['latin-400-normal', 'latin-700-normal'],
     fontFiles: async () => [],
     fontFile: async (id, name) => {
-      const response = await fetch(
-        `https://cdn.jsdelivr.net/fontsource/fonts/${id}@latest/${name}.woff2`,
-      )
+      const response = await fetch(`${brand.fontsSourceUrl}/${id}@latest/${name}.woff2`)
       if (!response.ok) throw { kind: 'notFound', message: `${id} has no ${name}` }
       return response.arrayBuffer()
     },
