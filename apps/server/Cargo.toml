@@ -47,7 +47,7 @@ tracing-subscriber = { workspace = true, features = ["json"] }
 uuid = { version = "1.28.0", features = ["v7"] }
 zeroize = "1.9.1"
 url = "2"
-webauthn-rs = { version = "0.5.5", features = ["danger-allow-state-serialisation", "conditional-ui"] }
+webauthn-rs = { version = "0.6.2", features = ["danger-allow-state-serialisation", "conditional-ui"] }
 rpassword = "7.5.4"
 
 # the same SQLite build as the core: two builds cannot link into one workspace
