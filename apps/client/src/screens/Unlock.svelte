@@ -304,13 +304,7 @@
     place-items: center;
     padding: var(--space-4);
     overflow: auto;
-    background:
-      radial-gradient(
-        120% 70% at 50% 0%,
-        color-mix(in srgb, var(--color-accent) 9%, transparent),
-        transparent 60%
-      ),
-      var(--color-bg);
+    background: var(--color-bg);
   }
   .card {
     width: min(380px, 100%);
