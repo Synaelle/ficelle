@@ -33,7 +33,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = "0.11.1"
 tar = { version = "0.4.46", default-features = false }
-tempfile = "3.27.0"
 thiserror = "2.0.21"
 uuid = { version = "1.28.0", features = ["v7", "serde"] }
 zeroize = { version = "1.9.1", features = ["derive"] }
@@ -57,6 +56,7 @@ uuid = { version = "1.28.0", features = ["v7", "serde", "js"] }
 
 [dev-dependencies]
 app-repo = { workspace = true, features = ["testing"] }
+tempfile = "3.27.0"
 
 [lints]
 workspace = true
