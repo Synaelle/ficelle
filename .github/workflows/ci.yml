@@ -60,7 +60,7 @@ jobs:
           # only main saves: caches made on tags and other branches are
           # unreadable from main and push its own out of the 10 GB limit
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      - uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
         with:
           tool: wasm-bindgen@0.2.129
       - run: pnpm install --frozen-lockfile
@@ -131,7 +131,7 @@ jobs:
           # only main saves: caches made on tags and other branches are
           # unreadable from main and push its own out of the 10 GB limit
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+      - uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
         with:
           tool: wasm-bindgen@0.2.129
       - run: pnpm install --frozen-lockfile
