@@ -9,6 +9,9 @@ publish.workspace = true
 
 # not the workspace's lints: they forbid unsafe code, and every WebView2 call is.
 # Everything here is the one call in src/lib.rs
+[lints.cargo]
+missing_lints_inheritance = "allow"
+
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39.1"
 windows-core = "0.62.2"
