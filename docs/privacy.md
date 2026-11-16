@@ -49,7 +49,7 @@ The server keeps a log of sign-ins, failures and account changes with the networ
 
 ## The web version
 
-web.ficelle.synaelle.com runs Ficelle in your browser. Your notes, files and settings stay in that browser's storage, encrypted once you set a password in Settings, Security, and never reach the server. The server only hands out the app's files. It keeps no log of visits, not even your network address, sets no cookies and loads nothing from anywhere else. Cloudflare carries the traffic to it, as for ficelle.synaelle.com, and sees visits like any network in between. Feedback and sync are off there.
+ficelle-web.synaelle.com runs Ficelle in your browser. Your notes, files and settings stay in that browser's storage, encrypted once you set a password in Settings, Security, and never reach the server. The server only hands out the app's files. It keeps no log of visits, not even your network address, sets no cookies and loads nothing from anywhere else. Cloudflare carries the traffic to it, as for ficelle.synaelle.com, and sees visits like any network in between. Feedback and sync are off there.
 
 Clearing the site's data in your browser deletes the notes, so download a backup now and then. On an iPhone or iPad, Safari may delete a site's data after a week without a visit, unless you add it to your Home Screen.
 
