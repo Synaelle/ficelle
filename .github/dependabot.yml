@@ -32,6 +32,10 @@ updates:
     cooldown:
       default-days: 14
     open-pull-requests-limit: 5
+    # Node's types follow the Node version CI and the builds run, not the newest
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     groups:
       npm:
         update-types: [minor, patch]
