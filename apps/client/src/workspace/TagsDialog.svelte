@@ -8,7 +8,7 @@
   import { modal } from '../lib/modal'
   import { overlay, SEPARATOR, type MenuItem } from '../lib/overlay.svelte'
   import { tagLabel } from '../lib/tagMark.svelte'
-  import { tagKey, tagWithin, workspace } from '../lib/workspace.svelte'
+  import { isBackendError, tagKey, tagWithin, workspace } from '../lib/workspace.svelte'
 
   let { close }: { close: () => void } = $props()
 
@@ -29,7 +29,11 @@
       await change()
     } catch (err) {
       workspace.report(err)
-      error = t(`errors.${workspace.error ?? 'unknown'}`)
+      // the one mistake a name can make that the general text does not explain
+      error =
+        isBackendError(err) && err.message.includes('inside itself')
+          ? t('tags.insideItself')
+          : t(`errors.${workspace.error ?? 'unknown'}`)
     }
   }
 

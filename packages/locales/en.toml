@@ -2025,6 +2025,7 @@ space = "Space"
 
 [tags]
 title = "Tags"
+insideItself = "A tag cannot go inside itself. Pick a name outside it."
 lead = "Rename a tag and every note follows. Deleting one takes it off its notes, the notes stay."
 find = "Find a tag"
 new = "New tag"
