@@ -320,7 +320,7 @@ pub struct StorageConfig {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LogConfig {
-    /// Filter in `RUST_LOG` syntax, for example `info` or `server=debug,info`.
+    /// The level, or levels per module: `info`, or `server=debug,info`.
     pub level: String,
     /// `text` for people, `json` for log collectors.
     pub format: LogFormat,
@@ -800,7 +800,9 @@ impl Config {
                 "auth.audit_days must be at least 1".into(),
             ));
         }
-        tracing_subscriber::EnvFilter::try_new(&self.log.level)
+        self.log
+            .level
+            .parse::<tracing_subscriber::filter::Targets>()
             .map_err(|e| ConfigError::Invalid(format!("log.level {:?}: {e}", self.log.level)))?;
         Ok(())
     }

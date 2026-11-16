@@ -35,7 +35,8 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::filter::Targets;
+use tracing_subscriber::prelude::*;
 
 use crate::config::{Config, LogFormat};
 use crate::db::Db;
@@ -270,12 +271,19 @@ async fn main() {
         Err(err) => fail(&err, 2),
     };
     let config = load_config(args.config.as_deref());
-    let filter = EnvFilter::try_new(&config.log.level).unwrap_or_else(|_| "info".into());
+    // checked when the config loads, info in case
+    let filter: Targets = config
+        .log
+        .level
+        .parse()
+        .unwrap_or_else(|_| Targets::new().with_default(tracing::Level::INFO));
+    let logs = tracing_subscriber::registry();
     match config.log.format {
-        LogFormat::Text => tracing_subscriber::fmt().with_env_filter(filter).init(),
-        LogFormat::Json => tracing_subscriber::fmt()
-            .json()
-            .with_env_filter(filter)
+        LogFormat::Text => logs
+            .with(tracing_subscriber::fmt::layer().with_filter(filter))
+            .init(),
+        LogFormat::Json => logs
+            .with(tracing_subscriber::fmt::layer().json().with_filter(filter))
             .init(),
     }
 
