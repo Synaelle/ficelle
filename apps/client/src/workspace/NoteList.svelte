@@ -225,9 +225,9 @@
       {/if}
     {/if}
     <div class="actions">
-      <!-- a phone's bar has room for the folder's name: sync only when it needs
-           a look, importing is in Settings -->
-      {#if narrow && ['signedOut', 'offline', 'error'].includes(sync.status.state)}
+      <!-- sync shows only when it needs a look, as an icon: a line of text
+           changing with every round would flicker; importing is in Settings -->
+      {#if ['signedOut', 'offline', 'error'].includes(sync.status.state)}
         <button
           class="icon-btn"
           aria-label={t(`sync.state.${sync.status.state}`)}
@@ -236,7 +236,7 @@
         >
           <SyncIcon state={sync.status.state} size={18} />
         </button>
-      {:else if narrow && localSync.summary?.state === 'error'}
+      {:else if localSync.summary?.state === 'error'}
         {@const line = t(`local.status.${localSync.summary.key}`, { name: localSync.summary.name })}
         <button class="icon-btn" aria-label={line} title={line} onclick={() => onsettings('sync')}>
           <SyncIcon state="error" size={18} />
