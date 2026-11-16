@@ -132,8 +132,8 @@
   /** The row whose swipe actions are showing, one at a time. */
   let swiped: string | null = $state(null)
   let closingTap = false
-  /** Three actions of 56 px, a comfortable touch size. */
-  const REVEAL = 168
+  /** Two actions of 56 px, a comfortable touch size. */
+  const REVEAL = 112
 
   // a touch anywhere outside the open row puts it back
   $effect(() => {
@@ -367,28 +367,25 @@
           >
             {#if !trash}
               <div class="swipe-pin" aria-hidden="true"><Icon name="pin" /></div>
+              <!-- pinning is the swipe the other way -->
               <div class="swipe-actions">
-                <button
-                  class="pin"
-                  tabindex={swiped === note.id ? 0 : -1}
-                  onclick={() =>
-                    swipedAction(() => void workspace.togglePin(note.id, !note.pinned))}
-                >
-                  <Icon name="pin" />{note.pinned ? t('note.unpin') : t('note.pin')}
-                </button>
                 <button
                   class="move"
                   tabindex={swiped === note.id ? 0 : -1}
+                  aria-label={t('note.tags')}
+                  title={t('note.tags')}
                   onclick={(e) => tagsFromSwipe(e, note)}
                 >
-                  <Icon name="tag" />{t('note.tags')}
+                  <Icon name="tag" />
                 </button>
                 <button
                   class="trash"
                   tabindex={swiped === note.id ? 0 : -1}
+                  aria-label={t('list.swipeTrash')}
+                  title={t('list.swipeTrash')}
                   onclick={() => swipedAction(() => void workspace.trash(note.id))}
                 >
-                  <Icon name="trash" />{t('list.swipeTrash')}
+                  <Icon name="trash" />
                 </button>
               </div>
             {/if}
@@ -653,10 +650,6 @@
     font-size: 11px;
     color: var(--color-text);
     background: var(--color-surface-2);
-  }
-  .swipe-actions .pin {
-    background: var(--color-accent);
-    color: var(--color-accent-on);
   }
   .swipe-actions .trash {
     background: var(--color-danger);
