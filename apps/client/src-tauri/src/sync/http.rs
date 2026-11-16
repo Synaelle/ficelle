@@ -135,6 +135,9 @@ impl Api {
             .timeout_connect(Some(Duration::from_secs(10)))
             .timeout_global(Some(Duration::from_secs(60)))
             .http_status_as_error(false)
+            // a sync server has no reason to send its calls elsewhere, and a
+            // redirect could take them from https to http
+            .max_redirects(0)
             .user_agent(format!("{}/{}", app_brand::SLUG, app_brand::VERSION))
             .build()
             .into();
@@ -144,6 +147,7 @@ impl Api {
             .timeout_per_read(Some(Duration::from_secs(60)))
             .timeout_per_write(Some(Duration::from_secs(60)))
             .http_status_as_error(false)
+            .max_redirects(0)
             .user_agent(format!("{}/{}", app_brand::SLUG, app_brand::VERSION))
             .build()
             .into();

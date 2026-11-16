@@ -42,6 +42,28 @@ fn webview_memory(window: &tauri::Window, event: &tauri::WindowEvent) {
     });
 }
 
+/// Keeps every window on the app's own pages: a link or a script that would
+/// take one elsewhere is stopped, so no outside page ever runs where the
+/// app's commands can be called.
+fn own_pages<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("own-pages")
+        .on_navigation(|_, url| own_page(url))
+        .build()
+}
+
+/// `tauri://localhost` on Linux and macOS, `http://tauri.localhost` on
+/// Windows and Android, the dev server in a debug build.
+fn own_page(url: &tauri::Url) -> bool {
+    match url.scheme() {
+        "tauri" => url.host_str() == Some("localhost"),
+        "http" | "https" => {
+            url.host_str() == Some("tauri.localhost")
+                || (cfg!(debug_assertions) && url.host_str() == Some("localhost"))
+        }
+        _ => url.as_str() == "about:blank",
+    }
+}
+
 /// Starts the app. Shared by the desktop binary and the mobile entry point.
 ///
 /// # Panics
@@ -80,6 +102,7 @@ pub fn run() {
         .manage(commands::images::Dropped::default())
         .on_window_event(commands::images::remember_drop);
     builder
+        .plugin(own_pages())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -258,4 +281,22 @@ pub fn run() {
         ])
         .run(context)
         .expect("failed to start the app");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::own_page;
+
+    #[test]
+    fn windows_stay_on_the_apps_pages() {
+        let page = |url: &str| own_page(&url.parse().unwrap());
+        assert!(page("tauri://localhost/index.html#quick"));
+        assert!(page("http://tauri.localhost/"));
+        assert!(page("about:blank"));
+        assert!(!page("https://example.org/"));
+        assert!(!page("http://tauri.localhost.example.org/"));
+        assert!(!page("tauri://elsewhere/"));
+        assert!(!page("file:///etc/passwd"));
+        assert_eq!(page("http://localhost:1420/"), cfg!(debug_assertions));
+    }
 }

@@ -118,7 +118,22 @@ impl KdfParams {
         self.derive(password, salt)
     }
 
+    /// The most any stored settings may ask for: 1 GiB, 20 passes, 16
+    /// lanes, far above what this app writes. A changed vault or backup file
+    /// cannot make opening it take all the memory there is.
+    const MOST: Self = Self {
+        memory_kib: 1024 * 1024,
+        iterations: 20,
+        parallelism: 16,
+    };
+
     fn derive(self, password: &str, salt: &[u8]) -> Result<Zeroizing<[u8; KEY_LEN]>> {
+        if self.memory_kib > Self::MOST.memory_kib
+            || self.iterations > Self::MOST.iterations
+            || self.parallelism > Self::MOST.parallelism
+        {
+            return Err(Error::Invalid("unsupported key derivation settings".into()));
+        }
         let params = Params::new(
             self.memory_kib,
             self.iterations,
@@ -266,6 +281,23 @@ pub fn open_with_material(material: &[u8], sealed: &[u8]) -> Result<Zeroizing<Ve
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stored_settings_cannot_ask_for_too_much() {
+        let greedy = KdfParams {
+            memory_kib: 64 * 1024 * 1024,
+            ..KdfParams::INSECURE_FOR_TESTS
+        };
+        assert!(matches!(
+            greedy.derive_key("password", &[0; 16]),
+            Err(Error::Invalid(_))
+        ));
+        assert!(
+            KdfParams::INSECURE_FOR_TESTS
+                .derive_key("password", &[0; 16])
+                .is_ok()
+        );
+    }
 
     #[test]
     fn material_sealing_needs_the_same_material() {
