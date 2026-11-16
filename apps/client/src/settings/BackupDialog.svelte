@@ -186,7 +186,7 @@
       {/if}
     {:else if restored}
       <p role="status">
-        {t('backup.restored', { count: restored.notes, folders: restored.folders })}
+        {t('backup.restored', { count: restored.notes })}
       </p>
       {#if restored.skipped}
         <p class="muted">{t('backup.skipped', { count: restored.skipped })}</p>
@@ -202,8 +202,11 @@
         <dd>{inspected.manifest.app} {inspected.manifest.appVersion}</dd>
         <dt>{t('import.notes')}</dt>
         <dd>{inspected.manifest.notes}</dd>
-        <dt>{t('import.folders')}</dt>
-        <dd>{inspected.manifest.folders}</dd>
+        <!-- folders are tags since 0.6: a newer backup has none to count -->
+        {#if inspected.manifest.folders}
+          <dt>{t('import.folders')}</dt>
+          <dd>{inspected.manifest.folders}</dd>
+        {/if}
         <dt>{t('import.files')}</dt>
         <dd>{inspected.manifest.files}</dd>
       </dl>

@@ -451,8 +451,8 @@ one = "Restore {count} note"
 other = "Restore {count} notes"
 
 [backup.restored]
-one = "Restored {count} note and {folders} tags."
-other = "Restored {count} notes and {folders} tags."
+one = "Restored {count} note."
+other = "Restored {count} notes."
 
 [backup.skipped]
 one = "{count} note was already here and stayed as it was."
