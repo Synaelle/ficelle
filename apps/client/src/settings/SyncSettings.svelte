@@ -438,15 +438,14 @@
       <span class="value">{viewing.lastSyncAt ? when(viewing.lastSyncAt) : t('sync.never')}</span>
     </Row>
     <Row label={t('local.state.label')}><span class="value">{deviceLine(viewing)}</span></Row>
-    <Row label={t('sync.now')}>
-      <button
-        class="btn"
-        disabled={viewing.state === 'needsUpdate' || viewing.state === 'updateThis'}
-        onclick={() => void localSync.now()}
-        ><Icon name="syncing" size={16} />{t('sync.now')}</button
-      >
-    </Row>
   </Group>
+  <div class="settings-buttons">
+    <button
+      class="btn"
+      disabled={viewing.state === 'needsUpdate' || viewing.state === 'updateThis'}
+      onclick={() => void localSync.now()}><Icon name="syncing" size={16} />{t('sync.now')}</button
+    >
+  </div>
   <Group note={t('local.device.forgetHelp')}>
     <Row label={t('local.device.forget')}>
       {#if forgetting}
