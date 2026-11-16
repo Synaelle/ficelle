@@ -146,12 +146,19 @@ jobs:
             gh release create nightly --prerelease --latest=false --target "$SHA" --title "Nightly" \
               --notes "A build of each night's changes, for the app's Nightly channel. Not a release."
           fi
-          # what changed since the last nightly, its commit titles
+          # what changed since the last nightly: the titles of the commits
+          # that touch the app (its code, libraries and texts), not the docs,
+          # workflows, server or tooling, without formatting-only commits,
+          # each title once
           if [ -n "$LAST_COMMIT" ] && git cat-file -e "$LAST_COMMIT" 2>/dev/null; then
-            changelog=$(git log --no-merges --format='- %s' "$LAST_COMMIT..$SHA")
+            range=("$LAST_COMMIT..$SHA")
           else
-            changelog=$(git log --no-merges --format='- %s' -20 "$SHA")
+            range=(-20 "$SHA")
           fi
+          changelog=$(git log --no-merges --format='%s' "${range[@]}" -- apps/client crates packages \
+            ':(exclude)apps/client/src/admin' ':(exclude)apps/client/admin.html' \
+            ':(exclude)crates/devtool' ':(exclude)packages/locales/README.md' |
+            { grep -viE '^(format|drop an unused)' || true; } | awk '!seen[$0]++' | sed 's/^/- /')
           schema=$(grep -c 'include_str!("db/' crates/core/src/db.rs)
           base="https://github.com/$GH_REPO/releases/download/nightly"
           entry() { jq -n --arg sig "$(cat "$1.sig")" --arg url "$base/$(basename "$1")" '{signature: $sig, url: $url}'; }
