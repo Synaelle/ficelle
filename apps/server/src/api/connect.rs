@@ -132,6 +132,11 @@ fn typed(code: &str) -> Result<String, Error> {
     app_links::normalize(code).ok_or_else(link_invalid)
 }
 
+/// The network a request came from, as the rate limit counts addresses.
+fn network(ip: ClientIp) -> String {
+    crate::accounts::ratelimit::network(ip.0).to_string()
+}
+
 /// `POST /api/v1/auth/app/link`, from an app: a code to sign in with.
 pub async fn link(
     State(state): State<AppState>,
@@ -157,11 +162,12 @@ pub async fn link(
         return Err(link_invalid());
     }
     let now = state.clock.now();
+    let network = network(ip);
     let created = state
         .db
         .call(move |c| {
             let tx = c.transaction()?;
-            let created = app_links::create(&tx, &req, now)?;
+            let created = app_links::create(&tx, &req, &network, now)?;
             // a code whose QR code is gone does not stay
             if matches!(created, Created::Code(_)) {
                 tx.commit()?;
@@ -206,9 +212,10 @@ pub async fn link_offer(
         ));
     }
     let now = state.clock.now();
+    let network = network(ip);
     let offer = state
         .db
-        .call(move |c| app_links::offer(c, now))
+        .call(move |c| app_links::offer(c, &network, now))
         .await?
         .ok_or_else(|| {
             Error::new(
@@ -322,6 +329,8 @@ pub async fn link_approve(
     CurrentUser(me): CurrentUser,
     Body(req): Body<AppLinkCode>,
 ) -> Result<StatusCode, Error> {
+    // a signed-in person guesses codes no faster than anyone looks them up
+    rate_limit(&state, ip)?;
     let code = typed(&req.code)?;
     if req
         .sealed

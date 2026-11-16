@@ -39,6 +39,10 @@ pub const INTERVAL: u32 = 3;
 /// Codes waiting at once: anyone may ask for one, the table stays small.
 const MOST_WAITING: i64 = 200;
 
+/// Codes, and QR codes, waiting at once from one network: a few devices
+/// being set up together, never enough to take every place.
+const MOST_FROM_ONE: i64 = 5;
+
 /// Consonants only, as RFC 8628 suggests: no words, no 0/O or 1/I mix-ups.
 const LETTERS: &[u8] = b"BCDFGHJKLMNPQRSTVWXZ";
 const LENGTH: usize = 8;
@@ -89,28 +93,34 @@ pub enum Created {
 /// # Errors
 ///
 /// Database errors only.
-pub fn create(conn: &Connection, req: &AppLinkRequest, now: i64) -> Result<Created, DbError> {
-    let waiting: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM app_links WHERE expires_at > ?1",
-        [now],
-        |r| r.get(0),
+pub fn create(
+    conn: &Connection,
+    req: &AppLinkRequest,
+    network: &str,
+    now: i64,
+) -> Result<Created, DbError> {
+    let (waiting, theirs): (i64, i64) = conn.query_row(
+        "SELECT COUNT(*), COUNT(*) FILTER (WHERE network = ?2) FROM app_links WHERE expires_at > ?1",
+        params![now, network],
+        |r| Ok((r.get(0)?, r.get(1)?)),
     )?;
-    if waiting >= MOST_WAITING {
+    if waiting >= MOST_WAITING || theirs >= MOST_FROM_ONE {
         return Ok(Created::Busy);
     }
     let code = loop {
         let code = new_code();
         let added = conn.execute(
             "INSERT OR IGNORE INTO app_links
-                 (hash, challenge, app_key, device_name, device_platform, expires_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                 (hash, challenge, app_key, device_name, device_platform, expires_at, network)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 hash(&code).as_slice(),
                 req.challenge,
                 req.key,
                 req.device.name,
                 req.device.platform,
-                now + LIFE
+                now + LIFE,
+                network
             ],
         )?;
         if added == 1 {
@@ -130,24 +140,25 @@ pub fn create(conn: &Connection, req: &AppLinkRequest, now: i64) -> Result<Creat
     Ok(Created::Code(code))
 }
 
-/// A new QR code's token, `None` when too many are shown already.
+/// A new QR code's token, `None` when too many are shown already, or from
+/// `network`.
 ///
 /// # Errors
 ///
 /// Database errors only.
-pub fn offer(conn: &Connection, now: i64) -> Result<Option<String>, DbError> {
-    let shown: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM link_offers WHERE expires_at > ?1",
-        [now],
-        |r| r.get(0),
+pub fn offer(conn: &Connection, network: &str, now: i64) -> Result<Option<String>, DbError> {
+    let (shown, theirs): (i64, i64) = conn.query_row(
+        "SELECT COUNT(*), COUNT(*) FILTER (WHERE network = ?2) FROM link_offers WHERE expires_at > ?1",
+        params![now, network],
+        |r| Ok((r.get(0)?, r.get(1)?)),
     )?;
-    if shown >= MOST_OFFERS {
+    if shown >= MOST_OFFERS || theirs >= MOST_FROM_ONE {
         return Ok(None);
     }
     let (offer, hashed) = token::new_token(Kind::LinkOffer);
     conn.execute(
-        "INSERT INTO link_offers (hash, expires_at) VALUES (?1, ?2)",
-        params![hashed.as_slice(), now + OFFER_LIFE],
+        "INSERT INTO link_offers (hash, expires_at, network) VALUES (?1, ?2, ?3)",
+        params![hashed.as_slice(), now + OFFER_LIFE, network],
     )?;
     Ok(Some(offer))
 }

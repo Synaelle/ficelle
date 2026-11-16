@@ -448,3 +448,13 @@ async fn a_qr_code_needs_the_servers_address() {
     let (status, body) = call(&app, "POST", "/auth/app/link/offer", None, None).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
 }
+
+#[tokio::test]
+async fn one_network_shows_a_few_qr_codes_at_once() {
+    let (_state, app, _page) = with_address().await;
+    for _ in 0..5 {
+        offer(&app).await;
+    }
+    let (status, body) = call(&app, "POST", "/auth/app/link/offer", None, None).await;
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS, "{body}");
+}
