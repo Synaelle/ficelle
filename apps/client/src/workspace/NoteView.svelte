@@ -274,8 +274,10 @@
             </span>
           {/each}
           <form onsubmit={addTag}>
+            <!-- as wide as its placeholder in every language, a little more -->
             <input
               class="tag-input"
+              size={t('note.addTag').length + 2}
               placeholder={t('note.addTag')}
               aria-label={t('note.addTag')}
               list="tag-choices"
@@ -585,7 +587,9 @@
     }
   }
   .tag-input {
-    width: 120px;
+    width: auto;
+    min-width: 120px;
+    max-width: 100%;
     border: 0;
     outline: 0;
     background: transparent;
