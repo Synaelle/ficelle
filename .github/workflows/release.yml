@@ -235,23 +235,3 @@ jobs:
             echo "the Beta list keeps $held, newer than $version"
           fi
 
-          # the Nightly list: a stable release newer than the last nightly
-          # takes its place, so apps on Nightly update to it in place (the
-          # next nightly follows it). Nightlies are Linux and Android only,
-          # the release's other files are listed too and never read there.
-          case "$TAG" in
-            *-beta.*) ;;
-            *)
-              held_build=0
-              if gh release download nightly -p latest.json -O nightly-held.json --clobber 2>/dev/null; then
-                held_build=$(jq -r '.build // 0' nightly-held.json)
-                if [ "$build" -gt "$held_build" ]; then
-                  gh release upload nightly latest.json --clobber
-                  echo "the Nightly list now points at $version (it held build $held_build)"
-                else
-                  echo "the Nightly list keeps build $held_build, newer than $version"
-                fi
-              else
-                echo "no Nightly list yet"
-              fi ;;
-          esac

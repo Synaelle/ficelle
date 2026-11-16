@@ -120,8 +120,9 @@ export function isNewer(a, b) {
 /**
  * The build number of the `n`th nightly after `release`: its version code
  * plus `n`. Nightlies take the numbers betas had, between a release and the
- * next (0.6.0 is 600099, 0.6.1 is 600199), so the next release always
- * updates a nightly in place. 99 at most, then a release is due.
+ * next (0.6.0 is 600099, 0.6.1 is 600199), so the first nightly after a
+ * release numbers above every nightly before it. 99 at most, then a release
+ * is due.
  * @param {string} release
  * @param {number} n
  */
