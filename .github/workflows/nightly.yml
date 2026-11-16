@@ -189,5 +189,6 @@ jobs:
             echo
             echo "$changelog"
           } > notes.md
-          gh release edit nightly --prerelease --latest=false --notes-file notes.md
+          # the title names the build on the page, Nightly 2026-11-16 (.2 for a fix the same day)
+          gh release edit nightly --prerelease --latest=false --title "Nightly ${NAME#nightly-}" --notes-file notes.md
           echo "published $NAME"
