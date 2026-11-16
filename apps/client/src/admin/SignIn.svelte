@@ -6,6 +6,7 @@
      the setup link in the server log. Opened from an invite link, it creates
      that person's account, standard or end-to-end encrypted. -->
 <script lang="ts">
+  import { COPIED_MS } from '../lib/clipboard'
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
   import { t } from '../lib/i18n.svelte'
@@ -114,7 +115,7 @@
     try {
       await navigator.clipboard.writeText(made?.code ?? '')
       copied = true
-      setTimeout(() => (copied = false), 2000)
+      setTimeout(() => (copied = false), COPIED_MS)
     } catch {
       problem = t('admin.invites.copyFailed')
     }

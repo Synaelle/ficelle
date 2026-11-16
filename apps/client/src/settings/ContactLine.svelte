@@ -2,6 +2,7 @@
 <!-- The address to write to with a question, in About, and a copy of it:
      a mail link would need each system's way to open a mail app. -->
 <script lang="ts">
+  import { COPIED_MS } from '../lib/clipboard'
   import { brand } from '@app/brand'
   import { t } from '../lib/i18n.svelte'
   import Row from './ui/Row.svelte'
@@ -12,7 +13,7 @@
     try {
       await navigator.clipboard.writeText(brand.contactEmail)
       copied = true
-      setTimeout(() => (copied = false), 2000)
+      setTimeout(() => (copied = false), COPIED_MS)
     } catch {
       // the address stays on screen to select by hand
     }

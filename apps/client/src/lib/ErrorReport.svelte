@@ -5,6 +5,7 @@
      it was pressed, left out unless ticked. Where reports are turned off,
      the contact address instead. -->
 <script lang="ts">
+  import { COPIED_MS } from './clipboard'
   import { brand } from '@app/brand'
   import { onMount } from 'svelte'
   import { backend, type FeedbackWhere } from './backend'
@@ -100,7 +101,7 @@
     try {
       await navigator.clipboard.writeText(brand.contactEmail)
       copied = true
-      setTimeout(() => (copied = false), 2000)
+      setTimeout(() => (copied = false), COPIED_MS)
     } catch {
       // the address stays on screen to select by hand
     }

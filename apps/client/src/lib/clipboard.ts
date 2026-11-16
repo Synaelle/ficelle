@@ -8,6 +8,9 @@ import {
 } from '@tauri-apps/plugin-clipboard-manager'
 import { backend } from './backend'
 
+/** How long a button says Copied after copying, everywhere the same. */
+export const COPIED_MS = 2000
+
 export function copyText(text: string): Promise<void> {
   return backend.native ? writeFromApp(text) : navigator.clipboard.writeText(text)
 }

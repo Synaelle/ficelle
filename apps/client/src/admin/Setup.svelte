@@ -6,6 +6,7 @@
      or an authenticator app, its recovery codes, and the first choices made
      with the admin's session: accounts, files, mail, backups. -->
 <script lang="ts">
+  import { COPIED_MS } from '../lib/clipboard'
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
   import { t } from '../lib/i18n.svelte'
@@ -305,7 +306,7 @@
     try {
       await navigator.clipboard.writeText(codes.join('\n'))
       copied = true
-      setTimeout(() => (copied = false), 2000)
+      setTimeout(() => (copied = false), COPIED_MS)
     } catch {
       problem = t('admin.invites.copyFailed')
     }

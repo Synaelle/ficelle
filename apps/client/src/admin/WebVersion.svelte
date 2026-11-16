@@ -3,6 +3,7 @@
      sign-in limits and what it keeps. Who may open it and the limits are
      saved together from the bar at the bottom. -->
 <script lang="ts">
+  import { COPIED_MS } from '../lib/clipboard'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { overlay } from '../lib/overlay.svelte'
@@ -91,7 +92,7 @@
   async function copy() {
     await navigator.clipboard.writeText(address)
     copied = true
-    setTimeout(() => (copied = false), 1500)
+    setTimeout(() => (copied = false), COPIED_MS)
   }
 
   /** A number field: empty takes the config file's value. */

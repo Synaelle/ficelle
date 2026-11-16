@@ -2,6 +2,7 @@
 <!-- The signed in admin's own sign-in: authenticator app, recovery codes,
      passkeys and single sign-on. Changes ask for the password again. -->
 <script lang="ts">
+  import { COPIED_MS } from '../lib/clipboard'
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
   import { t } from '../lib/i18n.svelte'
@@ -211,7 +212,7 @@
     try {
       await navigator.clipboard.writeText(codes.join('\n'))
       copied = true
-      setTimeout(() => (copied = false), 2000)
+      setTimeout(() => (copied = false), COPIED_MS)
     } catch {
       problem = t('admin.invites.copyFailed')
     }

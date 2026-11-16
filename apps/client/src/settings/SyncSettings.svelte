@@ -7,7 +7,7 @@
      disconnect. A device uses one or the other, never both. -->
 <script lang="ts">
   import { brand } from '@app/brand'
-  import { copyText } from '../lib/clipboard'
+  import { COPIED_MS, copyText } from '../lib/clipboard'
   import { hour12 } from '../lib/clock.svelte'
   import PasswordField from '../lib/PasswordField.svelte'
   import { currentLocale, t } from '../lib/i18n.svelte'
@@ -275,7 +275,7 @@
   async function copyLink() {
     await copyText(linking?.url ?? browserLink).catch(() => {})
     linkCopied = true
-    setTimeout(() => (linkCopied = false), 2000)
+    setTimeout(() => (linkCopied = false), COPIED_MS)
   }
 
   // the browser answered: linked, or why not
