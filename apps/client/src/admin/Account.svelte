@@ -293,7 +293,6 @@
   void load()
 </script>
 
-<p class="muted lead">{t('admin.account.help')}</p>
 {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 {#if notice}<p class="notice" role="status">{notice}</p>{/if}
 {#if security?.deleteAt}
@@ -346,7 +345,6 @@
         security.totp,
       )}
       <div class="body">
-        <p class="muted">{t('admin.account.totpHelp')}</p>
         {#if security.totp}
           <button class="btn danger" onclick={disableTotp}>{t('admin.account.turnOff')}</button>
         {:else if setup}
@@ -410,7 +408,6 @@
         security.passkeys.length > 0,
       )}
       <div class="body">
-        <p class="muted">{t('admin.account.passkeysHelp')}</p>
         {#if !options?.passkeys}
           <p class="muted">{t('admin.account.passkeysOff')}</p>
         {:else}
@@ -449,7 +446,6 @@
           security.emailCodes,
         )}
         <div class="body">
-          <p class="muted">{t('admin.account.emailCodesHelp')}</p>
           {#if security.emailCodes}
             <p>{t('admin.account.emailCodesActive', { email: security.email ?? '' })}</p>
             <button class="btn" onclick={disableEmailCodes}>{t('admin.account.turnOff')}</button>
@@ -474,7 +470,6 @@
         )}
         <div class="body">
           <p class="muted">
-            {t('admin.account.recoveryHelp')}
             {t('admin.account.codesLeft', { count: security.recoveryCodesLeft })}
           </p>
           <button class="btn" onclick={newCodes}>{t('admin.account.newCodes')}</button>
@@ -535,7 +530,6 @@
         {#if !security.emailAvailable}
           <p class="muted">{t('admin.account.emailOff')}</p>
         {:else}
-          <p class="muted">{t('admin.account.emailHelp')}</p>
           <div class="row">
             <button class="btn" onclick={setEmail}
               >{security.email
@@ -553,7 +547,6 @@
     <details class="item">
       {@render head('database', t('admin.account.dataTitle'), '')}
       <div class="body">
-        <p class="muted">{t('admin.account.dataHelp')}</p>
         <div class="row">
           <button class="btn" onclick={exportData}
             ><Icon name="export" size={16} />{t('admin.account.export')}</button
@@ -570,11 +563,6 @@
 {/if}
 
 <style>
-  .lead {
-    margin: 0;
-    color: var(--color-text-muted);
-    font-size: 13px;
-  }
   /* a small title over its group, as on the other sections */
   .group {
     margin: var(--space-3) 0 var(--space-2);

@@ -457,7 +457,6 @@
         {t('admin.feedback.answer')}
         <textarea class="field" rows="3" maxlength="2000" bind:value={answer} data-feedback-answer
         ></textarea>
-        <span class="muted small">{t('admin.feedback.answerHelp')}</span>
       </label>
       <button
         class="btn"
@@ -613,10 +612,8 @@
         />
         {t('admin.feedback.receive')}
       </label>
-      <p class="muted small">{t('admin.feedback.receiveHelp')}</p>
       {#if settings.receive}
         <form class="caps" onsubmit={saveCaps}>
-          <p class="muted small">{t('admin.feedback.capsHelp')}</p>
           <label
             >{t('admin.feedback.perHour')}<input
               class="field"
@@ -659,7 +656,6 @@
 
     <section>
       <h2>{t('admin.feedback.readers')}</h2>
-      <p class="muted small">{t('admin.feedback.readersHelp')}</p>
       <ul class="plain">
         {#each settings.readers as person (person.id)}
           <li>
@@ -685,7 +681,6 @@
 
     <section>
       <h2>{t('admin.feedback.token')}</h2>
-      <p class="muted small">{t('admin.feedback.tokenHelp')}</p>
       {#if token}
         <p class="note">{t('admin.feedback.tokenOnce')}</p>
         <code class="token">{token}</code>
@@ -707,7 +702,6 @@
 
   <section>
     <h2>{t('admin.feedback.blocks')}</h2>
-    <p class="muted small">{t('admin.feedback.blocksHelp')}</p>
     <ul class="plain">
       {#each blocks as block (`${block.kind}:${block.value}`)}
         <li>
@@ -782,10 +776,6 @@
     align-items: end;
     gap: var(--space-3);
     margin: var(--space-3) 0;
-  }
-  .caps p {
-    flex-basis: 100%;
-    margin: 0;
   }
   .caps label {
     display: grid;

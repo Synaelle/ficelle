@@ -451,7 +451,6 @@
         <button class="btn primary" type="button" disabled={busy} onclick={signInWithPasskey}
           ><Icon name="fingerprint" size={16} />{t('admin.signIn.withPasskey')}</button
         >
-        <p class="muted small">{t('admin.signIn.passkeyHelp')}</p>
         <div class="or" aria-hidden="true">{t('admin.signIn.orPassword')}</div>
       {/if}
       {#if mode === 'register'}
@@ -644,9 +643,5 @@
     content: '';
     flex: 1;
     border-top: 1px solid var(--color-border);
-  }
-  .small {
-    margin: 0;
-    font-size: 13px;
   }
 </style>

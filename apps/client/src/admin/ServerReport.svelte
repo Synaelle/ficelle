@@ -91,7 +91,6 @@
 </script>
 
 <form class="send" onsubmit={send} onpaste={paste}>
-  <p class="muted">{t('admin.feedback.sendHelp')}</p>
   {#if sent}<p class="saved" role="status">{t('admin.feedback.sendDone')}</p>{/if}
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   <label class="field-label">

@@ -121,15 +121,12 @@
 {#if !view && !problem}<p class="muted" aria-busy="true">{t('admin.loading')}</p>{/if}
 
 {#if view}
-  <p class="dash-help">{t('admin.web.meta')}</p>
-
   {#if view.access === 'off'}
     <ul class="dash-rows">
       <li class="dash-row">
         <span class="dash-lead"><Icon name="globe" size={18} /></span>
         <span class="dash-words">
           <span class="dash-label">{t('admin.account.off')}</span>
-          <span class="dash-help">{t('admin.web.offHelp')}</span>
         </span>
       </li>
     </ul>
@@ -141,7 +138,6 @@
           <button class="btn primary" disabled={busy} onclick={() => openTo(access)}
             >{t('admin.web.turnOn')}</button
           >
-          <span class="dash-help">{t('admin.web.turnOnLater')}</span>
         </p>
       </section>
     {:else}
@@ -198,21 +194,18 @@
       <li class="dash-row dash-tight">
         <span class="dash-words">
           <span class="dash-label">{t('admin.web.perMinute')}</span>
-          <span class="dash-help">{t('admin.web.perMinuteHelp')}</span>
         </span>
         <span class="dash-ctl">{@render number('perMinute', t('admin.web.perMinute'))}</span>
       </li>
       <li class="dash-row dash-tight">
         <span class="dash-words">
           <span class="dash-label">{t('admin.web.attempts')}</span>
-          <span class="dash-help">{t('admin.web.attemptsHelp')}</span>
         </span>
         <span class="dash-ctl">{@render number('attempts', t('admin.web.attempts'))}</span>
       </li>
       <li class="dash-row dash-tight">
         <span class="dash-words">
           <span class="dash-label">{t('admin.web.wait')}</span>
-          <span class="dash-help">{t('admin.web.waitHelp')}</span>
         </span>
         <span class="dash-ctl">
           {@render number('firstWait', t('admin.web.firstWait'))}
@@ -222,7 +215,6 @@
         </span>
       </li>
     </ul>
-    <p class="dash-help">{t('admin.web.limitsShared')}</p>
   </section>
 
   <section class="dash-group" aria-labelledby="web-keeps">
@@ -231,7 +223,6 @@
       <li class="dash-row dash-tight">
         <span class="dash-words">
           <span class="dash-label">{t('admin.web.notes')}</span>
-          <span class="dash-help">{t('admin.web.notesHelp')}</span>
         </span>
       </li>
       <li class="dash-row dash-tight">
@@ -243,7 +234,6 @@
       <li class="dash-row dash-tight">
         <span class="dash-words">
           <span class="dash-label">{t('admin.web.signIns')}</span>
-          <span class="dash-help">{t('admin.web.signInsHelp')}</span>
         </span>
         <span class="dash-ctl">
           <span class="dash-val"
@@ -271,7 +261,6 @@
         <input type="radio" name="web-access" value={option} bind:group={access} />
         <span class="dash-words">
           <span class="dash-label">{t(`admin.web.${option}`)}</span>
-          <span class="dash-help">{t(`admin.web.${option}Help`)}</span>
         </span>
       </label>
     {/each}

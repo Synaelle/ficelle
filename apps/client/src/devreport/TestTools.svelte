@@ -40,14 +40,7 @@
   }
 </script>
 
-<p class="settings-help">{t('testTools.help')}</p>
-<Group
-  note={!phone
-    ? t('testTools.folderHelp')
-    : folder
-      ? t('testTools.folderHelpChosen')
-      : t('testTools.folderHelpPhone')}
->
+<Group note={phone && !folder ? t('testTools.folderHelpPhone') : undefined}>
   <Row label={t('testTools.folder')}>
     {#if !phone && prefs.reportFolder}
       <button class="btn" onclick={() => (prefs.reportFolder = null)}
@@ -65,10 +58,10 @@
   {/if}
 </Group>
 <Group>
-  <Row label={t('testTools.screenshot')} help={t('testTools.screenshotHelp')}>
+  <Row label={t('testTools.screenshot')}>
     <Switch label={t('testTools.screenshot')} bind:checked={prefs.reportScreenshot} />
   </Row>
-  <Row label={t('testTools.pretendBeta')} help={t('testTools.pretendBetaHelp')}>
+  <Row label={t('testTools.pretendBeta')}>
     <Switch
       label={t('testTools.pretendBeta')}
       checked={prefs.pretendBeta}

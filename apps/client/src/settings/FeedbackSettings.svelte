@@ -216,7 +216,7 @@
       {#if draft.message.length > MAX_MESSAGE * 0.8}
         <span class="count">{draft.message.length} / {MAX_MESSAGE}</span>
       {/if}
-      <Group note={contactBad ? undefined : t('feedback.contactHelp')}>
+      <Group>
         <div class="field-row">
           <input
             class="field"

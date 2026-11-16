@@ -359,7 +359,6 @@
       </ol>
 
       {#if step === 'checks'}
-        <p class="muted">{t('admin.setup.checksHelp')}</p>
         <ul class="checks">
           {#each checks as check (check.key)}
             <li class={check.state}>
@@ -439,27 +438,25 @@
               />
               <span>
                 <b><Icon name="fingerprint" size={16} />{t('admin.setup.passkey')}</b>
-                <span class="muted"
-                  >{canPasskey
-                    ? t('admin.setup.passkeyHelp')
-                    : status?.passkeys
+                {#if !canPasskey}
+                  <span class="muted"
+                    >{status?.passkeys
                       ? t('admin.setup.passkeyBrowser')
                       : t('admin.setup.passkeyNoAddress')}</span
-                >
+                  >
+                {/if}
               </span>
             </label>
             <label class="mode" class:checked={factor === 'totp'}>
               <input type="radio" name="factor" value="totp" bind:group={factor} />
               <span>
                 <b><Icon name="timer" size={16} />{t('admin.setup.totp')}</b>
-                <span class="muted">{t('admin.setup.totpHelp')}</span>
               </span>
             </label>
             <label class="mode" class:checked={factor === 'none'}>
               <input type="radio" name="factor" value="none" bind:group={factor} />
               <span>
                 <b>{t('admin.setup.none')}</b>
-                <span class="muted">{t('admin.setup.noneHelp')}</span>
               </span>
             </label>
             {#if factor === 'none'}
@@ -532,7 +529,6 @@
           onclick={() => (step = 'backups')}>{t('admin.setup.next')}</button
         >
       {:else if step === 'backups'}
-        <p class="muted">{t('admin.setup.backupsHelp')}</p>
         <Backups onconfigured={(on) => (backupsOn = on)} />
         {#if backupsOn}
           <button class="btn primary" type="button" onclick={() => (step = 'done')}

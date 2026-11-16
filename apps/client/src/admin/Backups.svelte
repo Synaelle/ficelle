@@ -280,7 +280,6 @@
      Advanced or once backups run -->
 {#if view && (view.config || advanced)}
   <section>
-    <p class="muted">{t('admin.backups.help')}</p>
     {#if !view.masterKeyApart}
       <p class="muted small">{t('admin.backups.masterKey')}</p>
     {:else}
@@ -396,9 +395,7 @@
         <h2>{t('admin.backups.person')}</h2>
         <ul class="dash-rows">
           <li class="dash-row">
-            <span class="dash-words"
-              ><span class="dash-help">{t('admin.backups.personHelp')}</span></span
-            >
+            <span class="dash-words"><span class="dash-label">{t('admin.username')}</span></span>
             <span class="dash-ctl">
               <input
                 class="field person"
@@ -443,7 +440,6 @@
       <li class="dash-row dash-tight">
         <span class="dash-words">
           <span class="dash-label">{t('admin.backups.keep')}</span>
-          <span class="dash-help">{t('backups.keepHelp')}</span>
         </span>
         <span class="dash-ctl">
           {#each KEEP as period (period)}
@@ -489,7 +485,6 @@
   >
     <h2>{view.config ? t('backups.change') : t('backups.setUp')}</h2>
     {#if !advanced}
-      <p class="muted">{t('admin.backups.simpleHelp')}</p>
       <label class="field-label"
         >{t('admin.backups.field_path')}<input
           class="field wide"

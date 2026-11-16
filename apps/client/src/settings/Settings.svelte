@@ -214,7 +214,7 @@
                   {/each}
                 </div>
               </Row>
-              <Row label={t('settings.pureBlack')} help={t('settings.pureBlackHelp')}>
+              <Row label={t('settings.pureBlack')}>
                 <Switch
                   label={t('settings.pureBlack')}
                   disabled={prefs.mode === 'light'}
@@ -223,7 +223,7 @@
               </Row>
             </Group>
             <Group title={t('settings.tags')}>
-              <Row label={t('settings.tagMark')} help={t('settings.tagMarkHelp')}>
+              <Row label={t('settings.tagMark')}>
                 <div class="segmented" role="radiogroup" aria-label={t('settings.tagMark')}>
                   {#each TAG_MARKS as mark (mark)}
                     <label class:checked={prefs.tagMark === mark}>
@@ -244,7 +244,7 @@
                 ? t('settings.dyslexicFontLoading')
                 : undefined}
             >
-              <Row label={t('settings.uiSize')} help={t('settings.uiSizeHelp')}>
+              <Row label={t('settings.uiSize')}>
                 <SizePicker />
               </Row>
               <Row label={t('settings.dyslexicFont')}>
@@ -368,7 +368,7 @@
                   {#each ways(vault) as option (option)}
                     <Row
                       label={t(`settings.way.${option}`, { method })}
-                      help={t(`settings.wayHelp.${option}`, { method })}
+                      help={option === 'device' ? t('settings.wayHelp.device') : undefined}
                       checked={vault.way === option}
                       onclick={() => void settings.setWay(option)}
                     />

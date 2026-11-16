@@ -287,7 +287,7 @@
   </Group>
   {#if making}<BackupDialog mode="make" close={() => (making = false)} />{/if}
 {:else}
-  <Group title={t('backups.title')} note={phoneFolder ? t('backups.phoneHelp') : t('backups.help')}>
+  <Group title={t('backups.title')}>
     <Row label={t('backups.auto')}>
       <Switch
         label={t('backups.auto')}
@@ -490,7 +490,7 @@
   </Group>
 {/if}
 
-<Group title={t('settings.importTitle')} note={t('settings.importHelp')}>
+<Group title={t('settings.importTitle')}>
   <Row label={t('list.import')} opens onclick={() => markdownInput?.click()} />
   <Row
     label={t('settings.importFicelle', { app: brand.displayName })}
@@ -514,7 +514,7 @@
   onchange={(e) => importPicked(e.currentTarget)}
 />
 
-<Group title={t('settings.exportTitle')} note={t('settings.exportHelp')}>
+<Group title={t('settings.exportTitle')}>
   <Row
     label={t('settings.exportZip')}
     opens
@@ -524,7 +524,7 @@
 </Group>
 
 <Group>
-  <Row label={t('reset.title')} help={t('reset.help')}>
+  <Row label={t('reset.title')}>
     <button class="btn danger" onclick={onreset}>{t('reset.open')}</button>
   </Row>
 </Group>

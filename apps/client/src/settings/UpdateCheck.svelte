@@ -44,25 +44,11 @@
   async function setNotifications(on: boolean) {
     notifyDenied = !(await appUpdates.setNotifications(on))
   }
-
-  /** One line: how updates come while on, what is still looked for when off. */
-  const help = $derived(
-    packaged
-      ? t('appUpdate.helpPackage')
-      : !prefs.autoUpdates
-        ? prefs.securityChecks
-          ? t('appUpdate.autoOffHelp')
-          : t('appUpdate.noChecksHelp')
-        : phone
-          ? t('appUpdate.helpPhone')
-          : __APP_PORTABLE__
-            ? t('appUpdate.helpPortable')
-            : t('appUpdate.help'),
-  )
 </script>
 
 {#if updatesHere}
-  <Group title={t('appUpdate.title')} note={help}>
+  <!-- a package has no switch here, so the one line says where its updates come from -->
+  <Group title={t('appUpdate.title')} note={packaged ? t('appUpdate.helpPackage') : undefined}>
     <!-- a package's updates are its package manager's: nothing to switch -->
     {#if !packaged}
       <Row
@@ -92,7 +78,6 @@
     {#if channelChoice && !packaged}
       <Row
         label={t('appUpdate.nightlyVersions')}
-        help={t('appUpdate.nightlyHelp')}
         on={prefs.channel === 'nightly'}
         onclick={() =>
           void channelSwitch.choose(prefs.channel === 'nightly' ? 'stable' : 'nightly')}

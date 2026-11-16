@@ -446,7 +446,7 @@
       onclick={() => void localSync.now()}><Icon name="syncing" size={16} />{t('sync.now')}</button
     >
   </div>
-  <Group note={t('local.device.forgetHelp')}>
+  <Group>
     <Row label={t('local.device.forget')}>
       {#if forgetting}
         <button class="btn" onclick={() => (forgetting = false)}>{t('common.cancel')}</button>
@@ -479,14 +479,7 @@
       {#each local.forgottenBy ?? [] as name (name)}
         <p class="settings-help" role="status">{t('local.forgottenBy', { name })}</p>
       {/each}
-      <Group
-        title={t('local.devices')}
-        note={local.serverLinked
-          ? t('local.oneWay')
-          : local.devices.some((d) => d.platform === 'android')
-            ? t('local.phoneHelp')
-            : undefined}
-      >
+      <Group title={t('local.devices')} note={local.serverLinked ? t('local.oneWay') : undefined}>
         {#if !devicesPaired}
           <div class="settings-row empty">
             <span>{t('local.none')}</span>
@@ -637,10 +630,7 @@
           </Row>
         </Group>
       {/if}
-      <Group
-        title={t('sync.more')}
-        note={status.coediting ? t('sync.coeditingHelp') : t('sync.coeditingOff')}
-      >
+      <Group title={t('sync.more')} note={status.coediting ? undefined : t('sync.coeditingOff')}>
         <Row label={t('sync.coediting')}>
           <Switch
             label={t('sync.coediting')}
@@ -777,7 +767,7 @@
         {:else if byBrowser}
           <p class="settings-help">{t('sync.browserHelp', { appName: brand.displayName })}</p>
         {:else}
-          <Group note={t('sync.passwordHelp')}>
+          <Group>
             <div class="field-row">
               <input
                 class="field"

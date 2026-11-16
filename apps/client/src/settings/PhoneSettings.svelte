@@ -489,7 +489,7 @@
             />
           {/each}
         </Group>
-        <Group note={t('settings.pureBlackHelp')}>
+        <Group>
           {@render row({
             icon: 'palette',
             label: t('settings.pureBlack'),
@@ -498,7 +498,7 @@
             run: () => (prefs.pureBlack = !prefs.pureBlack),
           })}
         </Group>
-        <Group title={t('settings.tagMark')} note={t('settings.tagMarkHelp')}>
+        <Group title={t('settings.tagMark')}>
           {#each TAG_MARKS as mark (mark)}
             <Row
               label={t(`settings.tagMark_${mark}`)}
@@ -508,7 +508,7 @@
           {/each}
         </Group>
       {:else if page === 'accessibility'}
-        <Group title={t('settings.uiSize')} note={t('settings.uiSizeHelp')}>
+        <Group title={t('settings.uiSize')}>
           {#each UI_SIZES as size (size)}
             <Row
               label={t(`settings.uiSize_${size}`)}
@@ -601,7 +601,7 @@
           {#each ways(vault) as option (option)}
             <Row
               label={t(`settings.way.${option}`, { method })}
-              help={t(`settings.wayHelp.${option}`, { method })}
+              help={option === 'device' ? t('settings.wayHelp.device') : undefined}
               checked={vault.way === option}
               onclick={() => void settings.setWay(option)}
             />

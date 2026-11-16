@@ -62,7 +62,7 @@
 </script>
 
 {#if info || local}
-  <Group title={local ? undefined : t('files.title')} note={t('files.autoFetchHelp')}>
+  <Group title={local ? undefined : t('files.title')}>
     {#if info}
       <Row
         label={info.policy.quotaBytes > 0
