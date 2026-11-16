@@ -37,6 +37,10 @@
     await workspace.open(note.id)
   }
 
+  /** The text as the person wrote it: the backslashes Markdown keeps before
+   * brackets or stars typed as such are not theirs to read. */
+  const readable = (body: string) => body.replace(/\\([\\`*_{}[\]()#+\-.!|<>~])/g, '$1')
+
   const columns = $derived(
     conflict?.mine && conflict.theirs && note
       ? [
@@ -103,7 +107,7 @@
           <section>
             <h3>{column.label}</h3>
             <strong class="title">{column.text.title || t('note.untitled')}</strong>
-            <pre>{column.text.body}</pre>
+            <pre>{readable(column.text.body)}</pre>
           </section>
         {/each}
       </div>
@@ -151,7 +155,8 @@
   .backdrop {
     position: fixed;
     inset: 0;
-    z-index: 40;
+    /* above the floating report buttons (40), below dialogs */
+    z-index: 45;
     display: grid;
     place-items: center;
     padding: var(--space-4);
