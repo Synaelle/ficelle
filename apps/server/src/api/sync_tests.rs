@@ -891,9 +891,10 @@ pub(super) async fn live_socket(
     let mut request = format!("ws://{addr}/api/v1/sync/live")
         .into_client_request()
         .unwrap();
-    request
-        .headers_mut()
-        .insert("x-protocol-version", "1".parse().unwrap());
+    request.headers_mut().insert(
+        "x-protocol-version",
+        app_protocol::PROTOCOL_VERSION.to_string().parse().unwrap(),
+    );
     if let Some(token) = token {
         request
             .headers_mut()

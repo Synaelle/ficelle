@@ -298,7 +298,10 @@ async fn behind_https_with_an_address_the_way_in_is_fine() {
     config.server.public_url = "https://notes.example.org".into();
     let (_, app, token) = admin_on(server_with(config).await).await;
     let mut req = axum::http::Request::get("/api/v1/admin/checklist")
-        .header(app_protocol::PROTOCOL_HEADER, "1")
+        .header(
+            app_protocol::PROTOCOL_HEADER,
+            app_protocol::PROTOCOL_VERSION.to_string(),
+        )
         .header("authorization", format!("Bearer {token}"))
         .header("x-forwarded-proto", "https")
         .body(axum::body::Body::empty())

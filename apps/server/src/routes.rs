@@ -6,7 +6,8 @@
 use std::sync::Arc;
 
 use app_protocol::{
-    Compatibility, MIN_PROTOCOL_VERSION, PROTOCOL_HEADER, PROTOCOL_VERSION, ServerInfo, error_code,
+    Compatibility, MIN_FEEDBACK_PROTOCOL, MIN_PROTOCOL_VERSION, PROTOCOL_HEADER, PROTOCOL_VERSION,
+    ServerInfo, error_code,
 };
 use axum::extract::{DefaultBodyLimit, Request, State};
 use axum::http::{HeaderName, HeaderValue, StatusCode, header};
@@ -215,10 +216,15 @@ async fn check_protocol(req: Request, next: Next) -> Response {
         )
         .into_response();
     };
+    let feedback = path.starts_with("/api/v1/feedback");
     let range = ServerInfo {
         name: String::new(),
         version: String::new(),
-        min_protocol: MIN_PROTOCOL_VERSION,
+        min_protocol: if feedback {
+            MIN_FEEDBACK_PROTOCOL
+        } else {
+            MIN_PROTOCOL_VERSION
+        },
         max_protocol: PROTOCOL_VERSION,
         sign_in_page: true,
     };
@@ -412,6 +418,24 @@ mod tests {
             (status, json["error"].as_str()),
             (StatusCode::NOT_FOUND, Some("notFound")),
             "passes the check"
+        );
+
+        // an app from before the nested tags syncs nothing, but its
+        // feedback still comes in
+        let (status, _, json) = send(app(Config::default()), get_with(path, Some("1"))).await;
+        assert_eq!(
+            (status, json["error"].as_str()),
+            (StatusCode::UPGRADE_REQUIRED, Some("updateApp"))
+        );
+        let (status, _, json) = send(
+            app(Config::default()),
+            get_with("/api/v1/feedback/anything", Some("1")),
+        )
+        .await;
+        assert_eq!(
+            (status, json["error"].as_str()),
+            (StatusCode::NOT_FOUND, Some("notFound")),
+            "feedback passes the check"
         );
     }
 

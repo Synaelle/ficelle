@@ -28,7 +28,7 @@ export function sectionHref(name: string): string {
 }
 
 /** `app_protocol::PROTOCOL_VERSION`, bump both together. */
-export const PROTOCOL_VERSION = 1
+export const PROTOCOL_VERSION = 2
 
 export type Role = 'admin' | 'user'
 export type Registration = 'closed' | 'invite' | 'open'

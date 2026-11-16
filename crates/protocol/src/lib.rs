@@ -9,10 +9,17 @@
 use serde::{Deserialize, Serialize};
 
 /// Protocol version spoken by this build. Bump on any breaking wire change.
-pub const PROTOCOL_VERSION: u32 = 1;
+/// 2 since 0.6.0: folders became nested tags, and an app from before them
+/// would file notes in folders the others no longer read, or trash a
+/// folder's notes along with it.
+pub const PROTOCOL_VERSION: u32 = 2;
 
 /// Oldest protocol version this build still understands.
-pub const MIN_PROTOCOL_VERSION: u32 = 1;
+pub const MIN_PROTOCOL_VERSION: u32 = 2;
+
+/// Oldest protocol feedback reports still come from: their format did not
+/// change, an app too old to sync can still send one.
+pub const MIN_FEEDBACK_PROTOCOL: u32 = 1;
 
 /// Direct sync between a person's devices on the same network.
 pub mod local {
