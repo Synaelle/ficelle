@@ -11,8 +11,9 @@ name: nightly
 # build number (tools/version.mjs nightlyBuild) is the last release's plus
 # how many nightlies came after it, so each nightly numbers above the release
 # it follows and the ones before. 99 fit, then a release is due and the run
-# stops saying so. Apps on Nightly only ever get nightlies, a release never
-# joins this list: the first nightly after it brings its changes.
+# stops saying so. A stable release newer than the nightly here takes its
+# place in this list (release.yml), so apps on Nightly get it at once, and
+# the next nightly numbers above it.
 #
 # Nothing is built when main has not changed since the last nightly, when CI
 # did not pass on it, or while main is at a beta version.

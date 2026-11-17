@@ -234,3 +234,18 @@ jobs:
           else
             echo "the Beta list keeps $held, newer than $version"
           fi
+
+          # the Nightly list: a stable release newer than the nightly it holds
+          # takes its place, so apps on Nightly get the release at once and
+          # the next nightly numbers above it. By build number, a nightly's
+          # name holds none. A beta never joins it: nightlies stop at a beta
+          case "$TAG" in *-beta.*) exit 0 ;; esac
+          if gh release download nightly -p latest.json -O nightly-held.json --clobber 2>/dev/null; then
+            held=$(jq -r .version nightly-held.json)
+            if [ "$build" -gt "$(jq -r '.build // 0' nightly-held.json)" ]; then
+              gh release upload nightly latest.json --clobber
+              echo "the Nightly list now points at $version (it held $held)"
+            else
+              echo "the Nightly list keeps $held, newer than $version"
+            fi
+          fi
