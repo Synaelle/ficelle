@@ -14,7 +14,7 @@
   import { prefs, shortcutFor, showTool } from '../lib/prefs.svelte'
   import { TOOL_NAMES } from '../editor/toolNames'
   import { MODES } from '../lib/theme.svelte'
-  import { WEB } from '../lib/platform'
+  import { LINUX, WEB } from '../lib/platform'
   import { TAG_MARKS } from '../lib/tagMark.svelte'
   import {
     applyQuickShortcut,
@@ -53,6 +53,7 @@
     | 'data'
     | 'feedback'
     | 'testTools'
+    | 'experimental'
     | 'about'
   const SECTIONS: Section[] = [
     'appearance',
@@ -68,6 +69,8 @@
     ...(WEB ? [] : (['feedback'] as const)),
     // dev and preview builds only
     ...(__APP_DEV_TOOLS__ ? (['testTools'] as const) : []),
+    // what is still being tried, only where it applies
+    ...(LINUX && !WEB ? (['experimental'] as const) : []),
     'about',
   ] as Section[]
   const SECTION_ICONS: Record<Section, IconName> = {
@@ -81,6 +84,7 @@
     data: 'backup',
     feedback: 'feedback',
     testTools: 'log',
+    experimental: 'flask',
     about: 'info',
   }
   /** At phone width the settings fill the screen with their own layout. */
@@ -507,6 +511,12 @@
             />
           {:else if section === 'testTools'}
             <TestTools />
+          {:else if section === 'experimental'}
+            <Group>
+              <Row label={t('settings.windowsText')}>
+                <Switch label={t('settings.windowsText')} bind:checked={prefs.windowsText} />
+              </Row>
+            </Group>
           {:else if section === 'feedback'}
             <FeedbackSettings />
           {:else if section === 'about'}

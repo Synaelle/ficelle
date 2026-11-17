@@ -79,6 +79,8 @@ export interface Prefs {
   /** Dev and preview builds: the folder picked for issue reports on a
    * computer, null for the default. Phones keep theirs in the app (DevReports.kt). */
   reportFolder: string | null
+  /** Linux: text drawn as thick as on Windows (App.svelte), experimental. */
+  windowsText: boolean
   /** Dev and preview builds: a report starts with a screenshot of the app. */
   reportScreenshot: boolean
   /** Dev and preview builds: act as a beta release, nothing downloaded
@@ -125,6 +127,7 @@ export const DEFAULT_PREFS: Prefs = {
   listWidth: 320,
   feedbackInstall: '',
   reportFolder: null,
+  windowsText: false,
   reportScreenshot: true,
   pretendBeta: false,
   betaWelcomed: false,

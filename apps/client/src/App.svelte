@@ -50,8 +50,12 @@
   $effect(() => applyUiSize(prefs.uiSize))
   $effect(() => applyDyslexicFont(prefs.dyslexicFont))
   // Linux's web view draws text thinner than Windows, where the look was
-  // made: every stroke 0.2 px thicker gives a paragraph the ink it has there
-  if (LINUX && !WEB) document.documentElement.style.setProperty('--text-stroke', '0.2px')
+  // made: every stroke 0.2 px thicker gives a paragraph the ink it has there.
+  // An experimental setting for now
+  $effect(() => {
+    const thicker = LINUX && !WEB && prefs.windowsText
+    document.documentElement.style.setProperty('--text-stroke', thicker ? '0.2px' : '0px')
+  })
   $effect(() => void applyQuickShortcut(prefs.quickNoteShortcut))
 
   async function start() {

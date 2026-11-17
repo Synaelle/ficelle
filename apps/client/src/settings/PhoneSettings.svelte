@@ -27,7 +27,7 @@
   import TestTools from '../devreport/TestTools.svelte'
   import AboutSettings from './AboutSettings.svelte'
   import { MODES } from '../lib/theme.svelte'
-  import { MOBILE, WEB } from '../lib/platform'
+  import { LINUX, MOBILE, WEB } from '../lib/platform'
   import { TAG_MARKS } from '../lib/tagMark.svelte'
   import { UI_SIZES } from '../lib/uiSize'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
@@ -68,6 +68,7 @@
     | 'notes'
     | 'feedback'
     | 'testTools'
+    | 'experimental'
     | 'about'
   // svelte-ignore state_referenced_locally
   let page: Page = $state(start ?? 'home')
@@ -271,6 +272,17 @@
           },
         ]
       : []),
+    // what is still being tried, only where it applies
+    ...(LINUX && !WEB
+      ? [
+          {
+            icon: 'flask' as const,
+            label: t('settings.experimental'),
+            keywords: t('settings.experimentalKeywords'),
+            run: () => (page = 'experimental'),
+          },
+        ]
+      : []),
     {
       icon: 'info',
       label: t('settings.about'),
@@ -344,6 +356,7 @@
     notes: 'settings.phone.dataBackups',
     feedback: 'settings.feedback',
     testTools: 'settings.testTools',
+    experimental: 'settings.experimental',
     about: 'settings.about',
   }
 
@@ -640,6 +653,15 @@
         <FeedbackSettings />
       {:else if page === 'testTools'}
         <TestTools />
+      {:else if page === 'experimental'}
+        <Group>
+          {@render row({
+            icon: 'textStyle',
+            label: t('settings.windowsText'),
+            on: prefs.windowsText,
+            run: () => (prefs.windowsText = !prefs.windowsText),
+          })}
+        </Group>
       {:else if page === 'about'}
         <AboutSettings phone />
       {/if}
