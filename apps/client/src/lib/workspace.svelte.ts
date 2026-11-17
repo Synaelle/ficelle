@@ -118,7 +118,14 @@ class Workspace {
   /** The note open when the app last closed, when the setting asks for it
    * and the note is still there. */
   async openLast() {
-    const id = prefs.openLastNote ? prefs.lastNote : null
+    if (!prefs.openLastNote || this.current) return
+    // the list it was open in first, when that tag is still there
+    const scope = prefs.lastScope
+    if (scope && (scope.kind !== 'tag' || this.tags.some((tag) => tag.id === scope.id))) {
+      this.scope = scope
+      await this.refreshNotes()
+    }
+    const id = prefs.lastNote
     if (!id || this.current) return
     const note = await backend.getNote(id).catch(() => null)
     if (!note || note.trashedAt || this.current) return
@@ -167,6 +174,7 @@ class Workspace {
     await this.flush()
     this.files = false
     this.scope = scope
+    if (scope.kind !== 'trash') prefs.lastScope = scope
     this.query = ''
     this.hits = null
     await this.refreshNotes()

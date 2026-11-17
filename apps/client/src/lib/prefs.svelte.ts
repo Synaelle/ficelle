@@ -4,7 +4,7 @@
 // localStorage instead of the encrypted database.
 
 import type { Mode } from '@app/ui/theme'
-import type { NoteSort, UpdateChannel } from './backend'
+import type { NoteSort, Scope, UpdateChannel } from './backend'
 import { isLocale, type Locale } from './i18n.svelte'
 import { DEFAULT_SHORTCUTS, type ActionId } from './shortcuts'
 import type { UiSize } from './uiSize'
@@ -54,6 +54,8 @@ export interface Prefs {
   hiddenTools: string[]
   /** That note on this device, see openLastNote. */
   lastNote: string | null
+  /** The list it was opened from: a tag, all notes, those with no tag. */
+  lastScope: Scope | null
   /** Newer versions download by themselves and a card offers them. Off,
    * only a critical security fix is told, in the middle of the screen. */
   autoUpdates: boolean
@@ -111,6 +113,7 @@ export const DEFAULT_PREFS: Prefs = {
   openLastNote: true,
   hiddenTools: [],
   lastNote: null,
+  lastScope: null,
   autoUpdates: true,
   securityChecks: true,
   updateNotifications: false,

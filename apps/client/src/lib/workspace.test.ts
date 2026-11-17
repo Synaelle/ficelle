@@ -52,6 +52,26 @@ describe('blank notes', () => {
   })
 })
 
+describe('opening on the last note', () => {
+  it('comes back to the note and the tag it was opened from', async () => {
+    const note = await create({ title: 'Shopping', body: 'eggs' })
+    await workspace.setTags(['errands'])
+    await workspace.load()
+    const tag = workspace.tags.find((each) => each.name === 'errands')
+    if (!tag) throw new Error('no tag')
+    await workspace.setScope({ kind: 'tag', id: tag.id })
+    await workspace.open(note.id)
+    await workspace.open(null)
+    await workspace.setScope({ kind: 'all' })
+    // as a new start finds them
+    prefs.lastNote = note.id
+    prefs.lastScope = { kind: 'tag', id: tag.id }
+    await workspace.openLast()
+    expect(workspace.current?.id).toBe(note.id)
+    expect(workspace.scope).toEqual({ kind: 'tag', id: tag.id })
+  })
+})
+
 describe('an untitled note with an attachment', () => {
   it('takes the name of its attachment once left', async () => {
     const note = await create({ body: 'see the photo' })
