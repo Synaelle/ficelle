@@ -27,7 +27,6 @@ const unfrozen = new Set([
   'feedbackUrl',
   'fontsUrl',
   'fontsSourceUrl',
-  'translateUrl',
   'makerName',
   'makerUrl',
   'releasesUrl',

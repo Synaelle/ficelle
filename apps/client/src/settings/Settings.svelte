@@ -8,7 +8,7 @@
   import { modal } from '../lib/modal'
   import { onMount } from 'svelte'
   import { biometricMethod } from '../lib/biometric'
-  import { LOCALES, LOCALES_URL, t, translatedLine, type Locale } from '../lib/i18n.svelte'
+  import { LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { prefs, shortcutFor, showTool } from '../lib/prefs.svelte'
@@ -316,10 +316,10 @@
               {/if}
             </Group>
           {:else if section === 'language'}
-            <Group note={t('settings.languageHelp', { url: LOCALES_URL })}>
+            <Group>
               <Row label={t('settings.language')}>
                 <select
-                  class="field compact"
+                  class="field compact same-width"
                   aria-label={t('settings.language')}
                   value={prefs.language ?? ''}
                   onchange={(e) =>
@@ -337,7 +337,7 @@
               </Row>
               <Row label={t('settings.clock')}>
                 <select
-                  class="field compact"
+                  class="field compact same-width"
                   aria-label={t('settings.clock')}
                   bind:value={prefs.clock}
                 >
@@ -646,5 +646,10 @@
   }
   .message {
     margin: var(--space-5) 0 0;
+  }
+  /* the language and time format boxes line up, whatever their options */
+  .field.compact.same-width {
+    width: 15rem;
+    max-width: 100%;
   }
 </style>
