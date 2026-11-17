@@ -432,6 +432,13 @@
     font-size: 12px;
     transition: opacity var(--dur-slow) var(--ease-out);
   }
+  /* the mark takes a button's square, so it sits spaced like pin and more */
+  .saved:has(.mark) {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+  }
   .saved.quiet {
     opacity: 0;
   }
