@@ -111,16 +111,18 @@
     <ul>
       {#each files as file (file.id)}
         <li>
-          <span class="name">{file.fileName}</span>
-          <span class="muted">
-            {[
-              kind(file),
-              bytes(file.size),
-              file.refused ? t(`errors.${file.refused}`) : file.here ? '' : t('files.notHere'),
-              mentioned(file) ? '' : t('files.notMentioned'),
-            ]
-              .filter(Boolean)
-              .join(' · ')}
+          <span class="text">
+            <span class="name">{file.fileName}</span>
+            <span class="muted">
+              {[
+                kind(file),
+                bytes(file.size),
+                file.refused ? t(`errors.${file.refused}`) : file.here ? '' : t('files.notHere'),
+                mentioned(file) ? '' : t('files.notMentioned'),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
           </span>
           {#if editor && !readonly && !mentioned(file)}
             <button class="btn small" onclick={() => editor?.mentionFile(file)}
@@ -212,12 +214,17 @@
     padding: var(--space-1) 0;
     font-size: 13px;
   }
-  .name {
+  /* the name over its details, taking the line; the buttons go under it
+     when they do not fit beside, never squeezing it */
+  .text {
+    display: grid;
+    flex: 1 1 14rem;
     min-width: 0;
+  }
+  .name {
     overflow-wrap: anywhere;
   }
   .muted {
-    flex: 1;
     color: var(--color-text-muted);
   }
   .small {

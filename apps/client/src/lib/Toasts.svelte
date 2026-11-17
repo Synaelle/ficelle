@@ -44,6 +44,7 @@
   }
   .toast {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
@@ -53,8 +54,9 @@
     box-shadow: var(--shadow-popover);
     pointer-events: auto;
   }
+  /* the message keeps room for a few words, else the buttons go under it */
   .text {
-    flex: 1;
+    flex: 1 1 12rem;
     min-width: 0;
     overflow-wrap: anywhere;
   }
