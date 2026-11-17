@@ -260,6 +260,7 @@ restore = "Restore"
 restoreConfirm = "Go back to the note as it was on {when}, title and text? The note as it is now stays in its history."
 trash = "Move to trash"
 trashedElsewhere = "Moved to the trash on another device."
+keptAsNew = "This note was deleted while you wrote in it. Your text is kept in a new note."
 trashedOpen = "This note is in the trash. What you type is still saved in it."
 
 tags = "Tags"

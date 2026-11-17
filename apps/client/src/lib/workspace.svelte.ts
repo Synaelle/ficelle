@@ -335,6 +335,7 @@ class Workspace {
     // gone for good, or in the trash with nobody typing in it: it closes.
     // A note being typed in stays open, in the trash, and says so
     const typing = this.dirty || this.unsaved || Date.now() - this.editedAt < TYPING_MS
+    if (!fresh && typing) return this.keepAsNew()
     if (!fresh || (fresh.trashedAt && !this.current.trashedAt && !typing)) {
       clearTimeout(this.timer)
       this.pending = {}
@@ -428,10 +429,10 @@ class Workspace {
    * and opens the last one. Other files are skipped and reported.
    */
   async importFiles(files: File[]) {
-    if (!(await this.leave())) return
     const markdown = files.filter(isMarkdownFile)
     if (markdown.length < files.length) this.error = 'notMarkdown'
-    if (markdown.length === 0) return
+    // nothing to import: the open note stays open, so it must stay too
+    if (markdown.length === 0 || !(await this.leave())) return
     const scopeTags = this.scope.kind === 'tag' ? [this.tagName(this.scope.id)] : []
     try {
       let last: Note | null = null
@@ -524,16 +525,48 @@ class Workspace {
       await Promise.all([this.refreshNotes(), this.refreshConflicts()])
       if (change.title !== undefined) await this.refreshTags()
     } catch (err) {
-      // the edit is queued again, ahead of any typed since, and tried
-      // again; a note deleted meanwhile has nothing to save to
-      if (this.current?.id === note.id && !(isBackendError(err) && err.kind === 'notFound')) {
-        this.pending = { ...change, ...this.pending }
-        this.unsaved = true
-        clearTimeout(this.timer)
-        this.timer = setTimeout(() => void this.flush(), RETRY_DELAY_MS)
-      }
+      if (this.current?.id !== note.id) return this.report(err)
+      if (isBackendError(err) && err.kind === 'notFound') return this.keepAsNew()
+      // the edit is queued again, ahead of any typed since, and tried again
+      this.pending = { ...change, ...this.pending }
+      this.unsaved = true
+      clearTimeout(this.timer)
+      this.timer = setTimeout(() => void this.flush(), RETRY_DELAY_MS)
       this.report(err)
     }
+  }
+
+  /**
+   * The open note was deleted for good while it was being typed in, by a
+   * cleanup or on another device: what the editor holds becomes a new note
+   * instead of going with it.
+   */
+  private async keepAsNew() {
+    const note = this.current
+    if (!note) return
+    this.serializeEditor?.()
+    clearTimeout(this.timer)
+    this.pending = {}
+    this.editedSince = null
+    this.dirty = false
+    this.unsaved = false
+    if (!note.title.trim() && !note.body.trim()) {
+      this.show(null)
+      await this.refreshNotes()
+      return
+    }
+    const copy = { title: note.title, body: note.body, tags: [...note.tags], pinned: note.pinned }
+    let kept: Note
+    try {
+      kept = await backend.createNote({ ...copy, folderId: note.folderId })
+    } catch (err) {
+      // its folder went too
+      if (!isBackendError(err) || err.kind !== 'notFound') throw err
+      kept = await backend.createNote(copy)
+    }
+    this.show(kept)
+    toasts.push(kept.title.trim() || t('note.untitled'), t('note.keptAsNew'))
+    await this.refreshTagsAndNotes()
   }
 
   /** Stores an edit of the open note, in the trash too when another device

@@ -52,6 +52,20 @@ describe('blank notes', () => {
   })
 })
 
+describe('importing', () => {
+  it('a file that is not markdown leaves the open blank note as it is', async () => {
+    const blank = await create()
+    await workspace.importFiles([new File(['%PDF'], 'scan.pdf', { type: 'application/pdf' })])
+    expect(workspace.error).toBe('notMarkdown')
+    workspace.error = null
+    expect(workspace.current?.id).toBe(blank.id)
+    expect(await ids()).toContain(blank.id)
+    workspace.edit({ title: 'Boiler repair' })
+    await workspace.flush()
+    expect((await backend.getNote(blank.id)).title).toBe('Boiler repair')
+  })
+})
+
 describe('opening on the last note', () => {
   it('comes back to the note and the tag it was opened from', async () => {
     const note = await create({ title: 'Shopping', body: 'eggs' })
@@ -332,6 +346,24 @@ describe('changes from another device', () => {
       await backend.restoreNote(note.id)
       await workspace.remoteChanged()
       expect(workspace.current?.trashedAt).toBeNull()
+    }
+  })
+
+  it('a note deleted for good while typed in keeps the typing in a new note', async () => {
+    for (const sync of [false, true]) {
+      const note = await create({ title: 'Boiler', body: 'call' })
+      await workspace.setTags(['home'])
+      workspace.edit({ body: 'call on Monday' })
+      await backend.trashNote(note.id)
+      await backend.purgeNote(note.id)
+      // the save finds it gone, or the change from the other device comes first
+      if (sync) await workspace.remoteChanged()
+      else await workspace.flush()
+      const kept = workspace.current
+      expect(kept?.id).not.toBe(note.id)
+      expect(kept).toMatchObject({ title: 'Boiler', body: 'call on Monday', tags: ['home'] })
+      expect((await backend.getNote(kept?.id ?? '')).body).toBe('call on Monday')
+      expect(workspace.dirty).toBe(false)
     }
   })
 
