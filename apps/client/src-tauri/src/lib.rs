@@ -304,6 +304,10 @@ pub fn run() {
             windows::opened_file_write,
             windows::opened_file_take,
             windows::window_ready,
+            windows::window_note_set,
+            windows::note_window_focus,
+            windows::note_window_open,
+            windows::note_window_count,
             windows::main_window_show,
             windows::main_window_take_note,
         ])
@@ -312,12 +316,17 @@ pub fn run() {
         .run(opened);
 }
 
-/// A window closed: what it held is let go.
+/// A window closed: what it held is let go, and the note windows close with
+/// the main one.
 fn window_closed(window: &tauri::Window, event: &tauri::WindowEvent) {
     if !matches!(event, tauri::WindowEvent::Destroyed) {
         return;
     }
     window.state::<windows::Windows>().forget(window.label());
+    #[cfg(desktop)]
+    if window.label() == "main" {
+        windows::main_closed(window.app_handle());
+    }
 }
 
 /// macOS hands the files opened with the app as an event, not as arguments.

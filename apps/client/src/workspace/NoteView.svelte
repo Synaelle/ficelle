@@ -20,6 +20,7 @@
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
   import { displayBinding } from '../lib/shortcuts'
   import type { MenuItem } from '../lib/overlay.svelte'
+  import { noteWindowsSupported, windowKind } from '../lib/windows'
   import { workspace } from '../lib/workspace.svelte'
 
   let { narrow }: { narrow: boolean } = $props()
@@ -176,6 +177,9 @@
     if (!note) return
     const id = note.id
     const items: MenuItem[] = [
+      ...(noteWindowsSupported && windowKind().kind === 'main'
+        ? [{ label: t('menu.openInWindow'), run: () => void workspace.openInWindow(id) }, SEPARATOR]
+        : []),
       { label: t('note.history'), icon: 'history', run: () => void showHistory() },
       {
         label: t('note.tags'),

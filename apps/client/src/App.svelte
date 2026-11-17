@@ -3,7 +3,7 @@
      launch makes the notes, not encrypted, and goes straight to them. -->
 <script lang="ts">
   import { brand } from '@app/brand'
-  import { ANDROID, DESKTOP, LINUX, WEB } from './lib/platform'
+  import { ANDROID, LINUX, WEB } from './lib/platform'
   import FileWindow from './FileWindow.svelte'
   import { takeOpenedFiles } from './lib/inbox'
   import DevReport from './devreport/DevReport.svelte'
@@ -32,6 +32,11 @@
   import { workspace } from './lib/workspace.svelte'
   import {
     announceUnlocked,
+    flushNoteWindows,
+    followActivity,
+    noteWindowsSupported,
+    onChangedElsewhere,
+    onLocked,
     onNoteToOpen,
     onUnlockedElsewhere,
     takeNoteToOpen,
@@ -113,6 +118,7 @@
   async function lock() {
     closing = true
     await workspace.flush()
+    await flushNoteWindows()
     // long enough to see the notes go, short enough not to wait for it
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches)
       await new Promise((resolve) => setTimeout(resolve, 220))
@@ -129,8 +135,19 @@
     if (stage === 'ready') void announceUnlocked()
   }
 
-  // a file window unlocked the notes to import: they open here too
-  if (DESKTOP) {
+  // the other windows of the app: a note window's edits show in the lists,
+  // its typing keeps the auto-lock away, and every window locks and unlocks
+  // together
+  if (noteWindowsSupported) {
+    void onChangedElsewhere(() => {
+      if (stage === 'ready') void workspace.remoteChanged()
+    })
+    void followActivity()
+    void onLocked(async () => {
+      if (stage !== 'ready' || closing) return
+      status = await backend.vaultStatus()
+      if (!status.unlocked) stage = 'unlock'
+    })
     void onUnlockedElsewhere(async () => {
       if (stage !== 'unlock') return
       status = await backend.vaultStatus()

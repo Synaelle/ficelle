@@ -21,6 +21,7 @@ import { t } from './i18n.svelte'
 import { isMarkdownFile, parseMarkdownFile } from './importing'
 import { prefs } from './prefs.svelte'
 import { toasts } from './toast.svelte'
+import { focusNoteWindow, openNoteWindow, showingNote } from './windows'
 
 /** The notes with no tag: the view the app opens on, and the one it goes
  * back to when a filter is turned off or goes away. */
@@ -128,7 +129,7 @@ class Workspace {
     const id = prefs.lastNote
     if (!id || this.current) return
     const note = await backend.getNote(id).catch(() => null)
-    if (!note || note.trashedAt || this.current) return
+    if (!note || note.trashedAt || this.current || (await focusNoteWindow(id))) return
     this.show(note)
     await this.refreshConflicts()
   }
@@ -188,7 +189,7 @@ class Workspace {
   /** A search result picked: the list moves to where the note lives, its most
    * nested tag, or the notes with no tag. */
   async openFound(id: Id) {
-    if (!(await this.leave(id))) return
+    if ((await focusNoteWindow(id)) || !(await this.leave(id))) return
     const note = await backend.getNote(id)
     const deepest = note.tags
       .map((name) => this.tags.find((tag) => tagKey(tag.name) === tagKey(name)))
@@ -203,17 +204,47 @@ class Workspace {
   }
 
   async open(id: Id | null) {
+    // a note is open in one place: the window that has it comes forward
+    if (id && (await focusNoteWindow(id))) return
     if (!(await this.leave(id))) return
     this.show(id ? await backend.getNote(id) : null)
     await this.refreshConflicts()
   }
 
+  /** Moves a note to a window of its own: saved and closed here first, so
+   * it is never typed in two places. */
+  async openInWindow(id: Id) {
+    if (this.current?.id === id) {
+      if (!(await this.leave())) return
+      this.show(null)
+    }
+    const note = await backend.getNote(id)
+    await openNoteWindow(id, note.title.trim() || t('note.untitled'))
+  }
+
   private show(note: Note | null) {
+    showingNote(note?.id ?? null)
     prefs.lastNote = note?.id ?? null
     if (this.conflict?.noteId !== note?.id) this.conflict = null
     if (this.current?.id !== note?.id) this.editedAt = 0
     this.current = note
     this.base = note ? { title: note.title, body: note.body } : null
+  }
+
+  /** The notes locked: a note window lets go of what it showed, after its
+   * queued edit was saved (windows.ts). */
+  forget() {
+    clearTimeout(this.timer)
+    this.pending = {}
+    this.editedSince = null
+    this.dirty = false
+    this.unsaved = false
+    this.current = null
+    this.base = null
+    this.conflict = null
+    this.notes = []
+    this.tags = []
+    this.hits = null
   }
 
   /** Puts a new text of the open note in the editor, an older version

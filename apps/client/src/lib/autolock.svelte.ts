@@ -8,7 +8,8 @@
 import { prefs } from './prefs.svelte'
 
 const CHECK_AT_MOST_EVERY_MS = 60_000
-const ACTIVITY = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
+// app-activity: typing in a note window of its own (windows.ts)
+const ACTIVITY = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'app-activity'] as const
 
 /** Idle time in ms after which to lock, or null for never. */
 export function lockDelay(minutes: number): number | null {

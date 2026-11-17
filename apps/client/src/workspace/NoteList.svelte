@@ -17,6 +17,7 @@
   import { overlay, SEPARATOR } from '../lib/overlay.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import { UNFILED, workspace } from '../lib/workspace.svelte'
+  import { noteWindowsSupported } from '../lib/windows'
   import TagSheet from './TagSheet.svelte'
   import VirtualList from './VirtualList.svelte'
 
@@ -169,6 +170,9 @@
     overlay.openMenu(event, [
       // a phone opens a note with a tap, the menu only repeats it
       ...(narrow ? [] : [{ label: t('menu.open'), run: () => void workspace.open(note.id) }]),
+      ...(noteWindowsSupported
+        ? [{ label: t('menu.openInWindow'), run: () => void workspace.openInWindow(note.id) }]
+        : []),
       {
         label: note.pinned ? t('note.unpin') : t('note.pin'),
         icon: 'pin',
@@ -383,10 +387,15 @@
               data-note={note.id}
               class:selected={workspace.current?.id === note.id}
               aria-current={workspace.current?.id === note.id ? 'true' : undefined}
-              onclick={() => {
+              onclick={(e) => {
                 if (closingTap) closingTap = false
                 else if (swiped) swiped = null
+                else if (noteWindowsSupported && (e.ctrlKey || e.metaKey))
+                  void workspace.openInWindow(note.id)
                 else void workspace.open(note.id)
+              }}
+              onauxclick={(e) => {
+                if (noteWindowsSupported && e.button === 1) void workspace.openInWindow(note.id)
               }}
               oncontextmenu={(e) => noteMenu(e, note)}
               draggable={!trash}

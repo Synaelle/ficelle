@@ -15,6 +15,7 @@ import { followVisibleHeight } from './lib/uiSize'
 import { isQuickWindow } from './lib/quickNote'
 import QuickNote from './QuickNote.svelte'
 import FileWindow from './FileWindow.svelte'
+import NoteWindow from './NoteWindow.svelte'
 import { windowKind } from './lib/windows'
 import { isScoped } from './lib/webScope'
 import './styles/app.css'
@@ -37,11 +38,13 @@ const target = document.getElementById('app')
 if (!target) throw new Error('missing #app element in index.html')
 
 // the desktop's other windows load the same page: #quick for the quick note,
-// #file for a file opened with the app (desktop apps only: the phone and the
-// web have one window)
+// #file for a file opened with the app, #note=<id> for a note of its own
+// (desktop apps only: the phone and the web have one window)
 const kind = DESKTOP ? windowKind() : { kind: 'main' as const }
 export default DESKTOP && isQuickWindow()
   ? mount(QuickNote, { target })
   : kind.kind === 'file'
     ? mount(FileWindow, { target, props: { close: () => void getCurrentWindow().destroy() } })
-    : mount(App, { target })
+    : kind.kind === 'note'
+      ? mount(NoteWindow, { target, props: { id: kind.id } })
+      : mount(App, { target })

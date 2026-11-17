@@ -1,9 +1,9 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop",
-  "description": "Desktop only: the global shortcut and the quick note window it opens, Copy image, and the windows of opened files.",
+  "description": "Desktop only: the global shortcut and the quick note window it opens, Copy image, and the windows of opened files and notes.",
   "platforms": ["windows", "macOS", "linux"],
-  "windows": ["main", "quick", "file-*"],
+  "windows": ["main", "quick", "file-*", "note-*"],
   "permissions": [
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",

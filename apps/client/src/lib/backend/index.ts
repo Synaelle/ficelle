@@ -5,6 +5,7 @@
 // without the native shell; the server's admin page gets it empty.
 
 import { WEB } from '../platform'
+import { announcingInvoke } from '../windows'
 import type { Backend } from './backend'
 import { createMemoryBackend } from './memory'
 import { createTauriBackend } from './tauri'
@@ -22,7 +23,7 @@ const fresh =
   new URLSearchParams(location.search).has('fresh')
 
 export const backend: Backend = inTauri
-  ? createTauriBackend()
+  ? createTauriBackend(announcingInvoke)
   : WEB
     ? createWebBackend()
     : createMemoryBackend({ seed: import.meta.env.DEV && !fresh })

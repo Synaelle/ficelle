@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Windows beside the main one: a Markdown or text file opened with the app
-//! (`#file`).
+//! (`#file`), and a note in a window of its own (`#note=<id>`).
 //!
 //! A file window reads and writes only the file it was opened for: the page
 //! never names a path, the window's label does. It needs no unlocked vault,
 //! and nothing of the file reaches the vault unless the person imports it.
+//!
+//! A note is open in one place at a time. Every window says which note it
+//! shows, and opening that note elsewhere brings its window forward instead.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -28,6 +31,8 @@ struct Inner {
     /// The file each file window edits, by label: a path, or a `content://`
     /// address on Android.
     files: HashMap<String, String>,
+    /// The note each window shows, by label.
+    notes: HashMap<String, String>,
     /// A note imported from a file window, for the main window to open.
     to_open: Option<String>,
 }
@@ -39,9 +44,11 @@ impl Windows {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    /// A window closed: it holds no file any more.
+    /// A window closed: it holds no file and no note any more.
     pub fn forget(&self, label: &str) {
-        self.lock().files.remove(label);
+        let mut inner = self.lock();
+        inner.files.remove(label);
+        inner.notes.remove(label);
     }
 
     fn label(&self, kind: &str) -> String {
@@ -304,6 +311,92 @@ pub async fn window_ready<R: Runtime>(window: WebviewWindow<R>) -> CommandResult
     Ok(())
 }
 
+/// The note the calling window shows now, or none.
+#[tauri::command]
+pub async fn window_note_set<R: Runtime>(
+    window: WebviewWindow<R>,
+    windows: State<'_, Windows>,
+    id: Option<String>,
+) -> CommandResult<()> {
+    let mut inner = windows.lock();
+    match id {
+        Some(id) => inner.notes.insert(window.label().to_owned(), id),
+        None => inner.notes.remove(window.label()),
+    };
+    Ok(())
+}
+
+/// The window other than the caller's that shows a note.
+fn showing(windows: &Windows, id: &str, caller: &str) -> Option<String> {
+    windows
+        .lock()
+        .notes
+        .iter()
+        .find(|(label, note)| *note == id && *label != caller)
+        .map(|(label, _)| label.clone())
+}
+
+/// Brings forward the other window that shows a note. False when no other
+/// window shows it, and the caller may open it.
+#[tauri::command]
+pub async fn note_window_focus<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    windows: State<'_, Windows>,
+    id: String,
+) -> CommandResult<bool> {
+    let Some(other) = showing(&windows, &id, window.label()) else {
+        return Ok(false);
+    };
+    let Some(other) = app.get_webview_window(&other) else {
+        windows.forget(&other);
+        return Ok(false);
+    };
+    #[cfg(desktop)]
+    bring(&other);
+    Ok(true)
+}
+
+/// Opens a note in a window of its own, or brings forward the window that
+/// shows it. The caller leaves the note first.
+#[cfg(desktop)]
+#[tauri::command]
+pub async fn note_window_open<R: Runtime>(
+    app: AppHandle<R>,
+    window: WebviewWindow<R>,
+    windows: State<'_, Windows>,
+    id: String,
+    title: String,
+) -> CommandResult<()> {
+    let failed = |e: tauri::Error| CommandError::new("unknown", e.to_string());
+    if note_window_focus(app.clone(), window, windows.clone(), id.clone()).await? {
+        return Ok(());
+    }
+    // ids are uuids: nothing in one needs escaping in the address
+    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Err(CommandError::new("invalid", "not a note id"));
+    }
+    let label = windows.label("note");
+    windows.lock().notes.insert(label.clone(), id.clone());
+    let page = format!("index.html#note={id}");
+    if let Err(err) = self::window(&app, &label, &page, &title).build() {
+        windows.forget(&label);
+        return Err(failed(err));
+    }
+    Ok(())
+}
+
+/// Phones show one note at a time.
+#[cfg(mobile)]
+#[tauri::command]
+pub async fn note_window_open(id: String, title: String) -> CommandResult<()> {
+    drop((id, title));
+    Err(CommandError::new(
+        "unsupported",
+        "notes open in their own window on desktops only",
+    ))
+}
+
 /// Brings the main window forward on a note imported from a file: it takes
 /// the note with [`main_window_take_note`] once ready, when it was closed,
 /// or on the `note-to-open` event.
@@ -332,6 +425,27 @@ pub async fn main_window_show(windows: State<'_, Windows>, id: String) -> Comman
 #[tauri::command]
 pub async fn main_window_take_note(windows: State<'_, Windows>) -> CommandResult<Option<String>> {
     Ok(windows.lock().to_open.take())
+}
+
+/// How many note windows are open, which a lock waits for.
+#[tauri::command]
+pub async fn note_window_count<R: Runtime>(app: AppHandle<R>) -> CommandResult<usize> {
+    Ok(app
+        .webview_windows()
+        .keys()
+        .filter(|label| label.starts_with("note-"))
+        .count())
+}
+
+/// The main window closed: the note windows go with it, they are part of
+/// the notes it opened and its lock. File windows stay.
+#[cfg(desktop)]
+pub fn main_closed<R: Runtime>(app: &AppHandle<R>) {
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("note-") {
+            let _ = window.close();
+        }
+    }
 }
 
 #[cfg(test)]
@@ -369,5 +483,15 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "new");
         assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_note_shows_in_one_window() {
+        let windows = Windows::default();
+        windows.lock().notes.insert("main".into(), "n1".into());
+        assert_eq!(showing(&windows, "n1", "note-1").as_deref(), Some("main"));
+        assert_eq!(showing(&windows, "n1", "main"), None);
+        windows.forget("main");
+        assert_eq!(showing(&windows, "n1", "note-1"), None);
     }
 }

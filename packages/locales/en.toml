@@ -633,6 +633,7 @@ pretendBeta = "Pretend this is a beta release"
 
 [menu]
 open = "Open"
+openInWindow = "Open in new window"
 cut = "Cut"
 copy = "Copy"
 paste = "Paste"
