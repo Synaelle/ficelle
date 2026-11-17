@@ -81,6 +81,14 @@ jobs:
       signed: true
     secrets: inherit
 
+  # the same, without the updater, for F-Droid and IzzyOnDroid
+  android-store:
+    needs: draft
+    uses: ./.github/workflows/android.yml
+    with:
+      store: true
+    secrets: inherit
+
   # the web version, for the public demo the website serves: notes stay in
   # each visitor's browser, nothing runs on the server
   web:
@@ -128,11 +136,12 @@ jobs:
     secrets: inherit
 
   publish:
-    needs: [list, windows, linux, android, web, mac]
+    needs: [list, windows, linux, android, android-store, web, mac]
     if: >-
       ${{ !cancelled() && needs.list.result == 'success'
       && needs.windows.result == 'success' && needs.linux.result == 'success'
-      && needs.android.result == 'success' && needs.web.result == 'success' }}
+      && needs.android.result == 'success' && needs.android-store.result == 'success'
+      && needs.web.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -151,9 +160,10 @@ jobs:
           setup=$(find out -name '*-setup.exe' | head -1)
           portable=$(find out -name '*_portable.exe' | head -1)
           appimage=$(find out -name '*.AppImage' | head -1)
-          apk=$(find out -name '*.apk' | head -1)
+          apk=$(find out -name '*-android.apk' | head -1)
+          storeapk=$(find out -name '*-android-store.apk' | head -1)
           webzip=$(find out -name 'ficelle-web-*.zip' | head -1)
-          for file in "$setup" "$portable" "$appimage" "$apk" "$webzip"; do test -f "$file"; done
+          for file in "$setup" "$portable" "$appimage" "$apk" "$storeapk" "$webzip"; do test -f "$file"; done
           # the Mac app, when built: the .dmg to download, the archive it updates from
           mapfile -t dmgs < <(find out -name '*.dmg')
           macapp=$(find out -name '*.app.tar.gz' | head -1)
@@ -210,7 +220,7 @@ jobs:
             > latest.json
           cat latest.json
           # the signatures travel in latest.json, not on the release page
-          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$apk" "$webzip" "${dmgs[@]}" "${macfiles[@]}" latest.json --clobber
+          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$apk" "$storeapk" "$webzip" "${dmgs[@]}" "${macfiles[@]}" latest.json --clobber
           case "$TAG" in
             *-beta.*) gh release edit "$TAG" --draft=false --prerelease --latest=false ;;
             *) gh release edit "$TAG" --draft=false --latest ;;

@@ -7,7 +7,9 @@ name: android
 # TAURI_SIGNING_PRIVATE_KEY one too, and attaches it. A manual run builds the
 # APK of the chosen branch, or of `ref` (a released tag, to build its APK
 # again), kept as an artifact for a week, signed for the updater if asked.
-# nightly.yml calls it with a nightly's name and build number.
+# nightly.yml calls it with a nightly's name and build number. With `store`,
+# the APK for F-Droid and IzzyOnDroid, which update it: no updater and no
+# permission to install, named ficelle-<version>-android-store.apk.
 
 on:
   workflow_call:
@@ -22,6 +24,9 @@ on:
       build:
         type: string
         default: ''
+      store:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       ref:
@@ -30,6 +35,10 @@ on:
         default: ''
       signed:
         description: Signed for the app updater too
+        type: boolean
+        default: false
+      store:
+        description: The APK for F-Droid and IzzyOnDroid, with no updater
         type: boolean
         default: false
 
@@ -132,6 +141,7 @@ jobs:
           APP_RELEASE: '1'
           APP_NIGHTLY: ${{ inputs.nightly }}
           APP_BUILD: ${{ inputs.build }}
+          APP_STORE: ${{ inputs.store && '1' || '' }}
         run: pnpm --filter @app/client tauri android build --target aarch64 armv7 x86_64 --apk
 
       - name: name and updater signature
@@ -157,6 +167,14 @@ jobs:
           slug=$(jq -r .slug packages/brand/brand.json)
           mkdir -p out
           name="$slug-$version-android.apk"
+          if [ "${{ inputs.store }}" = true ]; then
+            # the stores refuse an APK that can install apps
+            if "$aapt2" dump permissions "$built" | grep -q REQUEST_INSTALL_PACKAGES; then
+              echo "::error::the store APK asks to install packages"
+              exit 1
+            fi
+            name="$slug-$version-android-store.apk"
+          fi
           cp "$built" "out/$name"
           echo "name=$name" >> "$GITHUB_OUTPUT"
           if [ "${{ inputs.signed }}" = true ]; then
@@ -172,6 +190,6 @@ jobs:
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: apk
+          name: ${{ inputs.store && 'apk-store' || 'apk' }}
           path: out/
           retention-days: 7
