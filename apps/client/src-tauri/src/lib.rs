@@ -19,6 +19,7 @@ mod portable;
 mod protocol;
 mod state;
 mod sync;
+mod windows;
 
 use tauri::Manager;
 
@@ -91,6 +92,11 @@ pub fn run() {
         .plugin(sync::local::plugin());
     #[cfg(mobile)]
     let builder = builder.plugin(tauri_plugin_haptics::init());
+    // first: a second launch hands its files to this one and stops there
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+        windows::launched_again(app, args, &cwd);
+    }));
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
     #[cfg(desktop)]
@@ -102,6 +108,8 @@ pub fn run() {
         .manage(commands::images::Dropped::default())
         .on_window_event(commands::images::remember_drop);
     builder
+        .manage(windows::Windows::default())
+        .on_window_event(window_closed)
         .plugin(own_pages())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -135,6 +143,18 @@ pub fn run() {
             // after manage: the thread reads the state from the handle
             app.state::<AppState>().sync.start(app.handle().clone());
             app.state::<sync::local::Local>().start(app.handle());
+            // started to open files: their windows only, nothing of the notes
+            #[cfg(desktop)]
+            {
+                let cwd = std::env::current_dir().unwrap_or_default();
+                let files = windows::files_in(std::env::args().skip(1), &cwd);
+                if files.is_empty() {
+                    portable::open_main(app.handle())?;
+                } else {
+                    windows::open_files(app.handle(), &files)?;
+                }
+            }
+            #[cfg(mobile)]
             portable::open_main(app.handle())?;
             #[cfg(target_os = "linux")]
             linux_desktop::save_on_term(app.handle());
@@ -280,10 +300,41 @@ pub fn run() {
             sync::local::local_sync_now,
             sync::local::local_sync_foreground,
             sync::local::local_sync_permission,
+            windows::opened_file_read,
+            windows::opened_file_write,
+            windows::opened_file_take,
+            windows::window_ready,
+            windows::main_window_show,
+            windows::main_window_take_note,
         ])
-        .run(context)
-        .expect("failed to start the app");
+        .build(context)
+        .expect("failed to start the app")
+        .run(opened);
 }
+
+/// A window closed: what it held is let go.
+fn window_closed(window: &tauri::Window, event: &tauri::WindowEvent) {
+    if !matches!(event, tauri::WindowEvent::Destroyed) {
+        return;
+    }
+    window.state::<windows::Windows>().forget(window.label());
+}
+
+/// macOS hands the files opened with the app as an event, not as arguments.
+#[cfg(target_os = "macos")]
+fn opened(app: &tauri::AppHandle, event: tauri::RunEvent) {
+    if let tauri::RunEvent::Opened { urls } = event {
+        let files: Vec<_> = urls
+            .iter()
+            .filter_map(|url| url.to_file_path().ok())
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect();
+        windows::launched_again(app, [String::new()].into_iter().chain(files).collect(), "/");
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn opened(_: &tauri::AppHandle, _: tauri::RunEvent) {}
 
 #[cfg(test)]
 mod tests {

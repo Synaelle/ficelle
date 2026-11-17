@@ -23,9 +23,22 @@ export type InboxItem =
 declare global {
   interface Window {
     /** Set by MainActivity on Android. */
-    AppInbox?: { take(): string }
+    AppInbox?: { take(): string; takeFiles(): string }
     /** Called by MainActivity when something arrives. */
     __appInbox?: () => void
+    /** Called by MainActivity when a file is opened with the app. */
+    __appFile?: () => void
+  }
+}
+
+/** The addresses of the files opened with the app ("open with"), waiting
+ * apart from the rest: they show even with the notes locked. */
+export function takeOpenedFiles(): string[] {
+  try {
+    const addresses: unknown = JSON.parse(window.AppInbox?.takeFiles() ?? '[]')
+    return Array.isArray(addresses) ? addresses.filter((a) => typeof a === 'string') : []
+  } catch {
+    return []
   }
 }
 

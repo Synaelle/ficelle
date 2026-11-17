@@ -80,3 +80,39 @@ export function parseMarkdownFile(fileName: string, text: string): ImportedNote 
   title ??= fileName.replace(MARKDOWN_FILE, '')
   return { title: title.trim(), body: body.replace(/^\n+/, ''), tags, pinned }
 }
+
+/** Characters markdown, or one of the editor's own marks, would read as
+ * formatting anywhere in a line. */
+const INLINE_MARKS = /[\\`*_[\]<>~|$=&]/g
+/** A line start markdown reads as a heading, list or block. */
+const LINE_START = /^(#|[-+]|:::)/
+/** A numbered list's start: the escape goes before its dot. */
+const NUMBER_START = /^(\d{1,9})([.)])/
+
+/**
+ * A plain text file as a note: the file's name is the title, and the
+ * markdown shows the text as it was written. Formatting characters are
+ * escaped, each line break stays one (a hard break) and indents become
+ * spaces that never start a code block. Runs of empty lines become one, as
+ * markdown keeps no more.
+ */
+export function parseTextFile(fileName: string, text: string): ImportedNote {
+  const line = (raw: string) => {
+    const indent = /^[ \t]*/.exec(raw)?.[0] ?? ''
+    const rest = raw
+      .slice(indent.length)
+      .replace(INLINE_MARKS, '\\$&')
+      .replace(LINE_START, '\\$1')
+      .replace(NUMBER_START, '$1\\$2')
+    return indent.replace(/\t/g, '    ').replace(/ /g, '\u00a0') + rest
+  }
+  const body = text
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n?/g, '\n')
+    .split(/\n[ \t]*\n\s*/)
+    .map((paragraph) => paragraph.replace(/\s+$/, ''))
+    .filter(Boolean)
+    .map((paragraph) => paragraph.split('\n').map(line).join('\\\n'))
+    .join('\n\n')
+  return { title: fileName.replace(/\.txt$/i, '').trim(), body, tags: [], pinned: false }
+}

@@ -1,10 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions of the app windows: main and the desktop quick note. Keep this list as short as possible.",
+  "description": "Permissions of the app windows: main, the desktop quick note and opened files. Keep this list as short as possible.",
   "windows": [
     "main",
-    "quick"
+    "quick",
+    "file-*"
   ],
   "permissions": [
     "core:default",

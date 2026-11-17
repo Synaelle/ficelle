@@ -520,6 +520,17 @@ opml = "Export as OPML from Workflowy, Dynalist or another outliner. Each .opml 
 tomboy = "Tomboy and Gnote keep each note as a .note file in their data folder (~/.local/share/tomboy or gnote). Choose that folder: notebooks become folders."
 html = "Any folder of HTML pages, or a zip of one (Zoho Notebook, Nimbus, Trilium, saved pages). Links between pages, pictures and files beside them are kept."
 
+[file]
+import = "Import into {app}"
+imported = "Added to your notes as “{title}”."
+openInApp = "Open in {app}"
+changedOnDisk = "Another app changed this file since it was opened."
+reload = "Reload"
+keepMine = "Keep my text"
+notSaved = "Not saved, the file could not be written."
+readOnly = "This file can only be read here. Import it to keep your changes."
+failed = "This file could not be opened."
+
 [quick]
 title = "Quick note"
 titlePlaceholder = "Title"

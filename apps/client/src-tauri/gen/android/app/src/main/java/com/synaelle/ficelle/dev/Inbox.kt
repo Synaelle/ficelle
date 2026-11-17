@@ -29,6 +29,13 @@ class Inbox(private val activity: Activity) {
   /** Tells the page something arrived, set once the webview exists. */
   var onArrival: (() -> Unit)? = null
 
+  // Files opened with the app ("open with"), kept apart: the page shows them
+  // even with the notes locked, and reads them in place, never copied in.
+  private val files = JSONArray()
+
+  /** Tells the page a file to open arrived. */
+  var onFile: (() -> Unit)? = null
+
   private val newNote = "${activity.packageName}.NEW_NOTE"
   private val search = "${activity.packageName}.SEARCH"
   private val openNote = "${activity.packageName}.OPEN_NOTE"
@@ -36,6 +43,10 @@ class Inbox(private val activity: Activity) {
   fun receive(intent: Intent?) {
     when (intent?.action) {
       Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> share(intent)
+      Intent.ACTION_VIEW -> intent.data?.takeIf { foreign(it) }?.let { uri ->
+        synchronized(files) { files.put(uri.toString()) }
+        activity.runOnUiThread { onFile?.invoke() }
+      }
       newNote -> add(JSONObject().put("kind", "newNote"))
       search -> add(JSONObject().put("kind", "search"))
       openNote -> intent.getStringExtra("noteId")?.let {
@@ -49,6 +60,14 @@ class Inbox(private val activity: Activity) {
   fun take(): String = synchronized(items) {
     val out = items.toString()
     while (items.length() > 0) items.remove(0)
+    out
+  }
+
+  /** The addresses of the files waiting to open, as a json array, and forgets them. */
+  @JavascriptInterface
+  fun takeFiles(): String = synchronized(files) {
+    val out = files.toString()
+    while (files.length() > 0) files.remove(0)
     out
   }
 

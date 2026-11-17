@@ -44,6 +44,8 @@ export default defineConfig(({ mode }) => ({
     __APP_WEB__: JSON.stringify(mode === 'web'),
   },
   resolve: {
+    // components mount in the tests (FileWindow.test.ts): svelte's browser build
+    ...(process.env.VITEST ? { conditions: ['browser'] } : {}),
     alias: {
       // the notes core, built for the web version alone (tools/wasm.mjs
       // --core), a stand-in elsewhere

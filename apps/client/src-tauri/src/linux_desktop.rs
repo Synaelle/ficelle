@@ -98,7 +98,7 @@ fn data_home() -> Option<PathBuf> {
 
 fn desktop_entry(appimage: &Path) -> String {
     format!(
-        "[Desktop Entry]\nType=Application\nName={name}\nExec={exec}\nIcon={id}\nStartupWMClass={id}\nTerminal=false\nCategories=Office;Utility;\n",
+        "[Desktop Entry]\nType=Application\nName={name}\nExec={exec} %F\nIcon={id}\nStartupWMClass={id}\nTerminal=false\nCategories=Office;Utility;\nMimeType=text/markdown;text/x-markdown;text/plain;\n",
         name = app_brand::DISPLAY_NAME,
         exec = quote_exec(&appimage.to_string_lossy()),
         id = app_brand::IDENTIFIER,

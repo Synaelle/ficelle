@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest'
-import { isMarkdownFile, parseMarkdownFile } from './importing'
+import { isMarkdownFile, parseMarkdownFile, parseTextFile } from './importing'
 
 describe('isMarkdownFile', () => {
   it('accepts the usual markdown extensions only', () => {
@@ -77,5 +77,20 @@ describe('parseMarkdownFile', () => {
       tags: [],
       pinned: false,
     })
+  })
+})
+
+describe('parseTextFile', () => {
+  it('names the note after the file and keeps the text as written', () => {
+    const note = parseTextFile('Shopping list.txt', '# not a heading\n- not a list\n1. still text')
+    expect(note.title).toBe('Shopping list')
+    expect(note.body).toBe('\\# not a heading\\\n\\- not a list\\\n1\\. still text')
+  })
+
+  it('escapes formatting and keeps indents and line breaks', () => {
+    const note = parseTextFile('a.txt', 'a *b* [[c]] <d>\r\n    indented\n\n\n\nnext')
+    expect(note.body).toBe(
+      'a \\*b\\* \\[\\[c\\]\\] \\<d\\>\\\n\u00a0\u00a0\u00a0\u00a0indented\n\nnext',
+    )
   })
 })

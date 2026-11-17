@@ -50,6 +50,9 @@ rqrr = { version = "0.11.0", default-features = false }
 # the quick note window opens from a shortcut that works in any app
 [target.'cfg(not(target_os = "android"))'.dependencies]
 tauri-plugin-global-shortcut = "2.4.1"
+# a second launch, a file opened with the app, goes to the running one: one
+# process holds the notes
+tauri-plugin-single-instance = "2.5.5"
 # encodes a picture pasted from the clipboard, and the AppImage's icon on Linux
 png = "0.18.1"
 

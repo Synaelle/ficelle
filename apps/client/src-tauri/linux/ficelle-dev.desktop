@@ -1,8 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name={{name}}
-Exec={{exec}}
+Exec={{exec}} %F
 Icon={{icon}}
 StartupWMClass=com.synaelle.ficelle.dev
 Terminal=false
 Categories=Office;Utility;
+MimeType=text/markdown;text/x-markdown;text/plain;

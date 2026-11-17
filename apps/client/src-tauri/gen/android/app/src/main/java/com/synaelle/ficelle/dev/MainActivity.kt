@@ -48,6 +48,7 @@ class MainActivity : TauriActivity() {
     // from the same setting (lib/uiSize.ts).
     webView.settings.textZoom = 100
     inbox.onArrival = { webView.evaluateJavascript("window.__appInbox?.()", null) }
+    inbox.onFile = { webView.evaluateJavascript("window.__appFile?.()", null) }
     onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
       override fun handleOnBackPressed() {
         webView.evaluateJavascript("window.__appBack?.() ?? false") { handled ->

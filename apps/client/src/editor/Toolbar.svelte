@@ -17,7 +17,13 @@
     tick,
     onlink,
     onimage,
-  }: { editor: Editor; tick: number; onlink: () => void; onimage: () => void } = $props()
+  }: {
+    editor: Editor
+    tick: number
+    onlink: () => void
+    /** None for a file outside the notes, which keeps no pictures. */
+    onimage?: () => void
+  } = $props()
 
   interface Tool {
     icon: IconName
@@ -112,11 +118,15 @@
       // a table holds no table, a Markdown file could not keep it
       disabled: () => editor.isActive('table'),
     },
-    { icon: 'image', label: () => t('editor.image'), run: () => onimage() },
+    { icon: 'image', label: () => t('editor.image'), run: () => onimage?.() },
   ]
 
   /** The buttons not hidden in the settings. */
-  const kept = $derived(tools.filter((tool) => !prefs.hiddenTools.includes(tool.icon)))
+  const kept = $derived(
+    tools.filter(
+      (tool) => !prefs.hiddenTools.includes(tool.icon) && (tool.icon !== 'image' || onimage),
+    ),
+  )
   const shown = $derived(TOUCH ? kept.filter((tool) => tool.quick) : kept)
 
   function more() {

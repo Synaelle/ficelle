@@ -4,6 +4,7 @@
 // (the web build keeps modules in this order, see vite.config.ts)
 import './lib/webStorage'
 import { brand } from '@app/brand'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { mount } from 'svelte'
 import App from './App.svelte'
 import { setLocale, systemLocale } from './lib/i18n.svelte'
@@ -13,6 +14,8 @@ import { followScrollbars } from './lib/scrollbars'
 import { followVisibleHeight } from './lib/uiSize'
 import { isQuickWindow } from './lib/quickNote'
 import QuickNote from './QuickNote.svelte'
+import FileWindow from './FileWindow.svelte'
+import { windowKind } from './lib/windows'
 import { isScoped } from './lib/webScope'
 import './styles/app.css'
 
@@ -33,6 +36,12 @@ await setLocale(prefs.language ?? systemLocale())
 const target = document.getElementById('app')
 if (!target) throw new Error('missing #app element in index.html')
 
-// the desktop quick note window loads the same page with #quick
-// (desktop apps only: the phone and the web leave the quick note out)
-export default mount(DESKTOP && isQuickWindow() ? QuickNote : App, { target })
+// the desktop's other windows load the same page: #quick for the quick note,
+// #file for a file opened with the app (desktop apps only: the phone and the
+// web have one window)
+const kind = DESKTOP ? windowKind() : { kind: 'main' as const }
+export default DESKTOP && isQuickWindow()
+  ? mount(QuickNote, { target })
+  : kind.kind === 'file'
+    ? mount(FileWindow, { target, props: { close: () => void getCurrentWindow().destroy() } })
+    : mount(App, { target })

@@ -45,6 +45,7 @@
     onchange,
     onpending,
     onopenlink,
+    loose = false,
   }: {
     noteId: string
     markdown: string
@@ -53,6 +54,9 @@
      * (false): the header says Saving from the first key. */
     onpending?: (pending: boolean) => void
     onopenlink: (title: string, heading: string | null) => Promise<boolean>
+    /** A file opened with the app, outside the notes: nothing here reads or
+     * writes the notes (no attachments, no links to notes). */
+    loose?: boolean
   } = $props()
 
   /** Idle time before the document is turned back into markdown. */
@@ -132,6 +136,7 @@
   }
 
   async function lookAgain() {
+    if (loose) return
     version += 1
     for (const file of await backend.attachmentFiles(noteId)) remember(file)
     window.dispatchEvent(new Event(ATTACHMENTS_CHANGED))
@@ -484,7 +489,7 @@
 
   /** The clipboard's images read by the app; its text when it holds none. */
   async function pasteFromSystem(text: string) {
-    const found = await backend.clipboardImages().catch(() => [])
+    const found = loose ? [] : await backend.clipboardImages().catch(() => [])
     if (found.length === 0) {
       if (text) editor?.chain().focus().insertContent(text).run()
       return
@@ -498,6 +503,7 @@
   }
 
   async function insertFiles(chosen: File[], at?: number, mention = true) {
+    if (loose) return
     const policy = (await backend.filesInfo().catch(() => null))?.policy
     for (const picked of chosen) {
       try {
@@ -527,6 +533,7 @@
 
   /** Notes for [[query, or headings of a note for [[Note#query. */
   async function suggestLinks(query: string) {
+    if (loose) return []
     const hash = query.indexOf('#')
     if (hash < 0) {
       const notes = await backend.linkSuggestions(query, 8)
@@ -608,7 +615,7 @@
   const resized = new ResizeObserver(() => (tick += 1))
   onMount(async () => {
     resized.observe(element)
-    if (backend.native && !MOBILE)
+    if (backend.native && !MOBILE && !loose)
       void getCurrentWebview()
         .onDragDropEvent(({ payload }) => {
           if (payload.type !== 'drop') return
@@ -617,7 +624,7 @@
           void dropFromSystem(payload.position.x / scale, payload.position.y / scale)
         })
         .then((stop) => (destroyed ? stop() : (stopDrops = stop)))
-    for (const file of await backend.attachmentFiles(noteId)) remember(file)
+    if (!loose) for (const file of await backend.attachmentFiles(noteId)) remember(file)
     window.addEventListener(FILES_CHANGED, lookAgain)
     if (TOUCH) window.addEventListener('resize', keepCaret)
     editor = new Editor({
@@ -745,7 +752,7 @@
           // a link to a heading of this same note only scrolls
           if (!target && heading) return (scrollToHeading(heading), true)
           void onopenlink(target, heading).then((found) => {
-            if (found) return
+            if (found || loose) return
             void overlay
               .ask(t('editor.createLinked', { title: target }), { confirmLabel: t('menu.create') })
               .then((yes) => {
@@ -890,7 +897,12 @@
 
 <div class="editor">
   {#if editor}
-    <Toolbar {editor} {tick} onlink={promptLink} onimage={() => fileInput.click()} />
+    <Toolbar
+      {editor}
+      {tick}
+      onlink={promptLink}
+      onimage={loose ? undefined : () => fileInput.click()}
+    />
   {/if}
   <div class="surface" bind:this={element} oncontextmenu={editorMenu} role="presentation">
     {#if selectedImage && editor}

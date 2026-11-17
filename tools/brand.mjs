@@ -186,11 +186,12 @@ function tauriIdentity(conf, values) {
 const desktopEntry = (values) => `[Desktop Entry]
 Type=Application
 Name={{name}}
-Exec={{exec}}
+Exec={{exec}} %F
 Icon={{icon}}
 StartupWMClass=${values.identifier}
 Terminal=false
 Categories=Office;Utility;
+MimeType=text/markdown;text/x-markdown;text/plain;
 `
 
 /** @param {{ slug: string }} values */

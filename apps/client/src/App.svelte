@@ -3,7 +3,9 @@
      launch makes the notes, not encrypted, and goes straight to them. -->
 <script lang="ts">
   import { brand } from '@app/brand'
-  import { LINUX, WEB } from './lib/platform'
+  import { ANDROID, DESKTOP, LINUX, WEB } from './lib/platform'
+  import FileWindow from './FileWindow.svelte'
+  import { takeOpenedFiles } from './lib/inbox'
   import DevReport from './devreport/DevReport.svelte'
   import BetaFeedback from './lib/BetaFeedback.svelte'
   import WebWelcome from './lib/WebWelcome.svelte'
@@ -28,6 +30,13 @@
   import { applyTheme } from './lib/theme.svelte'
   import { applyUiSize } from './lib/uiSize'
   import { workspace } from './lib/workspace.svelte'
+  import {
+    announceUnlocked,
+    onNoteToOpen,
+    onUnlockedElsewhere,
+    takeNoteToOpen,
+    takeOpenedFile,
+  } from './lib/windows'
   import Setup from './screens/Setup.svelte'
   import Unlock from './screens/Unlock.svelte'
   import Workspace from './workspace/Workspace.svelte'
@@ -117,6 +126,16 @@
   async function ready() {
     status = await backend.vaultStatus()
     stage = needsPassword(status) ? 'upgrade' : 'ready'
+    if (stage === 'ready') void announceUnlocked()
+  }
+
+  // a file window unlocked the notes to import: they open here too
+  if (DESKTOP) {
+    void onUnlockedElsewhere(async () => {
+      if (stage !== 'unlock') return
+      status = await backend.vaultStatus()
+      if (status.unlocked) await ready()
+    })
   }
 
   // every vault asks for something now; only the browser's test vault and an
@@ -127,6 +146,39 @@
   $effect(() => {
     if (lockable) autoLock(() => void lock())
   })
+  // a file imported in its own window: its note opens here once the notes do
+  async function openImported() {
+    if (stage !== 'ready') return
+    const id = await takeNoteToOpen().catch(() => null)
+    if (id) await workspace.open(id)
+  }
+  $effect(() => {
+    if (stage === 'ready' && backend.native) void openImported()
+  })
+  if (backend.native) void onNoteToOpen(() => void openImported())
+
+  /** Android: a file opened with the app shows over every screen, the lock
+   * screen too, which stays locked under it. Grows for each file. */
+  let openedFile = $state(0)
+  async function openFile() {
+    const address = takeOpenedFiles().at(-1)
+    if (!address) return
+    if (stage === 'ready') await workspace.flush()
+    await takeOpenedFile(address)
+    openedFile += 1
+  }
+  /** Back from the file: an import there may have unlocked the notes, and
+   * asked for its note to open. */
+  async function closeFile() {
+    openedFile = 0
+    if (stage === 'unlock' && (await backend.vaultStatus()).unlocked) await ready()
+    await openImported()
+  }
+  if (ANDROID) {
+    window.__appFile = () => void openFile()
+    void openFile()
+  }
+
   // updates download while the notes are open, never on the lock screen
   $effect(() => {
     appUpdates.shown = stage === 'ready'
@@ -184,6 +236,12 @@
   {#if WEB && !prefs.webWelcomed}<WebWelcome />{/if}
 {/if}
 
+{#if openedFile}
+  {#key openedFile}
+    <div class="opened-file"><FileWindow close={closeFile} /></div>
+  {/key}
+{/if}
+
 <Overlays />
 <Toasts />
 <CriticalUpdate />
@@ -239,6 +297,11 @@
   }
   .notes {
     height: 100%;
+  }
+  .opened-file {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
   }
   /* the setup's password step over everything, the settings included */
   .encrypting {

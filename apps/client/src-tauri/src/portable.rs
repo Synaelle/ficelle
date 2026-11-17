@@ -41,12 +41,10 @@ fn beside_exe() -> Option<PathBuf> {
     Some(dir)
 }
 
-/// The main window, which the portable overlay leaves to the code: its
-/// config is used as is, with the webview's folder next to the exe.
+/// The main window, which the config leaves to the code: a launch that
+/// opens files shows their windows alone. Its config is used as is, with
+/// the webview's folder next to the exe when portable.
 pub fn open_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
-    let Some(webview) = webview_dir(app) else {
-        return Ok(());
-    };
     let Some(config) = app
         .config()
         .app
@@ -56,8 +54,10 @@ pub fn open_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     else {
         return Ok(());
     };
-    tauri::WebviewWindowBuilder::from_config(app, config)?
-        .data_directory(webview)
-        .build()?;
+    let mut builder = tauri::WebviewWindowBuilder::from_config(app, config)?;
+    if let Some(webview) = webview_dir(app) {
+        builder = builder.data_directory(webview);
+    }
+    builder.build()?;
     Ok(())
 }
