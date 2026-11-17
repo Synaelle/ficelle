@@ -205,6 +205,27 @@ class SystemInfo(private val activity: Activity) {
  * them to allow installs from this app.
  */
 class Installer(private val activity: Activity) {
+  /**
+   * Whether an app store installed this app, or last updated it: F-Droid,
+   * the apps that read F-Droid repositories, Obtainium. That store updates
+   * it, so the app's own updater stays out of the way. Installed from a
+   * browser or a file manager, the system's installer is named, or nobody.
+   */
+  @JavascriptInterface
+  fun fromStore(): Boolean {
+    val installer = try {
+      if (Build.VERSION.SDK_INT >= 30) {
+        activity.packageManager.getInstallSourceInfo(activity.packageName).installingPackageName
+      } else {
+        @Suppress("DEPRECATION")
+        activity.packageManager.getInstallerPackageName(activity.packageName)
+      }
+    } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+      null
+    }
+    return installer in STORES
+  }
+
   @JavascriptInterface
   fun install(): Boolean {
     val apk = File(activity.cacheDir, "updates")
@@ -303,3 +324,14 @@ class Installer(private val activity: Activity) {
   @JavascriptInterface
   fun backupsKept(): Boolean = Build.VERSION.SDK_INT >= 30
 }
+
+/** The stores that update the app themselves, see [Installer.fromStore]. */
+private val STORES = setOf(
+  "org.fdroid.fdroid",
+  "org.fdroid.basic",
+  "org.fdroid.fdroid.privileged",
+  "com.looker.droidify",
+  "com.machiav3lli.fdroid",
+  "dev.imranr.obtainium",
+  "dev.imranr.obtainium.fdroid",
+)

@@ -33,6 +33,8 @@ declare global {
       uninstall?(): boolean
       /** Backups stay when the app is uninstalled (Android 11 and later). */
       backupsKept?(): boolean
+      /** An app store installed this app, or last updated it. */
+      fromStore?(): boolean
     }
   }
 }
@@ -70,19 +72,25 @@ const pretend = import.meta.env.DEV ? new URLSearchParams(location.search) : nul
 /** This build's version, a beta's when Test tools pretend it is one. */
 export const thisVersion = pretendRelease ? '0.4.0-beta.1' : __APP_VERSION__
 
+/** An app store installed this APK, or last updated it (F-Droid, the apps
+ * that read F-Droid repositories, Obtainium), see MainActivity.kt: it
+ * updates it. */
+const fromStore = ANDROID && (window.AppInstaller?.fromStore?.() ?? false)
+
 /** Only numbered releases of the apps update themselves, betas included.
  * Dev and preview builds don't (unless they pretend, with nothing
  * downloaded), nor the web version, which is always the one served, nor the
- * APK for F-Droid, which updates it. */
+ * APK F-Droid builds, nor one a store installed: the store updates those. */
 export const updatesHere =
   (PLATFORM !== 'web' &&
     !__APP_STORE__ &&
+    !fromStore &&
     (/^\d+\.\d+\.\d+(-beta\.\d+)?$/.test(thisVersion) || NIGHTLY.test(thisVersion))) ||
   !!pretend?.has('updates')
 
 /** Stable or Nightly can be chosen: nightlies are built for Linux and
  * Android only. A Linux package, which its store updates, hides it too. */
-export const channelChoice = (ANDROID || LINUX) && !isMacApp
+export const channelChoice = (ANDROID || LINUX) && !isMacApp && !fromStore
 
 /** System notifications can be turned on: not on a Mac, not in the portable
  * exe, which has no installed identity for Windows to show them under. */
