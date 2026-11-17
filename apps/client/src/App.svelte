@@ -49,6 +49,11 @@
   $effect(() => void setLocale(prefs.language ?? systemLocale()))
   $effect(() => applyUiSize(prefs.uiSize))
   $effect(() => applyDyslexicFont(prefs.dyslexicFont))
+  // dev and preview builds: text thickened to match another system by eye
+  $effect(() => {
+    if (__APP_DEV_TOOLS__)
+      document.documentElement.style.setProperty('--text-stroke', `${prefs.textStroke}px`)
+  })
   $effect(() => void applyQuickShortcut(prefs.quickNoteShortcut))
 
   async function start() {

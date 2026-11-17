@@ -61,6 +61,17 @@
   <Row label={t('testTools.screenshot')}>
     <Switch label={t('testTools.screenshot')} bind:checked={prefs.reportScreenshot} />
   </Row>
+  <Row label={t('testTools.textStroke')}>
+    <input
+      type="range"
+      min="0"
+      max="0.6"
+      step="0.05"
+      aria-label={t('testTools.textStroke')}
+      bind:value={prefs.textStroke}
+    />
+    <span class="stroke">{prefs.textStroke.toFixed(2)} px</span>
+  </Row>
   <Row label={t('testTools.pretendBeta')}>
     <Switch
       label={t('testTools.pretendBeta')}
@@ -92,5 +103,10 @@
     color: var(--color-text-muted);
     font-family: var(--font-ui);
     font-size: 12px;
+  }
+  .stroke {
+    min-width: 4.5em;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
   }
 </style>
