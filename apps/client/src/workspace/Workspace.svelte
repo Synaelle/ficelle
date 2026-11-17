@@ -18,7 +18,8 @@
   import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
-  import { DESKTOP, HANDHELD, WEB } from '../lib/platform'
+  import { listen } from '@tauri-apps/api/event'
+  import { DESKTOP, HANDHELD, LINUX, WEB } from '../lib/platform'
   import { askToKeep, backupDue } from '../lib/webBackups'
   import { onHandOver } from '../lib/backend/web'
   import { toasts } from '../lib/toast.svelte'
@@ -194,10 +195,13 @@
     window.addEventListener('beforeunload', save)
     document.addEventListener('visibilitychange', hidden)
     const unlisten = DESKTOP ? getCurrentWindow().onCloseRequested(() => workspace.flush()) : null
+    // a logout or shutdown, see save_on_term
+    const ending = LINUX && !WEB ? listen('app-ending', save) : null
     return () => {
       window.removeEventListener('beforeunload', save)
       document.removeEventListener('visibilitychange', hidden)
       void unlisten?.then((stop) => stop())
+      void ending?.then((stop) => stop())
     }
   })
 </script>

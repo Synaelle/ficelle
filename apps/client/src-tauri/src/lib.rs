@@ -136,6 +136,8 @@ pub fn run() {
             app.state::<AppState>().sync.start(app.handle().clone());
             app.state::<sync::local::Local>().start(app.handle());
             portable::open_main(app.handle())?;
+            #[cfg(target_os = "linux")]
+            linux_desktop::save_on_term(app.handle());
             // the version after the name in the title bar
             #[cfg(desktop)]
             if let Some(main) = app.get_webview_window("main")

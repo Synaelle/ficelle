@@ -7,13 +7,28 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
+use tauri::Emitter;
 use tauri::image::Image;
 
 /// Before GTK starts: the program name, and so the Wayland app id and the X11
 /// window class, is the app's identifier.
 pub fn set_app_id() {
     gtk::glib::set_prgname(Some(app_brand::IDENTIFIER));
+}
+
+/// A logout or a shutdown ends the app with SIGTERM: the window saves the
+/// keys typed last first, still waiting out the editor's pause, then the
+/// app ends. Saving takes milliseconds, the wait is for a busy machine.
+pub fn save_on_term(app: &tauri::AppHandle) {
+    let app = app.clone();
+    gtk::glib::unix_signal_add_local(15, move || {
+        let _ = app.emit("app-ending", ());
+        let app = app.clone();
+        gtk::glib::timeout_add_local_once(Duration::from_millis(1500), move || app.exit(0));
+        gtk::glib::ControlFlow::Break
+    });
 }
 
 /// When running as an AppImage, its desktop entry and icon, written again
