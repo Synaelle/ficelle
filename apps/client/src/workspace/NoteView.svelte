@@ -74,6 +74,51 @@
     }
     requestAnimationFrame(keep)
   })
+  // A mouse selecting text past the top or bottom of the note scrolls it,
+  // faster the further the pointer goes: the web view's own scrolling there
+  // crawls on Linux. A finger selects with the system's handles instead.
+  $effect(() => {
+    const box = scroller
+    if (!box) return
+    let pointerY: number | null = null
+    let frame = 0
+    const EDGE = 24
+    const step = () => {
+      frame = 0
+      if (pointerY === null) return
+      const area = box.getBoundingClientRect()
+      const past =
+        pointerY < area.top + EDGE
+          ? pointerY - (area.top + EDGE)
+          : pointerY > area.bottom - EDGE
+            ? pointerY - (area.bottom - EDGE)
+            : 0
+      if (past === 0) return
+      box.scrollTop += Math.sign(past) * Math.min(48, 2 + Math.abs(past) / 2)
+      frame = requestAnimationFrame(step)
+    }
+    const move = (e: PointerEvent) => {
+      pointerY = e.clientY
+      if (!frame) frame = requestAnimationFrame(step)
+    }
+    const stop = () => {
+      pointerY = null
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+    }
+    const start = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return
+      if (!(e.target as HTMLElement).closest('.ProseMirror, textarea')) return
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', stop)
+    }
+    box.addEventListener('pointerdown', start)
+    return () => {
+      stop()
+      cancelAnimationFrame(frame)
+      box.removeEventListener('pointerdown', start)
+    }
+  })
   let backlinks: NoteSummary[] = $state([])
   let versions: NoteVersion[] | null = $state(null)
   const historyShown = $derived(versions !== null)
