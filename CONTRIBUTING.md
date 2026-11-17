@@ -49,7 +49,7 @@ New features need to be discussed first in [Discussions](../../discussions). Fic
 
 To report a security problem, use [Report a vulnerability](../../security/advisories/new) instead of a public issue.
 
-[Building Ficelle](docs/building.md) explains how to build and run the app. Before opening a pull request, run `pnpm lint`, `cargo clippy --workspace --all-targets -- -D warnings` and the tests.
+[Building Ficelle](docs/building.md) explains how to build and run the app. Before opening a pull request, run `pnpm lint`, `pnpm lint:rust` and `pnpm test`.
 
 ### Wanted most, iOS and macOS
 

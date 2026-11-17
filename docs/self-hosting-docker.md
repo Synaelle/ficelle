@@ -26,7 +26,7 @@ docker compose up -d
 curl http://127.0.0.1:8080/health   # ok
 ```
 
-`compose.yml` follows the current release series, publishes on `127.0.0.1` only and runs unprivileged on a read-only system. The server makes its own secrets on first start, inside the volume.
+`compose.yml` follows the current release series, publishes on `127.0.0.1` only and runs unprivileged on a read-only system. The server makes its own secrets on first start, inside the volume. Under a path, the health check is under it too, as in `curl http://127.0.0.1:8080/notes/health`.
 
 ## Reverse proxy
 
@@ -51,7 +51,7 @@ curl -fsSLO https://raw.githubusercontent.com/Synaelle/ficelle/main/deploy/updat
 sudo bash install-server-update /opt/ficelle
 ```
 
-This installs a nightly timer that pulls the newer image of the series, copies the data first and rolls back if the new version is not healthy. It checks the image's signature with cosign, and does not update until cosign is installed, unless `ALLOW_UNSIGNED=1` is set for the service. A new series (0.3 to 0.4) means changing the tag in `compose.yml` after reading the release notes.
+This installs a timer that runs each night, pulls the newer image of the series the tag in `compose.yml` names, copies the data first and rolls back if the new version is not healthy. It checks the image's signature with cosign, and does not update until cosign is installed, unless `ALLOW_UNSIGNED=1` is set for the service. A new series (0.3 to 0.4) means changing the tag in `compose.yml` after reading the release notes. The image is also tagged `latest`, which crosses series, and `nightly`, the code of main each night.
 
 ## Backups
 
@@ -63,8 +63,8 @@ Set them up on the admin page, under Backups: S3, WebDAV, SFTP or a folder, encr
 docker compose exec server ficelle-server admin reset YOUR_NAME
 ```
 
-It prints a new password, removes the second steps and signs out every device.
+It prints a new password, removes the second steps, lifts the sign-in lock and signs out every device. An end-to-end encrypted admin cannot be reset, only its recovery code opens it.
 
 ## Configuration
 
-Settings live in `ficelle.toml` or in environment variables, `FICELLE_SECTION__KEY`, with `_FILE` at the end to read a value from a file. Every key and its default is described in [`apps/server/src/config.rs`](../apps/server/src/config.rs).
+Settings live in environment variables in `compose.yml`, `FICELLE_SECTION__KEY`, with `_FILE` at the end to read a value from a file. Passwords and secrets are refused as plain variables, give them with `_FILE`. Every key and its default is described in [`apps/server/src/config.rs`](../apps/server/src/config.rs).

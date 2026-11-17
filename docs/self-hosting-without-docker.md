@@ -15,20 +15,26 @@ The build needs these, named as Debian and Ubuntu packages, which may differ on 
 
 | Need         | How                                                                                                        |
 | ------------ | ---------------------------------------------------------------------------------------------------------- |
-| Build tools  | `sudo apt install git curl build-essential pkg-config perl`                                                |
+| Build tools  | `sudo apt install git curl build-essential pkg-config perl clang`                                          |
 | Rust         | [rustup](https://rustup.rs), which reads the version and the WebAssembly target from `rust-toolchain.toml` |
 | Node.js 24   | from [nodejs.org](https://nodejs.org) or NodeSource, the distribution's own is often older                 |
-| pnpm         | `npm install -g pnpm`                                                                                      |
+| pnpm         | `npm install -g pnpm@12.15.0`, the version in `package.json`                                               |
 | wasm-bindgen | `cargo install --locked wasm-bindgen-cli --version 0.2.129`, the version in `Cargo.lock`                   |
 
-Perl and the build tools are for OpenSSL, built from source for the encrypted database.
+Perl and the build tools are for OpenSSL, built from source for the encrypted database. Clang builds the web version.
+
+Build the latest server release, not `main`:
 
 ```bash
 git clone https://github.com/Synaelle/ficelle.git && cd ficelle
+git checkout "$(git describe --tags --abbrev=0 --match 'server-v*')"
 pnpm install
-pnpm --filter @app/client build
-cargo build --release -p server
+APP_RELEASE=1 pnpm --filter @app/client build
+APP_RELEASE=1 pnpm --filter @app/client build:web
+APP_RELEASE=1 cargo build --release -p server
 ```
+
+Without `APP_RELEASE=1` the server calls itself Ficelle Dev and reports a development version.
 
 ## Install
 
@@ -37,6 +43,7 @@ sudo useradd --system --home /var/lib/ficelle --shell /usr/sbin/nologin ficelle
 sudo install -m 755 target/release/ficelle-server /usr/local/bin/
 sudo mkdir -p /usr/local/share/ficelle /etc/ficelle
 sudo cp -r apps/client/dist /usr/local/share/ficelle/web
+sudo cp -r apps/client/dist-web /usr/local/share/ficelle/web/web
 sudo ficelle-server --config /etc/ficelle/ficelle.toml setup
 sudo chown ficelle: /etc/ficelle/ficelle.toml
 sudo cp deploy/systemd/ficelle-server.service /etc/systemd/system/
@@ -45,7 +52,9 @@ sudo systemctl enable --now ficelle-server
 curl http://127.0.0.1:8080/health   # ok
 ```
 
-`setup` asks for the public address and the port, and writes the config readable by its owner only. The service runs as `ficelle`, may write only to `/var/lib/ficelle`, and the server makes its own secrets there on first start.
+`setup` asks for the public address, the address and port to listen on (keep 127.0.0.1:8080), the data folder and, if you want, a mail server. Answer `/var/lib/ficelle` for the data folder. It writes the config readable by its owner only. The service runs as `ficelle`, may write only to `/var/lib/ficelle`, and the server makes its own secrets there on first start.
+
+Under a path, the health check is under it too, as in `curl http://127.0.0.1:8080/notes/health`.
 
 ## Reverse proxy
 
@@ -63,15 +72,17 @@ The setup checks the proxy, creates the admin with a passkey or an authenticator
 
 ## Updates
 
-Pull, rebuild, then copy the binary and the web pages again and restart:
+Fetch the newest server release, rebuild, then copy the binary and the web pages again and restart:
 
 ```bash
-git pull
-pnpm install && pnpm --filter @app/client build && cargo build --release -p server
+git fetch --tags && git checkout "$(git describe --tags --abbrev=0 --match 'server-v*' origin/main)"
+pnpm install && APP_RELEASE=1 pnpm --filter @app/client build && APP_RELEASE=1 pnpm --filter @app/client build:web
+APP_RELEASE=1 cargo build --release -p server
 sudo systemctl stop ficelle-server
 sudo cp -a /var/lib/ficelle /var/lib/ficelle.before-update
 sudo install -m 755 target/release/ficelle-server /usr/local/bin/
 sudo rm -rf /usr/local/share/ficelle/web && sudo cp -r apps/client/dist /usr/local/share/ficelle/web
+sudo cp -r apps/client/dist-web /usr/local/share/ficelle/web/web
 sudo systemctl start ficelle-server
 ```
 
@@ -87,8 +98,8 @@ Set them up on the admin page, under Backups: S3, WebDAV, SFTP or a folder, encr
 sudo -u ficelle ficelle-server --config /etc/ficelle/ficelle.toml admin reset YOUR_NAME
 ```
 
-It prints a new password, removes the second steps and signs out every device.
+It prints a new password, removes the second steps, lifts the sign-in lock and signs out every device. An end-to-end encrypted admin cannot be reset, only its recovery code opens it.
 
 ## Configuration
 
-Settings live in `/etc/ficelle/ficelle.toml` or in environment variables, `FICELLE_SECTION__KEY`, with `_FILE` at the end to read a value from a file. Every key and its default is described in [`apps/server/src/config.rs`](../apps/server/src/config.rs).
+Settings live in `/etc/ficelle/ficelle.toml` or in environment variables, `FICELLE_SECTION__KEY`, with `_FILE` at the end to read a value from a file. Passwords and secrets are refused as plain variables, give them with `_FILE`. Every key and its default is described in [`apps/server/src/config.rs`](../apps/server/src/config.rs).

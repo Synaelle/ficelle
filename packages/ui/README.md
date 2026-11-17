@@ -2,7 +2,7 @@
 
 Shared design layer.
 
-- `themes/`: the built-in theme as JSON, its schema and the list in `index.ts`.
+- `themes/`: the built-in theme as JSON and the list in `index.ts`.
 - `src/theme.ts`: theme validation, light or dark resolution, conversion to css variables.
 - `src/color.ts`: contrast math.
 - `src/Knot.svelte`: the knot as a thread that ties and unties itself, for the app and the website.

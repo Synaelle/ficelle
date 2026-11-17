@@ -33,7 +33,14 @@ To restore a whole server on a new machine, keep a copy of the backup place show
 
 ```bash
 FICELLE_BACKUP_PASSWORD='…' ficelle-server backup list --target target.json
-FICELLE_BACKUP_PASSWORD='…' ficelle-server backup restore --target target.json --into /var/lib/ficelle-restored
+FICELLE_BACKUP_PASSWORD='…' ficelle-server backup restore --target target.json --into /var/lib/ficelle
+sudo chown -R ficelle: /var/lib/ficelle
 ```
 
-Point `storage.data_dir` at the restored folder and start the server. The apps send back anything they hold that the restored server lacks.
+The server must be stopped and the folder empty. With Docker, run the same restore in the image, into an empty volume, then start the server:
+
+```bash
+docker run --rm -e FICELLE_BACKUP_PASSWORD -v "$PWD/target.json:/target.json:ro" -v ficelle_data:/data ghcr.io/synaelle/ficelle-server:0.6 backup restore --target /target.json --into /data
+```
+
+The apps send back anything they hold that the restored server lacks.

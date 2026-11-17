@@ -21,7 +21,7 @@ The volume also keeps the debug key the APK is signed with. An APK from another 
 
 Every build needs these.
 
-- Rust from rustup. `rust-toolchain.toml` picks the version (1.99.0) and adds the WebAssembly target.
+- Rust from rustup. `rust-toolchain.toml` picks the version (1.100.0) and adds the WebAssembly target.
 - Node 24 and pnpm 12.15.0 (`corepack enable` or `npm install -g pnpm@12.15.0`).
 - wasm-bindgen for the end-to-end encryption code, `cargo install --locked wasm-bindgen-cli --version 0.2.129`.
 
@@ -46,7 +46,7 @@ node tools/build-release.mjs --unsigned -- --bundles nsis       # Windows
 node tools/build-release.mjs --unsigned -- --bundles app,dmg    # macOS
 ```
 
-The result is in `target/release/bundle/`. For a Mac app that runs on both Apple Silicon and Intel, run `rustup target add aarch64-apple-darwin x86_64-apple-darwin` and add `--target universal-apple-darwin`. A plain `pnpm --filter @app/client tauri build` gives Ficelle Dev instead, which keeps its notes apart from the real app.
+The result is in `target/release/bundle/`, or `target/universal-apple-darwin/release/bundle/` for the universal Mac app. For a Mac app that runs on both Apple Silicon and Intel, run `rustup target add aarch64-apple-darwin x86_64-apple-darwin` and add `--target universal-apple-darwin`. A plain `pnpm --filter @app/client tauri build` gives Ficelle Dev instead, which keeps its notes apart from the real app.
 
 ## Android
 
