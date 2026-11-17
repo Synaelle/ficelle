@@ -716,12 +716,18 @@
             scrollToAnchor(decoded(href.slice(1)))
             return true
           }
-          // a web or mail link opens outside, and the note stays where it is
+          // a web or mail link opens outside once asked, and the note stays
+          // where it is: a link's text can say something else than its address
           if (/^(https?|mailto):/i.test(href)) {
             event.preventDefault()
-            backend
-              .openLink(href)
-              .catch((err: unknown) => toasts.push(t('editor.link'), String(err)))
+            void overlay
+              .ask(t('editor.openLinkAsk', { address: href }), { confirmLabel: t('menu.open') })
+              .then((yes) => {
+                if (!yes) return
+                backend
+                  .openLink(href)
+                  .catch((err: unknown) => toasts.push(t('editor.link'), String(err)))
+              })
             return true
           }
           if (!href.startsWith(ATTACHMENT_PREFIX)) return false

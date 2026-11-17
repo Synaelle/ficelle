@@ -450,6 +450,7 @@
   }
   p {
     margin: 0;
+    overflow-wrap: anywhere;
   }
   .actions {
     display: flex;
