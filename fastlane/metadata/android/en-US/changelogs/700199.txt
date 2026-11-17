@@ -1,1 +1,1 @@
-The first version on F-Droid and IzzyOnDroid. The store updates it, so it has no updater of its own.
+The first version on F-Droid. F-Droid updates it, so it has no updater of its own.

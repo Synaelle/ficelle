@@ -127,7 +127,7 @@ fn page_only() -> bool {
 }
 
 /// See the Mac's [`page_only`]. On Linux only the AppImage replaces itself,
-/// a package (the AUR, Flathub) updates through the system. A Flatpak is
+/// a package (the AUR, a Flatpak) updates through the system. A Flatpak is
 /// never an AppImage, even when `APPIMAGE` came in from the starting
 /// process's environment: its own files are read-only.
 #[cfg(not(target_os = "macos"))]
@@ -156,7 +156,7 @@ fn release_page(version: &str) -> String {
 }
 
 /// This build updates itself: a release or a nightly, with an update key,
-/// and not the APK of the F-Droid stores, which update it.
+/// and not the APK for F-Droid, which updates it.
 fn enabled() -> bool {
     !cfg!(app_store) && !app_brand::APP_UPDATES_KEY.is_empty() && list::here().is_some()
 }

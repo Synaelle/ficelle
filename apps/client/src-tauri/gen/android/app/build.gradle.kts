@@ -93,7 +93,7 @@ android {
         resValues = true
     }
     // the dependency list Google's tools add to the APK, encrypted for Google
-    // alone, which the F-Droid stores refuse
+    // alone, which F-Droid refuses
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
@@ -139,7 +139,7 @@ if (project.hasProperty("preview")) {
     }
 }
 
-// The APK for F-Droid and IzzyOnDroid (APP_STORE=1, which the Rust and web
+// The APK for F-Droid (APP_STORE=1, which the Rust and web
 // builds read too): the release without its updater, the store updates it.
 if (System.getenv("APP_STORE") == "1") {
     android.sourceSets.getByName("release").manifest.srcFile("src/store/AndroidManifest.xml")

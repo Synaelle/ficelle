@@ -81,7 +81,7 @@ jobs:
       signed: true
     secrets: inherit
 
-  # the same, without the updater, for F-Droid and IzzyOnDroid
+  # the same, without the updater, for F-Droid
   android-store:
     needs: draft
     uses: ./.github/workflows/android.yml
