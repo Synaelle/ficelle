@@ -19,7 +19,7 @@
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { DESKTOP, HANDHELD, WEB } from '../lib/platform'
-  import { backupDue } from '../lib/webBackups'
+  import { askToKeep, backupDue } from '../lib/webBackups'
   import { onHandOver } from '../lib/backend/web'
   import { toasts } from '../lib/toast.svelte'
   import { sendSyncedPrefs, takeSyncedPrefs } from '../lib/syncedPrefs.svelte'
@@ -180,7 +180,10 @@
   })
 
   // another tab taking the notes stops this one's core: save first
-  if (WEB) onHandOver(() => workspace.flush())
+  if (WEB) {
+    onHandOver(() => workspace.flush())
+    void askToKeep()
+  }
 
   // save before the window goes away: beforeunload cannot wait for the save,
   // so a desktop window holds its close until the save is done, and a phone

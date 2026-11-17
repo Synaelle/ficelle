@@ -26,7 +26,15 @@ function write(key: string) {
 /** The notes were just made: the browser is asked to keep them. */
 export function notesMade() {
   write(NOTES_SINCE)
-  void navigator.storage?.persist?.()
+  void askToKeep()
+}
+
+/** Asks the browser to keep the notes when it does not yet. Asked each time
+ * the notes open: Chromium says no to a site it does not know well yet, and
+ * yes later once the site is used often or installed. */
+export async function askToKeep() {
+  if (await navigator.storage?.persisted?.()) return
+  await navigator.storage?.persist?.()
 }
 
 export function backupMade() {
