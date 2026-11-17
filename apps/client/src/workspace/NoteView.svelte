@@ -231,13 +231,18 @@
     </header>
 
     <div class="scroll" bind:this={scroller} style:overflow-anchor={hold ? 'none' : null}>
-      <!-- a tap under the last line writes at the note's end; the keyboard
-           gets there with the arrows -->
+      <!-- a tap anywhere blank under the last line writes at the note's end;
+           the keyboard gets there with the arrows -->
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
       <article
         style:min-height={hold ? `${hold}px` : null}
         onclick={(e) => {
-          if (e.target !== e.currentTarget || source) return
+          const target = e.target as HTMLElement
+          if (
+            source ||
+            target.closest('button, a, input, summary, aside, [data-note-files], .prose')
+          )
+            return
           const prose = e.currentTarget.querySelector('.prose')
           if (prose && e.clientY > prose.getBoundingClientRect().bottom) editorRef?.writeAtEnd()
         }}
@@ -495,7 +500,9 @@
     overflow-y: auto;
   }
   article {
-    /* the note takes the whole pane, as wide as the window makes it */
+    /* the note takes the whole pane, as wide as the window makes it, and at
+       least its height, so a tap on the blank part under it lands here */
+    min-height: 100%;
     padding: var(--space-6) var(--space-6) 120px;
   }
   .narrow article {

@@ -2,7 +2,6 @@
 /* Rendered note content. Global because TipTap builds this DOM itself. */
 
 .prose {
-  min-height: 50vh;
   font-family: var(--font-editor);
   font-size: 16px;
   line-height: 1.65;
