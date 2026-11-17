@@ -4,7 +4,7 @@ Ficelle is made by one person in their spare time, so every bit of help counts. 
 
 ## Languages
 
-English is the reference language and the fallback, so a text that is not translated yet shows in English. Each language is one file in [packages/locales](packages/locales), and every change ends up there, whichever way you send it. A language shows in the app once half of it is translated.
+English is the reference language and the fallback, so a text that is not translated yet shows in English. German, Spanish, Italian, Dutch and Portuguese are translated with DeepL, then read over, so some texts may still sound off. Corrections are very welcome, and a text corrected by hand is never replaced by DeepL again. Each language is one file in [packages/locales](packages/locales), and every change ends up there, whichever way you send it. A language shows in the app once half of it is translated.
 
 ### On Weblate
 
