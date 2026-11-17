@@ -69,6 +69,15 @@ pub fn to_rfc3339(at: Timestamp) -> String {
         .map_or_else(|_| String::from("1970-01-01T00:00:00Z"), |t| t.to_string())
 }
 
+/// Reads an HTTP `Date` header, like `Sun, 06 Nov 1994 08:49:37 GMT`.
+/// `None` when it does not read.
+pub fn from_http_date(text: &str) -> Option<Timestamp> {
+    jiff::fmt::rfc2822::DateTimeParser::new()
+        .parse_timestamp(text.trim())
+        .ok()
+        .map(jiff::Timestamp::as_millisecond)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,6 +85,16 @@ mod tests {
     #[test]
     fn formats_utc_to_the_second() {
         assert_eq!(to_rfc3339(1_792_742_400_123), "2026-10-23T08:00:00Z");
+    }
+
+    #[test]
+    fn reads_http_dates() {
+        assert_eq!(
+            from_http_date("Fri, 23 Oct 2026 08:00:00 GMT"),
+            Some(1_792_742_400_000)
+        );
+        assert_eq!(from_http_date(""), None);
+        assert_eq!(from_http_date("yesterday"), None);
     }
 
     #[test]

@@ -26,6 +26,7 @@ mod wire;
 pub use node::{Live, Node, PairingStatus, Status};
 
 use app_core::blobs::BlobStore;
+use app_core::clock::{Clock as _, SystemClock, Timestamp};
 use app_core::store::Store;
 
 /// Why something did not work.
@@ -81,6 +82,13 @@ pub trait Host: Send + Sync + 'static {
     fn fetch_up_to(&self) -> u64;
     /// This device's name when the person gave none.
     fn default_name(&self) -> String;
+    /// A paired device's clock agrees with this one's: what waited for
+    /// the clock to be checked can go ahead.
+    fn clock_agreed(&self);
+    /// The time now, from the clock the vault uses.
+    fn now(&self) -> Timestamp {
+        SystemClock.now()
+    }
 }
 
 /// This device as the others see it.

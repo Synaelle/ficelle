@@ -10,6 +10,7 @@
   import { COPIED_MS, copyText } from '../lib/clipboard'
   import { hour12 } from '../lib/clock.svelte'
   import PasswordField from '../lib/PasswordField.svelte'
+  import { duration } from '../lib/format'
   import { currentLocale, t } from '../lib/i18n.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import { protocolGap, protocolRange, versionGap } from '../lib/serverVersion'
@@ -423,6 +424,20 @@
       </div>
     </div>
   {/if}
+  {#if viewing.state === 'clockOff' && viewing.clockOff !== null}
+    <div class="notice" role="alert">
+      <Icon name="warning" size={18} />
+      <div>
+        <b
+          >{t('local.device.clockOff', {
+            name: viewing.name,
+            amount: duration(viewing.clockOff),
+          })}</b
+        >
+        <p>{t('local.device.clockOffHelp', { name: viewing.name })}</p>
+      </div>
+    </div>
+  {/if}
   {#if viewing.blocked}{@render firewall(viewing)}{/if}
   <Group title={t('local.device.versions')}>
     <Row label={t('local.device.thisDevice')}><span class="value mono">{__APP_VERSION__}</span></Row
@@ -503,6 +518,7 @@
                 class:ok={device.state === 'synced'}
                 class:warn={device.state === 'needsUpdate' ||
                   device.state === 'updateThis' ||
+                  device.state === 'clockOff' ||
                   device.blocked}
                 class:bad={device.state === 'failed'}>{deviceLine(device)}</span
               >
@@ -588,7 +604,13 @@
             {#if status.state === 'pending' || status.state === 'offline'}
               <p class="settings-help">{t('sync.pendingCount', { count: status.pending })}</p>
             {/if}
-            {#if status.state === 'error' && status.error}
+            {#if status.state === 'error' && status.clockOff !== null}
+              <p class="settings-help" role="alert">
+                {t(status.clockOff > 0 ? 'sync.clockAhead' : 'sync.clockBehind', {
+                  amount: duration(status.clockOff),
+                })}
+              </p>
+            {:else if status.state === 'error' && status.error}
               <p class="settings-help detail">{status.error}</p>
             {/if}
             {#if status.rejected > 0}

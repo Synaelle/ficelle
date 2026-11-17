@@ -95,7 +95,8 @@ pub(super) fn run(sync: &super::Sync, app: &AppHandle) {
         let linked = state
             .quietly(|s| Ok(s.store.sync_link()?.is_some_and(|l| l.tokens.is_some())))
             .unwrap_or(false);
-        if !linked {
+        // a device whose clock is off does not sync files either
+        if !linked || sync.clock_off() {
             continue;
         }
         let done = wire(&state).and_then(|(mut remote, _)| after_round(&state, &mut remote));

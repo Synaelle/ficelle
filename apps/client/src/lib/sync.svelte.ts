@@ -31,6 +31,9 @@ export interface SyncStatus {
   live: boolean
   /** The server's admin allows co-editing. */
   coediting: boolean
+  /** This device's clock is this many ms off the server's (positive: ahead),
+   * too far to sync. */
+  clockOff: number | null
 }
 
 /** How long a server check is reused before the server is asked again. */
@@ -95,6 +98,7 @@ const OFF: SyncStatus = {
   rejected: 0,
   live: false,
   coediting: true,
+  clockOff: null,
 }
 
 const native = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window

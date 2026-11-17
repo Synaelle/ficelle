@@ -4,14 +4,15 @@
 //! own in a scratch folder.
 
 use std::net::TcpStream;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use app_core::blobs::{BlobStore, sha256_hex};
+use app_core::clock::{Clock as _, DAY, SystemClock, Timestamp};
 use app_core::store::{NewNote, NoteChange, Store};
 
-use crate::session::{Hello, mismatch};
+use crate::session::{Hello, clock_off, mismatch};
 use crate::wire::{self, Incoming, Msg};
 use crate::{Error, Host, Live, Me, Node, channel};
 
@@ -19,6 +20,10 @@ struct TestHost {
     vault: Mutex<(Store, BlobStore)>,
     changed: AtomicU32,
     files: AtomicU32,
+    /// Clock checks passed.
+    agreed: AtomicU32,
+    /// Added to the wall clock, as on a device whose clock is wrong.
+    skew: AtomicI64,
     name: String,
     _dir: tempfile::TempDir,
 }
@@ -32,6 +37,8 @@ impl TestHost {
             vault: Mutex::new((Store::new(conn), blobs)),
             changed: AtomicU32::new(0),
             files: AtomicU32::new(0),
+            agreed: AtomicU32::new(0),
+            skew: AtomicI64::new(0),
             name: name.to_owned(),
             _dir: dir,
         })
@@ -63,6 +70,12 @@ impl Host for TestHost {
     }
     fn default_name(&self) -> String {
         self.name.clone()
+    }
+    fn clock_agreed(&self) {
+        self.agreed.fetch_add(1, Ordering::SeqCst);
+    }
+    fn now(&self) -> Timestamp {
+        SystemClock.now() + self.skew.load(Ordering::SeqCst)
     }
 }
 
@@ -277,6 +290,8 @@ fn devices_on_different_data_formats_say_who_updates() {
         min_protocol: 1,
         protocol,
         format,
+        time: None,
+        asked: (0, 0),
     };
     let now = app_protocol::local::DATA_FORMAT;
     assert_eq!(mismatch(&hello(now, app_protocol::local::PROTOCOL)), None);
@@ -610,6 +625,7 @@ fn dial_by_hand(node: &Node<TestHost>, host: &TestHost, secret: &[u8; 32]) -> ch
         protocol: app_protocol::local::PROTOCOL,
         format: app_protocol::local::DATA_FORMAT,
         port: None,
+        time: None,
     }))
     .unwrap();
     ch
@@ -706,4 +722,109 @@ fn a_forgotten_device_hears_it_and_forgets_back_instead_of_blaming_a_firewall() 
     b.pair_with_code(&shown.code, Some(&address(&a))).unwrap();
     until("b knows a again", || active(&hb, "Desktop"));
     assert!(b.status().forgotten_by.is_empty());
+}
+
+#[test]
+fn hellos_tell_clocks_apart_only_past_the_tolerance() {
+    let hello = |time| Hello {
+        port: None,
+        name: "Other".into(),
+        platform: "linux".into(),
+        version: "0.6.3".into(),
+        min_protocol: 1,
+        protocol: 1,
+        format: 1,
+        time,
+        asked: (1_000_000_000_000, 1_000_000_000_050),
+    };
+    assert_eq!(clock_off(&hello(Some(1_000_000_000_020))), None);
+    assert_eq!(
+        clock_off(&hello(Some(1_000_000_000_000 + 5 * 60_000))),
+        None
+    );
+    assert_eq!(
+        clock_off(&hello(Some(1_000_000_000_000 - 31 * DAY))),
+        Some(31 * DAY)
+    );
+    assert_eq!(clock_off(&hello(Some(1_000_000_000_050 + DAY))), Some(-DAY));
+    // an older device says no time: nothing to check
+    assert_eq!(clock_off(&hello(None)), None);
+    let old = br#"{"t":"hello","name":"Phone","platform":"android","version":"0.6.3","minProtocol":1,"protocol":1,"format":1,"port":null}"#;
+    let mut message = vec![0];
+    message.extend_from_slice(old);
+    assert!(matches!(
+        wire::decode(&message),
+        Ok(Incoming::Msg(Msg::Hello { time: None, .. }))
+    ));
+}
+
+#[test]
+fn devices_whose_clocks_disagree_do_not_sync_until_set_right() {
+    let (a, ha) = hidden_node("Desktop");
+    let (b, hb) = hidden_node("Phone");
+    note(&ha, "Garden plan", "tomatoes along the fence");
+    // a month ahead, as a phone whose date was set by hand
+    hb.skew.store(31 * DAY, Ordering::SeqCst);
+    let shown = a.start_pairing().unwrap();
+    b.pair_with_code(&shown.code, Some(&address(&a))).unwrap();
+    let clock_off = |n: &Node<TestHost>| {
+        n.status().live.values().find_map(|l| match l {
+            Live::ClockOff { by } => Some(*by),
+            _ => None,
+        })
+    };
+    until("both say the clocks differ", || {
+        clock_off(&a).is_some() && clock_off(&b).is_some()
+    });
+    let (on_a, on_b) = (clock_off(&a).unwrap(), clock_off(&b).unwrap());
+    assert!((on_a + 31 * DAY).abs() < 60_000, "{on_a}");
+    assert!((on_b - 31 * DAY).abs() < 60_000, "{on_b}");
+    std::thread::sleep(Duration::from_secs(1));
+    assert!(!has_note(&hb, "Garden plan"), "nothing crossed");
+    assert_eq!(ha.agreed.load(Ordering::SeqCst), 0);
+    assert_eq!(hb.agreed.load(Ordering::SeqCst), 0);
+
+    // the date set right, the next try syncs
+    hb.skew.store(0, Ordering::SeqCst);
+    b.sync_now();
+    until("b has a's note", || has_note(&hb, "Garden plan"));
+    until("both say synced", || {
+        let synced = |n: &Node<TestHost>| n.status().live.values().any(|l| *l == Live::Synced);
+        synced(&a) && synced(&b)
+    });
+    assert!(ha.agreed.load(Ordering::SeqCst) > 0);
+    assert!(hb.agreed.load(Ordering::SeqCst) > 0);
+}
+
+#[test]
+fn a_device_saying_no_time_in_its_hello_still_syncs() {
+    let (a, ha) = node("Desktop");
+    note(&ha, "Garden plan", "tomatoes along the fence");
+    let secret = pair_by_hand(&a, &ha);
+    // an older app: its hello has no time
+    let mut ch = dial_by_hand(&a, &ha, &secret);
+    match wire::decode(&ch.recv().unwrap()).unwrap() {
+        Incoming::Msg(Msg::Hello { time, .. }) => assert!(time.is_some()),
+        _ => panic!("no hello"),
+    }
+    ch.send(&wire::encode(&Msg::Versions {
+        docs: Vec::new(),
+        answer: false,
+    }))
+    .unwrap();
+    let end = Instant::now() + Duration::from_secs(10);
+    let mut changes = 0;
+    while Instant::now() < end {
+        if let Some(message) = ch.poll().unwrap()
+            && let Incoming::Msg(Msg::Changes { docs, last }) = wire::decode(&message).unwrap()
+        {
+            changes += docs.len();
+            if last {
+                break;
+            }
+        }
+    }
+    assert!(changes > 0, "the notes went to the older device");
+    // nothing was checked, so nothing waiting on the clock goes ahead
+    assert_eq!(ha.agreed.load(Ordering::SeqCst), 0);
 }

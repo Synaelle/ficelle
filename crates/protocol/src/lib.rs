@@ -34,6 +34,27 @@ pub mod local {
     pub const DATA_FORMAT: u32 = 1;
 }
 
+/// How far two clocks may disagree before a device refuses to sync, in
+/// milliseconds. Clocks set by the network agree within seconds: this only
+/// catches a clock set wrong, whose dates would make trash expire early on
+/// the devices it syncs with, or never.
+pub const CLOCK_TOLERANCE_MS: i64 = 10 * 60 * 1000;
+
+/// How far this device's clock is off from another's, `None` within
+/// [`CLOCK_TOLERANCE_MS`]. `before` and `after` are this device's times
+/// just before asking and just after the answer, `theirs` the other's time
+/// in the answer, taken in between and rounded down to `grain` (1000 for
+/// an HTTP `Date`). Positive when this device is ahead.
+pub fn clock_off(before: i64, after: i64, theirs: i64, grain: i64) -> Option<i64> {
+    if theirs + grain < before - CLOCK_TOLERANCE_MS {
+        Some(before - theirs)
+    } else if theirs > after + CLOCK_TOLERANCE_MS {
+        Some(after - theirs)
+    } else {
+        None
+    }
+}
+
 /// Request header carrying the client's protocol version. Every api call
 /// sends it, except `GET /api/v1/info`, which a client reads first to learn
 /// whether it can talk to the server at all.
@@ -253,6 +274,43 @@ mod tests {
         assert_eq!(info.compatibility(1), Compatibility::UpdateApp);
         assert_eq!(info.compatibility(3), Compatibility::Compatible);
         assert_eq!(info.compatibility(5), Compatibility::UpdateServer);
+    }
+
+    #[test]
+    fn clocks_count_as_off_only_past_the_tolerance() {
+        const MIN: i64 = 60_000;
+        let (before, after) = (1_000_000_000_000, 1_000_000_000_400);
+        // inside, the answer's time rounded down a second
+        assert_eq!(clock_off(before, after, before - 1000, 1000), None);
+        assert_eq!(clock_off(before, after, after, 0), None);
+        assert_eq!(clock_off(before, after, before - 9 * MIN, 0), None);
+        assert_eq!(clock_off(before, after, after + 9 * MIN, 0), None);
+        assert_eq!(
+            clock_off(before, after, before - CLOCK_TOLERANCE_MS - 1000, 1000),
+            None
+        );
+        assert_eq!(
+            clock_off(before, after, after + CLOCK_TOLERANCE_MS, 0),
+            None
+        );
+        // this device ahead: the other's time is earlier
+        assert_eq!(
+            clock_off(before, after, before - 31 * 24 * 60 * MIN, 1000),
+            Some(31 * 24 * 60 * MIN)
+        );
+        assert_eq!(
+            clock_off(before, after, before - CLOCK_TOLERANCE_MS - 1, 0),
+            Some(CLOCK_TOLERANCE_MS + 1)
+        );
+        // this device behind
+        assert_eq!(
+            clock_off(before, after, after + 2 * 60 * MIN, 0),
+            Some(-2 * 60 * MIN)
+        );
+        assert_eq!(
+            clock_off(before, after, after + CLOCK_TOLERANCE_MS + 1, 0),
+            Some(-CLOCK_TOLERANCE_MS - 1)
+        );
     }
 
     #[test]

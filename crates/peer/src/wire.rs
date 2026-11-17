@@ -72,6 +72,11 @@ pub(crate) enum Msg {
         /// it back at that address later.
         #[serde(default)]
         port: Option<u16>,
+        /// The sender's clock as it sent this, in ms since the epoch: two
+        /// devices whose clocks disagree do not sync. Older devices leave
+        /// it out, and ignore it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        time: Option<i64>,
     },
     /// Every device the sender knows, forgotten ones too.
     Devices {

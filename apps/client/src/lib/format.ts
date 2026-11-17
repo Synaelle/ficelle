@@ -56,3 +56,19 @@ export function bytes(n: number): string {
     maximumFractionDigits: value < 10 ? 1 : 0,
   }).format(value)
 }
+
+/** "15 minutes", "3 hours", "31 days", rounded, in the page's language. */
+export function duration(ms: number): string {
+  const minutes = Math.round(Math.abs(ms) / 60_000)
+  const [value, unit] =
+    minutes < 120
+      ? [minutes, 'minute']
+      : minutes < 48 * 60
+        ? [Math.round(minutes / 60), 'hour']
+        : [Math.round(minutes / (24 * 60)), 'day']
+  return new Intl.NumberFormat(currentLocale(), {
+    style: 'unit',
+    unit,
+    unitDisplay: 'long',
+  }).format(value)
+}

@@ -31,7 +31,7 @@ use app_protocol::sync::{PullAnswer, PushAnswer, PushRequest};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
-use self::http::{Api, HttpError};
+use self::http::{Api, HttpError, ServerClock};
 use crate::state::AppState;
 
 /// Ask the server which documents to compact this often.
@@ -72,6 +72,9 @@ pub struct SyncStatus {
     pub live: bool,
     /// The server's admin allows co-editing.
     pub coediting: bool,
+    /// This device's clock is this many ms off the server's (positive:
+    /// ahead), too far to sync.
+    pub clock_off: Option<i64>,
 }
 
 impl SyncStatus {
@@ -87,6 +90,7 @@ impl SyncStatus {
             rejected: 0,
             live: false,
             coediting: true,
+            clock_off: None,
         }
     }
 }
@@ -99,6 +103,37 @@ enum Last {
     Ok,
     Offline(String),
     Failed(String),
+    /// This device's clock disagrees with the server's, by this many ms.
+    ClockOff(i64),
+}
+
+/// Why a round stopped.
+#[derive(Debug)]
+enum Stop {
+    Sync(SyncError),
+    /// This device's clock is this many ms off the server's: nothing was
+    /// sent or taken in.
+    Clock(i64),
+}
+
+impl From<SyncError> for Stop {
+    fn from(err: SyncError) -> Self {
+        Self::Sync(err)
+    }
+}
+
+impl std::fmt::Display for Stop {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Sync(err) => err.fmt(f),
+            Self::Clock(by) => write!(
+                f,
+                "this device's clock is {} min {} the server's",
+                by.unsigned_abs() / 60_000,
+                if *by > 0 { "ahead of" } else { "behind" }
+            ),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -309,7 +344,7 @@ impl Sync {
             }
             self.lock().running = true;
             emit_status(app);
-            let outcome = round(&state);
+            let outcome = clock_check(&state).and_then(|agrees| Ok((round(&state)?, agrees)));
             last_pull = Instant::now();
             {
                 let mut shared = self.lock();
@@ -324,23 +359,27 @@ impl Sync {
                         let wait = backoff.failed(random());
                         shared.not_before = Some(Instant::now() + wait);
                         shared.last = match err {
-                            SyncError::Remote(RemoteError::Offline(why)) => {
+                            Stop::Sync(SyncError::Remote(RemoteError::Offline(why))) => {
                                 Last::Offline(why.clone())
                             }
-                            other => Last::Failed(other.to_string()),
+                            Stop::Clock(by) => Last::ClockOff(*by),
+                            Stop::Sync(other) => Last::Failed(other.to_string()),
                         };
                     }
                 }
             }
             let message = match &outcome {
-                Ok(_) | Err(SyncError::Remote(RemoteError::Offline(_))) => None,
+                Ok(_) | Err(Stop::Sync(SyncError::Remote(RemoteError::Offline(_)))) => None,
                 Err(err) => Some(err.to_string()),
             };
             let _ = state.quietly(|s| s.store.sync_finished(message.as_deref()));
-            if let Ok(round) = &outcome
-                && round.taken.applied > 0
-            {
-                let _ = app.emit("sync-changed", ());
+            if let Ok((round, agrees)) = &outcome {
+                // the first round that found the clock right lets the trash
+                // that waited for it expire
+                let purged = *agrees && state.clock_checked().is_ok_and(|n| n > 0);
+                if round.taken.applied > 0 || purged {
+                    let _ = app.emit("sync-changed", ());
+                }
             }
             emit_status(app);
         }
@@ -371,14 +410,19 @@ impl Sync {
         } else {
             match &shared.last {
                 Last::Offline(_) => "offline",
-                Last::Failed(_) => "error",
+                Last::Failed(_) | Last::ClockOff(_) => "error",
                 _ if pending > 0 => "pending",
                 _ => "synced",
             }
         };
         let error = match &shared.last {
             Last::Offline(why) | Last::Failed(why) => Some(why.clone()),
+            Last::ClockOff(by) => Some(Stop::Clock(*by).to_string()),
             _ => link.last_error.clone(),
+        };
+        let clock_off = match shared.last {
+            Last::ClockOff(by) => Some(by),
+            _ => None,
         };
         SyncStatus {
             state,
@@ -391,7 +435,13 @@ impl Sync {
             rejected,
             live: shared.live,
             coediting: shared.coediting.unwrap_or(true),
+            clock_off,
         }
+    }
+
+    /// The last round found this device's clock off the server's.
+    fn clock_off(&self) -> bool {
+        matches!(self.lock().last, Last::ClockOff(_))
     }
 
     /// Forgets the last outcome, for a new link.
@@ -450,6 +500,23 @@ fn wire(state: &AppState) -> Result<(Wire<'_>, AccountKind), SyncError> {
         },
         link.kind,
     ))
+}
+
+/// Compares this device's clock with the server's before a round: a clock
+/// set wrong would expire trash early, or never, and the server would pass
+/// the deletions on. Whether the server's clock agreed, false when its
+/// answer did not say the time.
+fn clock_check(state: &AppState) -> Result<bool, Stop> {
+    let (wire, _) = wire(state)?;
+    match wire
+        .api
+        .clock()
+        .map_err(|e| SyncError::from(remote_error(e)))?
+    {
+        ServerClock::Agrees => Ok(true),
+        ServerClock::Unsaid => Ok(false),
+        ServerClock::Off(by) => Err(Stop::Clock(by)),
+    }
 }
 
 fn round(state: &AppState) -> Result<engine::Round, SyncError> {

@@ -6,6 +6,7 @@
 
 use std::time::Duration;
 
+use app_core::clock::Clock as _;
 use app_protocol::{ApiError, PROTOCOL_HEADER, PROTOCOL_VERSION, ServerInfo};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -48,6 +49,16 @@ impl std::fmt::Display for HttpError {
             Self::Api { status, body } => write!(f, "{status} {}: {}", body.error, body.message),
         }
     }
+}
+
+/// The server's clock against this device's.
+pub enum ServerClock {
+    /// Within [`app_protocol::CLOCK_TOLERANCE_MS`].
+    Agrees,
+    /// Further apart, by this many ms: positive when this device is ahead.
+    Off(i64),
+    /// The answer had no `Date` that reads: nothing to compare.
+    Unsaid,
 }
 
 /// One server.
@@ -217,6 +228,24 @@ impl Api {
         read(response)?.parse()
     }
 
+    /// This device's clock against the server's, from the `Date` every
+    /// answer carries, whatever the server's version.
+    pub fn clock(&self) -> Result<ServerClock, HttpError> {
+        let clock = app_core::clock::SystemClock;
+        let before = clock.now();
+        let response = self
+            .agent
+            .get(format!("{}/api/v1/info", self.base))
+            .call()
+            .map_err(offline)?;
+        let after = clock.now();
+        Ok(match server_time(&response) {
+            None => ServerClock::Unsaid,
+            Some(theirs) => app_protocol::clock_off(before, after, theirs, 1000)
+                .map_or(ServerClock::Agrees, ServerClock::Off),
+        })
+    }
+
     pub fn get(&self, path: &str, token: Option<&str>) -> Result<Answer, HttpError> {
         let mut request = self
             .agent
@@ -254,6 +283,12 @@ impl Api {
         }
         read(request.call().map_err(offline)?)
     }
+}
+
+/// The time in an answer's `Date` header, `None` without one that reads.
+fn server_time<B>(response: &ureq::http::Response<B>) -> Option<i64> {
+    let date = response.headers().get("date")?.to_str().ok()?;
+    app_core::clock::from_http_date(date)
 }
 
 #[expect(clippy::needless_pass_by_value, reason = "used as map_err(offline)")]
@@ -295,6 +330,25 @@ fn read(mut response: ureq::http::Response<ureq::Body>) -> Result<Answer, HttpEr
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn answer(date: Option<&str>) -> ureq::http::Response<()> {
+        let mut builder = ureq::http::Response::builder();
+        if let Some(date) = date {
+            builder = builder.header("date", date);
+        }
+        builder.body(()).unwrap()
+    }
+
+    #[test]
+    fn the_server_time_comes_from_the_date_header() {
+        assert_eq!(
+            server_time(&answer(Some("Fri, 23 Oct 2026 08:00:00 GMT"))),
+            Some(1_792_742_400_000)
+        );
+        // no header, or one that does not read: no check
+        assert_eq!(server_time(&answer(None)), None);
+        assert_eq!(server_time(&answer(Some("soon"))), None);
+    }
 
     #[test]
     fn addresses_are_read_like_people_type_them() {

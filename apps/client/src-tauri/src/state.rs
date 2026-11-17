@@ -17,6 +17,9 @@ pub struct Session {
     pub vault: Vault,
     pub store: Store,
     pub blobs: BlobStore,
+    /// Trash past retention waits for a sync to find this device's clock
+    /// right, see [`AppState::clock_checked`].
+    trash_waits: bool,
 }
 
 pub struct AppState {
@@ -111,19 +114,42 @@ impl AppState {
     }
 
     /// Opens a session from an unlocked store, removes trash past retention
-    /// and notes left blank when the app last closed.
+    /// and notes left blank when the app last closed. On a device that
+    /// syncs, trash past retention goes only once a sync found its clock
+    /// right: a clock set ahead would delete trash early and pass the
+    /// deletions on to the other devices.
     pub fn open(&self, vault: Vault, mut store: Store) -> CommandResult<()> {
         self.check_alone()?;
-        store.purge_expired_trash()?;
+        let syncs = store.server_linked()?
+            || store
+                .peer_devices()?
+                .iter()
+                .any(app_core::store::PeerDevice::active);
+        if !syncs {
+            store.purge_expired_trash()?;
+        }
         store.discard_blank_notes()?;
         let blobs = vault.blobs(&mut store)?;
         *self.session() = Some(Session {
             vault,
             store,
             blobs,
+            trash_waits: syncs,
         });
         self.sync.now();
         Ok(())
+    }
+
+    /// A sync found this device's clock right: removes the trash past
+    /// retention that waited for it, once a session. How many notes went.
+    pub fn clock_checked(&self) -> CommandResult<usize> {
+        self.quietly(|s| {
+            if std::mem::take(&mut s.trash_waits) {
+                s.store.purge_expired_trash()
+            } else {
+                Ok(0)
+            }
+        })
     }
 
     pub fn close(&self) {

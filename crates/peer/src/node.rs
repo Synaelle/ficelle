@@ -54,6 +54,13 @@ pub enum Live {
         /// Its version.
         version: String,
     },
+    /// The two clocks disagree by more than
+    /// [`app_protocol::CLOCK_TOLERANCE_MS`]: one of them is set wrong, and
+    /// neither can tell which.
+    ClockOff {
+        /// This device's clock minus the other's, in ms.
+        by: i64,
+    },
     /// The last connection failed.
     Failed {
         /// Why, in English.

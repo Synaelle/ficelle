@@ -9,7 +9,7 @@ import { listen } from '@tauri-apps/api/event'
 import type { SyncState } from './sync.svelte'
 
 export type DeviceState =
-  'syncing' | 'synced' | 'waiting' | 'away' | 'needsUpdate' | 'updateThis' | 'failed'
+  'syncing' | 'synced' | 'waiting' | 'away' | 'needsUpdate' | 'updateThis' | 'clockOff' | 'failed'
 
 export interface LocalDevice {
   /** Hex of its key, how the commands name it. */
@@ -21,6 +21,8 @@ export interface LocalDevice {
   state: DeviceState
   /** The other version, or why it failed. */
   detail: string | null
+  /** For `clockOff`: this device's clock minus the other's, in ms. */
+  clockOff: number | null
   /** Seen but out of reach for a while: a firewall may be in the way. */
   blocked: boolean
 }
@@ -78,7 +80,7 @@ const native = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 /** What the sidebar says: the state its icon draws, and the device it is about. */
 export interface LocalSummary {
   state: SyncState
-  key: 'synced' | 'syncing' | 'waiting' | 'needsUpdate' | 'updateThis' | 'unreachable'
+  key: 'synced' | 'syncing' | 'waiting' | 'needsUpdate' | 'updateThis' | 'clockOff' | 'unreachable'
   name: string
 }
 
@@ -111,6 +113,8 @@ class LocalSync {
     if (updateThis) return { state: 'error', key: 'updateThis', name: updateThis.name }
     const needs = first('needsUpdate')
     if (needs) return { state: 'error', key: 'needsUpdate', name: needs.name }
+    const clockOff = first('clockOff')
+    if (clockOff) return { state: 'error', key: 'clockOff', name: clockOff.name }
     const unreachable = devices.find((d) => d.blocked)
     if (unreachable) return { state: 'offline', key: 'unreachable', name: unreachable.name }
     const syncing = first('syncing')

@@ -37,10 +37,16 @@ pub(crate) struct Hello {
     pub protocol: u32,
     pub format: u32,
     pub port: Option<u16>,
+    /// The other's clock in its hello, `None` from an older device.
+    pub time: Option<i64>,
+    /// This device's clock before its hello went and after the other's
+    /// came: the other's time, taken in between, falls in there.
+    pub asked: (i64, i64),
 }
 
 /// Sends this device's hello and reads the other's.
 pub(crate) fn hellos<H: Host>(shared: &Shared<H>, ch: &mut Channel) -> Result<Hello, Error> {
+    let before = shared.host.now();
     let name =
         store(&*shared.host, |s, _| s.peer_name())?.unwrap_or_else(|| shared.host.default_name());
     ch.send(&wire::encode(&Msg::Hello {
@@ -51,8 +57,11 @@ pub(crate) fn hellos<H: Host>(shared: &Shared<H>, ch: &mut Channel) -> Result<He
         protocol: PROTOCOL,
         format: DATA_FORMAT,
         port: shared.port(),
+        time: Some(shared.host.now()),
     }))?;
-    match wire::decode(&ch.recv()?)? {
+    let answer = ch.recv()?;
+    let after = shared.host.now();
+    match wire::decode(&answer)? {
         Incoming::Msg(Msg::Hello {
             name,
             platform,
@@ -61,6 +70,7 @@ pub(crate) fn hellos<H: Host>(shared: &Shared<H>, ch: &mut Channel) -> Result<He
             protocol,
             format,
             port,
+            time,
         }) => Ok(Hello {
             name,
             platform,
@@ -69,6 +79,8 @@ pub(crate) fn hellos<H: Host>(shared: &Shared<H>, ch: &mut Channel) -> Result<He
             protocol,
             format,
             port,
+            time,
+            asked: (before, after),
         }),
         Incoming::Msg(Msg::Bye { reason }) if reason == "server" => Err(Error::Handshake(
             "the other device syncs with a server".into(),
@@ -97,6 +109,15 @@ pub(crate) fn mismatch(hello: &Hello) -> Option<Live> {
     } else {
         None
     }
+}
+
+/// How far this device's clock is off from the other's, when too far.
+/// `None` too when the other did not say its time.
+pub(crate) fn clock_off(hello: &Hello) -> Option<i64> {
+    let (before, after) = hello.asked;
+    hello
+        .time
+        .and_then(|theirs| app_protocol::clock_off(before, after, theirs, 0))
 }
 
 fn device_list(devices: &[PeerDevice]) -> Vec<Device> {
@@ -347,8 +368,9 @@ pub(crate) fn run<H: Host>(shared: &Shared<H>, ch: Channel, id: u64, starts: boo
     shared.ended(&key, id, outcome.err());
 }
 
-/// After the hellos: refuses a device on another version, else notes what
-/// it said. `Err` with the state to show when the two cannot sync.
+/// After the hellos: refuses a device on another version or whose clock
+/// disagrees with this one's, else notes what it said. `Err` with the
+/// state to show when the two cannot sync.
 /// The address it answers on is kept, to dial it there when discovery
 /// does not find it (multicast blocked): the one this device dialled, or,
 /// when the other dialled in, its address with the port its hello gave.
@@ -381,6 +403,17 @@ pub(crate) fn check_hello<H: Host>(
             reason: "version".into(),
         }));
         return Err(live);
+    }
+    // a device whose clock is wrong would expire trash early, or never, and
+    // pass the deletions on: neither side can tell whose clock it is
+    if let Some(by) = clock_off(hello) {
+        let _ = ch.send(&wire::encode(&Msg::Bye {
+            reason: "clock".into(),
+        }));
+        return Err(Live::ClockOff { by });
+    }
+    if hello.time.is_some() {
+        shared.host.clock_agreed();
     }
     Ok(())
 }

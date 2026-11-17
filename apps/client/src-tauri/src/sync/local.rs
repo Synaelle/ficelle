@@ -63,6 +63,13 @@ impl Host for LocalHost {
     fn default_name(&self) -> String {
         default_name()
     }
+
+    fn clock_agreed(&self) {
+        let purged = self.app.state::<AppState>().clock_checked();
+        if purged.is_ok_and(|n| n > 0) {
+            self.changed();
+        }
+    }
 }
 
 /// The computer's name, or what kind of device this is. Asked once.
@@ -133,10 +140,12 @@ pub struct LocalDevice {
     version: String,
     last_sync_at: Option<i64>,
     /// `syncing`, `synced`, `waiting` (changes here it has not seen),
-    /// `away`, `needsUpdate`, `updateThis` or `failed`.
+    /// `away`, `needsUpdate`, `updateThis`, `clockOff` or `failed`.
     state: &'static str,
     /// The other version, or why it failed.
     detail: Option<String>,
+    /// For `clockOff`: this device's clock minus the other's, in ms.
+    clock_off: Option<i64>,
     /// Seen but out of reach for a while: a firewall may be in the way.
     blocked: bool,
 }
@@ -265,6 +274,7 @@ impl Local {
                     Some(Live::Synced) => ("synced", None),
                     Some(Live::NeedsUpdate { version }) => ("needsUpdate", Some(version.clone())),
                     Some(Live::UpdateThis { version }) => ("updateThis", Some(version.clone())),
+                    Some(Live::ClockOff { .. }) => ("clockOff", None),
                     Some(Live::Failed { error }) => ("failed", Some(error.clone())),
                     None if behind => ("waiting", None),
                     None => ("away", None),
@@ -278,6 +288,10 @@ impl Local {
                     last_sync_at: d.last_sync_at,
                     state,
                     detail,
+                    clock_off: match now {
+                        Some(Live::ClockOff { by }) => Some(*by),
+                        _ => None,
+                    },
                 }
             })
             .collect();
