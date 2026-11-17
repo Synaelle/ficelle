@@ -8,8 +8,8 @@ name: android
 # APK of the chosen branch, or of `ref` (a released tag, to build its APK
 # again), kept as an artifact for a week, signed for the updater if asked.
 # nightly.yml calls it with a nightly's name and build number. With `store`,
-# the APK for F-Droid, which updates it: no updater and no
-# permission to install, named ficelle-<version>-android-store.apk.
+# a test build of the APK F-Droid makes from source (APP_STORE=1): no
+# updater and no permission to install, named ficelle-<version>-android-store.apk.
 
 on:
   workflow_call:
