@@ -8,6 +8,8 @@ declare const __APP_BUILD_DATE__: string
 declare const __APP_PROTOCOL__: number
 /** The portable Windows exe, see src-tauri/src/portable.rs. */
 declare const __APP_PORTABLE__: boolean
+/** The Android APK an app store updates (`APP_STORE=1`), with no updater of its own. */
+declare const __APP_STORE__: boolean
 /** Everything only for builds that are not releases: the report tool, test hooks, shorter waits. */
 declare const __APP_DEV_TOOLS__: boolean
 /** The system the build is for, see lib/platform.ts. */

@@ -34,6 +34,8 @@ export default defineConfig(({ mode }) => ({
     __APP_PREVIEW__: JSON.stringify(process.env.APP_PREVIEW === '1'),
     // the portable Windows exe, see src-tauri/src/portable.rs
     __APP_PORTABLE__: JSON.stringify(!!process.env.APP_PORTABLE),
+    // the APK for F-Droid and IzzyOnDroid, which the store updates
+    __APP_STORE__: JSON.stringify(process.env.APP_STORE === '1'),
     // temporary issue reports outside releases
     __APP_DEV_TOOLS__: JSON.stringify(!isRelease()),
     // the system the tauri cli builds for, "web" in the browser and tests

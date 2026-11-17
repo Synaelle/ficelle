@@ -92,6 +92,12 @@ android {
         // the app's name comes from the build type, see below
         resValues = true
     }
+    // the dependency list Google's tools add to the APK, encrypted for Google
+    // alone, which the F-Droid stores refuse
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 }
 
 kotlin {
@@ -131,6 +137,12 @@ if (project.hasProperty("preview")) {
         buildConfigField("boolean", "DEV_REPORTS", "true")
         signingConfig = android.signingConfigs.getByName("debug")
     }
+}
+
+// The APK for F-Droid and IzzyOnDroid (APP_STORE=1, which the Rust and web
+// builds read too): the release without its updater, the store updates it.
+if (System.getenv("APP_STORE") == "1") {
+    android.sourceSets.getByName("release").manifest.srcFile("src/store/AndroidManifest.xml")
 }
 
 // Debug builds install next to the real app, under their own id and name.

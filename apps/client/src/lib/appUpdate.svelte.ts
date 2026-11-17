@@ -72,9 +72,11 @@ export const thisVersion = pretendRelease ? '0.4.0-beta.1' : __APP_VERSION__
 
 /** Only numbered releases of the apps update themselves, betas included.
  * Dev and preview builds don't (unless they pretend, with nothing
- * downloaded), nor the web version, which is always the one served. */
+ * downloaded), nor the web version, which is always the one served, nor the
+ * APK of the F-Droid stores, which update it. */
 export const updatesHere =
   (PLATFORM !== 'web' &&
+    !__APP_STORE__ &&
     (/^\d+\.\d+\.\d+(-beta\.\d+)?$/.test(thisVersion) || NIGHTLY.test(thisVersion))) ||
   !!pretend?.has('updates')
 

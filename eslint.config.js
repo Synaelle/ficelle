@@ -31,6 +31,7 @@ export default ts.config(
         __APP_PREVIEW__: 'readonly',
         __APP_DEV_TOOLS__: 'readonly',
         __APP_PORTABLE__: 'readonly',
+        __APP_STORE__: 'readonly',
         __APP_PLATFORM__: 'readonly',
       },
     },

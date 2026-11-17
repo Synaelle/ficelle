@@ -155,9 +155,10 @@ fn release_page(version: &str) -> String {
     )
 }
 
-/// This build updates itself: a release or a nightly, with an update key.
+/// This build updates itself: a release or a nightly, with an update key,
+/// and not the APK of the F-Droid stores, which update it.
 fn enabled() -> bool {
-    !app_brand::APP_UPDATES_KEY.is_empty() && list::here().is_some()
+    !cfg!(app_store) && !app_brand::APP_UPDATES_KEY.is_empty() && list::here().is_some()
 }
 
 fn failed(kind: &'static str, err: impl std::fmt::Display) -> CommandError {
