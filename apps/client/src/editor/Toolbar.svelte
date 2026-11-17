@@ -9,7 +9,7 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { overlay } from '../lib/overlay.svelte'
   import type { IconName } from '../lib/icons/sets'
-  import { shortcutFor } from '../lib/prefs.svelte'
+  import { prefs, shortcutFor } from '../lib/prefs.svelte'
   import { displayBinding, type ActionId } from '../lib/shortcuts'
 
   let {
@@ -115,11 +115,13 @@
     { icon: 'image', label: () => t('editor.image'), run: () => onimage() },
   ]
 
-  const shown = TOUCH ? tools.filter((tool) => tool.quick) : tools
+  /** The buttons not hidden in the settings. */
+  const kept = $derived(tools.filter((tool) => !prefs.hiddenTools.includes(tool.icon)))
+  const shown = $derived(TOUCH ? kept.filter((tool) => tool.quick) : kept)
 
   function more() {
     overlay.openSheet(
-      tools
+      kept
         .filter((tool) => !tool.quick)
         .map((tool) => ({
           label: tool.label(),
@@ -151,7 +153,7 @@
       <Icon name={tool.icon} size={17} />
     </button>
   {/each}
-  {#if TOUCH}
+  {#if TOUCH && kept.some((tool) => !tool.quick)}
     <span class="divider" aria-hidden="true"></span>
     <button
       class="more"

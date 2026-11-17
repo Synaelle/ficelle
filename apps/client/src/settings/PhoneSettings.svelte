@@ -19,7 +19,8 @@
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { overlay, type MenuItem } from '../lib/overlay.svelte'
-  import { prefs } from '../lib/prefs.svelte'
+  import { prefs, showTool } from '../lib/prefs.svelte'
+  import { TOOL_NAMES } from '../editor/toolNames'
   import ArrowPicker from './ArrowPicker.svelte'
   import DataSettings from './DataSettings.svelte'
   import FeedbackSettings from './FeedbackSettings.svelte'
@@ -292,6 +293,7 @@
     ['textStyle', 'settings.dyslexicFont', 'accessibility'],
     ['list', 'settings.autoLists', 'editor'],
     ['emoji', 'settings.emojiShortcodes', 'editor'],
+    ['allNotes', 'settings.openLastNote', 'editor'],
     ['attachment', 'settings.nameFromAttachment', 'editor'],
     ['right', 'settings.arrow', 'editor'],
     ['timer', 'settings.clock', 'language'],
@@ -556,6 +558,12 @@
             run: () => (prefs.emojiShortcodes = !prefs.emojiShortcodes),
           })}
           {@render row({
+            icon: 'allNotes',
+            label: t('settings.openLastNote'),
+            on: prefs.openLastNote,
+            run: () => (prefs.openLastNote = !prefs.openLastNote),
+          })}
+          {@render row({
             icon: 'attachment',
             label: t('settings.nameFromAttachment'),
             on: prefs.nameFromAttachment,
@@ -564,6 +572,16 @@
         </Group>
         <Group title={t('settings.arrow')} typed>
           <div class="inside"><ArrowPicker /></div>
+        </Group>
+        <Group title={t('settings.toolbarButtons')}>
+          {#each TOOL_NAMES as tool (tool.icon)}
+            {@render row({
+              icon: tool.icon,
+              label: t(tool.label),
+              on: !prefs.hiddenTools.includes(tool.icon),
+              run: () => showTool(tool.icon, prefs.hiddenTools.includes(tool.icon)),
+            })}
+          {/each}
         </Group>
       {:else if page === 'language'}
         <Group

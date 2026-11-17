@@ -52,7 +52,7 @@
   const NOTE_MIN = 360
   const listMax = $derived(Math.max(240, width - (showSidebar ? prefs.sidebarWidth : 0) - NOTE_MIN))
 
-  void workspace.load()
+  void workspace.load().then(() => workspace.openLast())
   onMount(() => {
     if (WEB && backupDue()) toasts.push(t('backups.title'), t('backups.webReminder'))
     if (prefs.betasEnded) {

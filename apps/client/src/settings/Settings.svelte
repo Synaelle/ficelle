@@ -11,7 +11,8 @@
   import { LOCALES, LOCALES_URL, t, translatedLine, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
-  import { prefs, shortcutFor } from '../lib/prefs.svelte'
+  import { prefs, shortcutFor, showTool } from '../lib/prefs.svelte'
+  import { TOOL_NAMES } from '../editor/toolNames'
   import { MODES } from '../lib/theme.svelte'
   import { WEB } from '../lib/platform'
   import { TAG_MARKS } from '../lib/tagMark.svelte'
@@ -272,10 +273,24 @@
             <Group title={t('settings.arrow')} typed>
               <div class="inside"><ArrowPicker /></div>
             </Group>
+            <Group title={t('settings.toolbarButtons')}>
+              {#each TOOL_NAMES as tool (tool.icon)}
+                <Row label={t(tool.label)}>
+                  <Switch
+                    label={t(tool.label)}
+                    checked={!prefs.hiddenTools.includes(tool.icon)}
+                    onchange={(on) => showTool(tool.icon, on)}
+                  />
+                </Row>
+              {/each}
+            </Group>
             <!-- how the app behaves, apart from what typing does -->
             <Group note={quickTaken ? t('settings.quickNoteTaken') : undefined}>
               <Row label={t('settings.openNoteFirst')}>
                 <Switch label={t('settings.openNoteFirst')} bind:checked={prefs.openNoteFirst} />
+              </Row>
+              <Row label={t('settings.openLastNote')}>
+                <Switch label={t('settings.openLastNote')} bind:checked={prefs.openLastNote} />
               </Row>
               <Row label={t('settings.nameFromAttachment')}>
                 <Switch

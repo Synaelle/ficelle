@@ -47,6 +47,13 @@ export interface Prefs {
   openNoteFirst: boolean
   /** A note left without a title takes its first attachment's name. */
   nameFromAttachment: boolean
+  /** The app opens on the note that was open when it closed. */
+  openLastNote: boolean
+  /** Formatting buttons left out of the toolbar, by their icon
+   * (editor/toolNames.ts); their shortcuts still work. */
+  hiddenTools: string[]
+  /** That note on this device, see openLastNote. */
+  lastNote: string | null
   /** Newer versions download by themselves and a card offers them. Off,
    * only a critical security fix is told, in the middle of the screen. */
   autoUpdates: boolean
@@ -101,6 +108,9 @@ export const DEFAULT_PREFS: Prefs = {
   clock: 'system',
   openNoteFirst: false,
   nameFromAttachment: true,
+  openLastNote: true,
+  hiddenTools: [],
+  lastNote: null,
   autoUpdates: true,
   securityChecks: true,
   updateNotifications: false,
@@ -120,6 +130,12 @@ export const DEFAULT_PREFS: Prefs = {
 }
 
 const STORAGE_KEY = 'prefs'
+
+/** Shows or hides a formatting button, see hiddenTools. */
+export function showTool(icon: string, on: boolean) {
+  const others = prefs.hiddenTools.filter((hidden) => hidden !== icon)
+  prefs.hiddenTools = on ? others : [...others, icon]
+}
 
 function load(): Prefs {
   try {

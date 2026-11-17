@@ -13,6 +13,7 @@ export const SYNCED = [
   'sort',
   'openNoteFirst',
   'nameFromAttachment',
+  'hiddenTools',
   'autoLists',
   'emojiShortcodes',
   'arrow',

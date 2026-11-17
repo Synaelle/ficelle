@@ -115,6 +115,17 @@ class Workspace {
     await Promise.all([this.refreshTagsAndNotes(), this.refreshConflicts()])
   }
 
+  /** The note open when the app last closed, when the setting asks for it
+   * and the note is still there. */
+  async openLast() {
+    const id = prefs.openLastNote ? prefs.lastNote : null
+    if (!id || this.current) return
+    const note = await backend.getNote(id).catch(() => null)
+    if (!note || note.trashedAt || this.current) return
+    this.show(note)
+    await this.refreshConflicts()
+  }
+
   async refreshTagsAndNotes() {
     await this.refreshTags()
     await this.refreshNotes()
@@ -190,6 +201,7 @@ class Workspace {
   }
 
   private show(note: Note | null) {
+    prefs.lastNote = note?.id ?? null
     if (this.conflict?.noteId !== note?.id) this.conflict = null
     if (this.current?.id !== note?.id) this.editedAt = 0
     this.current = note
