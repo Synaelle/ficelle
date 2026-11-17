@@ -2,7 +2,6 @@
 <!-- Note list with search, sort and new note. On a phone the title is a
      scope picker, since there is no sidebar. -->
 <script lang="ts">
-  import { betaFeedback, isBeta, touchScreen } from '../lib/beta.svelte'
   import { hour12 } from '../lib/clock.svelte'
   import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
@@ -240,16 +239,6 @@
         {@const line = t(`local.status.${localSync.summary.key}`, { name: localSync.summary.name })}
         <button class="icon-btn" aria-label={line} title={line} onclick={() => onsettings('sync')}>
           <SyncIcon state="error" size={18} />
-        </button>
-      {/if}
-      {#if isBeta && touchScreen}
-        <button
-          class="icon-btn"
-          aria-label={t('beta.feedback')}
-          title={t('beta.feedback')}
-          onclick={() => (betaFeedback.open = true)}
-        >
-          <Icon name="speech" />
         </button>
       {/if}
       {#if narrow}

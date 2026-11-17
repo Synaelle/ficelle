@@ -583,10 +583,8 @@ wrap_center = "Centered"
 wrap_full = "Full width"
 
 [beta]
-feedback = "Send feedback"
 nightlyWelcomeLabel = "Welcome to Nightly"
-nightlyWelcome = "Welcome to Nightly. Thanks for trying each night's changes. They may have bugs, so please report them with the feedback button at the bottom right."
-nightlyWelcomePhone = "Welcome to Nightly. Thanks for trying each night's changes. They may have bugs, so please report them with the feedback button at the top of the notes list."
+nightlyWelcome = "Welcome to Nightly. Thanks for trying each night's changes. They may have bugs, so please report them in Settings, Feedback."
 macLabel = "About the Mac version"
 mac = "The Mac version is mostly untested, I have no Mac to try it on, and after this version it only gets major security and bug fixes. Please report issues on GitHub or to {address}, contributions are credited."
 
