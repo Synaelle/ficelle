@@ -31,6 +31,14 @@ const SCOPE = pageScope()
  * version at another path has notes and a lock of its own. */
 const LOCK = `notes:${SCOPE}`
 
+/** Runs before this tab lets another take the notes, so the keys typed
+ * last are saved before its worker stops. */
+let beforeHandOver = async () => {}
+
+export function onHandOver(save: () => Promise<void>) {
+  beforeHandOver = save
+}
+
 export function createWebBackend(): Backend {
   const waiting = new Map<number, { resolve(value: unknown): void; reject(err: unknown): void }>()
   let next = 0
@@ -77,8 +85,11 @@ export function createWebBackend(): Backend {
           }
           tabs.onmessage = ({ data }) => {
             if (data !== 'take') return
-            stop?.()
-            location.reload()
+            // the other tab waits for the lock, so it has to come free
+            void beforeHandOver().finally(() => {
+              stop?.()
+              location.reload()
+            })
           }
         })
       })

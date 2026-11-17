@@ -20,6 +20,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { DESKTOP, HANDHELD, WEB } from '../lib/platform'
   import { backupDue } from '../lib/webBackups'
+  import { onHandOver } from '../lib/backend/web'
   import { toasts } from '../lib/toast.svelte'
   import { sendSyncedPrefs, takeSyncedPrefs } from '../lib/syncedPrefs.svelte'
   import Icon from '../lib/icons/Icon.svelte'
@@ -177,6 +178,9 @@
     const stop = onQuickNoteSaved(() => void workspace.refreshNotes())
     return () => void stop.then((unlisten) => unlisten())
   })
+
+  // another tab taking the notes stops this one's core: save first
+  if (WEB) onHandOver(() => workspace.flush())
 
   // save before the window goes away: beforeunload cannot wait for the save,
   // so a desktop window holds its close until the save is done, and a phone
