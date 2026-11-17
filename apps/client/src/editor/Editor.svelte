@@ -10,7 +10,7 @@
   import { headingSlug } from './headingSlug'
   import { Editor } from '@tiptap/core'
   import type { Node as PMNode } from '@tiptap/pm/model'
-  import { NodeSelection, TextSelection } from '@tiptap/pm/state'
+  import { NodeSelection, TextSelection, type Selection } from '@tiptap/pm/state'
   import { onDestroy, onMount } from 'svelte'
   import { pickToSave } from '../lib/pick'
   import { ATTACHMENT_PREFIX } from '../lib/attachments'
@@ -169,6 +169,21 @@
       toasts.push(t('files.title'), t('files.imageNotCopied'))
       return false
     }
+  }
+
+  /** Copies the image a selection holds, when it is one of the note's
+   * pictures the clipboard takes; false leaves the copy to the editor. */
+  function copySelectedImage(selection: Selection, event: ClipboardEvent, cut: boolean): boolean {
+    if (!(selection instanceof NodeSelection) || selection.node.type.name !== 'image') return false
+    const src = String(selection.node.attrs.src ?? '')
+    if (!src.startsWith(ATTACHMENT_PREFIX)) return false
+    const file = files.get(decoded(src.slice(ATTACHMENT_PREFIX.length)))
+    if (!file || !picturesCopy(file)) return false
+    event.preventDefault()
+    void copyImage(file).then((done) => {
+      if (done && cut) editor?.chain().focus().deleteSelection().run()
+    })
+    return true
   }
 
   /** The menu of a file linked in the text. */
@@ -636,6 +651,12 @@
         },
         scrollMargin: { top: 5, bottom: CLEAR_BELOW, left: 5, right: 5 },
         scrollThreshold: { top: 0, bottom: CLEAR_BELOW, left: 0, right: 0 },
+        // Ctrl+C and Ctrl+X on a selected image of the note put the picture
+        // itself on the clipboard, as the menu's Copy and Cut do
+        handleDOMEvents: {
+          copy: (view, event) => copySelectedImage(view.state.selection, event, false),
+          cut: (view, event) => copySelectedImage(view.state.selection, event, true),
+        },
         handlePaste: (view, event) => {
           const data = event.clipboardData
           const files = filesOf(data)
