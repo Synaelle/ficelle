@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The desktop quick note window: a title, some text, Ctrl+Enter saves into
-     the notes of the main window, Esc closes. Shares the display preferences
+     the notes of the main window, Esc closes and keeps what was typed. Shares the display preferences
      of the main window but none of its screens. -->
 <script lang="ts">
   import { brand } from '@app/brand'
@@ -53,6 +53,8 @@
     busy = true
     try {
       await backend.createNote({ title: title.trim(), body: body.trim() })
+      title = ''
+      body = ''
       await announceSaved()
       await getCurrentWindow().close()
     } catch (err) {
@@ -64,6 +66,15 @@
       busy = false
     }
   }
+
+  // Esc and the window's own close never throw typing away: it is saved
+  // first, and the window stays open with the reason when it cannot be
+  const stopClose = getCurrentWindow().onCloseRequested(async (event) => {
+    if (empty) return
+    event.preventDefault()
+    await save()
+  })
+  onDestroy(() => void stopClose.then((stop) => stop()))
 
   function onkeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') void getCurrentWindow().close()
