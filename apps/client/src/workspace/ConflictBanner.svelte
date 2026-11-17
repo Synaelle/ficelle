@@ -61,8 +61,10 @@
         <button class="btn primary" disabled={busy} onclick={() => (comparing = true)}
           >{t('conflict.compare')}</button
         >
-        <button class="btn" disabled={busy} onclick={() => keep('merged')}
-          >{t('conflict.keepMerged')}</button
+        <!-- the merge of two rewrites can mix their words: the choice at
+             hand keeps both texts whole, the merge waits in Compare -->
+        <button class="btn" disabled={busy} onclick={() => keep('both')}
+          >{t('conflict.keepBoth')}</button
         >
       </div>
     {:else}
