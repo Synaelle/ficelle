@@ -106,6 +106,8 @@ pub enum VersionReason {
     MineBeforeMerge,
     /// The other device's text just before a suspicious merge.
     TheirsBeforeMerge,
+    /// The text a restored backup had for a note that was still here.
+    FromBackup,
 }
 
 impl VersionReason {
@@ -115,6 +117,7 @@ impl VersionReason {
             Self::BeforeRestore => "before-restore",
             Self::MineBeforeMerge => "mine-before-merge",
             Self::TheirsBeforeMerge => "theirs-before-merge",
+            Self::FromBackup => "from-backup",
         }
     }
 
@@ -123,6 +126,7 @@ impl VersionReason {
             "before-restore" => Self::BeforeRestore,
             "mine-before-merge" => Self::MineBeforeMerge,
             "theirs-before-merge" => Self::TheirsBeforeMerge,
+            "from-backup" => Self::FromBackup,
             _ => Self::Edit,
         }
     }

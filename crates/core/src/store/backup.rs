@@ -9,9 +9,10 @@ use std::collections::{HashMap, HashSet};
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 
-use super::{Store, folders, reindex, tags};
+use super::{Store, folders, history, reindex, tags};
 use crate::error::Result;
 use crate::id::{FolderId, NoteId};
+use crate::model::VersionReason;
 
 /// A folder in a backup.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -327,6 +328,7 @@ impl Store {
 
         let present = self.notes_present(&data.notes.iter().map(|n| n.id).collect::<Vec<_>>())?;
         report.skipped = present.len();
+        report.versions += self.restore_into_history(data, &present)?;
         let restored: Vec<&BackupNote> = data
             .notes
             .iter()
@@ -412,6 +414,55 @@ impl Store {
             crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
         }
         Ok(report)
+    }
+
+    /// For notes still here, which a restore leaves as they are: the
+    /// backup's text and history go into the note's history, so an older
+    /// text can still be brought back from there. Returns how many versions
+    /// were added.
+    fn restore_into_history(
+        &mut self,
+        data: &BackupData,
+        present: &HashSet<NoteId>,
+    ) -> Result<usize> {
+        let mut versions: HashMap<NoteId, Vec<&BackupVersion>> = HashMap::new();
+        for v in data
+            .versions
+            .iter()
+            .filter(|v| present.contains(&v.note_id))
+        {
+            versions.entry(v.note_id).or_default().push(v);
+        }
+        let mut added = 0;
+        let tx = self.conn.transaction()?;
+        for note in data.notes.iter().filter(|n| present.contains(&n.id)) {
+            for v in versions.get(&note.id).into_iter().flatten() {
+                added += tx.execute(
+                    "INSERT OR IGNORE INTO note_versions (id, note_id, title, body, created_at, reason)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![v.id, v.note_id, v.title, v.body, v.created_at, v.reason],
+                )?;
+            }
+            let known: bool = tx.query_row(
+                "SELECT EXISTS (SELECT 1 FROM notes WHERE id = ?1 AND title = ?2 AND body = ?3)
+                     OR EXISTS (SELECT 1 FROM note_versions WHERE note_id = ?1 AND title = ?2 AND body = ?3)",
+                params![note.id, note.title, note.body],
+                |row| row.get(0),
+            )?;
+            if !known {
+                history::save_text(
+                    &tx,
+                    note.id,
+                    &note.title,
+                    &note.body,
+                    VersionReason::FromBackup,
+                    note.updated_at,
+                )?;
+                added += 1;
+            }
+        }
+        tx.commit()?;
+        Ok(added)
     }
 
     /// The tags kept without notes and the colour marks of a backup, or for
@@ -525,8 +576,11 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::{BackupData, BackupFolder, BackupNote};
+    use crate::clock::DAY;
     use crate::id::{FolderId, NoteId};
+    use crate::model::VersionReason;
     use crate::store::test_support::store;
+    use crate::store::{NewNote, NoteChange};
 
     fn folder(id: FolderId, parent: Option<FolderId>, name: &str, trashed: bool) -> BackupFolder {
         BackupFolder {
@@ -603,5 +657,41 @@ mod tests {
                 ("Ideas/Later".into(), Some("blue".into()))
             ]
         );
+    }
+
+    #[test]
+    fn a_restore_puts_the_older_text_of_a_note_still_here_in_its_history() {
+        let (mut store, clock) = store();
+        let note = store
+            .create_note(&NewNote {
+                title: "Rent".into(),
+                body: "Paid in March".into(),
+                ..NewNote::default()
+            })
+            .unwrap();
+        let data = store.backup_data().unwrap();
+        clock.advance(DAY);
+        store
+            .update_note(
+                note.id,
+                NoteChange {
+                    body: Some("garbled".into()),
+                    ..NoteChange::default()
+                },
+            )
+            .unwrap();
+        // the version the edit saved holds the backup's text already
+        store
+            .conn()
+            .execute("DELETE FROM note_versions", [])
+            .unwrap();
+        let report = store.restore_backup(&data, &|_| false).unwrap();
+        assert_eq!((report.notes, report.versions), (0, 1));
+        assert_eq!(store.note(note.id).unwrap().body, "garbled");
+        let versions = store.list_versions(note.id).unwrap();
+        assert_eq!(versions[0].body, "Paid in March");
+        assert_eq!(versions[0].reason, VersionReason::FromBackup);
+        let again = store.restore_backup(&data, &|_| false).unwrap();
+        assert_eq!(again.versions, 0, "known already");
     }
 }

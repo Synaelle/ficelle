@@ -66,7 +66,7 @@ export interface NoteVersion {
   title: string
   body: string
   createdAt: Timestamp
-  reason: 'edit' | 'beforeRestore' | 'mineBeforeMerge' | 'theirsBeforeMerge'
+  reason: 'edit' | 'beforeRestore' | 'mineBeforeMerge' | 'theirsBeforeMerge' | 'fromBackup'
 }
 
 /** A note waiting for a decision after a sync. */
