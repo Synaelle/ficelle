@@ -190,6 +190,9 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     notify: async () => {},
     // the browser fetches the font itself, nothing is kept
     fontDownload: async (_id, files) => files ?? ['latin-400-normal', 'latin-700-normal'],
+    openLink: async (url) => {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    },
     fontFiles: async () => [],
     fontFile: async (id, name) => {
       const response = await fetch(`${brand.fontsSourceUrl}/${id}@latest/${name}.woff2`)

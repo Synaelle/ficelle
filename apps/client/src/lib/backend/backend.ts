@@ -89,6 +89,8 @@ export interface Backend {
   /** Downloads a font's files (commands/fonts.rs), returns those it has.
    * `files` defaults to the usual eight, see `FILES` there. */
   fontDownload(id: string, files?: string[]): Promise<string[]>
+  /** A web or mail link of a note, opened outside the app. */
+  openLink(url: string): Promise<void>
   /** The files of a font this device has, of `files` or the usual eight. */
   fontFiles(id: string, files?: string[]): Promise<string[]>
   fontFile(id: string, name: string): Promise<ArrayBuffer>

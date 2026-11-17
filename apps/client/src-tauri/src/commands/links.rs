@@ -7,7 +7,7 @@ use app_core::model::{NoteSummary, SearchHit};
 use app_core::store::LinkSuggestion;
 use tauri::State;
 
-use crate::error::CommandResult;
+use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
 
 #[tauri::command]
@@ -44,4 +44,22 @@ pub async fn link_suggestions(
 #[tauri::command]
 pub async fn note_headings(state: State<'_, AppState>, id: NoteId) -> CommandResult<Vec<String>> {
     state.with(|s| s.store.note_headings(id))
+}
+
+/// Opens a link of a note in the system's browser, or its mail app for a
+/// `mailto:` one. Only those: a note never starts a program or opens a file.
+#[tauri::command]
+pub async fn link_open(url: String) -> CommandResult<()> {
+    let scheme = url.split_once(':').map(|(s, _)| s.to_ascii_lowercase());
+    if !matches!(scheme.as_deref(), Some("http" | "https" | "mailto")) {
+        return Err(CommandError::new("invalid", "not a web or mail link"));
+    }
+    #[cfg(desktop)]
+    return crate::sync::browser::open_in_browser(&url)
+        .map_err(|e| CommandError::new("unknown", e.to_string()));
+    #[cfg(mobile)]
+    Err(CommandError::new(
+        "unsupported",
+        "the phone opens links itself",
+    ))
 }

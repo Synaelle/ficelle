@@ -168,6 +168,9 @@ export function createWebBackend(): Backend {
     // fonts come with the web version, in its fonts folder (build:web), and
     // the browser's cache keeps them
     fontDownload: async (_id, files) => files ?? ['latin-400-normal', 'latin-700-normal'],
+    openLink: async (url) => {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    },
     fontFiles: async () => [],
     fontFile: async (id, name) => {
       const response = await fetch(`fonts/${id}/${name}.woff2`)

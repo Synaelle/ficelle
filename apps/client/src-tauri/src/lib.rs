@@ -218,6 +218,7 @@ pub fn run() {
             commands::links::resolve_link,
             commands::links::link_suggestions,
             commands::links::note_headings,
+            commands::links::link_open,
             commands::files::add_attachment,
             commands::files::list_attachments,
             commands::files::all_attachments,

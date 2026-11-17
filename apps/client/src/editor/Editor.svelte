@@ -695,6 +695,14 @@
             scrollToAnchor(decoded(href.slice(1)))
             return true
           }
+          // a web or mail link opens outside, and the note stays where it is
+          if (/^(https?|mailto):/i.test(href)) {
+            event.preventDefault()
+            backend
+              .openLink(href)
+              .catch((err: unknown) => toasts.push(t('editor.link'), String(err)))
+            return true
+          }
           if (!href.startsWith(ATTACHMENT_PREFIX)) return false
           const file = files.get(decoded(href.slice(ATTACHMENT_PREFIX.length)))
           if (!file) return false

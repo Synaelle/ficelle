@@ -49,6 +49,11 @@ export function createTauriBackend(call: typeof invoke = invoke): Backend {
     quickWindowOpen: (title) => call('quick_window_open', { title }),
     quickWindowReady: (title) => call('quick_window_ready', { title }),
     fontDownload: (id, files) => call('font_download', { id, files }),
+    // a phone opens the browser itself, the rest through the app
+    openLink: async (url) => {
+      if (window.AppSystem?.openBrowser) window.AppSystem.openBrowser(url)
+      else await call('link_open', { url })
+    },
     fontFiles: (id, files) => call('font_files', { id, files }),
     fontFile: (id, name) => call('font_file', { id, name }),
     systemClock24h: () => call('system_clock_24h'),
