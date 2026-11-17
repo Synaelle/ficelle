@@ -92,6 +92,13 @@
       void workspace.togglePin(workspace.current.id, !workspace.current.pinned),
     trash: () => workspace.current && void workspace.trash(workspace.current.id),
     settings: () => (settingsOpen = true),
+    // the note is saved first, then sent to the server and the paired
+    // devices now rather than at the next round
+    syncNow: () =>
+      void workspace.flush().then(() => {
+        if (sync.status.state !== 'off') void sync.now()
+        if (localSync.status.devices.length > 0) void localSync.now()
+      }),
   }
 
   function onkeydown(event: KeyboardEvent) {
