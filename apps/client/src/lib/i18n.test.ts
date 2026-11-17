@@ -43,7 +43,7 @@ describe('t', () => {
   })
 
   it('falls back to English for a language this build does not have', async () => {
-    await setLocale('de' as 'en')
+    await setLocale('ja' as 'en')
     expect(currentLocale()).toBe('en')
     expect(t('errorReport.lead')).toContain(brand.displayName)
   })
