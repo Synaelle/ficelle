@@ -128,11 +128,11 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "app-brand"
-version = "0.7.0"
+version = "0.7.1"
 
 [[package]]
 name = "app-core"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "app-brand",
  "app-e2ee",
@@ -161,7 +161,7 @@ dependencies = [
 
 [[package]]
 name = "app-core-web"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "app-core",
  "rusqlite",
@@ -175,7 +175,7 @@ dependencies = [
 
 [[package]]
 name = "app-e2ee"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "aead-stream",
  "argon2 0.5.3",
@@ -194,7 +194,7 @@ dependencies = [
 
 [[package]]
 name = "app-e2ee-web"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "app-e2ee",
  "getrandom 0.2.17",
@@ -205,7 +205,7 @@ dependencies = [
 
 [[package]]
 name = "app-peer"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "app-brand",
  "app-core",
@@ -223,7 +223,7 @@ dependencies = [
 
 [[package]]
 name = "app-protocol"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -232,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "app-repo"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "argon2 0.6.0",
  "base64 0.23.1",
@@ -251,7 +251,7 @@ dependencies = [
 
 [[package]]
 name = "app-webview-memory"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "webview2-com",
  "windows-core",
@@ -1073,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "client"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "app-brand",
  "app-core",
@@ -1753,7 +1753,7 @@ dependencies = [
 
 [[package]]
 name = "devtool"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "app-core",
  "app-protocol",
@@ -6712,7 +6712,7 @@ dependencies = [
 
 [[package]]
 name = "server"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "app-brand",
  "app-core",
