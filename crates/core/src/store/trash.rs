@@ -32,7 +32,8 @@ fn parent_is_trashed(conn: &Connection, parent: Option<FolderId>) -> Result<bool
 }
 
 /// Live notes with nothing in them, and whether they ever held something
-/// (an emptied note keeps its text in its history). Whitespace alone counts
+/// (an emptied note keeps its text in its history, a note changed after it
+/// was made was kept once, say for a tag deleted since). Whitespace alone counts
 /// as nothing, a pinned note was kept on purpose, and attached files are
 /// something, so are tags given after the note was made (a note made in a
 /// tag's view starts with that tag). Notes in a space shared with this
@@ -40,6 +41,7 @@ fn parent_is_trashed(conn: &Connection, parent: Option<FolderId>) -> Result<bool
 const BLANK_NOTES: &str =
     "SELECT id, EXISTS (SELECT 1 FROM note_versions v WHERE v.note_id = notes.id
          AND (trim(v.title, char(32, 9, 10, 13)) <> '' OR trim(v.body, char(32, 9, 10, 13)) <> ''))
+         OR updated_at > created_at
      FROM notes WHERE trashed_at IS NULL AND pinned = 0
      AND trim(title, char(32, 9, 10, 13)) = '' AND trim(body, char(32, 9, 10, 13)) = ''
      AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.note_id = notes.id)
@@ -296,9 +298,10 @@ impl Store {
         Ok(discarded)
     }
 
-    /// Discards every note left blank, the ones abandoned when the app closed
-    /// or locked with an empty note open, as [`Store::discard_if_blank`]
-    /// does. Call it at startup.
+    /// Discards every note made here and left blank, the ones abandoned when
+    /// the app closed or locked with an empty note open, as
+    /// [`Store::discard_if_blank`] does. Call it at startup. A blank note
+    /// from another device stays: it may be open there, about to be written.
     ///
     /// # Errors
     ///
@@ -307,7 +310,9 @@ impl Store {
         let now = self.now();
         let tx = self.conn.transaction()?;
         let blank = {
-            let mut stmt = tx.prepare(BLANK_NOTES)?;
+            let mut stmt = tx.prepare(&format!(
+                "{BLANK_NOTES} AND id IN (SELECT note_id FROM notes_made_here)"
+            ))?;
             stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
                 .collect::<rusqlite::Result<Vec<(NoteId, bool)>>>()?
         };
@@ -590,6 +595,33 @@ mod tests {
             store.note(trashed.id).is_ok(),
             "the trash keeps its own rules"
         );
+    }
+
+    #[test]
+    fn startup_leaves_a_blank_note_from_another_device() {
+        let (mut store, _) = store();
+        let conn = store.conn();
+        conn.execute("INSERT INTO sync_quiet VALUES (1)", [])
+            .unwrap();
+        conn.execute(
+            "INSERT INTO notes (id, created_at, updated_at) VALUES ('0190f1a2-0000-7000-8000-000000000001', 1, 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute("DELETE FROM sync_quiet", []).unwrap();
+        assert_eq!(store.discard_blank_notes().unwrap(), 0);
+    }
+
+    #[test]
+    fn a_note_kept_for_its_tag_goes_to_the_trash_once_the_tag_is_gone() {
+        let (mut store, clock) = store();
+        let note = store.create_note(&NewNote::default()).unwrap();
+        clock.advance(1000);
+        store.set_note_tags(note.id, &["errands".into()]).unwrap();
+        assert!(!store.discard_if_blank(note.id).unwrap());
+        store.set_note_tags(note.id, &[]).unwrap();
+        assert_eq!(store.discard_blank_notes().unwrap(), 1);
+        assert!(store.note(note.id).unwrap().trashed_at.is_some());
     }
 
     #[test]
