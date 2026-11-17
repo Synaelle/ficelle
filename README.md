@@ -12,9 +12,6 @@
   <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Synaelle/ficelle"><picture><source media="(prefers-color-scheme: dark)" srcset="packages/ui/brand/badges/obtainium-dark.png"><img src="packages/ui/brand/badges/obtainium-light.png" alt="Get it on Obtainium" height="54"></picture></a>
 </p>
 
-> [!WARNING]
-> The only official website is [ficelle.synaelle.com](https://ficelle.synaelle.com). Other sites offering Ficelle are not mine.
-
 # Features
 
 - Notes are Markdown, with a few extras, see [Markdown in notes](docs/markdown.md).
