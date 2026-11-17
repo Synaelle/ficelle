@@ -606,7 +606,6 @@ saving = "Saving…"
 saved = "Report saved to:"
 
 [testTools]
-textStroke = "Thicker text"
 folder = "Reports folder"
 folderHelpPhone = "Reports can only be saved once a folder is chosen. Pick one a computer can read, a folder synced with Syncthing for example."
 noFolder = "No folder chosen yet."

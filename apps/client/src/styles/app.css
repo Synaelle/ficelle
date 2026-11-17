@@ -23,7 +23,7 @@ html,
 body {
   margin: 0;
   height: 100%;
-  /* 0 unless a dev or preview build's Test tools set it */
+  /* set on Linux, see App.svelte */
   -webkit-text-stroke: var(--text-stroke, 0px) currentColor;
   overflow: hidden;
   background: var(--color-bg);

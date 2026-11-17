@@ -81,9 +81,6 @@ export interface Prefs {
   reportFolder: string | null
   /** Dev and preview builds: a report starts with a screenshot of the app. */
   reportScreenshot: boolean
-  /** Dev and preview builds: every stroke of text this many pixels thicker,
-   * to find by eye what makes Linux text match Windows. */
-  textStroke: number
   /** Dev and preview builds: act as a beta release, nothing downloaded
    * (lib/beta.svelte.ts, pretendRelease). */
   pretendBeta: boolean
@@ -129,7 +126,6 @@ export const DEFAULT_PREFS: Prefs = {
   feedbackInstall: '',
   reportFolder: null,
   reportScreenshot: true,
-  textStroke: 0,
   pretendBeta: false,
   betaWelcomed: false,
   betasEnded: false,

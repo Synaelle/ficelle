@@ -3,7 +3,7 @@
      launch makes the notes, not encrypted, and goes straight to them. -->
 <script lang="ts">
   import { brand } from '@app/brand'
-  import { WEB } from './lib/platform'
+  import { LINUX, WEB } from './lib/platform'
   import DevReport from './devreport/DevReport.svelte'
   import BetaFeedback from './lib/BetaFeedback.svelte'
   import WebWelcome from './lib/WebWelcome.svelte'
@@ -49,11 +49,9 @@
   $effect(() => void setLocale(prefs.language ?? systemLocale()))
   $effect(() => applyUiSize(prefs.uiSize))
   $effect(() => applyDyslexicFont(prefs.dyslexicFont))
-  // dev and preview builds: text thickened to match another system by eye
-  $effect(() => {
-    if (__APP_DEV_TOOLS__)
-      document.documentElement.style.setProperty('--text-stroke', `${prefs.textStroke}px`)
-  })
+  // Linux's web view draws text thinner than Windows, where the look was
+  // made: every stroke 0.2 px thicker gives a paragraph the ink it has there
+  if (LINUX && !WEB) document.documentElement.style.setProperty('--text-stroke', '0.2px')
   $effect(() => void applyQuickShortcut(prefs.quickNoteShortcut))
 
   async function start() {
