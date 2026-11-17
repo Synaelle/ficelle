@@ -37,7 +37,7 @@ export const CREDIT_GROUPS: CreditGroup[] = [
       {
         name: 'Tauri plugins',
         url: 'https://github.com/tauri-apps/plugins-workspace',
-        use: 'clipboard, dialogs, files, shortcuts, vibration and fingerprint',
+        use: 'clipboard, dialogs, files, notifications, shortcuts, vibration and fingerprint',
         license: DUAL,
       },
       { name: 'Svelte', url: 'https://svelte.dev/', use: 'the interface', license: 'MIT' },

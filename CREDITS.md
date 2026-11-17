@@ -10,12 +10,12 @@ No one else has contributed code yet. Contributions are welcome, and every contr
 
 ## Built on
 
-Ficelle stands on the work of the projects below, with thanks. Each is listed with what Ficelle uses it for and the license it is under. The same list is in the app, under Settings and About.
+Ficelle stands on the work of the projects below, with thanks. Each is listed with what Ficelle uses it for and the license it is under. The same list is in the app, in Settings, About, Credits.
 
 ### App and editor
 
 - [Tauri](https://tauri.app/), the app on desktop and phone. Apache-2.0 or MIT.
-- [Tauri plugins](https://github.com/tauri-apps/plugins-workspace), clipboard, dialogs, files, shortcuts, vibration and fingerprint. Apache-2.0 or MIT.
+- [Tauri plugins](https://github.com/tauri-apps/plugins-workspace), clipboard, dialogs, files, notifications, shortcuts, vibration and fingerprint. Apache-2.0 or MIT.
 - [Svelte](https://svelte.dev/), the interface. MIT.
 - [Tiptap](https://tiptap.dev/), the note editor. MIT.
 - [ProseMirror](https://prosemirror.net/), the editing engine under Tiptap. MIT.
