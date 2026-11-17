@@ -9,7 +9,7 @@ name: ficelle
 
 services:
   server:
-    image: ghcr.io/synaelle/ficelle-server:0.5
+    image: ghcr.io/synaelle/ficelle-server:0.6
     restart: unless-stopped
     # only the proxy on this machine reaches it
     ports:
