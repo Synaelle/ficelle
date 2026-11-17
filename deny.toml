@@ -14,6 +14,9 @@ ignore = [
     # rsa Marvin attack: openidconnect only verifies RSA signatures, it never
     # decrypts with a private key. No fixed rsa release yet.
     { id = "RUSTSEC-2023-0071", reason = "no RSA decryption anywhere" },
+    # chrono unmaintained: only the server's sign-on (openidconnect, oauth2)
+    # and SFTP backup (russh-sftp) libraries use it. Goes when they move to jiff.
+    { id = "RUSTSEC-2026-0543", reason = "reached only through server libraries, no known flaw" },
 ]
 
 [licenses]
