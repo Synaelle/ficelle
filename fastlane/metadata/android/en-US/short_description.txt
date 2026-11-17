@@ -1,0 +1,1 @@
+Lightweight notes in Markdown, synced between your own devices
