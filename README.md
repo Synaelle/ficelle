@@ -12,6 +12,8 @@
   <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Synaelle/ficelle"><picture><source media="(prefers-color-scheme: dark)" srcset="packages/ui/brand/badges/obtainium-dark.png"><img src="packages/ui/brand/badges/obtainium-light.png" alt="Get it on Obtainium" height="54"></picture></a>
 </p>
 
+On Android, Ficelle is also in [my F-Droid repository](https://github.com/Synaelle/fdroid#readme).
+
 # Features
 
 - Notes are Markdown, with a few extras, see [Markdown in notes](docs/markdown.md).
