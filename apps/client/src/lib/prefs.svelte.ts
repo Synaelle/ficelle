@@ -168,6 +168,11 @@ function load(): Prefs {
 
 export const prefs: Prefs = $state(load())
 
+// a setting changed in another window of the app (a note or a file window)
+window.addEventListener('storage', (event) => {
+  if (event.key === STORAGE_KEY) Object.assign(prefs, load())
+})
+
 /** Saves after any change. Call once from the root component. */
 export function persistPrefs() {
   $effect(() => {
