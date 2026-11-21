@@ -25,21 +25,22 @@ export const notionImporter: Importer = {
       : notionMarkdown.read(source, report),
 }
 
-/** In the order shown. A new format is one file and one line here. */
+/** In the order shown, the apps most people come from first. A new format
+ * is one file and one line here. */
 export const IMPORTERS: Importer[] = [
-  obsidianImporter,
   notionImporter,
   evernoteImporter,
-  joplinImporter,
   keepImporter,
-  logseqImporter,
-  bearImporter,
   appleNotesImporter,
+  obsidianImporter,
+  joplinImporter,
   simplenoteImporter,
+  bearImporter,
   standardNotesImporter,
-  zettlrImporter,
+  logseqImporter,
   dayOneImporter,
   roamImporter,
+  zettlrImporter,
   opmlImporter,
   tomboyImporter,
   htmlImporter,

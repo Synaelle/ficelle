@@ -33,7 +33,7 @@
   type Stage = 'choose' | 'reading' | 'preview' | 'writing' | 'done'
   let stage = $state<Stage>('choose')
   // svelte-ignore state_referenced_locally
-  let importer = $state<Importer>(
+  let importer = $state.raw<Importer>(
     (ficelle ? IMPORTERS.find((i) => i.id === 'markdown') : IMPORTERS[0]) as Importer,
   )
   let source: ImportSource | null = null
@@ -44,6 +44,15 @@
   let error = $state<string | null>(null)
   let notice = $state<string | null>(null)
   let stop: AbortController | null = null
+  let find = $state('')
+  const shown = $derived(
+    IMPORTERS.filter((i) => i.app.toLowerCase().includes(find.trim().toLowerCase())),
+  )
+  // the chosen app follows the search, so what is shown below is one listed
+  $effect(() => {
+    const first = shown[0]
+    if (first && !shown.includes(importer)) importer = first
+  })
 
   const KINDS: ReportKind[] = [
     'linkMissing',
@@ -177,28 +186,47 @@
       {#if ficelle}
         <p class="muted how">{t('import.ficelleHow', { app: brand.displayName })}</p>
       {:else}
-        <label class="app">
-          <span>{t('import.from')}</span>
-          <select class="field" bind:value={importer} data-autofocus>
-            {#each IMPORTERS as option (option.id)}
-              <option value={option}>{option.app}</option>
+        <input
+          class="field"
+          type="search"
+          placeholder={t('import.find')}
+          aria-label={t('import.find')}
+          bind:value={find}
+          data-autofocus
+        />
+        {#if shown.length}
+          <div class="apps" role="radiogroup" aria-label={t('import.from')}>
+            {#each shown as option (option.id)}
+              <label class:checked={importer === option}>
+                <input
+                  class="visually-hidden"
+                  type="radio"
+                  name="importer"
+                  value={option}
+                  bind:group={importer}
+                />{option.app}
+              </label>
             {/each}
-          </select>
-        </label>
-        <p class="muted how">{t(`import.how.${importer.id}`)}</p>
+          </div>
+          <p class="muted how">{t(`import.how.${importer.id}`)}</p>
+        {:else}
+          <p class="muted">{t('import.noneFound')}</p>
+        {/if}
       {/if}
-      <div class="actions">
-        {#if importer.picks.includes('folder') && !fileOnly}
-          <button class="btn" onclick={() => choose('folder')}
-            ><Icon name="folder" size={16} />{t('import.chooseFolder')}</button
-          >
-        {/if}
-        {#if importer.picks.includes('file')}
-          <button class="btn" onclick={() => choose('file')}
-            ><Icon name="export" size={16} />{t('import.chooseFile')}</button
-          >
-        {/if}
-      </div>
+      {#if ficelle || shown.length}
+        <div class="actions">
+          {#if importer.picks.includes('folder') && !fileOnly}
+            <button class="btn" onclick={() => choose('folder')}
+              ><Icon name="folder" size={16} />{t('import.chooseFolder')}</button
+            >
+          {/if}
+          {#if importer.picks.includes('file')}
+            <button class="btn" onclick={() => choose('file')}
+              ><Icon name="export" size={16} />{t('import.chooseFile')}</button
+            >
+          {/if}
+        </div>
+      {/if}
     {:else if stage === 'reading'}
       <p aria-live="polite">{t('import.reading')}</p>
       <progress max={progress.total || 1} value={progress.done}></progress>
@@ -373,6 +401,31 @@
   .app {
     display: grid;
     gap: var(--space-1);
+  }
+  .apps {
+    display: grid;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-popover);
+  }
+  .apps label {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 var(--space-3);
+    cursor: pointer;
+  }
+  .apps label + label {
+    border-top: 1px solid var(--color-border);
+  }
+  .apps label.checked {
+    background: var(--color-selection);
+    font-weight: 600;
+  }
+  .apps label:has(:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
   }
   .counts {
     display: grid;
