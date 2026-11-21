@@ -9,7 +9,9 @@
   import { applyDyslexicFont } from './lib/dyslexicFont'
   import { setLocale, systemLocale, t } from './lib/i18n.svelte'
   import Overlays from './lib/Overlays.svelte'
+  import { localSync } from './lib/localSync.svelte'
   import { prefs } from './lib/prefs.svelte'
+  import { sync } from './lib/sync.svelte'
   import { applyTheme } from './lib/theme.svelte'
   import Toasts from './lib/Toasts.svelte'
   import { applyUiSize } from './lib/uiSize'
@@ -45,6 +47,9 @@
     await workspace.load()
     await workspace.open(id)
     stage = 'ready'
+    // other devices' edits come in as in the main window
+    void sync.start()
+    void localSync.start()
   }
 
   async function unlocked() {
