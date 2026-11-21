@@ -22,7 +22,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       build-essential pkg-config perl make curl ca-certificates git unzip file xdg-utils \
-      libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev \
+      libwebkit2gtk-4.1-dev librsvg2-dev \
       openjdk-21-jdk-headless \
  && rm -rf /var/lib/apt/lists/*
 

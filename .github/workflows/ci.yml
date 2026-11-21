@@ -88,7 +88,7 @@ jobs:
         timeout-minutes: 10
         run: |
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y libwebkit2gtk-4.1-dev librsvg2-dev
       # rust-toolchain.toml selects the version and components
       - run: rustup show
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -100,53 +100,13 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
-  build-desktop:
+  # the apps' Windows-only code; installers come from the nightly and the
+  # release, a release-profile build here took long for nothing kept
+  windows:
     needs: [lint, rust]
     # after the Rust tests, or without them when no Rust changed
     if: ${{ !cancelled() && needs.lint.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.rust.result) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # Windows on every push, Linux too for release tags; the Mac apps are
-        # built by mac.yml, for the rare release that has them or by hand
-        os: ${{ fromJSON(startsWith(github.ref, 'refs/tags/v') && '["ubuntu-24.04", "windows-latest"]' || '["windows-latest"]') }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: tauri linux deps
-        # a stuck package mirror fails the step instead of holding the run for an hour
-        timeout-minutes: 10
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: rustup show
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          # only main saves: caches made on tags and other branches are
-          # unreadable from main and push its own out of the 10 GB limit
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
-        with:
-          tool: wasm-bindgen@0.2.129
-      - run: pnpm install --frozen-lockfile
-      # the bundles the release ships: MSI and rpm take no beta version
-      # (0.5.0-beta.1), NSIS and the AppImage do
-      - run: pnpm --filter @app/client tauri build ${{ matrix.os == 'windows-latest' && '--bundles nsis' || '--bundles appimage' }}
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: desktop-${{ matrix.os }}
-          path: target/release/bundle/
-          retention-days: 7
-
-  build-server:
-    needs: [rust]
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup show
@@ -155,5 +115,4 @@ jobs:
           # only main saves: caches made on tags and other branches are
           # unreadable from main and push its own out of the 10 GB limit
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: cargo build --release -p server
-      - run: ls -l target/release/
+      - run: cargo clippy -p client --all-targets -- -D warnings
