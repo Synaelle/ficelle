@@ -1,67 +1,33 @@
 # Privacy
 
-Ficelle has no analytics, no tracking and no crash reporting. Your notes stay on your devices, and on a sync server only if you choose one. This page lists everything the apps and the server send by themselves.
+Ficelle has no analytics, tracking or crash reports. Requests carry no account, note or device details, though sites see your network address.
 
 ## The apps
 
-| What             | Where                                                                                         | When                                                                                                                |
-| ---------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Update check     | GitHub, the latest release's `latest.json`, or the `nightly` release's on the Nightly channel | Release and nightly builds, when the notes are unlocked, every few hours, and when the app comes back after a while |
-| Update download  | GitHub, the release files                                                                     | When a newer version is installed                                                                                   |
-| Fonts            | ficelle.synaelle.com, or jsDelivr if it fails                                                 | Once, when you turn on OpenDyslexic, which the app does not carry                                                   |
-| Feedback         | ficelle.synaelle.com, or your sync server if its admin chose so                               | Only when you press Send                                                                                            |
-| Feedback answers | The server that received your feedback                                                        | When you open Settings, Feedback, after sending one                                                                 |
-
-These requests carry no account, no note and no device details. The app names itself as `ficelle`, without a version, except feedback which carries the version. The sites still see your network address, like any visit.
-
-With automatic updates off, the app still reads `latest.json`, only to tell you about a security fix, unless you turn that off too. It downloads nothing without your yes.
+- Updates come from GitHub releases, checked on unlock and every few hours. With automatic updates off, the app still checks for security fixes unless you turn that off too.
+- OpenDyslexic downloads once from ficelle.synaelle.com, else jsDelivr.
+- Feedback goes to ficelle.synaelle.com, or to your sync server if its admin chose so.
 
 ## Feedback
 
-A report holds what you write, a contact if you give one, the images you add, the app version and the platform (Windows, Android…). Recent warnings and errors from the app are attached unless you untick them, with folder paths, email addresses and note titles removed as far as the app can find them. The form shows exactly what is sent before you send it.
+A report holds your text, optional contact and images, the app version, the platform and, unless unticked, recent errors with paths, emails and note titles stripped. The form shows exactly what is sent. A random install id groups reports.
 
-Each install also sends a random id made once, tied to nothing else, so reports from the same app can be grouped.
-
-ficelle.synaelle.com deletes each report 30 days after it came, with its images and my answer, whatever its state. Its backups leave reports out, so no copy stays behind. Your network address is never stored, only a keyed fingerprint of it, used against spam and dropped after a day. When I block a sender for spam, the block keeps their install id, fingerprint or contact until it ends.
-
-I keep reports only to find bugs and answer you. To see or delete yours sooner, write to me at synaelle@protonmail.com. You can also complain to the CNIL, the French data protection authority.
+ficelle.synaelle.com deletes reports 30 days after arrival and stores no network address. To see or delete yours sooner, write to synaelle@protonmail.com. You can also complain to the CNIL.
 
 ## Sync
 
-A device syncs either directly with your other devices or through a server, never both.
+Local sync talks only to paired devices on your network, encrypted, and announces a random name there. On Linux open TCP 47821 and UDP 5353.
 
-### Between your devices
-
-Local sync talks only to the devices you paired, on your own network, over an encrypted connection. Nothing goes through the internet. While the app is open it announces itself on the network with a random name and the version of its sync, so your other devices can find it, never your name or the device's name.
-
-If a computer's firewall blocks it, allow Ficelle on private networks when Windows asks. On Linux, open TCP port 47821 and UDP port 5353, for example `sudo ufw allow 47821/tcp` and `sudo ufw allow 5353/udp`.
-
-### Through a server
-
-Sync through a server only talks to the server you sign in to. That server sees your username, your email if you add one, your devices (named after the computer, like "Ficelle on DESKTOP-1234"), and when each one syncs.
-
-What it can read depends on the account.
-
-- With a standard account, notes and files are encrypted on the server's disk, but the server holds the key. Whoever runs the server can read them.
-- With an end-to-end encrypted account, notes, titles, tags and files are encrypted on your device. The server cannot read them. It still sees how many notes and files there are, their sizes and when they change. Your password never reaches it.
-
-The server keeps a log of sign-ins, failures and account changes with the network address, 365 days by default. It keeps no log of other requests. Each admin can change these lengths, see their server's privacy page.
+Server sync talks only to your server. It sees your username, email, device names and sync times, and logs sign-ins with network addresses for 365 days by default. On a standard account whoever runs it can read your notes. With end-to-end encryption it sees only their number, sizes and change times.
 
 ## The web version
 
-ficelle.synaelle.com/web runs Ficelle in your browser. Your notes, files and settings stay in that browser's storage, encrypted once you set a password in Settings, Security, and never reach the server. The server only hands out the app's files. It keeps no log of visits, not even your network address, sets no cookies and loads nothing from anywhere else. Cloudflare carries the traffic to it, as for the rest of ficelle.synaelle.com, and sees visits like any network in between. Feedback and sync are off there.
-
-Clearing the site's data in your browser deletes the notes, so download a backup now and then. On an iPhone or iPad, Safari may delete a site's data after a week without a visit, unless you add it to your Home Screen.
+Notes stay in the browser, encrypted once you set a password, and never reach the server, which logs no visits and sets no cookies. Cloudflare carries the traffic. Clearing site data deletes the notes. Safari may delete them after a week without a visit unless the site is on the Home Screen.
 
 ## On your devices
 
-Notes and attachments are encrypted on the device once you turn on encryption in Settings, Security. New installs start without it. Settings (appearance, language) are kept unencrypted, they hold nothing about your notes. Warnings and errors stay in memory for feedback and are never written to disk.
-
-Backups are encrypted when your notes are, see [Backups](backups.md). A Markdown export is always unencrypted.
+Notes, files and backups are encrypted once you turn on encryption in Settings, Security. Markdown exports never are.
 
 ## Servers
 
-- Once a day the server reads ficelle.synaelle.com's `releases.json` to check for updates, with no version or details. The admin can turn it off.
-- Confirmations, sign-in codes and password notices go out through the admin's mail server, only if one is set up.
-- With single sign-on set up, the chosen provider learns you signed in.
-- An admin can report a server issue to ficelle.synaelle.com from the admin page, which sends the server's version and address.
+A server checks ficelle.synaelle.com daily for new releases unless its admin turns that off. Mail goes through the admin's mail server. With single sign-on, the provider learns you signed in. An admin can send a server issue report, with its version and address, from the admin page.

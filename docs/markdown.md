@@ -1,21 +1,19 @@
 # Markdown in notes
 
-Notes are plain Markdown files, shown formatted as you write. Everything standard works, with GitHub's additions: tables, task lists (`- [ ]`), strikethrough. The extras below are plain text in other apps, nothing is lost.
+Notes are Markdown files with GitHub's tables, task lists and strikethrough, plus the extras below.
 
 ## Links between notes
 
-| You write                 | You get                                   |
-| ------------------------- | ----------------------------------------- |
-| `[[Garden log]]`          | a link to the note titled Garden log      |
-| `[[Garden log\|the log]]` | the same link, shown as "the log"         |
-| `[[Garden log#2025]]`     | a link to the heading "2025" in that note |
-| `[text](#2025)`           | a link to a heading in this note          |
+| You write                 | You get                            |
+| ------------------------- | ---------------------------------- |
+| `[[Garden log]]`          | link to the note titled Garden log |
+| `[[Garden log\|the log]]` | same link, shown as "the log"      |
+| `[[Garden log#2025]]`     | link to its heading "2025"         |
+| `[text](#2025)`           | link to a heading in this note     |
 
-Typing `[[` suggests titles, `#` after a title suggests its headings. Renaming a note updates the links to it. Each note lists the notes linking to it at its bottom.
+Renaming a note updates the links to it.
 
 ## Images
-
-Paste, drop or use the image button, then click an image to choose its layout and drag to resize. The layout is saved after the image, and other apps ignore it:
 
 ```markdown
 ![vines](attachments/vines.png){width=320 wrap=left}
@@ -29,8 +27,6 @@ Paste, drop or use the image button, then click an image to choose its layout an
 > [!note] Optional title
 > Any text.
 ```
-
-The kind is `note`, `tip`, `warning` or any other word.
 
 ## Footnotes
 
@@ -51,12 +47,10 @@ Anything.
 </details>
 ```
 
-They stay open while you write.
-
 ## Emoji
 
-`:tada:` becomes 🎉, with GitHub's names for the common emoji. It can be turned off in Settings, Editor.
+`:tada:` becomes 🎉.
 
 ## Math
 
-`$E = mc^2$` in a line, or a `$$` block. Shown as written for now. A dollar followed by a space or a digit stays text, so "$5" is safe.
+`$E = mc^2$` inline or a `$$` block, shown as written for now. "$5" stays text.

@@ -1,35 +1,10 @@
 # Contributing to Ficelle
 
-Ficelle is made by one person in their spare time, so every bit of help counts. Thank you for looking.
-
 ## Languages
 
-English is the reference language and the fallback, so a text that is not translated yet shows in English. German, Spanish, Italian, Dutch and Portuguese are translated with DeepL, then read over, so some texts may still sound off. Corrections are very welcome, and a text corrected by hand is never replaced by DeepL again. Each language is one file in [packages/locales](packages/locales), and every change ends up there, whichever way you send it. A language shows in the app once half of it is translated.
+Translate on [Weblate](https://hosted.weblate.org/projects/ficelle/), or edit a file in [packages/locales](packages/locales) on GitHub and propose the change. Keep the keys and the words in `{braces}` as they are. German, Spanish, Italian, Dutch and Portuguese come from DeepL, and corrections are welcome. A language shows in the app once half translated.
 
-### On Weblate
-
-The easiest way is [Ficelle on Weblate](https://hosted.weblate.org/projects/ficelle/), in the browser with nothing to install. Your changes reach this repository as pull requests. To ask for a language that is not there yet, open an issue with the New language form.
-
-### On GitHub
-
-You can also edit a file right on GitHub, without git or any tool.
-
-1. Open the language's file in [packages/locales](packages/locales), for example `fr.toml` for French.
-2. Click the pencil icon at the top right of the file. GitHub makes your own copy of the project the first time.
-3. Change the texts between the quotes. Keep the keys on the left as they are, and keep words in `{braces}` exactly as they are, the app fills them in.
-4. Click Commit changes, then Propose changes, then Create pull request.
-
-I check the change and merge it.
-
-To start a new language here, add a file named after its code in [packages/locales](packages/locales) (`de.toml` for German). Copy into it the parts of `en.toml` you translate and leave out the rest, which then shows in English.
-
-### Languages translated on GitHub only
-
-Some languages change a word with the number in more ways than English does. Polish says "2 notatki" but "5 notatek". Weblate cannot keep those extra forms in Ficelle's files, so these languages are translated on GitHub only.
-
-Arabic, Belarusian, Bosnian, Breton, Croatian, Czech, Hebrew, Irish, Latvian, Lithuanian, Maltese, Polish, Romanian, Russian, Scottish Gaelic, Serbian, Slovak, Slovenian, Ukrainian and Welsh.
-
-In these files, a text that depends on a number gets every form the language needs next to `one` and `other`. Polish needs `few` and `many`.
+Languages with more plural forms than English, such as Polish, Russian or Arabic, are translated on GitHub only, since Weblate can't keep their forms. Add every form the language needs beside `one` and `other`, as listed in the [Unicode plural rules](https://www.unicode.org/cldr/charts/latest/supplemental/language_plural_rules.html).
 
 ```toml
 [files.inNote]
@@ -39,18 +14,8 @@ many = "{count} załączników"
 other = "{count} załącznika"
 ```
 
-The forms of each language are listed in the [Unicode plural rules](https://www.unicode.org/cldr/charts/latest/supplemental/language_plural_rules.html). If you are unsure, ask in the pull request.
-
 ## Code
 
-Bug fixes, security fixes and improvements to the app and its interface are welcome. Please open an issue first for anything bigger than a small fix, so the approach is settled before you spend time on it.
+Open an issue before anything bigger than a small fix, and discuss new features in [Discussions](../../discussions) first. Report security problems through [Report a vulnerability](../../security/advisories/new). See [Building Ficelle](docs/building.md), and run `pnpm lint`, `pnpm lint:rust` and `pnpm test` before a pull request.
 
-New features need to be discussed first in [Discussions](../../discussions). Ficelle tries to stay small and simple, and a feature agreed on beforehand is much more likely to be merged.
-
-To report a security problem, use [Report a vulnerability](../../security/advisories/new) instead of a public issue.
-
-[Building Ficelle](docs/building.md) explains how to build and run the app. Before opening a pull request, run `pnpm lint`, `pnpm lint:rust` and `pnpm test`.
-
-### Wanted most, iOS
-
-The thing Ficelle needs most is someone with an iPhone. I don't have one, so there is no iOS app. If you can build, test or develop for it, please get in touch in [Discussions](../../discussions).
+There is no iOS app because I have no iPhone. Get in touch in Discussions if you can work on one.
