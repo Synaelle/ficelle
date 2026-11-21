@@ -558,6 +558,31 @@
     flex: none;
     padding: var(--space-2) var(--space-6);
     border-top: 1px solid var(--color-border);
+    transition:
+      padding var(--dur-fast) var(--ease-out),
+      background var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-fast) var(--ease-out);
+  }
+  /* pointed at, or open: the bar rises a little out of the pane */
+  .files-bar:has(:global(details[open])),
+  .files-bar:focus-within {
+    padding-top: var(--space-4);
+    border-top-color: var(--color-border-strong);
+    background: color-mix(in srgb, var(--color-text) 4%, var(--color-surface-2));
+    box-shadow: 0 -10px 24px -14px rgb(0 0 0 / 0.6);
+  }
+  @media (hover: hover) {
+    .files-bar:hover {
+      padding-top: var(--space-4);
+      border-top-color: var(--color-border-strong);
+      background: color-mix(in srgb, var(--color-text) 4%, var(--color-surface-2));
+      box-shadow: 0 -10px 24px -14px rgb(0 0 0 / 0.6);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .files-bar {
+      transition: none;
+    }
   }
   .files-bar:empty {
     display: none;

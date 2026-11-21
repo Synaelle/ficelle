@@ -184,6 +184,10 @@
   .attach:focus-visible {
     opacity: 1;
   }
+  summary:hover,
+  details[open] summary {
+    color: var(--color-text);
+  }
   /* a long list scrolls in place and leaves the note most of the pane */
   ul {
     display: grid;
