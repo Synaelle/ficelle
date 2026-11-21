@@ -83,6 +83,7 @@ pub fn run() {
     #[cfg(target_os = "linux")]
     {
         linux_desktop::set_app_id();
+        linux_desktop::use_kde_file_dialogs();
         linux_desktop::integrate(context.default_window_icon());
     }
     let builder = tauri::Builder::default();

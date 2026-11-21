@@ -18,6 +18,17 @@ pub fn set_app_id() {
     gtk::glib::set_prgname(Some(app_brand::IDENTIFIER));
 }
 
+/// Before GTK starts: on KDE, the file pickers go through the desktop portal,
+/// which shows KDE's own dialog instead of GTK's. GTK falls back to its own
+/// when no portal answers.
+pub fn use_kde_file_dialogs() {
+    let kde = std::env::var("XDG_CURRENT_DESKTOP")
+        .is_ok_and(|desktops| desktops.split(':').any(|d| d.eq_ignore_ascii_case("KDE")));
+    if kde {
+        let _ = gtk::glib::setenv("GTK_USE_PORTAL", "1", false);
+    }
+}
+
 /// A logout or a shutdown ends the app with SIGTERM: the window saves the
 /// keys typed last first, still waiting out the editor's pause, then the
 /// app ends. Saving takes milliseconds, the wait is for a busy machine.
