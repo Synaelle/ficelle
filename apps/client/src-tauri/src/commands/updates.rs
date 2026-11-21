@@ -1226,7 +1226,9 @@ mod tests {
     fn the_public_release_checks_out() {
         let latest = super::list::latest(super::Channel::Stable).unwrap();
         let file = &latest.platforms[&super::list::platform_key()];
-        let bytes = super::list::download(file, &latest.version).unwrap();
+        let part = std::env::temp_dir().join(format!("update-check-{}.part", std::process::id()));
+        let bytes = super::list::download(file, &latest.version, &part, &mut |_, _| {}).unwrap();
+        let _ = std::fs::remove_file(&part);
         assert!(bytes.starts_with(b"MZ"), "a Windows program");
     }
 
