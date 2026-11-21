@@ -276,7 +276,22 @@ pub fn write_backup_to(
     password: Option<&str>,
     kdf: KdfParams,
 ) -> Result<Manifest> {
-    let data = store.backup_data()?;
+    write_backup_data(&store.backup_data()?, blobs, file, password, kdf)
+}
+
+/// As [`write_backup_to`] with the vault's data read already: the vault
+/// need not stay open while the files are copied.
+///
+/// # Errors
+///
+/// As [`write_backup`].
+pub fn write_backup_data(
+    data: &BackupData,
+    blobs: &BlobStore,
+    file: impl Write,
+    password: Option<&str>,
+    kdf: KdfParams,
+) -> Result<Manifest> {
     let hashes = data.file_hashes();
     let mut have = Vec::new();
     for sha in &hashes {
@@ -311,14 +326,14 @@ pub fn write_backup_to(
             out.write_all(&salt)?;
             let key = kdf.derive_key(password, &salt)?;
             let sealing = SealingWriter::new(out, &app_e2ee::files_key_from(&key))?;
-            let sealing = write_zip(sealing, &manifest, &data, &have, blobs)?;
+            let sealing = write_zip(sealing, &manifest, data, &have, blobs)?;
             sealing
                 .finish()?
                 .into_inner()
                 .map_err(|e| Error::Io(e.into_error()))?;
         }
         None => {
-            write_zip(out, &manifest, &data, &have, blobs)?
+            write_zip(out, &manifest, data, &have, blobs)?
                 .into_inner()
                 .map_err(|e| Error::Io(e.into_error()))?;
         }

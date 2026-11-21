@@ -1,22 +1,21 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Data and backups, one page on desktop and phone: backups running by
-     themselves, restoring, moving notes in and out, starting over. Backups
-     made earlier, and ones set up with S3 or WebDAV, keep working: they show
-     where they go and can be stopped. -->
+<!-- Data and backups, one page on desktop and phone: backups made by
+     themselves as backup files in a folder, a backup file made by hand,
+     restoring, moving notes in and out, starting over. The snapshot backups
+     of earlier versions are only restored from, folded away at the end. -->
 <script lang="ts">
   import { brand } from '@app/brand'
   import { MOBILE, WEB } from '../lib/platform'
   import BackupDialog from './BackupDialog.svelte'
   import { onMount } from 'svelte'
   import { backend } from '../lib/backend'
-  import type { BackupSnapshot, BackupTarget } from '../lib/backend/types'
+  import type { BackupFile, BackupSchedule, OldBackup } from '../lib/backend/types'
   import { backupError, backups } from '../lib/backups.svelte'
   import { bytes, dateTime, relative } from '../lib/format'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { overlay } from '../lib/overlay.svelte'
   import PasswordField from '../lib/PasswordField.svelte'
-  import { MIN_PASSWORD } from '../lib/passwords'
   import { pickToOpen } from '../lib/pick'
   import { workspace } from '../lib/workspace.svelte'
   import type { SettingsState } from './settingsState.svelte'
@@ -40,27 +39,24 @@
   const view = $derived(backups.view)
   const config = $derived(view?.config ?? null)
 
-  /** Choosing a folder: to back up to it, or to restore from what it holds. */
-  let setup: 'start' | 'restore' | null = $state(null)
-  /** The web version's backup being made, see BackupDialog. */
+  /** Choosing the folder to turn backups on in. */
+  let setup = $state(false)
+  /** A backup file being made by hand, see BackupDialog. */
   let making = $state(false)
   /** A phone names its own backup folder: there is nothing to pick there. */
   const phoneFolder = window.AppSystem?.backupFolder?.() ?? ''
   let folder = $state(phoneFolder)
-  /** The folder looked into, null while looking or before. */
-  let looked: string | null = $state(null)
-  let looking = $state(false)
-  let found = $state(false)
   /** The folder is there, but the app may not read it. */
   let unreadable = $state(false)
-  let needsPassword = $state(true)
   /** The notes are not encrypted: their backups need no password either. */
   let openDevice = $state(false)
-  let sameAsNotes = $state(true)
   let password = $state('')
-  let again = $state('')
 
-  let snapshots = $state<BackupSnapshot[] | null>(null)
+  let files = $state<BackupFile[] | null>(null)
+  let older = $state<OldBackup[] | null>(null)
+  /** A file made with another notes password than today's: its own asked. */
+  let askingFor: string | null = $state(null)
+  let filePassword = $state('')
   let busy = $state(false)
   let message: string | null = $state(null)
   let failure: string | null = $state(null)
@@ -80,39 +76,19 @@
       if (done) message = done
     } catch (err) {
       const e = err as { kind?: string; message?: string }
+      if (e?.kind === 'unreadable') unreadable = true
       failure = backupError(e?.kind, e?.message ?? String(err))
     } finally {
       busy = false
     }
   }
 
-  function open(next: 'start' | 'restore' | null) {
-    setup = next
+  function openSetup(on: boolean) {
+    setup = on
     password = ''
-    again = ''
+    unreadable = false
     message = null
     failure = null
-    if (next) void look()
-  }
-
-  async function look() {
-    const path = folder.trim()
-    looked = null
-    if (!path) return
-    looking = true
-    unreadable = false
-    try {
-      const there = await backend.backupsFound({ kind: 'folder', path })
-      found = there.found
-      needsPassword = there.needsPassword
-    } catch (err) {
-      found = false
-      needsPassword = true
-      unreadable = (err as { kind?: string })?.kind === 'unreadable'
-    } finally {
-      looking = false
-      looked = path
-    }
   }
 
   /** A phone's folder an earlier install made: the system's picker lets
@@ -122,56 +98,21 @@
       const picked = await backend.backupsPickFolder()
       if (picked) {
         folder = picked
-        await look()
+        unreadable = false
       }
     })
   }
 
   async function chooseFolder() {
     const picked = await pickToOpen({ directory: true, title: t('backups.chooseFolder') })
-    if (picked) {
-      folder = picked
-      await look()
-    }
+    if (picked) folder = picked
   }
 
-  /** What stops the button, for starting in a new folder. */
-  const newPasswordProblem = $derived.by(() => {
-    if (openDevice) return null
-    if (!password) return t('backups.passwordNeeded')
-    if (sameAsNotes) return null
-    if (password.length < MIN_PASSWORD) return t('backups.passwordShort')
-    return password === again ? null : t('backups.passwordsDiffer')
-  })
-
-  const target = (): BackupTarget => ({ kind: 'folder', path: folder.trim() })
-
-  /** Backups already in the folder: opened, and no new one over them yet, it
-   * would be the newest and hold only what is here now. */
-  function openFound() {
-    const restoring = setup === 'restore'
+  function turnOn() {
     void act(async () => {
-      // backups made without a password take the notes' one
-      if (!needsPassword && !openDevice && !(await backend.vaultCheckPassword(password)))
-        throw new Error(t('backups.notesPasswordWrong'))
-      backups.view = await backend.backupsConnect(target(), password, false, '')
+      backups.view = await backend.backupsTurnOn(folder.trim(), openDevice ? null : password)
       password = ''
-      setup = null
-      snapshots = await backend.backupsSnapshots()
-      if (restoring && snapshots.length > 0) await offerLatest()
-    }, t('backups.foundOpened'))
-  }
-
-  function startNew() {
-    void act(async () => {
-      if (!openDevice && sameAsNotes) {
-        const ok = await backend.vaultCheckPassword(password)
-        if (!ok) throw new Error(t('backups.notesPasswordWrong'))
-      }
-      backups.view = await backend.backupsConnect(target(), openDevice ? '' : password, true, '')
-      password = ''
-      again = ''
-      setup = null
+      setup = false
       // the first backup at once, so the person sees it work
       await backups.run()
     }, t('backups.connected'))
@@ -184,68 +125,96 @@
     })
     if (!yes) return
     void act(async () => {
-      backups.view = await backend.backupsDisconnect()
-      snapshots = null
+      backups.view = await backend.backupsTurnOff()
+      files = null
+    })
+  }
+
+  function change(schedule: BackupSchedule, keep: number) {
+    void act(async () => {
+      backups.view = await backend.backupsSettings(schedule, keep)
     })
   }
 
   function runNow() {
     void act(async () => {
       await backups.run()
-      if (snapshots) snapshots = await backend.backupsSnapshots()
+      if (files) files = await backend.backupsList()
     }, t('backups.done'))
   }
 
   function list() {
-    if (snapshots) return void (snapshots = null)
+    if (files) return void (files = null)
     void act(async () => {
-      snapshots = await backend.backupsSnapshots()
+      files = await backend.backupsList()
     })
   }
 
-  const newestFirst = $derived([...(snapshots ?? [])].sort((a, b) => b.time - a.time))
-
-  function restoreNow(snapshot: BackupSnapshot) {
+  function listOlder() {
+    if (older) return void (older = null)
     void act(async () => {
-      const report = await backend.backupsRestore(snapshot.id)
-      await workspace.load()
-      message = t('backups.restored', { notes: report.notes, skipped: report.skipped })
+      older = await backend.oldBackupsList()
     })
   }
 
-  async function restore(snapshot: BackupSnapshot) {
-    const yes = await overlay.ask(t('backups.restoreConfirm', { when: dateTime(snapshot.time) }), {
+  /** When an automatic backup was made, from its name, in local time. */
+  function madeAt(name: string): number | null {
+    const m = /(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})(\d{2})\.\w+$/.exec(name)
+    if (!m) return null
+    const [, y, mo, d, h, mi, se] = m.map(Number) as number[]
+    return new Date(y ?? 0, (mo ?? 1) - 1, d ?? 1, h ?? 0, mi ?? 0, se ?? 0).getTime()
+  }
+
+  const label = (file: BackupFile) => {
+    const at = file.automatic ? madeAt(file.name) : null
+    return at === null ? file.name : dateTime(at)
+  }
+
+  function restored(report: { notes: number; skipped: number }) {
+    message = t('backups.restored', { notes: report.notes, skipped: report.skipped })
+  }
+
+  async function restore(file: BackupFile) {
+    const yes = await overlay.ask(t('backups.restoreConfirm', { when: label(file) }), {
       confirmLabel: t('backups.restore'),
     })
-    if (yes) restoreNow(snapshot)
+    if (!yes) return
+    void act(async () => {
+      try {
+        const report = await backend.backupsRestore(file.name, null)
+        await workspace.load()
+        restored(report)
+      } catch (err) {
+        // made with an earlier notes password: that one is asked
+        if ((err as { kind?: string })?.kind !== 'wrongPassword') throw err
+        askingFor = file.name
+        filePassword = ''
+      }
+    })
   }
 
-  /** Right after backups from before are opened: the newest is likely the one
-   * wanted, the list stays for another. */
-  async function offerLatest() {
-    const latest = newestFirst[0]
-    if (!latest) return
-    const yes = await overlay.ask(
-      t('backups.latestAsk', {
-        when: dateTime(latest.time),
-        notes: t('backups.notes', { count: latest.counts.notes ?? 0 }),
-      }),
-      { confirmLabel: t('backups.latestRestore') },
-    )
-    if (yes) restoreNow(latest)
+  function restoreWithPassword() {
+    const name = askingFor
+    if (!name) return
+    void act(async () => {
+      const report = await backend.backupsRestore(name, filePassword)
+      askingFor = null
+      filePassword = ''
+      await workspace.load()
+      restored(report)
+    })
   }
 
-  function where(): string {
-    const place = config?.target
-    if (!place) return ''
-    if (place.kind === 'folder') return shown(place.path)
-    if (place.kind === 's3') {
-      const host = place.endpoint
-        ? place.endpoint.replace(/^https?:\/\//, '').replace(/\/$/, '')
-        : `AWS ${place.region}`
-      return `${place.bucket}${place.prefix ? `/${place.prefix}` : ''}, ${host}`
-    }
-    return place.url
+  async function restoreOlder(backup: OldBackup) {
+    const yes = await overlay.ask(t('backups.restoreConfirm', { when: dateTime(backup.time) }), {
+      confirmLabel: t('backups.restore'),
+    })
+    if (!yes) return
+    void act(async () => {
+      const report = await backend.oldBackupsRestore(backup.id)
+      await workspace.load()
+      restored(report)
+    })
   }
 
   /** A folder picked on a phone is an address: its path as the Files app
@@ -266,6 +235,8 @@
     return t('backups.never')
   })
 
+  const SCHEDULES: BackupSchedule[] = ['hourly', 'daily', 'weekly', 'off']
+
   async function importPicked(input: HTMLInputElement) {
     await workspace.importFiles([...(input.files ?? [])])
     input.value = ''
@@ -285,18 +256,17 @@
     <Row label={t('backups.download')} opens onclick={() => (making = true)} />
     <Row label={t('backups.restoreFile')} opens onclick={onrestorefile} />
   </Group>
-  {#if making}<BackupDialog mode="make" close={() => (making = false)} />{/if}
 {:else}
   <Group title={t('backups.title')}>
     <Row label={t('backups.auto')}>
       <Switch
         label={t('backups.auto')}
-        checked={!!config || setup === 'start'}
+        checked={!!config || setup}
         disabled={busy}
         onchange={(on) => {
-          if (on) open('start')
+          if (on) openSetup(true)
           else if (config) void stop()
-          else open(null)
+          else openSetup(false)
         }}
       />
     </Row>
@@ -306,148 +276,92 @@
         help={view?.status.lastError && !view.running
           ? backupError(view.status.lastErrorKind, view.status.lastError)
           : view?.status.lastSuccessAt
-            ? t('backups.size', {
-                count: view.status.snapshots,
-                size: bytes(view.status.storedBytes),
-              })
+            ? t('backups.size', { count: view.status.files, size: bytes(view.status.storedBytes) })
             : undefined}
       >
         <button class="btn" disabled={busy || view?.running} onclick={runNow}
           >{t('backups.now')}</button
         >
       </Row>
-      <Row label={t('backups.place')} help={where()} />
+      <Row label={t('backups.place')} help={shown(config.folder)} />
+      <Row label={t('backups.when')}>
+        <select
+          class="field compact same-width"
+          aria-label={t('backups.when')}
+          value={config.schedule}
+          disabled={busy}
+          onchange={(e) => change(e.currentTarget.value as BackupSchedule, config.keep)}
+        >
+          {#each SCHEDULES as schedule (schedule)}
+            <option value={schedule}>{t(`backups.schedule_${schedule}`)}</option>
+          {/each}
+        </select>
+      </Row>
+      <Row label={t('backups.kept')}>
+        <input
+          class="field compact number"
+          type="number"
+          min="1"
+          max="100"
+          aria-label={t('backups.kept')}
+          value={config.keep}
+          disabled={busy}
+          onchange={(e) => {
+            const keep = Math.round(Number(e.currentTarget.value))
+            if (keep >= 1 && keep <= 100) change(config.schedule, keep)
+          }}
+        />
+      </Row>
     {/if}
+    <Row label={t('backup.makeTitle')} opens onclick={() => (making = true)} />
   </Group>
 
   {#if setup}
     <div class="fold-body">
-      <Group title={setup === 'restore' ? t('backups.restoreFrom') : undefined}>
+      <Group>
         <div class="inside">
           {#if phoneFolder}
-            <p class="settings-help">
-              {setup === 'restore' ? t('backups.phoneFolderRestore') : t('backups.phoneFolder')}
-            </p>
-            <code>{phoneFolder}</code>
+            <p class="settings-help">{t('backups.phoneFolder')}</p>
+            <code>{shown(folder)}</code>
           {:else}
             <label class="settings-field">
               {t('backups.folder')}
               <span class="line">
-                <input
-                  class="field"
-                  autocomplete="off"
-                  bind:value={folder}
-                  onchange={() => void look()}
-                />
+                <input class="field" autocomplete="off" bind:value={folder} />
                 <button type="button" class="btn" onclick={() => void chooseFolder()}
                   >{t('backups.chooseFolder')}</button
                 >
               </span>
             </label>
           {/if}
-
-          {#if looking}
-            <p class="settings-help" role="status">{t('backups.looking')}</p>
-          {:else if looked !== null && looked === folder.trim()}
-            {#if unreadable}
-              <p class="settings-help bad" role="status">
-                {MOBILE
-                  ? t('backups.unreadablePhone', { app: brand.displayName })
-                  : t('backups.unreadable', { app: brand.displayName })}
-              </p>
-              <div class="settings-actions">
-                <button class="btn" type="button" onclick={() => open(null)}
-                  >{t('common.cancel')}</button
-                >
-                {#if MOBILE}
-                  <button class="btn primary" type="button" disabled={busy} onclick={allow}
-                    >{t('backups.allowFolder')}</button
-                  >
-                {/if}
-              </div>
-            {:else if found}
-              <p class="settings-help" role="status">
-                {setup === 'restore' ? t('backups.foundTitle') : t('backups.foundStartHelp')}
-              </p>
-              {#if needsPassword}
-                <label class="settings-field">
-                  {t('backups.password')}
-                  <PasswordField
-                    class="field"
-                    autocomplete="current-password"
-                    bind:value={password}
-                  />
-                </label>
-              {:else if !openDevice}
-                <label class="settings-field">
-                  {t('backups.notesPassword')}
-                  <PasswordField
-                    class="field"
-                    autocomplete="current-password"
-                    bind:value={password}
-                  />
-                </label>
-                <p class="settings-help">{t('backups.foundOpenHelp')}</p>
-              {/if}
-              <div class="settings-actions">
-                <button class="btn" type="button" onclick={() => open(null)}
-                  >{t('common.cancel')}</button
-                >
-                <button
-                  class="btn primary"
-                  disabled={busy || ((needsPassword || !openDevice) && !password)}
-                  onclick={openFound}
-                  >{busy ? t('backups.connecting') : t('backups.useThem')}</button
-                >
-              </div>
-            {:else if setup === 'restore'}
-              <p class="settings-help bad" role="status">{t('backups.noneHere')}</p>
-              <div class="settings-actions">
-                <button class="btn" type="button" onclick={() => open(null)}
-                  >{t('common.cancel')}</button
-                >
-              </div>
-            {:else}
-              {#if !openDevice}
-                <label class="settings-check">
-                  <input type="checkbox" bind:checked={sameAsNotes} />
-                  {t('backups.sameAsNotes')}
-                </label>
-                <label class="settings-field">
-                  {sameAsNotes ? t('backups.notesPassword') : t('backups.newPassword')}
-                  <PasswordField
-                    class="field"
-                    autocomplete={sameAsNotes ? 'current-password' : 'new-password'}
-                    bind:value={password}
-                  />
-                </label>
-                {#if !sameAsNotes}
-                  <label class="settings-field">
-                    {t('backups.passwordAgain')}
-                    <PasswordField
-                      eye={false}
-                      class="field"
-                      autocomplete="new-password"
-                      bind:value={again}
-                    />
-                  </label>
-                {/if}
-                <p class="settings-help">
-                  {sameAsNotes ? t('backups.sameAsNotesHelp') : t('backups.passwordWarning')}
-                </p>
-              {/if}
-              <div class="settings-actions">
-                <button class="btn" type="button" onclick={() => open(null)}
-                  >{t('common.cancel')}</button
-                >
-                <button
-                  class="btn primary"
-                  disabled={busy || !!newPasswordProblem}
-                  onclick={startNew}>{busy ? t('backups.connecting') : t('backups.turnOn')}</button
-                >
-              </div>
-            {/if}
+          {#if unreadable}
+            <p class="settings-help bad" role="status">
+              {MOBILE
+                ? t('backups.unreadablePhone', { app: brand.displayName })
+                : t('backups.unreadable', { app: brand.displayName })}
+            </p>
           {/if}
+          {#if !openDevice}
+            <label class="settings-field">
+              {t('backups.notesPassword')}
+              <PasswordField class="field" autocomplete="current-password" bind:value={password} />
+            </label>
+          {/if}
+          <div class="settings-actions">
+            <button class="btn" type="button" onclick={() => openSetup(false)}
+              >{t('common.cancel')}</button
+            >
+            {#if unreadable && MOBILE}
+              <button class="btn" type="button" disabled={busy} onclick={allow}
+                >{t('backups.allowFolder')}</button
+              >
+            {/if}
+            <button
+              class="btn primary"
+              disabled={busy || !folder.trim() || (!openDevice && !password)}
+              onclick={turnOn}>{t('backups.turnOn')}</button
+            >
+          </div>
         </div>
       </Group>
     </div>
@@ -459,27 +373,44 @@
   <Group title={t('backups.restoreTitle')}>
     {#if config}
       <Row label={t('backups.restoreFrom')} onclick={list}>
-        {@render chevron(!!snapshots)}
+        {@render chevron(!!files)}
       </Row>
-      {#if snapshots}
+      {#if files}
         <div class="fold-rows">
-          {#if newestFirst.length === 0}
+          {#if files.length === 0}
             <p class="settings-help inside">{t('backups.none')}</p>
           {/if}
-          {#each newestFirst as snapshot (snapshot.id)}
-            <Row
-              label={dateTime(snapshot.time)}
-              help={`${t('backups.notes', { count: snapshot.counts.notes ?? 0 })}, ${t('backups.files', { count: snapshot.counts.files ?? 0 })}`}
-            >
-              <button class="btn" disabled={busy} onclick={() => void restore(snapshot)}
+          {#each files as file (file.name)}
+            <Row label={label(file)} help={bytes(file.size)}>
+              <button class="btn" disabled={busy} onclick={() => void restore(file)}
                 >{t('backups.restore')}</button
               >
             </Row>
+            {#if askingFor === file.name}
+              <div class="inside">
+                <label class="settings-field">
+                  {t('backups.password')}
+                  <PasswordField
+                    class="field"
+                    autocomplete="current-password"
+                    bind:value={filePassword}
+                  />
+                </label>
+                <div class="settings-actions">
+                  <button class="btn" type="button" onclick={() => (askingFor = null)}
+                    >{t('common.cancel')}</button
+                  >
+                  <button
+                    class="btn primary"
+                    disabled={busy || !filePassword}
+                    onclick={restoreWithPassword}>{t('backups.restore')}</button
+                  >
+                </div>
+              </div>
+            {/if}
           {/each}
         </div>
       {/if}
-    {:else}
-      <Row label={t('backups.restoreFrom')} opens onclick={() => open('restore')} />
     {/if}
     <Row
       label={t('backups.restoreFile')}
@@ -488,7 +419,34 @@
       onclick={onrestorefile}
     />
   </Group>
+
+  {#if view?.older}
+    <!-- the snapshot backups of earlier versions: restored from, no more made -->
+    <Group>
+      <Row label={t('backups.older')} onclick={listOlder}>
+        {@render chevron(!!older)}
+      </Row>
+      {#if older}
+        <div class="fold-rows">
+          {#if older.length === 0}
+            <p class="settings-help inside">{t('backups.none')}</p>
+          {/if}
+          {#each older as backup (backup.id)}
+            <Row
+              label={dateTime(backup.time)}
+              help={t('backups.notes', { count: backup.counts.notes ?? 0 })}
+            >
+              <button class="btn" disabled={busy} onclick={() => void restoreOlder(backup)}
+                >{t('backups.restore')}</button
+              >
+            </Row>
+          {/each}
+        </div>
+      {/if}
+    </Group>
+  {/if}
 {/if}
+{#if making}<BackupDialog mode="make" close={() => (making = false)} />{/if}
 
 <Group title={t('settings.importTitle')}>
   <Row label={t('list.import')} opens onclick={() => markdownInput?.click()} />
@@ -567,5 +525,14 @@
   }
   .chevron.open {
     transform: rotate(180deg);
+  }
+  /* as the language and time format boxes */
+  .field.same-width {
+    width: 15rem;
+    max-width: 100%;
+  }
+  .field.compact.number {
+    width: 5rem;
+    min-width: 5rem;
   }
 </style>

@@ -6,6 +6,7 @@
 use rusqlite::{OptionalExtension, params};
 
 use super::Store;
+use crate::auto_backup::AutoBackups;
 use crate::error::{Error, Result};
 use crate::repo::{BackupConfig, BackupStatus};
 
@@ -47,6 +48,41 @@ impl Store {
         self.conn.execute(
             "INSERT INTO backup_settings (id, config) VALUES (1, ?1)
              ON CONFLICT (id) DO UPDATE SET config = excluded.config",
+            params![text],
+        )?;
+        Ok(())
+    }
+
+    /// This device's automatic backups, None when it makes none.
+    ///
+    /// # Errors
+    ///
+    /// Database errors, damaged settings.
+    pub fn auto_backups(&self) -> Result<Option<AutoBackups>> {
+        let text: Option<String> = self
+            .conn
+            .query_row("SELECT files FROM backup_settings WHERE id = 1", [], |r| {
+                r.get(0)
+            })
+            .optional()?
+            .flatten();
+        text.map(|text| serde_json::from_str(&text).map_err(|e| Error::Corrupt(e.to_string())))
+            .transpose()
+    }
+
+    /// Sets or clears the automatic backups. Clearing keeps the status.
+    ///
+    /// # Errors
+    ///
+    /// Database errors.
+    pub fn set_auto_backups(&self, config: Option<&AutoBackups>) -> Result<()> {
+        let text = config
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|e| Error::Invalid(e.to_string()))?;
+        self.conn.execute(
+            "INSERT INTO backup_settings (id, files) VALUES (1, ?1)
+             ON CONFLICT (id) DO UPDATE SET files = excluded.files",
             params![text],
         )?;
         Ok(())

@@ -185,17 +185,38 @@ impl DocumentTarget {
 
     /// Writes a new file at `path`, whole: beside it first, then renamed.
     fn write(&self, path: &str, bytes: &[u8]) -> Result<()> {
+        self.write_with(path, |file| -> Result<()> {
+            file.write_all(bytes)?;
+            Ok(())
+        })
+    }
+
+    /// As [`Self::write`], the content given by `fill` as it goes.
+    fn write_with<T, E: From<Error>>(
+        &self,
+        path: &str,
+        fill: impl FnOnce(&mut std::fs::File) -> std::result::Result<T, E>,
+    ) -> std::result::Result<T, E> {
         let name = path.rsplit('/').next().unwrap_or(path);
         let partial = format!("{path}.partial");
         let made = call::<Found>("create", self.args(&partial, ""))?;
         let uri = made
             .uri
             .ok_or_else(|| Error::Io(std::io::Error::other("the folder made no file")))?;
-        {
-            let mut file = Self::open(&uri, true)?;
-            file.write_all(bytes)?;
-            file.sync_all()?;
-        }
+        let given = {
+            let mut out = Self::open(&uri, true)?;
+            let written = fill(&mut out).and_then(|given| {
+                out.sync_all().map_err(|e| E::from(Error::Io(e)))?;
+                Ok(given)
+            });
+            match written {
+                Ok(given) => given,
+                Err(e) => {
+                    let _ = self.delete_file(&partial);
+                    return Err(e);
+                }
+            }
+        };
         // the provider would not replace a file by renaming over it: the
         // old one steps aside, and is read in its place until the new one
         // has its name
@@ -213,7 +234,30 @@ impl DocumentTarget {
         if replacing {
             self.delete_file(&old)?;
         }
-        Ok(())
+        Ok(given)
+    }
+
+    /// Writes the file `name` in the backups' folder, its content given by
+    /// `fill` as it goes.
+    ///
+    /// # Errors
+    ///
+    /// The folder refused, or `fill` failed (no file is left then).
+    pub fn put_with<T, E: From<Error>>(
+        &self,
+        name: &str,
+        fill: impl FnOnce(&mut std::fs::File) -> std::result::Result<T, E>,
+    ) -> std::result::Result<T, E> {
+        self.write_with(&self.at(name)?, fill)
+    }
+
+    /// The file `name` in the backups' folder, to read.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::NotFound`] when it is not there.
+    pub fn open_named(&self, name: &str) -> Result<std::fs::File> {
+        self.readable(&self.at(name)?)
     }
 
     fn delete_file(&self, path: &str) -> Result<()> {

@@ -469,16 +469,20 @@ pub async fn vault_reset(state: State<'_, AppState>) -> CommandResult<()> {
 
 #[tauri::command]
 pub async fn vault_change_password(
+    app: AppHandle,
     state: State<'_, AppState>,
     old: String,
     new: String,
 ) -> CommandResult<()> {
-    let mut guard = state.session();
-    let session = guard.as_mut().ok_or_else(CommandError::locked)?;
-    session
-        .vault
-        .change_password(&old, &new, KdfParams::DEFAULT)?;
-    Ok(())
+    {
+        let mut guard = state.session();
+        let session = guard.as_mut().ok_or_else(CommandError::locked)?;
+        session
+            .vault
+            .change_password(&old, &new, KdfParams::DEFAULT)?;
+    }
+    // the next backups are sealed with the new one
+    super::backups::protect(app, new).await
 }
 
 /// Makes a new recovery key for the vault, replacing any earlier one, and

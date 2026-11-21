@@ -227,33 +227,29 @@ export interface Backend {
     url: string,
     secrets: string[],
   ): Promise<{ reports: import('./types').FeedbackAnswer[] }>
-  /** This device's scheduled backups. */
+  /** This device's automatic backups. */
   backupsGet(): Promise<import('./types').BackupsView>
-  /** Whether `target` already holds a backup and needs its password, nothing written. */
-  backupsFound(target: import('./types').BackupTarget): Promise<import('./types').BackupsFound>
   /** A phone's backups folder through the system's picker, which lets the app
    * reach what an earlier install made there: its address, null when the
    * person backed out. */
   backupsPickFolder(): Promise<string | null>
-  /** Sets backups up: a new repository at `target`, or one there opened with
-   * its password. An empty password stands for backups without one. */
-  backupsConnect(
-    target: import('./types').BackupTarget,
-    password: string,
-    create: boolean,
-    host: string,
-  ): Promise<import('./types').BackupsView>
+  /** Turns automatic backups on in `folder`. Notes with a password give it,
+   * the backups are sealed with it; null for notes without one. */
+  backupsTurnOn(folder: string, password: string | null): Promise<import('./types').BackupsView>
   backupsSettings(
     schedule: import('./types').BackupSchedule,
-    policy: import('./types').BackupPolicy,
+    keep: number,
   ): Promise<import('./types').BackupsView>
-  /** Stops backing up here, the repository stays. */
-  backupsDisconnect(): Promise<import('./types').BackupsView>
-  /** Backs up now, `offsetSeconds` the time zone for the policy's days. */
+  /** Stops backing up, the files stay. */
+  backupsTurnOff(): Promise<import('./types').BackupsView>
+  /** Backs up now, `offsetSeconds` the time zone for the file's name. */
   backupsRun(offsetSeconds: number): Promise<import('./types').BackupsView>
-  /** Snapshots of the repository, newest first. */
-  backupsSnapshots(): Promise<import('./types').BackupSnapshot[]>
-  backupsRestore(snapshot: string): Promise<import('./types').RestoreReport>
-  backupsTestRestore(snapshot: string): Promise<import('./types').BackupTestRestore>
-  backupsCheck(full: boolean): Promise<import('./types').BackupCheck>
+  /** The backup files in the folder, the automatic ones newest first. */
+  backupsList(): Promise<import('./types').BackupFile[]>
+  /** Restores a file of the folder; `password` for one made with an earlier
+   * notes password. */
+  backupsRestore(name: string, password: string | null): Promise<import('./types').RestoreReport>
+  /** The snapshot backups of an earlier version, newest first. */
+  oldBackupsList(): Promise<import('./types').OldBackup[]>
+  oldBackupsRestore(id: string): Promise<import('./types').RestoreReport>
 }

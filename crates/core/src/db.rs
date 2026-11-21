@@ -115,6 +115,10 @@ const MIGRATIONS: &[Migration] = &[
         sql: include_str!("db/022_made_here.sql"),
         then: None,
     },
+    Migration {
+        sql: include_str!("db/023_file_backups.sql"),
+        then: Some(crate::auto_backup::from_snapshot_folder),
+    },
 ];
 
 /// Opens or creates the database at `path`. With a key the file is encrypted

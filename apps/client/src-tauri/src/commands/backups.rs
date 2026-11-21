@@ -1,19 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Scheduled backups of the vault into a repository (see `app_core::repo`):
-//! setting them up, running them, their history, restoring. The page keeps
-//! the schedule (runs happen while the app is open), this side does the
-//! work, holding the vault only to read what to back up and to write what
-//! comes back: the upload and download run without it.
+//! Automatic backups (see `app_core::auto_backup`): the vault's backup file
+//! made in a folder on a schedule, the newest few kept, and restored from
+//! that folder. The page keeps the schedule (runs happen while the app is
+//! open), this side does the work, holding the vault only to read what to
+//! back up and to put back what a restore brings.
+//!
+//! The snapshot backups of earlier versions are only read now, to restore
+//! from them (`old_backups_*`), through their settings kept in the vault.
 
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use app_core::auto_backup::{AutoBackups, DEFAULT_KEEP, MAX_KEEP};
+use app_core::backup::Backup;
 use app_core::clock::{Clock, SystemClock};
-use app_core::repo::{
-    BackupConfig, BackupStatus, CheckReport, KdfParams, NO_PASSWORD, Policy, Repo, Schedule,
-    Target, TargetConfig, TestRestore,
-};
+use app_core::crypto::KdfParams;
+#[cfg(target_os = "android")]
+use app_core::repo::TargetConfig;
+use app_core::repo::{BackupConfig, BackupStatus, Repo, Schedule, Target};
 use app_core::store::RestoreReport;
+use app_core::vault::Vault;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
@@ -23,14 +30,13 @@ use crate::state::AppState;
 /// One run at a time on this device.
 static RUNNING: AtomicBool = AtomicBool::new(false);
 
-/// The settings as the page sees them: no secrets.
+/// The settings as the page sees them: no password.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigView {
-    target: TargetConfig,
+    folder: String,
     schedule: Schedule,
-    policy: Policy,
-    host: String,
+    keep: u32,
 }
 
 /// Backups on this device.
@@ -40,45 +46,50 @@ pub struct BackupsView {
     config: Option<ConfigView>,
     status: BackupStatus,
     running: bool,
-    /// Where backups may go on this platform.
-    kinds: Vec<&'static str>,
+    /// Snapshot backups of an earlier version can be restored from.
+    older: bool,
 }
 
-/// A snapshot as listed.
+/// A backup file in the folder.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileView {
+    name: String,
+    size: u64,
+    /// Made by the automatic backups (else put there by hand).
+    automatic: bool,
+}
+
+/// An old snapshot, as listed.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotView {
     id: String,
     time: i64,
-    host: String,
-    app_version: String,
     counts: std::collections::BTreeMap<String, u64>,
-    size: u64,
 }
 
 fn now() -> i64 {
     SystemClock.now()
 }
 
-fn kinds() -> Vec<&'static str> {
-    // the phones' pickers give no path: a phone's folder is the one it
-    // names itself (`SystemInfo.backupFolder` in MainActivity.kt)
-    vec!["folder", "s3", "webdav"]
-}
-
 fn view(state: &AppState) -> CommandResult<BackupsView> {
-    let (config, status) =
-        state.quietly(|s| Ok((s.store.backup_config()?, s.store.backup_status()?)))?;
+    let (config, status, older) = state.quietly(|s| {
+        Ok((
+            s.store.auto_backups()?,
+            s.store.backup_status()?,
+            s.store.backup_config()?.is_some(),
+        ))
+    })?;
     Ok(BackupsView {
         config: config.map(|c| ConfigView {
-            target: c.target.without_secrets(),
+            folder: c.folder,
             schedule: c.schedule,
-            policy: c.policy,
-            host: c.host,
+            keep: c.keep,
         }),
         status,
         running: RUNNING.load(Ordering::SeqCst),
-        kinds: kinds(),
+        older,
     })
 }
 
@@ -91,31 +102,138 @@ async fn blocking<T: Send + 'static>(
         .map_err(|e| CommandError::new("unknown", e.to_string()))?
 }
 
-fn config(state: &AppState) -> CommandResult<BackupConfig> {
+fn config(state: &AppState) -> CommandResult<AutoBackups> {
     state
-        .quietly(|s| s.store.backup_config())?
+        .quietly(|s| s.store.auto_backups())?
         .ok_or_else(|| CommandError::new("notFound", "backups are not set up"))
 }
 
-/// Opens where backups go. A folder picked on Android is an address, not a
-/// path (documents.rs).
-fn open_target(target: &TargetConfig) -> app_core::Result<std::sync::Arc<dyn Target>> {
+/// The folder the files are in: the chosen one, or a folder of its own
+/// inside it, as the snapshot backups had (`app_core::repo::folder_name`).
+enum Place {
+    Dir(PathBuf),
     #[cfg(target_os = "android")]
-    if let TargetConfig::Folder { path } = target
-        && crate::picked::is_document(path)
-    {
-        return Ok(std::sync::Arc::new(
-            crate::documents::DocumentTarget::named(path)?,
-        ));
-    }
-    target.open()
+    Document(crate::documents::DocumentTarget),
 }
 
-fn open(config: &BackupConfig) -> CommandResult<Repo> {
-    Ok(
-        Repo::open(open_target(&config.target)?, &config.password)
-            .map_err(app_core::Error::from)?,
-    )
+/// A backup file's name, never a path.
+fn backup_name(name: &str) -> CommandResult<&str> {
+    let plain = !name.is_empty()
+        && !name.starts_with('.')
+        && !name.contains(['/', '\\'])
+        && name.ends_with(&format!(".{}", app_brand::BACKUP_EXTENSION));
+    if plain {
+        Ok(name)
+    } else {
+        Err(CommandError::new("invalid", "not a backup file"))
+    }
+}
+
+impl Place {
+    fn of(folder: &str) -> CommandResult<Self> {
+        #[cfg(target_os = "android")]
+        if crate::picked::is_document(folder) {
+            return Ok(Self::Document(
+                crate::documents::DocumentTarget::named(folder).map_err(app_core::Error::from)?,
+            ));
+        }
+        if folder.trim().is_empty() {
+            return Err(CommandError::new("invalid", "choose a folder"));
+        }
+        let chosen = PathBuf::from(folder);
+        let name = app_core::repo::folder_name(folder);
+        let own = chosen.join("config").is_file()
+            || chosen.file_name().is_some_and(|n| n == name.as_str());
+        Ok(Self::Dir(if own { chosen } else { chosen.join(name) }))
+    }
+
+    /// The backup files there, sizes with them.
+    fn list(&self) -> CommandResult<Vec<(String, u64)>> {
+        let ours = |name: &str| backup_name(name).is_ok();
+        match self {
+            Self::Dir(dir) => {
+                let entries = match std::fs::read_dir(dir) {
+                    Ok(entries) => entries,
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+                    Err(e) => return Err(readable(e.into())),
+                };
+                let mut out = Vec::new();
+                for entry in entries {
+                    let entry = entry.map_err(|e| readable(e.into()))?;
+                    let name = entry.file_name().to_string_lossy().into_owned();
+                    if ours(&name) {
+                        let size = entry.metadata().map_or(0, |m| m.len());
+                        out.push((name, size));
+                    }
+                }
+                Ok(out)
+            }
+            #[cfg(target_os = "android")]
+            Self::Document(target) => Ok(target
+                .list("")
+                .map_err(|e| readable(e.into()))?
+                .into_iter()
+                .filter(|l| !l.path.contains('/') && ours(&l.path))
+                .map(|l| (l.path, l.size))
+                .collect()),
+        }
+    }
+
+    /// Writes the file `name`, beside it first, then renamed: a run that
+    /// fails leaves no half backup.
+    fn write<T>(
+        &self,
+        name: &str,
+        fill: impl FnOnce(&mut std::fs::File) -> app_core::Result<T>,
+    ) -> CommandResult<T> {
+        match self {
+            Self::Dir(dir) => {
+                std::fs::create_dir_all(dir).map_err(app_core::Error::from)?;
+                let path = dir.join(name);
+                let partial = dir.join(format!("{name}.partial"));
+                let written = std::fs::File::create(&partial)
+                    .map_err(app_core::Error::from)
+                    .and_then(|mut file| {
+                        let filled = fill(&mut file)?;
+                        file.sync_all()?;
+                        Ok(filled)
+                    })
+                    .and_then(|filled| {
+                        std::fs::rename(&partial, &path)?;
+                        Ok(filled)
+                    });
+                if written.is_err() {
+                    let _ = std::fs::remove_file(&partial);
+                }
+                Ok(written?)
+            }
+            #[cfg(target_os = "android")]
+            Self::Document(target) => Ok(target.put_with(name, fill)?),
+        }
+    }
+
+    fn open(&self, name: &str) -> CommandResult<std::fs::File> {
+        let name = backup_name(name)?;
+        Ok(match self {
+            Self::Dir(dir) => std::fs::File::open(dir.join(name)).map_err(app_core::Error::from)?,
+            #[cfg(target_os = "android")]
+            Self::Document(target) => target.open_named(name).map_err(app_core::Error::from)?,
+        })
+    }
+
+    fn delete(&self, name: &str) -> CommandResult<()> {
+        let name = backup_name(name)?;
+        match self {
+            Self::Dir(dir) => match std::fs::remove_file(dir.join(name)) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                    Err(app_core::Error::from(e).into())
+                }
+                _ => Ok(()),
+            },
+            #[cfg(target_os = "android")]
+            Self::Document(target) => Ok(target.delete(name).map_err(app_core::Error::from)?),
+        }
+    }
 }
 
 /// This device's backups.
@@ -124,94 +242,42 @@ pub async fn backups_get(state: State<'_, AppState>) -> CommandResult<BackupsVie
     view(&state)
 }
 
-/// What a place holds, before backups are set up there.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Found {
-    /// Backups are there already.
-    found: bool,
-    /// They have a password of their own (made without one, they open with
-    /// `NO_PASSWORD`).
-    needs_password: bool,
-}
-
-/// Whether the target already holds a backup, so the setup opens it instead
-/// of starting a new one: a new or reset device finds its old backups.
-/// Nothing is written.
+/// Turns automatic backups on, in `folder`. Notes with a password give it
+/// here, checked: the backups are sealed with it. A run follows from the
+/// page.
 #[tauri::command]
-pub async fn backups_found(app: AppHandle, target: TargetConfig) -> CommandResult<Found> {
-    blocking(app, move |_| {
-        let opened = open_target(&target).map_err(readable)?;
-        let found = match opened.get("config").map_err(app_core::Error::from) {
-            Ok(_) => true,
-            Err(app_core::Error::NotFound(_)) => false,
-            Err(e) => return Err(readable(e)),
-        };
-        let needs_password = found && Repo::open(opened, NO_PASSWORD).is_err();
-        Ok(Found {
-            found,
-            needs_password,
-        })
-    })
-    .await
-}
-
-/// Sets backups up: a new repository at the target (`create`), or one
-/// there already, opened with its password. An empty password is
-/// `NO_PASSWORD`, the page allows it only where the notes have none. A
-/// secret left blank keeps the one set before. Daily, 7 daily, 4 weekly, 12 monthly unless set before.
-#[tauri::command]
-pub async fn backups_connect(
+pub async fn backups_turn_on(
     app: AppHandle,
-    target: TargetConfig,
-    password: String,
-    create: bool,
-    host: String,
+    folder: String,
+    password: Option<String>,
 ) -> CommandResult<BackupsView> {
     blocking(app, move |state| {
-        let password = if password.is_empty() {
-            NO_PASSWORD.to_owned()
-        } else {
-            password
-        };
-        let old = state.quietly(|s| s.store.backup_config())?;
-        let target = match &old {
-            Some(old) => target.keeping_secrets_of(&old.target),
-            None => target,
-        };
         let encrypted = state
             .session()
             .as_ref()
-            .is_some_and(|s| s.vault.is_encrypted());
-        if encrypted && password == NO_PASSWORD {
-            return Err(unprotected());
-        }
-        let opened = open_target(&target)?;
-        if create {
-            Repo::init(opened, &password, KdfParams::DEFAULT, now())
-                .map_err(app_core::Error::from)?;
-        } else if let Err(wrong) = Repo::open(opened.clone(), &password) {
-            match Repo::open(opened, NO_PASSWORD) {
-                // made without a password before the notes had one
-                Ok(open) if encrypted => open
-                    .change_password(&password, KdfParams::DEFAULT, now())
-                    .map_err(app_core::Error::from)?,
-                _ => return Err(app_core::Error::from(wrong).into()),
+            .ok_or_else(CommandError::locked)?
+            .vault
+            .is_encrypted();
+        let password = if encrypted {
+            let given = password.filter(|p| !p.is_empty()).ok_or_else(unprotected)?;
+            if Vault::open(&state.dir)?.key_with_password(&given).is_err() {
+                return Err(CommandError::new("wrongPassword", "not the notes password"));
             }
-        }
-        let config = BackupConfig {
-            target,
-            password,
+            Some(given)
+        } else {
+            None
+        };
+        // the folder must take a file now, not at the first run
+        Place::of(&folder)?.list()?;
+        let old = state.quietly(|s| s.store.auto_backups())?;
+        let config = AutoBackups {
+            folder,
             schedule: old.as_ref().map_or(Schedule::Daily, |o| o.schedule),
-            policy: old.as_ref().map_or_else(Policy::default, |o| o.policy),
-            host: if host.trim().is_empty() {
-                crate::sync::sign_in::device().name
-            } else {
-                host.trim().to_owned()
-            },
+            keep: old.as_ref().map_or(DEFAULT_KEEP, |o| o.keep),
+            password,
         };
         state.quietly(|s| {
-            s.store.set_backup_config(Some(&config))?;
+            s.store.set_auto_backups(Some(&config))?;
             // a new place: its history starts now
             s.store.set_backup_status(&BackupStatus::default())
         })?;
@@ -220,38 +286,25 @@ pub async fn backups_connect(
     .await
 }
 
-/// When to run and what to keep.
+/// When to back up and how many to keep.
 #[tauri::command]
 pub async fn backups_settings(
     state: State<'_, AppState>,
     schedule: Schedule,
-    policy: Policy,
+    keep: u32,
 ) -> CommandResult<BackupsView> {
     let mut config = config(&state)?;
     config.schedule = schedule;
-    config.policy = policy;
-    state.quietly(|s| s.store.set_backup_config(Some(&config)))?;
+    config.keep = keep.clamp(1, MAX_KEEP);
+    state.quietly(|s| s.store.set_auto_backups(Some(&config)))?;
     view(&state)
 }
 
-/// Stops backing up here. The repository stays where it is.
+/// Stops backing up. The files stay where they are.
 #[tauri::command]
-pub async fn backups_disconnect(state: State<'_, AppState>) -> CommandResult<BackupsView> {
-    state.quietly(|s| s.store.set_backup_config(None))?;
+pub async fn backups_turn_off(state: State<'_, AppState>) -> CommandResult<BackupsView> {
+    state.quietly(|s| s.store.set_auto_backups(None))?;
     view(&state)
-}
-
-/// Backups made without a password on a device whose notes are encrypted
-/// would let anyone who reaches them read the notes: none are made then.
-fn check_protected(state: &AppState, config: &BackupConfig) -> CommandResult<()> {
-    let encrypted = state
-        .session()
-        .as_ref()
-        .is_some_and(|s| s.vault.is_encrypted());
-    if encrypted && config.password == NO_PASSWORD {
-        return Err(unprotected());
-    }
-    Ok(())
 }
 
 /// Android keeps a new install out of the files an earlier one made: they
@@ -286,83 +339,95 @@ pub async fn backups_pick_folder(app: AppHandle) -> CommandResult<Option<String>
 fn unprotected() -> CommandError {
     CommandError::new(
         "unprotected",
-        "these backups have no password, the notes have one",
+        "the notes have a password, the backups need it",
     )
 }
 
-/// Gives backups made without a password the notes' new password, the
-/// earlier backups included: they share their keys. Called when the notes
-/// get a password.
+/// The notes got a password, or another one: the next backups are sealed
+/// with it. Those made before keep the password they were made with.
 ///
 /// # Errors
 ///
-/// When the backups cannot be reached. Runs then stop at
-/// [`check_protected`] until they are set up again.
+/// When the settings cannot be written.
 pub async fn protect(app: AppHandle, password: String) -> CommandResult<()> {
     blocking(app, move |state| {
-        let Some(mut config) = state.quietly(|s| s.store.backup_config())? else {
+        let Some(mut config) = state.quietly(|s| s.store.auto_backups())? else {
             return Ok(());
         };
-        if config.password != NO_PASSWORD {
-            return Ok(());
-        }
-        open(&config)?
-            .change_password(&password, KdfParams::DEFAULT, now())
-            .map_err(app_core::Error::from)?;
-        config.password = password;
-        state.quietly(|s| s.store.set_backup_config(Some(&config)))
+        config.password = Some(password);
+        state.quietly(|s| s.store.set_auto_backups(Some(&config)))
     })
     .await
 }
 
 fn run(state: &AppState, offset_seconds: i64) -> CommandResult<()> {
     let config = config(state)?;
-    check_protected(state, &config)?;
-    let (data, blobs) = state.quietly(|s| Ok((s.store.backup_data()?, s.blobs.clone())))?;
-    let repo = open(&config)?;
-    let report = app_core::repo::backup_data(&repo, &data, &blobs, &config.host, &now)?;
-    let snapshots: Vec<(String, i64)> = repo
-        .snapshots()
-        .map_err(app_core::Error::from)?
-        .into_iter()
-        // each device keeps its own history, another's is its own to thin
-        .filter(|s| s.host == config.host)
-        .map(|s| (s.id, s.time))
-        .collect();
-    let kept = app_core::repo::keep(&snapshots, config.policy, offset_seconds);
-    let gone: std::collections::HashSet<String> = snapshots
-        .into_iter()
-        .map(|(id, _)| id)
-        .filter(|id| !kept.contains(id))
-        .collect();
-    if !gone.is_empty() {
-        repo.forget(&gone).map_err(app_core::Error::from)?;
-        repo.prune(&config.host, now())
-            .map_err(app_core::Error::from)?;
+    let encrypted = state
+        .session()
+        .as_ref()
+        .is_some_and(|s| s.vault.is_encrypted());
+    if encrypted && config.password.is_none() {
+        return Err(unprotected());
     }
-    let count = repo.snapshots().map_err(app_core::Error::from)?.len() as u64;
-    let stored: u64 = repo
-        .target()
-        .list("data/")
-        .map_err(app_core::Error::from)?
+    // read with the vault held, written without it: the notes stay usable
+    let (data, blobs, last) = state.quietly(|s| {
+        Ok((
+            s.store.backup_data()?,
+            s.blobs.clone(),
+            s.store.backup_status()?.last_digest,
+        ))
+    })?;
+    let mut present = Vec::new();
+    for sha in data.file_hashes() {
+        if blobs.has(&sha)? {
+            present.push(sha);
+        }
+    }
+    present.sort();
+    let digest = app_core::auto_backup::digest(&data, &present)?;
+    let place = Place::of(&config.folder)?;
+    let mut files = place.list()?;
+    let newest = files
         .iter()
-        .map(|l| l.size)
-        .sum();
+        .any(|(name, _)| app_core::auto_backup::is_automatic(name));
+    // nothing changed since the last one, which is still there
+    if last.as_deref() != Some(&digest) || !newest {
+        let name = app_core::auto_backup::file_name(now(), offset_seconds);
+        place.write(&name, |file| {
+            app_core::backup::write_backup_data(
+                &data,
+                &blobs,
+                std::io::BufWriter::new(file),
+                config.password.as_deref(),
+                KdfParams::DEFAULT,
+            )
+        })?;
+        let names: Vec<String> = place.list()?.into_iter().map(|(n, _)| n).collect();
+        for gone in app_core::auto_backup::beyond(&names, config.keep) {
+            place.delete(&gone)?;
+        }
+        files = place.list()?;
+    }
+    let automatic: Vec<&(String, u64)> = files
+        .iter()
+        .filter(|(name, _)| app_core::auto_backup::is_automatic(name))
+        .collect();
     state.quietly(|s| {
         let mut status = s.store.backup_status()?;
         status.last_success_at = Some(now());
         status.last_error = None;
         status.last_error_kind = None;
-        status.last_report = Some(report);
-        status.snapshots = count;
-        status.stored_bytes = stored;
+        status.last_digest = Some(digest);
+        status.files = automatic.len() as u64;
+        status.stored_bytes = automatic.iter().map(|(_, size)| size).sum();
         s.store.set_backup_status(&status)
     })?;
     Ok(())
 }
 
-/// Backs up now: a snapshot, then what the policy no longer keeps of this
-/// device's goes. `offset_seconds`: the time zone, for days and weeks.
+/// Backs up now: a new file when something changed since the last one,
+/// then the automatic files beyond those kept go. `offset_seconds`: the
+/// time zone, for the file's name.
 #[tauri::command]
 pub async fn backups_run(app: AppHandle, offset_seconds: i64) -> CommandResult<BackupsView> {
     if RUNNING
@@ -395,22 +460,81 @@ pub async fn backups_run(app: AppHandle, offset_seconds: i64) -> CommandResult<B
     .await
 }
 
-/// The repository's snapshots, newest first.
+/// The backup files in the folder, newest first.
 #[tauri::command]
-pub async fn backups_snapshots(app: AppHandle) -> CommandResult<Vec<SnapshotView>> {
+pub async fn backups_list(app: AppHandle) -> CommandResult<Vec<FileView>> {
     blocking(app, |state| {
-        let repo = open(&config(state)?)?;
-        let mut out: Vec<SnapshotView> = repo
+        let mut files: Vec<FileView> = Place::of(&config(state)?.folder)?
+            .list()?
+            .into_iter()
+            .map(|(name, size)| FileView {
+                automatic: app_core::auto_backup::is_automatic(&name),
+                name,
+                size,
+            })
+            .collect();
+        // the automatic ones by their time, the others after them
+        files.sort_by(|a, b| b.automatic.cmp(&a.automatic).then(b.name.cmp(&a.name)));
+        Ok(files)
+    })
+    .await
+}
+
+/// Puts a backup file of the folder back: what is missing here comes back
+/// with its ids, what is here stays as it is. `password` for a file made
+/// with another than the current one.
+#[tauri::command]
+pub async fn backups_restore(
+    app: AppHandle,
+    name: String,
+    password: Option<String>,
+) -> CommandResult<RestoreReport> {
+    blocking(app, move |state| {
+        let config = config(state)?;
+        let file = Place::of(&config.folder)?.open(&name)?;
+        let password = password.filter(|p| !p.is_empty()).or(config.password);
+        let mut backup = Backup::open_file(file, password.as_deref())?;
+        state.with(|s| backup.restore(&mut s.store, &s.blobs))
+    })
+    .await
+}
+
+/// The snapshot backups of an earlier version.
+fn older(state: &AppState) -> CommandResult<Repo> {
+    let config: BackupConfig = state
+        .quietly(|s| s.store.backup_config())?
+        .ok_or_else(|| CommandError::new("notFound", "no older backups"))?;
+    let target: std::sync::Arc<dyn Target> = {
+        #[cfg(target_os = "android")]
+        {
+            match &config.target {
+                TargetConfig::Folder { path } if crate::picked::is_document(path) => {
+                    std::sync::Arc::new(
+                        crate::documents::DocumentTarget::named(path)
+                            .map_err(app_core::Error::from)?,
+                    )
+                }
+                other => other.open()?,
+            }
+        }
+        #[cfg(not(target_os = "android"))]
+        config.target.open()?
+    };
+    Ok(Repo::open(target, &config.password).map_err(app_core::Error::from)?)
+}
+
+/// The older snapshot backups, newest first.
+#[tauri::command]
+pub async fn old_backups_list(app: AppHandle) -> CommandResult<Vec<SnapshotView>> {
+    blocking(app, |state| {
+        let mut out: Vec<SnapshotView> = older(state)?
             .snapshots()
             .map_err(app_core::Error::from)?
             .into_iter()
             .filter(|s| s.kind == "vault")
             .map(|s| SnapshotView {
-                size: s.size(),
                 id: s.id,
                 time: s.time,
-                host: s.host,
-                app_version: s.app_version,
                 counts: s.counts,
             })
             .collect();
@@ -420,12 +544,11 @@ pub async fn backups_snapshots(app: AppHandle) -> CommandResult<Vec<SnapshotView
     .await
 }
 
-/// Puts a snapshot back: what is missing here comes back with its ids,
-/// what is here stays as it is.
+/// Puts an older snapshot back, as [`backups_restore`] does a file.
 #[tauri::command]
-pub async fn backups_restore(app: AppHandle, snapshot: String) -> CommandResult<RestoreReport> {
+pub async fn old_backups_restore(app: AppHandle, snapshot: String) -> CommandResult<RestoreReport> {
     blocking(app, move |state| {
-        let repo = open(&config(state)?)?;
+        let repo = older(state)?;
         let contents = app_core::repo::read_snapshot(&repo, &snapshot)?;
         let (present, blobs) = state.quietly(|s| {
             Ok((
@@ -442,23 +565,37 @@ pub async fn backups_restore(app: AppHandle, snapshot: String) -> CommandResult<
     .await
 }
 
-/// Restores a snapshot into a scratch vault, compares, removes it.
-#[tauri::command]
-pub async fn backups_test_restore(app: AppHandle, snapshot: String) -> CommandResult<TestRestore> {
-    blocking(app, move |state| {
-        let repo = open(&config(state)?)?;
-        let scratch = state.dir.join(format!("backup-test-{}", now()));
-        Ok(app_core::repo::test_restore(&repo, &snapshot, &scratch)?)
-    })
-    .await
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-/// Checks the repository, reading every pack when `full`.
-#[tauri::command]
-pub async fn backups_check(app: AppHandle, full: bool) -> CommandResult<CheckReport> {
-    blocking(app, move |state| {
-        let repo = open(&config(state)?)?;
-        Ok(repo.check(full).map_err(app_core::Error::from)?)
-    })
-    .await
+    #[test]
+    fn a_folder_takes_files_lists_them_and_lets_them_go() {
+        let chosen = std::env::temp_dir().join(format!("auto-backups-{}", std::process::id()));
+        std::fs::create_dir_all(&chosen).unwrap();
+        let place = Place::of(&chosen.to_string_lossy()).unwrap();
+        let name = app_core::auto_backup::file_name(1_792_742_400_000, 0);
+        place
+            .write(&name, |file| {
+                use std::io::Write;
+                file.write_all(b"backup")?;
+                Ok(())
+            })
+            .unwrap();
+        // a failed write leaves nothing, not even its partial file
+        let failed = place.write("other.ficelle", |_| -> app_core::Result<()> {
+            Err(app_core::Error::Invalid("stopped".into()))
+        });
+        assert!(failed.is_err());
+        match &place {
+            Place::Dir(dir) => {
+                assert!(dir.ends_with(app_core::repo::folder_name(&chosen.to_string_lossy())));
+            }
+        }
+        assert_eq!(place.list().unwrap(), vec![(name.clone(), 6)]);
+        assert!(place.open("../secrets.ficelle").is_err());
+        place.delete(&name).unwrap();
+        assert!(place.list().unwrap().is_empty());
+        std::fs::remove_dir_all(chosen).unwrap();
+    }
 }

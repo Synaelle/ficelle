@@ -257,47 +257,7 @@ export interface RestoreReport {
   filesMissing: number
 }
 
-/** Where backups go, see crates/core/src/repo/settings.rs. Secrets come
- * back blank: sent blank, the ones set before stay. */
-export type BackupTarget =
-  | { kind: 'folder'; path: string }
-  | {
-      kind: 's3'
-      endpoint: string
-      region: string
-      bucket: string
-      prefix: string
-      accessKey: string
-      secretKey: string
-      pathStyle: boolean
-    }
-  | { kind: 'webdav'; url: string; username: string; password: string }
-
 export type BackupSchedule = 'off' | 'hourly' | 'daily' | 'weekly'
-
-/** What to keep: the newest of each period. */
-export interface BackupPolicy {
-  last: number
-  daily: number
-  weekly: number
-  monthly: number
-  yearly: number
-}
-
-export interface BackupRunReport {
-  snapshot: string
-  notes: number
-  files: number
-  size: number
-  stats: {
-    newObjects: number
-    newBytes: number
-    storedBytes: number
-    knownObjects: number
-    readBytes: number
-    packs: number
-  }
-}
 
 export interface BackupStatus {
   lastRunAt: number | null
@@ -305,53 +265,39 @@ export interface BackupStatus {
   lastError: string | null
   /** Its kind, to say it in the person's language. */
   lastErrorKind: string | null
-  lastReport: BackupRunReport | null
-  snapshots: number
+  /** The automatic backup files in the folder after the last run. */
+  files: number
   storedBytes: number
-}
-
-/** What a place holds before backups are set up there. */
-export interface BackupsFound {
-  found: boolean
-  /** The backups there have a password of their own; made without one,
-   * they open with the field left empty. */
-  needsPassword: boolean
 }
 
 /** This device's backups, see commands/backups.rs. */
 export interface BackupsView {
   config: {
-    target: BackupTarget
+    /** A path, or a `content://` address on Android. */
+    folder: string
     schedule: BackupSchedule
-    policy: BackupPolicy
-    host: string
+    /** How many automatic backups stay. */
+    keep: number
   } | null
   status: BackupStatus
   running: boolean
-  kinds: BackupTarget['kind'][]
+  /** Snapshot backups of an earlier version can be restored from. */
+  older: boolean
 }
 
-export interface BackupSnapshot {
+/** A backup file in the backups folder. */
+export interface BackupFile {
+  name: string
+  size: number
+  /** Made by the automatic backups, else put there by hand. */
+  automatic: boolean
+}
+
+/** A snapshot backup of an earlier version. */
+export interface OldBackup {
   id: string
   time: number
-  host: string
-  appVersion: string
   counts: Record<string, number>
-  size: number
-}
-
-export interface BackupTestRestore {
-  snapshot: string
-  restored: RestoreReport
-  problems: string[]
-}
-
-export interface BackupCheck {
-  snapshots: number
-  packs: number
-  objects: number
-  storedBytes: number
-  problems: string[]
 }
 
 /** An export the app opened, see commands/import.rs. */

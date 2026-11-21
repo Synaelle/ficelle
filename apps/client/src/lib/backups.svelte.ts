@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// This device's scheduled backups: the native side does the work (see
-// commands/backups.rs), this keeps the schedule while the notes are open,
+// This device's automatic backups: the native side writes the backup files
+// (see commands/backups.rs), this keeps the schedule while the notes are open,
 // says when a run fails, and warns when none went through for a while.
 
 import { backend } from './backend'
@@ -49,7 +49,7 @@ export function backupError(kind: string | null | undefined, message: string): s
   return message
 }
 
-/** The time zone, for the policy's days. */
+/** The time zone, for the backup file's name. */
 const offsetSeconds = () => -new Date().getTimezoneOffset() * 60
 
 class Backups {

@@ -14,26 +14,18 @@ function view(
   running = false,
 ): BackupsView {
   return {
-    config: schedule
-      ? {
-          target: { kind: 'folder', path: 'D:/Backups' },
-          schedule,
-          policy: { last: 10, daily: 7, weekly: 4, monthly: 12, yearly: 0 },
-          host: 'laptop',
-        }
-      : null,
+    config: schedule ? { folder: 'D:/Backups', schedule, keep: 10 } : null,
     status: {
       lastRunAt: null,
       lastSuccessAt: null,
       lastError: null,
       lastErrorKind: null,
-      lastReport: null,
-      snapshots: 0,
+      files: 0,
       storedBytes: 0,
       ...status,
     },
     running,
-    kinds: ['folder', 's3', 'webdav'],
+    older: false,
   }
 }
 

@@ -118,7 +118,9 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     sampleData(now()).notes.forEach((n) => notes.set(n.id, n))
   }
 
-  // backups: a folder whose path holds "unreachable" fails, as an unplugged drive
+  // backups: a folder whose path holds "unreachable" fails, as an unplugged
+  // drive; one holding "old-backups" has two snapshot backups of an earlier
+  // version to restore from
   const backups: import('./types').BackupsView = {
     config: null,
     status: {
@@ -126,29 +128,23 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       lastSuccessAt: null,
       lastError: null,
       lastErrorKind: null,
-      lastReport: null,
-      snapshots: 0,
+      files: 0,
       storedBytes: 0,
     },
     running: false,
-    kinds: ['folder', 's3', 'webdav'],
+    older: false,
   }
-  const backupSnapshots: import('./types').BackupSnapshot[] = []
-  /** Backups already in a folder, by path: a path holding "old-backups"
-   * has two with the password "old password", "open-backups" two made
-   * without one (to see the restore steps in the browser). */
-  const repos = new Map<string, string>()
-  const seeded = (path: string): string | null =>
-    repos.get(path) ??
-    (path.includes('old-backups') ? 'old password' : path.includes('open-backups') ? '' : null)
-  const oldSnapshots = (host: string): import('./types').BackupSnapshot[] =>
+  const backupFiles: import('./types').BackupFile[] = []
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const fileName = (at: number) => {
+    const d = new Date(at)
+    return `ficelle-dev-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.ficelle`
+  }
+  const olderBackups = (): import('./types').OldBackup[] =>
     [3, 30].map((days) => ({
       id: id(),
       time: now() - days * 86_400_000,
-      host,
-      appVersion: 'test',
       counts: { notes: notes.size + days, folders: folders.size, versions: 0, files: 2 },
-      size: 0,
     }))
   const backend: MemoryBackend = {
     native: false,
@@ -671,42 +667,24 @@ ${input.key}`,
 
     sentFeedback,
     backupsGet: async () => structuredClone(backups),
-    backupsFound: async (target) => {
-      const there = target.kind === 'folder' ? seeded(target.path) : null
-      return { found: there !== null, needsPassword: !!there }
-    },
     backupsPickFolder: async () => null,
-    backupsConnect: async (target, password, create, host) => {
-      if (target.kind === 'folder') {
-        const there = seeded(target.path)
-        if (create && there !== null)
-          throw { kind: 'invalid', message: 'backups are already there' }
-        if (!create && there === null) throw { kind: 'notFound', message: 'no backups there' }
-        if (!create && there !== password)
-          throw { kind: 'wrongPassword', message: 'wrong password' }
-        if (!create && !repos.has(target.path)) {
-          // backups made elsewhere: theirs to restore from
-          repos.set(target.path, password)
-          backupSnapshots.length = 0
-          backupSnapshots.push(...oldSnapshots('old laptop'))
-        }
-        if (create) repos.set(target.path, password)
-      }
+    backupsTurnOn: async (folder, password) => {
+      if (encrypted && !password)
+        throw { kind: 'unprotected', message: 'the notes have a password' }
       backups.config = {
-        target,
+        folder,
         schedule: backups.config?.schedule ?? 'daily',
-        policy: backups.config?.policy ?? { last: 10, daily: 7, weekly: 4, monthly: 12, yearly: 0 },
-        host: host || 'this device',
+        keep: backups.config?.keep ?? 10,
       }
-      if (create) backupSnapshots.length = 0
+      backups.older = folder.includes('old-backups')
       return structuredClone(backups)
     },
-    backupsSettings: async (schedule, policy) => {
+    backupsSettings: async (schedule, keep) => {
       if (!backups.config) throw { kind: 'notFound', message: 'backups are not set up' }
-      backups.config = { ...backups.config, schedule, policy }
+      backups.config = { ...backups.config, schedule, keep }
       return structuredClone(backups)
     },
-    backupsDisconnect: async () => {
+    backupsTurnOff: async () => {
       backups.config = null
       return structuredClone(backups)
     },
@@ -714,29 +692,24 @@ ${input.key}`,
       const config = backups.config
       if (!config) throw { kind: 'notFound', message: 'backups are not set up' }
       backups.status.lastRunAt = now()
-      if (config.target.kind === 'folder' && config.target.path.includes('unreachable')) {
+      if (config.folder.includes('unreachable')) {
         backups.status.lastError = 'the folder could not be reached'
         backups.status.lastErrorKind = 'notFound'
         throw { kind: 'target', message: 'the folder could not be reached' }
       }
-      const snapshot = id()
-      backupSnapshots.unshift({
-        id: snapshot,
-        time: now(),
-        host: config.host,
-        appVersion: 'test',
-        counts: { notes: notes.size, folders: folders.size, versions: 0, files: 0 },
-        size: 0,
-      })
+      backupFiles.unshift({ name: fileName(now()), size: 4096 * notes.size, automatic: true })
+      backupFiles.splice(config.keep)
       backups.status = {
         ...backups.status,
         lastSuccessAt: now(),
         lastError: null,
-        snapshots: backupSnapshots.length,
+        lastErrorKind: null,
+        files: backupFiles.length,
+        storedBytes: backupFiles.reduce((sum, f) => sum + f.size, 0),
       }
       return structuredClone(backups)
     },
-    backupsSnapshots: async () => structuredClone(backupSnapshots),
+    backupsList: async () => structuredClone(backupFiles),
     backupsRestore: async () => ({
       notes: 0,
       folders: 0,
@@ -745,24 +718,14 @@ ${input.key}`,
       skipped: notes.size,
       filesMissing: 0,
     }),
-    backupsTestRestore: async (snapshot) => ({
-      snapshot,
-      restored: {
-        notes: notes.size,
-        folders: folders.size,
-        versions: 0,
-        files: 0,
-        skipped: 0,
-        filesMissing: 0,
-      },
-      problems: [],
-    }),
-    backupsCheck: async () => ({
-      snapshots: backupSnapshots.length,
-      packs: 1,
-      objects: 1,
-      storedBytes: 0,
-      problems: [],
+    oldBackupsList: async () => (backups.older ? olderBackups() : []),
+    oldBackupsRestore: async () => ({
+      notes: 0,
+      folders: 0,
+      versions: 0,
+      files: 0,
+      skipped: notes.size,
+      filesMissing: 0,
     }),
     feedbackWhere: async () => ({
       available: true,

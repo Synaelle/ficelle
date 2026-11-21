@@ -25,6 +25,7 @@
 //! # }
 //! ```
 
+pub mod auto_backup;
 pub mod backup;
 pub mod blobs;
 pub mod clock;

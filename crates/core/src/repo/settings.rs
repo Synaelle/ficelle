@@ -181,4 +181,8 @@ pub struct BackupStatus {
     pub snapshots: u64,
     /// Bytes at the target after the last run.
     pub stored_bytes: u64,
+    /// The automatic backup files in the folder after the last run.
+    pub files: u64,
+    /// What the last automatic backup held, see [`crate::auto_backup::digest`].
+    pub last_digest: Option<String>,
 }
