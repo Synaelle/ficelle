@@ -44,6 +44,8 @@ export interface OpenedFile {
   plain: boolean
   /** When the file was last changed on disk, null where the system does not say. */
   stamp: string | null
+  /** Made read-only by its owner: never written. */
+  readOnly: boolean
 }
 
 /** The file this window was opened for. */
@@ -54,6 +56,9 @@ export const readOpenedFile = () => invoke<OpenedFile>('opened_file_read')
  * writes over it. */
 export const writeOpenedFile = (text: string, stamp: string | null) =>
   invoke<string | null>('opened_file_write', { text, stamp })
+
+/** Whether the main window is open, whose auto-lock covers the notes. */
+export const mainWindowOpen = () => invoke<boolean>('main_window_open')
 
 /** Android: a file another app handed over becomes this window's file. */
 export const takeOpenedFile = (address: string) => invoke('opened_file_take', { address })

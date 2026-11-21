@@ -308,6 +308,7 @@ pub fn run() {
             windows::note_window_focus,
             windows::note_window_open,
             windows::note_window_count,
+            windows::main_window_open,
             windows::main_window_show,
             windows::main_window_take_note,
         ])
@@ -326,6 +327,8 @@ fn window_closed(window: &tauri::Window, event: &tauri::WindowEvent) {
     #[cfg(desktop)]
     if window.label() == "main" {
         windows::main_closed(window.app_handle());
+    } else if window.label().starts_with("note-") {
+        windows::lock_when_alone(window.app_handle(), window.label());
     }
 }
 

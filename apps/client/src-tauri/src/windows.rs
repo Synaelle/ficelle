@@ -173,6 +173,8 @@ pub struct OpenedFile {
     /// before writing over it. None where the system does not say. Text: the
     /// nanoseconds are beyond what a number in the page holds exactly.
     stamp: Option<String>,
+    /// Made read-only by its owner, so never written.
+    read_only: bool,
 }
 
 fn file_of(windows: &Windows, label: &str) -> CommandResult<String> {
@@ -194,6 +196,16 @@ fn file_error(err: &std::io::Error) -> CommandError {
     CommandError::new("file", err.to_string())
 }
 
+/// A file in another encoding than UTF-8 is not refused like a missing one:
+/// the page says why.
+fn read_error(err: &std::io::Error) -> CommandError {
+    if err.kind() == std::io::ErrorKind::InvalidData {
+        CommandError::new("notText", err.to_string())
+    } else {
+        file_error(err)
+    }
+}
+
 /// Reads the calling window's file.
 #[tauri::command]
 pub async fn opened_file_read<R: Runtime>(
@@ -207,17 +219,18 @@ pub async fn opened_file_read<R: Runtime>(
         let mut text = String::new();
         crate::picked::open_document(&app, &file, false)?
             .read_to_string(&mut text)
-            .map_err(|e| file_error(&e))?;
+            .map_err(|e| read_error(&e))?;
         let name = crate::picked::document_name(&file);
         return Ok(OpenedFile {
             plain: plain_text(&name).unwrap_or(false),
             name,
             text,
             stamp: None,
+            read_only: false,
         });
     }
     let path = Path::new(&file);
-    let text = std::fs::read_to_string(path).map_err(|e| file_error(&e))?;
+    let text = std::fs::read_to_string(path).map_err(|e| read_error(&e))?;
     Ok(OpenedFile {
         name: path
             .file_name()
@@ -225,6 +238,7 @@ pub async fn opened_file_read<R: Runtime>(
         plain: plain_text(&file).unwrap_or(false),
         text,
         stamp: stamp(path),
+        read_only: std::fs::metadata(path).is_ok_and(|meta| meta.permissions().readonly()),
     })
 }
 
@@ -248,6 +262,18 @@ pub async fn opened_file_write<R: Runtime>(
         return Ok(None);
     }
     let path = Path::new(&file);
+    let meta = std::fs::metadata(path);
+    // moved or deleted by another app: written again only when asked
+    if stamp.is_some() && meta.is_err() {
+        return Err(CommandError::new(
+            "fileGone",
+            "the file was moved or deleted",
+        ));
+    }
+    // a file someone made read-only stays as it is
+    if meta.is_ok_and(|meta| meta.permissions().readonly()) {
+        return Err(CommandError::new("readOnly", "the file is read-only"));
+    }
     if stamp.is_some() && self::stamp(path) != stamp {
         return Err(CommandError::new(
             "changedOnDisk",
@@ -260,8 +286,13 @@ pub async fn opened_file_write<R: Runtime>(
 
 /// Writes a file through a copy beside it, renamed over it once complete:
 /// a crash or a full disk leaves the old file, never half of the new one.
+/// A file with other names (hard links) or in a folder that takes no new
+/// file is written in place, which keeps it one file.
 fn write_whole(path: &Path, text: &str) -> std::io::Result<()> {
     use std::io::Write;
+    if linked(path) {
+        return write_in_place(path, text);
+    }
     let name = path
         .file_name()
         .ok_or_else(|| std::io::Error::other("no file name"))?;
@@ -277,10 +308,38 @@ fn write_whole(path: &Path, text: &str) -> std::io::Result<()> {
         }
         std::fs::rename(&temporary, path)
     })();
-    if written.is_err() {
-        let _ = std::fs::remove_file(&temporary);
+    match written {
+        Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied && path.exists() => {
+            let _ = std::fs::remove_file(&temporary);
+            write_in_place(path, text)
+        }
+        Err(err) => {
+            let _ = std::fs::remove_file(&temporary);
+            Err(err)
+        }
+        Ok(()) => Ok(()),
     }
-    written
+}
+
+fn write_in_place(path: &Path, text: &str) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(path)?;
+    file.write_all(text.as_bytes())?;
+    file.sync_all()
+}
+
+#[cfg(unix)]
+fn linked(path: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    std::fs::metadata(path).is_ok_and(|meta| meta.nlink() > 1)
+}
+
+#[cfg(not(unix))]
+fn linked(_: &Path) -> bool {
+    false
 }
 
 /// Android: a file another app handed over to view ("open with"). It
@@ -427,6 +486,12 @@ pub async fn main_window_take_note(windows: State<'_, Windows>) -> CommandResult
     Ok(windows.lock().to_open.take())
 }
 
+/// Whether the main window is open, whose auto-lock covers the notes.
+#[tauri::command]
+pub async fn main_window_open<R: Runtime>(app: AppHandle<R>) -> CommandResult<bool> {
+    Ok(app.get_webview_window("main").is_some())
+}
+
 /// How many note windows are open, which a lock waits for.
 #[tauri::command]
 pub async fn note_window_count<R: Runtime>(app: AppHandle<R>) -> CommandResult<usize> {
@@ -438,7 +503,7 @@ pub async fn note_window_count<R: Runtime>(app: AppHandle<R>) -> CommandResult<u
 }
 
 /// The main window closed: the note windows go with it, they are part of
-/// the notes it opened and its lock. File windows stay.
+/// the notes it opened and its lock. Each saves before it goes.
 #[cfg(desktop)]
 pub fn main_closed<R: Runtime>(app: &AppHandle<R>) {
     for (label, window) in app.webview_windows() {
@@ -446,6 +511,23 @@ pub fn main_closed<R: Runtime>(app: &AppHandle<R>) {
             let _ = window.close();
         }
     }
+    lock_when_alone(app, "main");
+}
+
+/// With the main window and every note window gone, the notes lock: file
+/// windows may stay open, and the main window's auto-lock no longer runs.
+/// `closing` may still be listed while it goes.
+#[cfg(desktop)]
+pub fn lock_when_alone<R: Runtime>(app: &AppHandle<R>, closing: &str) {
+    let open = app.webview_windows();
+    if open
+        .keys()
+        .any(|label| label != closing && (label == "main" || label.starts_with("note-")))
+    {
+        return;
+    }
+    app.state::<crate::state::AppState>().close();
+    let _ = tauri::Emitter::emit(app, "vault-locked", ());
 }
 
 #[cfg(test)]
@@ -482,6 +564,19 @@ mod tests {
         write_whole(&path, "new").unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "new");
         assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_hard_linked_file_stays_one_file() {
+        let dir = std::env::temp_dir().join(format!("opened-link-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("a.md");
+        std::fs::write(&path, "old").unwrap();
+        std::fs::hard_link(&path, dir.join("b.md")).unwrap();
+        write_whole(&path, "new").unwrap();
+        assert_eq!(std::fs::read_to_string(dir.join("b.md")).unwrap(), "new");
         std::fs::remove_dir_all(dir).unwrap();
     }
 
