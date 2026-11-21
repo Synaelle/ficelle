@@ -21,8 +21,9 @@ use super::http::Api;
 use super::{Sync, current_tokens, emit_status, random, refresh};
 use crate::state::AppState;
 
-/// Not linked, locked or signed out: look again after this.
-const IDLE: Duration = Duration::from_secs(3);
+/// Not linked, locked or signed out: look again at the latest after this,
+/// sooner after any command (signing in is one).
+const IDLE: Duration = Duration::from_mins(1);
 /// Reads wake this often, to say a newly opened note.
 const WAKE: Duration = Duration::from_millis(500);
 /// And this often to see whether the link is still the same.
@@ -44,7 +45,7 @@ pub fn run(sync: &Sync, app: &AppHandle) {
             .flatten()
             .filter(|l| l.tokens.is_some());
         let Some(link) = link else {
-            std::thread::sleep(IDLE);
+            sync.wait_for_change(IDLE);
             continue;
         };
         let ended = connection(sync, app, &state, &link.server, &link.account_id);

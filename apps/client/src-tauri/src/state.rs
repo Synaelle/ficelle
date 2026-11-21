@@ -154,5 +154,6 @@ impl AppState {
 
     pub fn close(&self) {
         *self.session() = None;
+        self.sync.nudge();
     }
 }

@@ -825,10 +825,17 @@ impl<H: Host> Shared<H> {
 
     /// Follows the writes made here, by the mark the vault keeps of them,
     /// and starts a round for each. The first look starts one too, so a
-    /// write made just before it is never missed.
+    /// write made just before it is never missed. With no device connected
+    /// there is no round to start: it only waits, and a device that
+    /// connects gets everything in its first round anyway.
     fn follow_writes(self: &Arc<Self>, generation: u64) {
         let mut seen: Option<Option<i64>> = None;
         while self.generation_alive(generation) {
+            if self.lock().sessions.is_empty() {
+                let state = self.lock();
+                let _ = self.wake.wait_timeout(state, Duration::from_secs(2));
+                continue;
+            }
             if let Ok(mark) = store(&*self.host, |s, _| s.peer_write_mark())
                 && seen != Some(mark)
             {
@@ -856,8 +863,10 @@ impl<H: Host> Shared<H> {
                         .name("peer-accept".into())
                         .spawn(move || shared.accept(stream, greeting));
                 }
+                // not blocking: a stop must close the port before a restart
+                // takes the same one again, which paired devices know
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    std::thread::sleep(Duration::from_millis(100));
+                    std::thread::sleep(Duration::from_millis(250));
                 }
                 Err(_) => std::thread::sleep(TICK),
             }

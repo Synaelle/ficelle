@@ -23,8 +23,12 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
 
-/// How often the watcher looks for the vault.
+/// How often the watcher looks while local sync runs (a device paired, or
+/// a pairing open): a code's seconds left, devices coming and going.
 const WATCH_EVERY: Duration = Duration::from_millis(500);
+/// Not running, it waits for a change (a command, the vault opening or
+/// closing, the app coming to the front) and looks at the latest this often.
+const WATCH_IDLE: Duration = Duration::from_secs(30);
 
 /// The node's view of the app.
 pub struct LocalHost {
@@ -52,8 +56,12 @@ impl Host for LocalHost {
 
     fn status_changed(&self) {
         let local = self.app.state::<Local>();
-        let status = local.status(&self.app.state::<AppState>());
+        let state = self.app.state::<AppState>();
+        let status = local.status(&state);
         let _ = self.app.emit("local-sync-status", status);
+        // the watcher follows closely while the node runs: it may have just
+        // started or stopped
+        state.sync.nudge();
     }
 
     fn fetch_up_to(&self) -> u64 {
@@ -329,14 +337,19 @@ fn watch(app: &AppHandle) {
         // the code's seconds left, a phone that went away, a device that
         // reconnects: the status is sent again when it differs
         ticks = ticks.wrapping_add(1);
-        if ticks.is_multiple_of(2) {
+        let running = node.status().running;
+        if ticks.is_multiple_of(2) || !running {
             let status = local.status(&state);
             if sent.as_ref() != Some(&status) {
                 let _ = app.emit("local-sync-status", status.clone());
                 sent = Some(status);
             }
         }
-        std::thread::sleep(WATCH_EVERY);
+        if running {
+            std::thread::sleep(WATCH_EVERY);
+        } else {
+            state.sync.wait_for_change(WATCH_IDLE);
+        }
     }
 }
 
@@ -460,9 +473,14 @@ pub async fn local_sync_now(local: State<'_, Local>) -> CommandResult<()> {
 
 /// The app came to the front or went away. A phone syncs only in front.
 #[tauri::command]
-pub async fn local_sync_foreground(local: State<'_, Local>, visible: bool) -> CommandResult<()> {
+pub async fn local_sync_foreground(
+    state: State<'_, AppState>,
+    local: State<'_, Local>,
+    visible: bool,
+) -> CommandResult<()> {
     if cfg!(target_os = "android") {
         local.foreground.store(visible, Ordering::SeqCst);
+        state.sync.nudge();
         if visible && let Some(node) = local.node() {
             node.sync_now();
         }

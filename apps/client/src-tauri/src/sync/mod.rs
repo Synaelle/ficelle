@@ -200,6 +200,19 @@ impl Sync {
         self.shared.1.notify_all();
     }
 
+    /// Wakes the threads that wait for a change, without asking for a
+    /// round: the vault closed, the app came to the front.
+    pub fn nudge(&self) {
+        self.shared.1.notify_all();
+    }
+
+    /// Waits for a command, a round asked for or a change of state, at most
+    /// `longest`, instead of looking again on a timer.
+    pub fn wait_for_change(&self, longest: Duration) {
+        let shared = self.lock();
+        let _ = self.shared.1.wait_timeout(shared, longest);
+    }
+
     /// Asks for a round now, even right after a failure.
     pub fn now(&self) {
         let mut shared = self.lock();
