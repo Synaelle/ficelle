@@ -417,6 +417,12 @@ describe('typing GitHub extras', () => {
     expect(typedWith('a -> b', { arrow: '' })).toBe('a -> b')
   })
 
+  it('makes long arrows of --> and ==>', () => {
+    expect(typedWith('a --> b ==> c', {})).toBe('a ⟶ b ⟹ c')
+    expect(typedWith('a --> b', { arrow: '➞' })).toBe('a ⟶ b')
+    expect(typedWith('a --> b', { arrow: '' })).toBe('a --> b')
+  })
+
   it('makes -> the chosen arrow', () => {
     expect(typedWith('a -> b', { arrow: '➞' })).toBe('a ➞ b')
     expect(typedWith('a -> b => c', { arrow: '⟶' })).toBe('a ⟶ b ⇒ c')

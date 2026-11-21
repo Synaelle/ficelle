@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Arrows typed the plain way become real ones: -> is the arrow chosen in
-// the settings (→ by default), <- is ←, <-> is ↔, => is ⇒ and <=> is ⇔.
+// the settings (→ by default), --> is ⟶, <- is ←, <-> is ↔, => is ⇒, ==> is
+// ⟹ and <=> is ⇔.
 // Saved as the character itself. Never in code: the input rules do not run
 // there, and a `code span` still being typed (an open backtick before on
 // the line) is left alone too. Backspace right after brings the typed text
@@ -22,6 +23,8 @@ export const TypedArrows = Extension.create<TypedArrowsOptions>({
     const arrows: [RegExp, string][] = [
       [/<=>$/, '⇔'],
       [/←>$/, '↔'],
+      [/-->$/, '⟶'],
+      [/==>$/, '⟹'],
       [/->$/, this.options.arrow],
       [/<-$/, '←'],
       [/=>$/, '⇒'],
