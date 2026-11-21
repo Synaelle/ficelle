@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Icon roles used by the ui, mapped to the file names of each set. Only the
-// listed files are bundled (vite imports them as raw svg text).
+// Icon roles used by the ui, mapped to the file names of each set. The files
+// are copies from Lucide and Phosphor in lucide/ and phosphor/ beside this
+// one: an icon added here needs its file copied there.
 
 export const ICON_NAMES = [
   'newNote',

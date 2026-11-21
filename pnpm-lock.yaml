@@ -218,9 +218,6 @@ importers:
       '@fontsource-variable/jetbrains-mono':
         specifier: 5.3.0
         version: 5.3.0
-      '@phosphor-icons/core':
-        specifier: 2.1.1
-        version: 2.1.1
       '@tauri-apps/api':
         specifier: 2.12.4
         version: 2.12.4
@@ -281,9 +278,6 @@ importers:
       lowlight:
         specifier: 3.3.0
         version: 3.3.0
-      lucide-static:
-        specifier: 1.66.0
-        version: 1.66.0
       marked:
         specifier: 17.0.6
         version: 17.0.6
@@ -453,9 +447,6 @@ packages:
 
   '@oxc-project/types@0.155.0':
     resolution: {integrity: sha512-SeE8JPwW1xs1tHeNycjUtUBdhorRa8o4jlvjwk49R7/Z291i+4DQa7JJIgOm/TaYQZx+QrPQbVJ/9c8dMIZN8Q==}
-
-  '@phosphor-icons/core@2.1.1':
-    resolution: {integrity: sha512-v4ARvrip4qBCImOE5rmPUylOEK4iiED9ZyKjcvzuezqMaiRASCHKcRIuvvxL/twvLpkfnEODCOJp5dM4eZilxQ==}
 
   '@rolldown/binding-android-arm-eabi@1.2.15':
     resolution: {integrity: sha512-aLcgK9gIJ3YRvrrtfSBbRa27F5WrpiTaPulnFpsHPxpUHgFlSgnU4854MHwoRGEBhfRJDWCS2WQ7lIjskE9Olw==}
@@ -1309,9 +1300,6 @@ packages:
   lowlight@3.3.0:
     resolution: {integrity: sha512-0JNhgFoPvP6U6lE/UdVsSq99tn6DhjjpAj5MxG49ewd2mOBVtwWYIT8ClyABhq198aXXODMU6Ox8DrGy/CpTZQ==}
 
-  lucide-static@1.66.0:
-    resolution: {integrity: sha512-j8Bjf/f21PtlD8p0wx1lRxyOrs98WZ1QEImkWmfskuJ8mOCwTN7Dwc6EHUzJDSzh79aB+Bo7SWcoTCM2zEjnJg==}
-
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -1829,8 +1817,6 @@ snapshots:
   '@keyv/serialize@1.1.1': {}
 
   '@oxc-project/types@0.155.0': {}
-
-  '@phosphor-icons/core@2.1.1': {}
 
   '@rolldown/binding-android-arm-eabi@1.2.15':
     optional: true
@@ -2607,8 +2593,6 @@ snapshots:
       '@types/hast': 3.0.5
       devlop: 1.1.0
       highlight.js: 11.12.0
-
-  lucide-static@1.66.0: {}
 
   magic-string@0.30.21:
     dependencies:

@@ -3,7 +3,6 @@
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { createRequire } from 'node:module'
 import type { Plugin } from 'vite'
 import { loadLocales, localesDir, parseLocale } from '../../../tools/i18n.mjs'
 import { LUCIDE, PHOSPHOR } from '../src/lib/icons/sets.ts'
@@ -62,10 +61,10 @@ function svgInner(file: string): string {
 
 /**
  * `virtual:icons` exports the inner markup of the icons listed in
- * src/lib/icons/sets.ts, and nothing else of the icon packages.
+ * src/lib/icons/sets.ts, from the copies of them in src/lib/icons.
  */
 export function iconSets(): Plugin {
-  const require = createRequire(import.meta.url)
+  const icons = join(import.meta.dirname, '..', 'src', 'lib', 'icons')
   const resolved = '\0' + VIRTUAL_ICONS
   return {
     name: 'icon-sets',
@@ -73,11 +72,9 @@ export function iconSets(): Plugin {
     load(id) {
       if (id !== resolved) return null
       const read = (map: Record<string, string>, path: (name: string) => string) =>
-        Object.fromEntries(
-          Object.entries(map).map(([role, name]) => [role, svgInner(require.resolve(path(name)))]),
-        )
-      const lucide = read(LUCIDE, (n) => `lucide-static/icons/${n}.svg`)
-      const phosphor = read(PHOSPHOR, (n) => `@phosphor-icons/core/assets/regular/${n}.svg`)
+        Object.fromEntries(Object.entries(map).map(([role, name]) => [role, svgInner(path(name))]))
+      const lucide = read(LUCIDE, (n) => join(icons, 'lucide', `${n}.svg`))
+      const phosphor = read(PHOSPHOR, (n) => join(icons, 'phosphor', `${n}.svg`))
       return `export const lucide = ${JSON.stringify(lucide)}\nexport const phosphor = ${JSON.stringify(phosphor)}\n`
     },
   }
