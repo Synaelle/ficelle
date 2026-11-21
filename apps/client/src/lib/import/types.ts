@@ -104,6 +104,9 @@ export interface Importer {
   picks: Pick[]
   /** File extensions it reads, for the file picker. */
   extensions: string[]
+  /** Notes are known by their path in the export, which another export can
+   * share: what is already in is then told by the text too. */
+  pathKeys?: boolean
   /** How sure it is that the source is its format, 0 to 1. */
   detect(source: ImportSource): number
   read(source: ImportSource, report: Report): Promise<ImportModel>

@@ -3,7 +3,14 @@
 // its zip) and Standard Notes (a decrypted backup, alone or in its zip).
 
 import { baseName, extension, readText } from '../source'
-import type { Importer, ImportModel, ImportSource, ModelNote, Report } from '../types'
+import {
+  noteRef,
+  type Importer,
+  type ImportModel,
+  type ImportSource,
+  type ModelNote,
+  type Report,
+} from '../types'
 
 const time = (value: unknown) => {
   const parsed = typeof value === 'string' ? Date.parse(value) : NaN
@@ -48,7 +55,12 @@ export const simplenoteImporter: Importer = {
     } | null
     const notes: ModelNote[] = []
     const add = (item: Record<string, unknown>, trashed: boolean) => {
-      const { title, body } = firstLine(String(item.content ?? ''))
+      const { title, body: text } = firstLine(String(item.content ?? ''))
+      // links between notes, by the note's id
+      const body = text.replace(
+        /\[([^\]\n]*)\]\(simplenote:\/\/note\/([\w-]+)\)/g,
+        (_all, label: string, id: string) => `[[${noteRef(id, label)}|${label}]]`,
+      )
       const system = Array.isArray(item.systemTags) ? item.systemTags : []
       notes.push({
         key: String(item.id ?? `${notes.length}`),
@@ -117,6 +129,24 @@ export function lexicalToMarkdown(doc: LexicalNode, unknown: Set<string>): strin
         return `\`\`\`${node.language ?? ''}\n${inline(node.children)}\n\`\`\``
       case 'horizontalrule':
         return '---'
+      case 'table': {
+        const rows = (node.children ?? []).map((row) =>
+          (row.children ?? []).map((cell) =>
+            (cell.children ?? [])
+              .map((c) => inline(c.children ?? [c]))
+              .join(' ')
+              .replace(/\n/g, ' ')
+              .replace(/\|/g, '\\|')
+              .trim(),
+          ),
+        )
+        const width = Math.max(0, ...rows.map((r) => r.length))
+        if (!width) return ''
+        const line = (cells: string[]) =>
+          `| ${Array.from({ length: width }, (_, i) => cells[i] ?? '').join(' | ')} |`
+        const [head = [], ...body] = rows
+        return [line(head), line(Array(width).fill('---')), ...body.map(line)].join('\n')
+      }
       case 'list':
         return (node.children ?? [])
           .map((item, i) => {

@@ -80,6 +80,8 @@ export async function readMarkdownNotes(
     /** Folders made otherwise than from the paths. */
     folders?: ModelFolder[]
     folderOf?: (path: string) => string | null
+    /** The file name is the note's name, a first heading stays in the text. */
+    fileTitles?: boolean
     /** The title when the note gives none, the file name by default. */
     titleOf?: (path: string) => string
   },
@@ -110,7 +112,7 @@ export async function readMarkdownNotes(
     const { meta, body: rest } = splitFrontMatter(own.text ?? text)
     let title = own.title ?? metaText(meta.title).trim()
     let body = rest
-    if (!title) {
+    if (!title && !options.fileTitles) {
       const heading = takeHeading(body)
       if (heading.title) {
         title = heading.title
@@ -125,6 +127,9 @@ export async function readMarkdownNotes(
       ...metaList(meta.keywords),
     ]
     if (options.inlineTags) tags.push(...inlineTags(body))
+    const aliases = [...metaList(meta.aliases), ...metaList(meta.alias)]
+    if (aliases.length)
+      report.add({ kind: 'dropped', note: title, detail: `aliases: ${aliases.join(', ')}` })
     const files = new NoteFiles()
     body = rewriteLinks(body, path, title, index, files, report)
     const fileTime = modified.get(path) ?? undefined
@@ -182,6 +187,7 @@ export function inlineTags(body: string): string[] {
 
 export const markdownImporter: Importer = {
   id: 'markdown',
+  pathKeys: true,
   app: 'Markdown',
   picks: ['folder', 'file'],
   extensions: ['zip', 'md', 'markdown', 'tar'],

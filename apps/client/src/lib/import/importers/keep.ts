@@ -31,6 +31,7 @@ const micro = (value?: number) => (value ? Math.round(value / 1000) : undefined)
 
 export const keepImporter: Importer = {
   id: 'keep',
+  pathKeys: true,
   app: 'Google Keep',
   picks: ['file', 'folder'],
   extensions: ['zip', 'tgz'],

@@ -35,11 +35,23 @@ describe('obsidian', () => {
         'Daily/2025-01-15.md':
           '---\ncreated: 2025-01-15\naliases: [today]\n---\nMet #people/anna about [[Project X|X]] ![[shot.png]]',
         'Project X.md': '# Project X\n%%private%% and ==highlight== > [!note] callout\n#work',
+        'Recettes.md': '# Desserts\nTarte',
         'files/shot.png': new Uint8Array([1]),
       }),
       obsidianImporter,
     )
-    expect(p.model.notes.map((n) => n.title).sort()).toEqual(['2025-01-15', 'Project X'])
+    expect(p.model.notes.map((n) => n.title).sort()).toEqual([
+      '2025-01-15',
+      'Project X',
+      'Recettes',
+    ])
+    // the file name is the note's name, the heading stays in it
+    expect(note(p, 'Recettes').body).toBe('# Desserts\nTarte')
+    expect(p.report).toContainEqual({
+      kind: 'dropped',
+      note: '2025-01-15',
+      detail: 'aliases: today',
+    })
     const daily = note(p, '2025-01-15')
     expect(daily.tags).toEqual(['people/anna'])
     expect(daily.body).toContain('[[Project X|X]]')
@@ -348,6 +360,17 @@ describe('simplenote and standard notes', () => {
         new Set(),
       ),
     ).toBe('1. a\n  - b')
+    const cell = (text: string) => ({
+      type: 'tablecell',
+      children: [{ type: 'paragraph', children: [{ type: 'text', text }] }],
+    })
+    const row = (...cells: string[]) => ({ type: 'tablerow', children: cells.map(cell) })
+    expect(
+      lexicalToMarkdown(
+        { children: [{ type: 'table', children: [row('Day', 'Place'), row('Lundi', 'Lyon')] }] },
+        new Set(),
+      ),
+    ).toBe('| Day | Place |\n| --- | --- |\n| Lundi | Lyon |')
   })
 })
 

@@ -4,7 +4,7 @@
 // files in base64, which the text names by the MD5 of their bytes. Links
 // between notes carry no id ENEX keeps: they are found by title.
 
-import { base64Bytes, htmlToMarkdown, parseHtml, taskList } from '../html'
+import { base64Bytes, htmlToMarkdown, joinTaskLists, parseHtml, taskList } from '../html'
 import { parseDate, NoteFiles } from '../markdown'
 import { md5 } from '../md5'
 import { baseName, extension, readText, withoutExtension } from '../source'
@@ -43,14 +43,15 @@ function todos(doc: Document, root: Element) {
     todo.remove()
     block.replaceWith(taskList(doc, [{ checked, content: [...block.childNodes] }]))
   }
-  // checkboxes on following lines make one list
-  for (const list of [...root.querySelectorAll('ul[data-type="taskList"]')]) {
-    const previous = list.previousElementSibling
-    if (previous?.matches('ul[data-type="taskList"]')) {
-      previous.append(...list.children)
-      list.remove()
-    }
+  // Evernote 10's checklists: a list styled as one
+  for (const list of [...root.querySelectorAll('ul[style*="--en-todo:true"]')]) {
+    const items = [...list.children].map((li) => ({
+      checked: /--en-checked:\s*true/.test(li.getAttribute('style') ?? ''),
+      content: [...li.childNodes],
+    }))
+    list.replaceWith(taskList(doc, items))
   }
+  joinTaskLists(root)
 }
 
 export const evernoteImporter: Importer = {

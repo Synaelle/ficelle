@@ -15,7 +15,18 @@ import {
 } from '../types'
 import { inlineTags } from './markdown'
 
-const plain = (html: string) => parseHtml(html).body.textContent?.trim() ?? ''
+/** An outline's text, HTML with bold and italic at most (Workflowy, Dynalist). */
+function marked(html: string): string {
+  const walk = (node: Node): string => {
+    if (!(node instanceof Element)) return node.textContent ?? ''
+    const inner = [...node.childNodes].map(walk).join('')
+    if (!inner.trim()) return inner
+    if (['b', 'strong'].includes(node.localName)) return `**${inner}**`
+    if (['i', 'em'].includes(node.localName)) return `*${inner}*`
+    return inner
+  }
+  return walk(parseHtml(html).body).trim()
+}
 const time = (value: unknown) => {
   if (typeof value === 'number') return value
   const parsed = typeof value === 'string' ? Date.parse(value.replace(/(\.\d{3})\d+/, '$1')) : NaN
@@ -41,7 +52,7 @@ async function readXml(
 function outlineMarkdown(outlines: Element[], depth = 0): string {
   return outlines
     .map((o) => {
-      const text = plain(o.getAttribute('text') ?? '')
+      const text = marked(o.getAttribute('text') ?? '')
       const done = o.getAttribute('_complete') === 'true'
       const indent = '  '.repeat(depth)
       const note = o.getAttribute('_note')
@@ -56,6 +67,7 @@ function outlineMarkdown(outlines: Element[], depth = 0): string {
 
 export const opmlImporter: Importer = {
   id: 'opml',
+  pathKeys: true,
   app: 'Workflowy, Dynalist (OPML)',
   picks: ['file', 'folder'],
   extensions: ['opml', 'xml', 'zip'],
@@ -95,7 +107,7 @@ interface DayOneEntry {
   photos?: { identifier?: string; md5?: string; type?: string }[]
   videos?: { identifier?: string; md5?: string; type?: string }[]
   audios?: { identifier?: string; md5?: string; type?: string }[]
-  pdfAttachments?: { identifier?: string; md5?: string; type?: string }[]
+  pdfAttachments?: { identifier?: string; md5?: string; type?: string; pdfName?: string }[]
 }
 
 const dayOneJournals = (source: ImportSource) =>
@@ -137,7 +149,7 @@ export const dayOneImporter: Importer = {
       const dir = dirName(journal)
       for (const entry of entries) {
         const files = new NoteFiles()
-        const media = new Map<string, string>()
+        const media = new Map<string, { name: string; picture: boolean }>()
         const kinds = [
           ['photos', entry.photos],
           ['videos', entry.videos],
@@ -148,7 +160,11 @@ export const dayOneImporter: Importer = {
           for (const item of items ?? []) {
             const prefix = `${dir ? `${dir}/` : ''}${folder}/${item.md5 ?? ''}`
             const found = paths.find((p) => p.startsWith(prefix))
-            if (found && item.identifier) media.set(item.identifier, files.add(found))
+            if (!found || !item.identifier) continue
+            // files are kept by their MD5, a PDF also says its own name
+            const own = 'pdfName' in item ? String(item.pdfName ?? '') || undefined : undefined
+            const name = files.add(found, own)
+            media.set(item.identifier, { name, picture: folder === 'photos' })
           }
         }
         const text = (entry.text ?? '').replace(/\r\n?/g, '\n')
@@ -159,12 +175,14 @@ export const dayOneImporter: Importer = {
         body = body.replace(
           /!\[([^\]]*)\]\(dayone-moment:\/*(?:\w+\/)?([\w-]+)\)/g,
           (all, alt: string, id: string) => {
-            const name = media.get(id)
-            if (!name) {
+            const file = media.get(id)
+            if (!file) {
               report.add({ kind: 'fileMissing', note: title, detail: id })
               return ''
             }
-            return `![${alt}](${fileRef(name)})`
+            return file.picture
+              ? `![${alt}](${fileRef(file.name)})`
+              : `[${alt || file.name}](${fileRef(file.name)})`
           },
         )
         notes.push({
@@ -203,24 +221,31 @@ export function roamText(
   report: Report,
 ): string {
   // references first: the block they bring may be a task itself
-  return text
-    .replace(
-      /\{\{\[?\[?embed\]?\]?:\s*\(\(([\w-]{9})\)\)\}\}|\(\(([\w-]{9})\)\)/g,
-      (all, a?: string, b?: string) => {
-        const found = blocks.get(a ?? b ?? '')
-        if (found === undefined) report.add({ kind: 'linkMissing', note: title, detail: all })
-        return found ?? ''
-      },
-    )
-    .replace(/\{\{\[\[TODO\]\]\}\}\s?|\{\{TODO\}\}\s?/g, '[ ] ')
-    .replace(/\{\{\[\[DONE\]\]\}\}\s?|\{\{DONE\}\}\s?/g, '[x] ')
-    .replace(/\{\{[^}]*\}\}/g, (all) => {
-      report.add({ kind: 'dropped', note: title, detail: all })
-      return ''
-    })
-    .replace(/(^|\s)#\[\[([^\]]+)\]\]/g, '$1[[$2]]')
-    .replace(/__([^_\n]+)__/g, '*$1*')
-    .replace(/\^\^([^^\n]+)\^\^/g, '$1')
+  return (
+    text
+      .replace(
+        /\{\{\[?\[?embed\]?\]?:\s*\(\(([\w-]{9})\)\)\}\}|\(\(([\w-]{9})\)\)/g,
+        (all, a?: string, b?: string) => {
+          const found = blocks.get(a ?? b ?? '')
+          if (found === undefined) report.add({ kind: 'linkMissing', note: title, detail: all })
+          return found ?? ''
+        },
+      )
+      // pictures Roam keeps on its own storage stay there, linked
+      .replace(/!\[[^\]]*\]\((https:\/\/firebasestorage\.[^)\s]+)\)/g, (all, url: string) => {
+        report.add({ kind: 'simplified', note: title, detail: url })
+        return all
+      })
+      .replace(/\{\{\[\[TODO\]\]\}\}\s?|\{\{TODO\}\}\s?/g, '[ ] ')
+      .replace(/\{\{\[\[DONE\]\]\}\}\s?|\{\{DONE\}\}\s?/g, '[x] ')
+      .replace(/\{\{[^}]*\}\}/g, (all) => {
+        report.add({ kind: 'dropped', note: title, detail: all })
+        return ''
+      })
+      .replace(/(^|\s)#\[\[([^\]]+)\]\]/g, '$1[[$2]]')
+      .replace(/__([^_\n]+)__/g, '*$1*')
+      .replace(/\^\^([^^\n]+)\^\^/g, '$1')
+  )
 }
 
 function roamBlocks(

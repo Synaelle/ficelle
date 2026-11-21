@@ -103,7 +103,10 @@
       })
       stage = 'preview'
     } catch (err) {
-      error = errorText(err)
+      // anything but a known refusal is a file that could not be read through
+      const refused =
+        isBackendError(err) && !['invalid', 'corrupt', 'file', 'unknown'].includes(err.kind)
+      error = refused ? errorText(err) : t('import.damaged')
       stage = 'choose'
       await finishSource()
     }
@@ -252,7 +255,7 @@
           <input class="field" bind:value={folderName} />
         </label>
       {:else}
-        <p>{t('import.nothing')}</p>
+        <p>{prepared.model.notes.length ? t('import.nothing') : t('import.empty')}</p>
       {/if}
     {:else if stage === 'writing'}
       <p aria-live="polite">

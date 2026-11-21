@@ -76,7 +76,8 @@ export function settle(
   const titles = new Map<string, string>()
   const used = new Set<string>()
   for (const note of model.notes) {
-    let title = note.title.replace(/\s+/g, ' ').trim()
+    // a note with no title is named by its first words, as a list reads it
+    let title = (note.title || plainSnippet(note.body, 60)).replace(/\s+/g, ' ').trim()
     if (title) {
       const base = title
       for (let n = 2; used.has(titleKey(title)); n += 1) title = `${base} ${n}`
@@ -166,6 +167,25 @@ export interface Prepared {
   dates: { from: number; to: number } | null
 }
 
+/** Keys that say the text too, so a note of another export at the same path
+ * is not taken for one already in. Ids from front matter stay as they are. */
+async function withText(notes: ModelNote[]): Promise<ModelNote[]> {
+  const encoder = new TextEncoder()
+  return Promise.all(
+    notes.map(async (note) => {
+      if (note.key.startsWith('id:')) return note
+      const digest = await crypto.subtle.digest(
+        'SHA-256',
+        encoder.encode(`${note.title}\n${note.body}`),
+      )
+      const hex = [...new Uint8Array(digest).slice(0, 8)].map((b) =>
+        b.toString(16).padStart(2, '0'),
+      )
+      return { ...note, key: `${note.key}\n${hex.join('')}` }
+    }),
+  )
+}
+
 /** Reads an export with an importer and settles it, writing nothing. */
 export async function prepare(
   source: ImportSource,
@@ -175,7 +195,8 @@ export async function prepare(
 ): Promise<Prepared> {
   const report: ReportItem[] = []
   const read = await importer.read(source, { add: (item) => report.push(item), progress })
-  const model = settle(read, new Set(source.entries.map((e) => e.path)), report)
+  const settled = settle(read, new Set(source.entries.map((e) => e.path)), report)
+  const model = importer.pathKeys ? { ...settled, notes: await withText(settled.notes) } : settled
   const keys = model.notes.map((n) => n.key)
   const known = new Set<string>()
   for (let i = 0; i < keys.length; i += 1000) {

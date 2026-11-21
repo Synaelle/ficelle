@@ -51,7 +51,15 @@ export async function openSource(path: string): Promise<ImportSource> {
   const opened = await backend.importOpen(path)
   return {
     name: opened.name,
-    entries: opened.entries,
+    entries: opened.entries.map(({ path, size, modified, wallClock }) => ({
+      path,
+      size,
+      // a zip's time of day, most likely in this device's zone
+      modified:
+        modified !== null && wallClock
+          ? modified + new Date(modified).getTimezoneOffset() * 60_000
+          : modified,
+    })),
     dirs: opened.dirs,
     nativeId: opened.id,
     read: (entry) => backend.importRead(opened.id, entry),

@@ -36,6 +36,9 @@ pub struct Entry {
     pub size: u64,
     /// Last modified, unix milliseconds, when the source says.
     pub modified: Option<i64>,
+    /// `modified` is a wall clock time with no zone, as zips keep it, read
+    /// as if it were UTC: the page knows the zone it was most likely in.
+    pub wall_clock: bool,
 }
 
 /// Where an entry's bytes are.
@@ -109,8 +112,7 @@ fn millis(time: std::time::SystemTime) -> Option<i64> {
 }
 
 /// A zip's date (local time without a zone, as zips keep it) as unix
-/// milliseconds, read as UTC: off by the zone at most, enough for notes
-/// whose own dates are missing.
+/// milliseconds, read as UTC, the entry marked `wall_clock`.
 fn zip_millis(time: Option<zip::DateTime>) -> Option<i64> {
     let t = time?;
     crate::clock::from_utc(crate::clock::Utc {
@@ -229,6 +231,7 @@ impl Source {
                 path: name.to_owned(),
                 size,
                 modified,
+                wall_clock: false,
             });
             self.places.push(Place::Single);
             self.single = Some(file);
@@ -273,6 +276,7 @@ impl Source {
                     path,
                     size: meta.len(),
                     modified: meta.modified().ok().and_then(millis),
+                    wall_clock: false,
                 });
                 self.places.push(Place::File(child.path()));
             }
@@ -312,6 +316,7 @@ impl Source {
                 path: name,
                 size: file.size(),
                 modified: zip_millis(file.last_modified()),
+                wall_clock: true,
             });
             self.places.push(Place::Zip { zip: at, index });
         }
@@ -393,6 +398,7 @@ impl Source {
                 path: name,
                 size: entry.size(),
                 modified,
+                wall_clock: false,
             });
             self.places.push(Place::Tar {
                 offset: entry.raw_file_position(),

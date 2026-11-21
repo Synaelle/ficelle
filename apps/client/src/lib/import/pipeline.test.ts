@@ -168,13 +168,13 @@ describe('the markdown importer through the pipeline', () => {
     const prepared = await prepare(source, markdownImporter, backend)
     expect(prepared.counts).toEqual({ notes: 3, folders: 1, files: 3, tags: 1, skipped: 0 })
     expect(prepared.dates).toEqual({ from: Date.UTC(2024, 2, 1, 9), to: Date.UTC(2025, 5, 1) })
-    const plan = prepared.model.notes.find((n) => n.key === 'Notes/Plan.md')
+    const plan = prepared.model.notes.find((n) => n.key.startsWith('Notes/Plan.md\n'))
     expect(plan?.title).toBe('Big plan')
     expect(plan?.body).toContain('See [[Ideas]], [[Ideas#Later|later]] and [[Log book|the log]].')
     expect(plan?.body).toContain('![diagram](attachments/diagram.png){width=300}')
     expect(plan?.body).toContain('![photo](attachments/photo%20one.jpg)')
     expect(plan?.body).toContain('[[not a link]]')
-    const ideas = prepared.model.notes.find((n) => n.key === 'Notes/Ideas.md')
+    const ideas = prepared.model.notes.find((n) => n.key.startsWith('Notes/Ideas.md\n'))
     expect(ideas?.body).toContain('[a](attachments/report%20%28final%29.pdf)')
     expect(prepared.report.map((r) => `${r.kind} ${r.detail}`).sort()).toEqual([
       'fileMissing lost.png',
@@ -205,6 +205,11 @@ describe('the markdown importer through the pipeline', () => {
     const again = await prepare(source, markdownImporter, backend)
     expect(again.counts.notes).toBe(0)
     expect(again.counts.skipped).toBe(3)
+
+    // another export with a note at the same path is not taken for this one
+    const other = memorySource('Other', { 'Notes/Plan.md': 'Another plan', 'Notes/Ideas.md': '' })
+    const fresh = await prepare(other, markdownImporter, backend)
+    expect(fresh.counts).toMatchObject({ notes: 2, skipped: 0 })
   })
 
   it('the inline tags option and a cancel between batches', async () => {

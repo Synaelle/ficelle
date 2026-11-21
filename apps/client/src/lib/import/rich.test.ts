@@ -89,6 +89,12 @@ ${b64(pdf)}
     expect(r.prepared.model.folders).toEqual([])
   })
 
+  it('reads the checklists of Evernote 10', async () => {
+    const enex = `<?xml version="1.0" encoding="UTF-8"?><en-export><note><title>List</title><content><![CDATA[<en-note><ul style="--en-todo:true;"><li style="--en-checked:false;"><div>train</div></li><li style="--en-checked:true;"><div>beans</div></li></ul></en-note>]]></content></note></en-export>`
+    const r = await run(memorySource('a.enex', { 'a.enex': enex }), evernoteImporter)
+    expect(note(r, 'List').body).toBe('- [ ] train\n- [x] beans')
+  })
+
   it('makes a folder per notebook when there are several, and writes the files', async () => {
     const one = (title: string) =>
       `<en-export><note><title>${title}</title><content><![CDATA[<en-note>x</en-note>]]></content></note></en-export>`
@@ -222,7 +228,7 @@ describe('google keep', () => {
       updated: 1700000500000,
     })
     expect(shopping.body).toBe('- [x] eggs\n- [ ] milk')
-    const idea = r.prepared.model.notes.find((n) => n.key === 'Idea.json')
+    const idea = r.prepared.model.notes.find((n) => n.key.startsWith('Idea.json\n'))
     expect(idea?.body).toBe(
       'line one  \nline two\n\n![](attachments/photo.jpg)\n\n- [E](https://e.org)',
     )
@@ -261,10 +267,11 @@ describe('html exports', () => {
       memorySource('Export.zip', {
         [`Home ${id(1)}.html`]: page(
           'Home page',
-          `<p><a href="Home%20${id(1)}/Child%20${id(2)}.html">Child</a></p><ul class="to-do-list"><li><div class="checkbox checkbox-on"></div> <span>done thing</span></li><li><div class="checkbox checkbox-off"></div> <span>open thing</span></li></ul>`,
+          `<p><a href="Home%20${id(1)}/Child%20${id(2)}.html">Child</a></p><ul class="to-do-list"><li><div class="checkbox checkbox-on"></div> <span>done thing</span><div class="indented"></div></li></ul><ul class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span>open thing</span><div class="indented"></div></li></ul><figure class="link-to-page"><a href="Home%20${id(1)}/Child%20${id(2)}.html">Child</a></figure><figure class="image"><img src="Home%20${id(1)}/pic.png"/></figure><table><tr><td>Day</td><td>Place</td></tr><tr><td>Lundi</td><td>Lyon</td></tr></table>`,
           '<table class="properties"><tr><th>Created</th><td><time>@March 3, 2024 9:15 AM</time></td></tr><tr><th>Tags</th><td><span class="selected-value">a</span><span class="selected-value">b c</span></td></tr></table>',
         ),
         [`Home ${id(1)}/Child ${id(2)}.html`]: page('Child', '<p>hi</p>'),
+        [`Home ${id(1)}/pic.png`]: new Uint8Array([1]),
       }),
       notionImporter,
     )
@@ -275,6 +282,9 @@ describe('html exports', () => {
     expect(home.body).toContain('- Created: March 3, 2024 9:15 AM')
     expect(home.body).toContain('[[Child]]')
     expect(home.body).toContain('- [x] done thing\n- [ ] open thing')
+    expect(home.body).toContain('- Tags: a, b c')
+    expect(home.body).toContain('[[Child]]\n\n![](attachments/pic.png)')
+    expect(home.body).toContain('| Day | Place |\n| --- | --- |\n| Lundi | Lyon |')
     expect(home.folder).toBe(`Home ${id(1)}`)
     expect(note(r, 'Child').folder).toBe(`Home ${id(1)}`)
   })
@@ -289,7 +299,7 @@ describe('extras', () => {
       }),
       opmlImporter,
     )
-    expect(note(r, 'Workflowy').body).toBe('- Plan\n  - Step one\n    a note\n  - [x] Done')
+    expect(note(r, 'Workflowy').body).toBe('- Plan\n  - **Step** one\n    a note\n  - [x] Done')
   })
 
   it('reads day one with its photos', async () => {

@@ -128,7 +128,13 @@ export function rewriteDom(root: Element, links: DomLinks) {
       p.append(...caption.childNodes)
       caption.replaceWith(p)
     }
-    figure.replaceWith(...figure.childNodes)
+    // each figure on a line of its own
+    const p = doc.createElement('p')
+    if (figure.querySelector('p, div, ul, ol, table')) figure.replaceWith(...figure.childNodes)
+    else {
+      p.append(...figure.childNodes)
+      figure.replaceWith(p)
+    }
   }
 }
 
@@ -213,6 +219,7 @@ export async function readHtmlNotes(
 
 export const htmlImporter: Importer = {
   id: 'html',
+  pathKeys: true,
   app: 'HTML',
   picks: ['folder', 'file'],
   extensions: ['zip', 'html', 'htm'],
@@ -273,17 +280,17 @@ export const notionHtmlImporter: Importer = {
         for (const row of table ? [...table.querySelectorAll('tr')] : []) {
           const key = row.querySelector('th')?.textContent?.trim() ?? ''
           const cell = row.querySelector('td')
+          const chips = [...(cell?.querySelectorAll('.selected-value') ?? [])].map(
+            (c) => c.textContent?.trim() ?? '',
+          )
           // Notion writes dates as `@March 3, 2024`
-          const value = cell?.textContent?.replace(/\s+/g, ' ').trim().replace(/^@/, '') ?? ''
+          const value = chips.length
+            ? chips.join(', ')
+            : (cell?.textContent?.replace(/\s+/g, ' ').trim().replace(/^@/, '') ?? '')
           if (!key || !value) continue
           if (/^(created|created time)$/i.test(key)) parts.created = notionTime(value)
           if (/^(last edited time|updated)$/i.test(key)) parts.updated = notionTime(value)
-          if (/^tags?$/i.test(key)) {
-            const chips = [...(cell?.querySelectorAll('.selected-value') ?? [])]
-            parts.tags = chips.length
-              ? chips.map((c) => c.textContent?.trim() ?? '')
-              : value.split(',')
-          }
+          if (/^tags?$/i.test(key)) parts.tags = value.split(',')
           lines.push(`${key}: ${value}`)
         }
         const body = doc.querySelector('.page-body') ?? doc.querySelector('article')

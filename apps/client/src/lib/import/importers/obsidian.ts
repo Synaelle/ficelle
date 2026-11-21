@@ -3,7 +3,7 @@
 // with each app's own habits on top of what the markdown family shares.
 
 import { isMarkdown, type Index } from '../markdown'
-import { baseName, extension } from '../source'
+import { baseName, extension, withoutExtension } from '../source'
 import type { Importer, ImportSource } from '../types'
 import { hidden, readMarkdownNotes } from './markdown'
 
@@ -17,6 +17,7 @@ const notesOf = (source: ImportSource, also: (path: string) => boolean = () => f
  */
 export const obsidianImporter: Importer = {
   id: 'obsidian',
+  pathKeys: true,
   app: 'Obsidian',
   picks: ['folder', 'file'],
   extensions: ['zip'],
@@ -28,6 +29,7 @@ export const obsidianImporter: Importer = {
     readMarkdownNotes(source, report, {
       notes: notesOf(source),
       inlineTags: true,
+      fileTitles: true,
       skipDir: hidden,
     }),
 }
@@ -49,6 +51,7 @@ function idTime(path: string): number | undefined {
  */
 export const zettlrImporter: Importer = {
   id: 'zettlr',
+  pathKeys: true,
   app: 'Zettlr',
   picks: ['folder', 'file'],
   extensions: ['zip'],
@@ -80,6 +83,7 @@ export const zettlrImporter: Importer = {
  */
 export const appleNotesImporter: Importer = {
   id: 'apple-notes',
+  pathKeys: true,
   app: 'Apple Notes',
   picks: ['folder', 'file'],
   extensions: ['zip'],
@@ -93,5 +97,13 @@ export const appleNotesImporter: Importer = {
     readMarkdownNotes(source, report, {
       notes: notesOf(source, (p) => extension(p) === 'txt' && !/(^|\/)Attachments\//.test(p)),
       skipDir: (dir) => hidden(dir) || /(^|\/)Attachments$/.test(dir),
+      // iCloud's text files start with the title, the file's name
+      prepare: (text, path) => {
+        const [first = '', ...rest] = text.split('\n')
+        const title = withoutExtension(baseName(path))
+        return extension(path) === 'txt' && first.trim() === title
+          ? { text: rest.join('\n').replace(/^\n+/, ''), title }
+          : {}
+      },
     }),
 }

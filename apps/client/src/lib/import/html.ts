@@ -38,6 +38,35 @@ export interface Converted {
  * markdown. The element is changed: pass a copy to keep it.
  */
 export function htmlToMarkdown(root: Element): Converted {
+  const doc = root.ownerDocument
+  // lists of checkboxes, before the form fields go
+  for (const list of [...root.querySelectorAll('ul')]) {
+    const items = [...list.children]
+    const box = (li: Element) =>
+      li.querySelector(':scope > input[type="checkbox"], :scope > p > input[type="checkbox"]')
+    if (!items.length || !items.every((li) => li.localName === 'li' && box(li))) continue
+    list.replaceWith(
+      taskList(
+        doc,
+        items.map((li) => {
+          const input = box(li) as HTMLInputElement
+          input.remove()
+          return { checked: input.hasAttribute('checked'), content: [...li.childNodes] }
+        }),
+      ),
+    )
+  }
+  joinTaskLists(root)
+  // a table with no header cells: its first row is the header, not an empty one
+  for (const table of [...root.querySelectorAll('table')]) {
+    if (table.querySelector('th')) continue
+    for (const td of [...(table.querySelector('tr')?.children ?? [])]) {
+      if (td.localName !== 'td') continue
+      const th = doc.createElement('th')
+      th.append(...td.childNodes)
+      td.replaceWith(th)
+    }
+  }
   const dropped = new Set<string>()
   for (const el of root.querySelectorAll(DROPPED)) {
     // a stray form field is noise, not lost content
@@ -52,9 +81,9 @@ export function htmlToMarkdown(root: Element): Converted {
       pre.replaceChildren(code)
     }
   }
-  const doc = converter()
-  doc.commands.setContent(root.innerHTML, { emitUpdate: false })
-  const markdown = doc
+  const editor = converter()
+  editor.commands.setContent(root.innerHTML, { emitUpdate: false })
+  const markdown = editor
     .getMarkdown()
     .replace(/\u00A0/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
@@ -68,7 +97,11 @@ export function closeConverter() {
   editor = null
 }
 
-/** A task list as the editor reads it, from items' HTML. */
+const BLOCK = 'div, p, ul, ol, table, blockquote, pre, h1, h2, h3, h4, h5, h6, hr'
+
+/** A task list as the editor reads it, from items' HTML. An item's own text
+ * goes in its paragraph and what is nested under it after: a block inside the
+ * paragraph would split it, the text left out of the task. */
 export function taskList(
   doc: Document,
   items: { checked: boolean; content: Node[] }[],
@@ -80,11 +113,27 @@ export function taskList(
     li.setAttribute('data-type', 'taskItem')
     li.setAttribute('data-checked', String(item.checked))
     const p = doc.createElement('p')
-    p.append(...item.content)
-    li.append(p)
+    const nested: Node[] = []
+    for (const node of item.content) {
+      if (!(node instanceof Element) || !node.matches(BLOCK)) p.append(node)
+      else if (node.matches('div, p') && !node.querySelector(BLOCK)) p.append(...node.childNodes)
+      else if (node.textContent?.trim()) nested.push(node)
+    }
+    li.append(p, ...nested)
     list.append(li)
   }
   return list
+}
+
+/** Task lists one after the other made one, as they read. */
+export function joinTaskLists(root: Element) {
+  for (const list of [...root.querySelectorAll('ul[data-type="taskList"]')]) {
+    const previous = list.previousElementSibling
+    if (previous?.matches('ul[data-type="taskList"]')) {
+      previous.append(...list.children)
+      list.remove()
+    }
+  }
 }
 
 /** Bytes and type of a `data:` url, null when it is not one. */

@@ -95,6 +95,15 @@ export function cleanPage(
       if (tag) tags.push(...listOf(tag[1]))
       return ''
     })
+    // a table in a block: out of the list, or it stays its text
+    .replace(
+      /^([ \t]*)- (\|.*)\n((?:\1[ \t]+\|.*(?:\n|$))*)/gm,
+      (_all, _indent: string, first: string, rest: string) =>
+        `\n${[first, ...rest.split('\n')]
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .join('\n')}\n\n`,
+    )
     .replace(/^(\s*- )(TODO|LATER|NOW|DOING|WAITING) /gm, '$1[ ] ')
     .replace(/^(\s*- )(DONE) /gm, '$1[x] ')
     .replace(/^(\s*- )CANCEL(?:L)?ED (.*)$/gm, '$1~~$2~~')
@@ -123,6 +132,7 @@ export function cleanPage(
 
 export const logseqImporter: Importer = {
   id: 'logseq',
+  pathKeys: true,
   app: 'Logseq',
   picks: ['folder', 'file'],
   extensions: ['zip'],
@@ -167,6 +177,8 @@ export const logseqImporter: Importer = {
       prepare: (text, path) => {
         const { props, rest } = pageProperties(text)
         const title = props.title || pageName(path)
+        if (props.alias)
+          report.add({ kind: 'dropped', note: title, detail: `alias:: ${props.alias}` })
         const page = cleanPage(rest, title, blocks, report)
         const date = isJournal(path) ? journalDate(path) : null
         return {

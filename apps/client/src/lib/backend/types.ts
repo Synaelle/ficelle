@@ -304,7 +304,8 @@ export interface OldBackup {
 export interface ImportOpened {
   id: number
   name: string
-  entries: { path: string; size: number; modified: number | null }[]
+  /** `wallClock`: `modified` is a time of day with no zone (zips), read as UTC. */
+  entries: { path: string; size: number; modified: number | null; wallClock: boolean }[]
   /** Its directories, empty ones included. */
   dirs: string[]
 }
