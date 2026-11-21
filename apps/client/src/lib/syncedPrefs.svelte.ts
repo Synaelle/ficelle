@@ -33,7 +33,7 @@ const isSynced = (key: string): key is Synced => (SYNCED as readonly string[]).i
 const CHOICES: Partial<Record<Synced, readonly string[]>> = {
   mode: ['dark', 'light'],
   tagMark: ['folder', 'hash'],
-  sort: ['updatedDesc', 'createdDesc', 'titleAsc'],
+  sort: ['folderAsc', 'updatedDesc', 'createdDesc', 'titleAsc'],
   arrow: ARROW_CHOICES,
   clock: ['system', '24', '12'],
 }

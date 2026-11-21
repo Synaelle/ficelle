@@ -195,6 +195,10 @@ pub enum NoteSort {
     CreatedDesc,
     /// Alphabetical by title.
     TitleAsc,
+    /// By folder, the folders alphabetical and the notes by title in each,
+    /// then the notes with no tag. A note in several folders goes under the
+    /// first.
+    FolderAsc,
 }
 
 /// Which notes a list shows.

@@ -142,7 +142,7 @@ export interface LinkSuggestion {
   title: string
 }
 
-export type NoteSort = 'updatedDesc' | 'createdDesc' | 'titleAsc'
+export type NoteSort = 'updatedDesc' | 'createdDesc' | 'titleAsc' | 'folderAsc'
 
 export type Scope =
   | { kind: 'all' }

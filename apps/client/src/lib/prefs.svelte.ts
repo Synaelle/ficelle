@@ -97,7 +97,7 @@ export const DEFAULT_PREFS: Prefs = {
   tagMark: 'folder',
   haptics: false,
   language: null,
-  sort: 'updatedDesc',
+  sort: 'folderAsc',
   shortcuts: {},
   uiSize: 'medium',
   dyslexicFont: false,
@@ -132,7 +132,7 @@ export const DEFAULT_PREFS: Prefs = {
 }
 
 const STORAGE_KEY = 'prefs'
-const SORTS: readonly NoteSort[] = ['updatedDesc', 'createdDesc', 'titleAsc']
+const SORTS: readonly NoteSort[] = ['folderAsc', 'updatedDesc', 'createdDesc', 'titleAsc']
 
 /** Shows or hides a formatting button, see hiddenTools. */
 export function showTool(icon: string, on: boolean) {

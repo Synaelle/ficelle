@@ -254,7 +254,7 @@ impl Store {
         let order = match sort {
             NoteSort::UpdatedDesc => "updated_at DESC",
             NoteSort::CreatedDesc => "created_at DESC",
-            NoteSort::TitleAsc => "title COLLATE NOCASE ASC, updated_at DESC",
+            NoteSort::TitleAsc | NoteSort::FolderAsc => "title COLLATE NOCASE ASC, updated_at DESC",
         };
         let (filter, values): (String, Vec<String>) = match scope {
             NoteScope::All => ("trashed_at IS NULL".into(), Vec::new()),
@@ -317,15 +317,24 @@ impl Store {
             note.tags = tagged.remove(&note.id).unwrap_or_default();
         }
         // SQLite's NOCASE knows a to z only: É came after Z, and 10 before 2
-        if sort == NoteSort::TitleAsc {
+        if matches!(sort, NoteSort::TitleAsc | NoteSort::FolderAsc) {
             let pinned = !pinned_first.is_empty();
+            // a note's first tag is its folder here, no tag comes last
+            let folder = |a: &NoteSummary, b: &NoteSummary| match (a.tags.first(), b.tags.first()) {
+                _ if sort != NoteSort::FolderAsc => Ordering::Equal,
+                (Some(x), Some(y)) => title_order(x, y),
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                (None, None) => Ordering::Equal,
+            };
             notes.sort_by(|a, b| {
                 let pins = if pinned {
                     b.pinned.cmp(&a.pinned)
                 } else {
                     Ordering::Equal
                 };
-                pins.then_with(|| title_order(&a.title, &b.title))
+                pins.then_with(|| folder(a, b))
+                    .then_with(|| title_order(&a.title, &b.title))
             });
         }
         Ok(notes)
@@ -488,6 +497,30 @@ mod tests {
         };
         assert_eq!(ids(NoteSort::CreatedDesc), vec![a.id, c.id, b.id]);
         assert_eq!(ids(NoteSort::TitleAsc), vec![a.id, b.id, c.id]);
+    }
+
+    #[test]
+    fn lists_by_folder_then_title_with_untagged_last() {
+        let (mut store, _clock) = store();
+        let loose = store.create_note(&titled("Alpha")).unwrap();
+        let seeds = store.create_note(&titled("Seeds")).unwrap();
+        let beds = store.create_note(&titled("beds")).unwrap();
+        let bread = store.create_note(&titled("Bread")).unwrap();
+        let both = store.create_note(&titled("Zucchini")).unwrap();
+        store.set_note_tags(seeds.id, &["Garden".into()]).unwrap();
+        store.set_note_tags(beds.id, &["Garden".into()]).unwrap();
+        store.set_note_tags(bread.id, &["Kitchen".into()]).unwrap();
+        // in two folders: under the first, Garden
+        store
+            .set_note_tags(both.id, &["Kitchen".into(), "Garden".into()])
+            .unwrap();
+        let ids: Vec<_> = store
+            .list_notes(NoteScope::All, NoteSort::FolderAsc)
+            .unwrap()
+            .into_iter()
+            .map(|n| n.id)
+            .collect();
+        assert_eq!(ids, vec![beds.id, seeds.id, both.id, bread.id, loose.id]);
     }
 
     #[test]

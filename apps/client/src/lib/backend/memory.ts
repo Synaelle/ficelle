@@ -248,6 +248,19 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
         updatedDesc: (a, b) => b.updatedAt - a.updatedAt,
         createdDesc: (a, b) => b.createdAt - a.createdAt,
         titleAsc: (a, b) => a.title.localeCompare(b.title),
+        // folders alphabetical, the first of a note's, no tag last
+        folderAsc: (a, b) => {
+          const first = (tags: string[]) =>
+            [...tags].sort((p, q) => p.localeCompare(q, undefined, { sensitivity: 'base' }))[0]
+          const [x, y] = [first(a.tags), first(b.tags)]
+          if (x !== y)
+            return x === undefined
+              ? 1
+              : y === undefined
+                ? -1
+                : x.localeCompare(y, undefined, { sensitivity: 'base' })
+          return a.title.localeCompare(b.title)
+        },
       }
       list.sort((a, b) => Number(b.pinned) - Number(a.pinned) || order[sort](a, b))
       return list.map(summary)

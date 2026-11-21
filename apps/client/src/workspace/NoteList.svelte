@@ -310,6 +310,7 @@
       value={prefs.sort}
       onchange={(e) => changeSort(e.currentTarget.value as NoteSort)}
     >
+      <option value="folderAsc">{t('list.sortFolder')}</option>
       <option value="updatedDesc">{t('list.sortUpdated')}</option>
       <option value="createdDesc">{t('list.sortCreated')}</option>
       <option value="titleAsc">{t('list.sortTitle')}</option>
