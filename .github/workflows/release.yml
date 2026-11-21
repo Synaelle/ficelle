@@ -192,12 +192,32 @@ jobs:
             > latest.json
           cat latest.json
           # the signatures travel in latest.json, not on the release page
-          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$program" "$apk" "$webzip" latest.json --clobber
+          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$program" "$apk" latest.json --clobber
           case "$TAG" in
             *-beta.*) gh release edit "$TAG" --draft=false --prerelease --latest=false ;;
             *) gh release edit "$TAG" --draft=false --latest ;;
           esac
           echo "published $TAG"
+
+          # the web version, for servers that host it, on a release of its own
+          # so release pages do not offer it as a download. It follows stable
+          # releases, replaced only by a newer one
+          if [[ "$TAG" != *-beta.* ]]; then
+            if ! gh release view web > /dev/null 2>&1; then
+              gh release create web --prerelease --latest=false --title "Web version for servers" \
+                --notes "The web version a server hosting it unpacks, from the newest release. Not a release of its own."
+            fi
+            held=$(gh release view web --json assets --jq '.assets[].name' | sed -n 's/^ficelle-web-\(.*\)\.zip$/\1/p' | head -1)
+            if node tools/version.mjs newer "$version" "$held"; then
+              gh release upload web "$webzip" --clobber
+              for old in $(gh release view web --json assets --jq '.assets[].name'); do
+                [ "$old" = "$(basename "$webzip")" ] || gh release delete-asset web "$old" --yes
+              done
+              echo "the web release now holds $version (it held ${held:-nothing})"
+            else
+              echo "the web release keeps $held, newer than $version"
+            fi
+          fi
 
           # the Beta list: replaced when this release is newer than the one
           # it holds, so a stable fix older than the current beta leaves it
