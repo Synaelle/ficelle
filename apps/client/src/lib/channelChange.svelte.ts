@@ -13,7 +13,7 @@
 // Windows and the AppImage install it over the beta. Android installs no
 // older version over a newer one: the checked APK goes to Downloads, the
 // app is uninstalled, the stable one installed, and the notes come back from
-// the sync server or the backup. The Mac follows Beta only.
+// the sync server or the backup.
 //
 // Updating over two versions or more (0.4 to 0.6) asks the same backup
 // question first, as so much changes at once.
@@ -28,7 +28,7 @@
 import { brand } from '@app/brand'
 import { appUpdates, isBigJump, thisVersion } from './appUpdate.svelte'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
-import { isMacApp, NIGHTLY, pretendRelease } from './beta.svelte'
+import { NIGHTLY, pretendRelease } from './beta.svelte'
 import { ANDROID } from './platform'
 import { prefs } from './prefs.svelte'
 import { sync, type SyncState } from './sync.svelte'
@@ -54,12 +54,11 @@ export type LeaveBeta = 'stable' | 'wait' | 'schema' | 'back' | 'backAndroid'
 
 export function leaveBeta(o: {
   installedBeta: boolean
-  mac: boolean
   android: boolean
   /** The Stable list's version, read with older ones allowed. */
   found: AppUpdate | null
 }): LeaveBeta {
-  if (!o.installedBeta || o.mac) return 'stable'
+  if (!o.installedBeta) return 'stable'
   if (!o.found) return 'wait'
   if (!o.found.older) return 'stable'
   if (!o.found.goBack) return 'wait'
@@ -120,14 +119,14 @@ class ChannelSwitch {
       return this.show('join')
     }
     let found: AppUpdate | null = null
-    if (installedBeta && !isMacApp) {
+    if (installedBeta) {
       try {
         found = pretendRelease ? PRETEND_STABLE : await backend.appUpdateLatest('stable', true)
       } catch {
         // not read: it waits, as without a way back
       }
     }
-    const way = leaveBeta({ installedBeta, mac: isMacApp, android: ANDROID, found })
+    const way = leaveBeta({ installedBeta, android: ANDROID, found })
     if (way === 'stable' || way === 'wait') return appUpdates.setChannel('stable')
     this.target = found
     this.show(way === 'schema' ? 'schema' : 'warn')

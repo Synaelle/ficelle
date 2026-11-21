@@ -11,7 +11,7 @@
 //! adds to the rest of the app is marked "file viewer" (search for it),
 //! except in the files that take no comment. Taking it out:
 //! - this file, and the marked lines of `lib.rs` (module, state, commands,
-//!   the launch with files, and `.run`, which then takes `|_, _| {}`);
+//!   the launch with files);
 //! - the marked line of `windows::launched_again`, so a second launch
 //!   always shows the main window;
 //! - the page: `src/fileViewer/`, the marked lines of `main.ts`, `App.svelte`
@@ -178,26 +178,6 @@ fn read_error(err: &std::io::Error) -> CommandError {
         file_error(err)
     }
 }
-
-/// macOS hands the files opened with the app as an event, not as arguments.
-#[cfg(target_os = "macos")]
-pub fn on_run_event(app: &AppHandle, event: tauri::RunEvent) {
-    if let tauri::RunEvent::Opened { urls } = event {
-        let files: Vec<_> = urls
-            .iter()
-            .filter_map(|url| url.to_file_path().ok())
-            .map(|path| path.to_string_lossy().into_owned())
-            .collect();
-        crate::windows::launched_again(
-            app,
-            [String::new()].into_iter().chain(files).collect(),
-            "/",
-        );
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn on_run_event(_: &AppHandle, _: tauri::RunEvent) {}
 
 /// Reads the calling window's file.
 #[tauri::command]

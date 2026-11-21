@@ -13,7 +13,7 @@ declare const __APP_STORE__: boolean
 /** Everything only for builds that are not releases: the report tool, test hooks, shorter waits. */
 declare const __APP_DEV_TOOLS__: boolean
 /** The system the build is for, see lib/platform.ts. */
-declare const __APP_PLATFORM__: 'windows' | 'darwin' | 'linux' | 'android' | 'web'
+declare const __APP_PLATFORM__: 'windows' | 'linux' | 'android' | 'web'
 /** The web version (`vite build --mode web`), see lib/platform.ts. */
 declare const __APP_WEB__: boolean
 

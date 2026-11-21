@@ -332,8 +332,6 @@ fn escape(value: &str) -> String {
 pub fn open_in_browser(url: &str) -> std::io::Result<()> {
     let opener = if cfg!(windows) {
         "explorer"
-    } else if cfg!(target_os = "macos") {
-        "open"
     } else {
         "xdg-open"
     };

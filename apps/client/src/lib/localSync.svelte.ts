@@ -15,7 +15,7 @@ export interface LocalDevice {
   /** Hex of its key, how the commands name it. */
   key: string
   name: string
-  platform: 'windows' | 'linux' | 'macos' | 'android' | string
+  platform: 'windows' | 'linux' | 'android' | string
   version: string
   lastSyncAt: number | null
   state: DeviceState

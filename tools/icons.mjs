@@ -58,14 +58,7 @@ for (const [svg, folder] of [
 ]) {
   const desk = join(work, folder)
   render(svg, desk)
-  for (const file of [
-    '32x32.png',
-    '128x128.png',
-    '128x128@2x.png',
-    'icon.icns',
-    'icon.ico',
-    'icon.png',
-  ])
+  for (const file of ['32x32.png', '128x128.png', '128x128@2x.png', 'icon.ico', 'icon.png'])
     copy(join(desk, file), join(tauri, folder, file))
 }
 

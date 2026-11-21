@@ -39,12 +39,9 @@ uuid = { version = "1.28.0", features = ["v7", "serde"] }
 zeroize = { version = "1.9.1", features = ["derive"] }
 zip = { version = "=9.2.2", default-features = false, features = ["deflate-flate2"] }
 
-# SQLCipher everywhere. Apple targets use the system crypto (CommonCrypto),
-# the others build OpenSSL from source so no system library is needed.
-[target.'cfg(target_vendor = "apple")'.dependencies]
-rusqlite = { version = "0.42.0", features = ["bundled-sqlcipher"] }
-
-[target.'cfg(not(any(target_vendor = "apple", target_family = "wasm")))'.dependencies]
+# SQLCipher everywhere, with OpenSSL built from source so no system library
+# is needed.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
 rusqlite = { version = "0.42.0", features = ["bundled-sqlcipher-vendored-openssl"] }
 
 # The web version: SQLite and SQLCipher built for the browser, with clocks and

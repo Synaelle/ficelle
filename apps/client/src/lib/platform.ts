@@ -19,7 +19,6 @@ export const MOBILE = ANDROID
 export const HANDHELD =
   ANDROID || (PLATFORM === 'web' && window.matchMedia('(pointer: coarse)').matches)
 export const WINDOWS = PLATFORM === 'windows'
-export const MAC = PLATFORM === 'darwin'
 export const LINUX = PLATFORM === 'linux'
-/** Windows, macOS or Linux. */
-export const DESKTOP = WINDOWS || MAC || LINUX
+/** Windows or Linux. */
+export const DESKTOP = WINDOWS || LINUX

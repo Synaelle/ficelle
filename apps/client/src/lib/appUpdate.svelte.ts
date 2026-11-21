@@ -10,12 +10,12 @@
 // never installs without a yes.
 //
 // Two channels, Stable and Beta, each its own list (commands/updates.rs).
-// The Mac app follows Beta, with no choice. An older version is never
+// An older version is never
 // offered, so a beta moved to Stable waits for Stable to catch up.
 
 import { brand } from '@app/brand'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
-import { isMacApp, NIGHTLY, pretendRelease, resetBetaWelcome } from './beta.svelte'
+import { NIGHTLY, pretendRelease, resetBetaWelcome } from './beta.svelte'
 import { currentLocale, t } from './i18n.svelte'
 import { ANDROID, LINUX, PLATFORM } from './platform'
 import { prefs } from './prefs.svelte'
@@ -90,11 +90,11 @@ export const updatesHere =
 
 /** Stable or Nightly can be chosen: nightlies are built for Linux and
  * Android only. A Linux package, which its store updates, hides it too. */
-export const channelChoice = (ANDROID || LINUX) && !isMacApp && !fromStore
+export const channelChoice = (ANDROID || LINUX) && !fromStore
 
-/** System notifications can be turned on: not on a Mac, not in the portable
- * exe, which has no installed identity for Windows to show them under. */
-export const notificationsHere = updatesHere && !isMacApp && !__APP_PORTABLE__
+/** System notifications can be turned on: not in the portable exe, which
+ * has no installed identity for Windows to show them under. */
+export const notificationsHere = updatesHere && !__APP_PORTABLE__
 
 /** The list this device follows. */
 export function channel(): UpdateChannel {

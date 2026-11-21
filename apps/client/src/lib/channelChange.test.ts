@@ -33,14 +33,10 @@ describe('syncSafety', () => {
 })
 
 describe('leaveBeta', () => {
-  const base = { installedBeta: true, mac: false, android: false }
+  const base = { installedBeta: true, android: false }
 
   it('a stable install just changes channel', () => {
     expect(leaveBeta({ ...base, installedBeta: false, found: stable() })).toBe('stable')
-  })
-
-  it('the Mac never goes back', () => {
-    expect(leaveBeta({ ...base, mac: true, found: stable() })).toBe('stable')
   })
 
   it('Stable caught up: nothing older to go back to', () => {

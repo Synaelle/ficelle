@@ -211,8 +211,7 @@ export interface AppUpdate {
   messages?: string[]
   /** The release's list of changes, in English. */
   changelog?: string
-  /** Not downloaded, this page has it: the portable exe, a Mac app that
-   * cannot replace itself or a release with no Mac file. */
+  /** Not downloaded, this page has it: the portable exe, a Linux package. */
   page?: string
   /** It fixes a critical security problem: asked in the middle of the
    * screen. Never installed without the person's yes. */

@@ -612,8 +612,6 @@ wrap_full = "Full width"
 [beta]
 nightlyWelcomeLabel = "Welcome to Nightly"
 nightlyWelcome = "Welcome to Nightly. Thanks for trying each night's changes. They may have bugs, so please report them in Settings, Feedback."
-macLabel = "About the Mac version"
-mac = "The Mac version is mostly untested, I have no Mac to try it on, and after this version it only gets major security and bug fixes. Please report issues on GitHub or to {address}, contributions are credited."
 
 [devReport]
 button = "Report an issue (Ctrl+Shift+B)"
@@ -851,7 +849,6 @@ failed = "Could not sync"
 [local.platform]
 windows = "Windows"
 linux = "Linux"
-macos = "macOS"
 android = "Android"
 
 [local.device]
@@ -919,7 +916,6 @@ other = "Something went wrong, try again."
 lead = "{name} could not be reached for a while. If it is on and on this network, a firewall on one of the two devices may be in the way."
 windows = "On this computer, allow {appName} when Windows asks, or mark this Wi-Fi as a private network in the network settings."
 linux = "On this computer, allow TCP port {port} and UDP port 5353. With ufw:"
-macos = "On this computer, allow {appName} in System Settings, Network, Firewall."
 phone = "Check that both devices are on the same Wi-Fi, and that the network lets devices see each other."
 other = "Check the same on {name}."
 

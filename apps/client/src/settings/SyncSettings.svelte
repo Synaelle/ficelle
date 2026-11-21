@@ -28,7 +28,7 @@
   import FilesSettings from './FilesSettings.svelte'
   import PairDialog from './PairDialog.svelte'
   import QrScan from './QrScan.svelte'
-  import { ANDROID, LINUX, MAC, WINDOWS } from '../lib/platform'
+  import { ANDROID, LINUX, WINDOWS } from '../lib/platform'
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'
@@ -360,7 +360,7 @@
   }
 
   const platformName = (p: string) =>
-    ['windows', 'linux', 'macos', 'android'].includes(p) ? t(`local.platform.${p}`) : p
+    ['windows', 'linux', 'android'].includes(p) ? t(`local.platform.${p}`) : p
 
   const when = (at: number) =>
     new Date(at).toLocaleString(currentLocale(), {
@@ -378,8 +378,6 @@
     {:else if LINUX}
       <p class="muted">{t('local.blocked.linux', { port: local.port ?? '' })}</p>
       <code>sudo ufw allow {local.port}/tcp<br />sudo ufw allow 5353/udp</code>
-    {:else if MAC}
-      <p class="muted">{t('local.blocked.macos')}</p>
     {:else}
       <p class="muted">{t('local.blocked.phone')}</p>
     {/if}

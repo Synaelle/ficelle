@@ -168,7 +168,7 @@ const CHUNK = 4096
 /**
  * Long markdown cut where nothing can run on from one part into the next,
  * to be read part by part. marked cuts the rest of the text after each
- * block, which WebKit (the Linux and Mac apps) copies every time: a 300 KB
+ * block, which WebKit (the Linux app) copies every time: a 300 KB
  * paste took 14 s to read whole, under a second in parts. A cut is a blank
  * line between two lines that are not indented, outside code, math and
  * folded sections, before a line that does not start a list item, a quote

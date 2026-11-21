@@ -148,7 +148,6 @@ pub struct Sent {
 pub fn platform() -> &'static str {
     match std::env::consts::OS {
         "windows" => "windows",
-        "macos" => "macos",
         "linux" => "linux",
         "android" => "android",
         _ => "other",

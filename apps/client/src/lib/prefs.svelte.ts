@@ -63,7 +63,7 @@ export interface Prefs {
   securityChecks: boolean
   /** A system notification when an update is out. */
   updateNotifications: boolean
-  /** Which update list the app follows. A Mac always follows Beta. */
+  /** Which update list the app follows. */
   channel: UpdateChannel
   /** The person chose a channel: a beta install no longer follows Beta by itself. */
   channelAsked: boolean

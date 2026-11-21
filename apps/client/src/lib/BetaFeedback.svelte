@@ -1,16 +1,14 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Nightly builds: the welcome shown once. The Mac app, always: its
-     warning, shown once. Feedback is in Settings. -->
+<!-- Nightly builds: the welcome shown once. Feedback is in Settings. -->
 <script lang="ts">
-  import { brand } from '@app/brand'
-  import { isBeta, isMacApp } from './beta.svelte'
+  import { isBeta } from './beta.svelte'
   import { WEB } from './platform'
   import { t } from './i18n.svelte'
   import { modal } from './modal'
   import { prefs } from './prefs.svelte'
 
   // the web version has its own welcome (WebWelcome)
-  const welcome = $derived((isBeta || isMacApp) && !WEB && !prefs.betaWelcomed)
+  const welcome = $derived(isBeta && !WEB && !prefs.betaWelcomed)
 </script>
 
 {#if welcome}
@@ -19,15 +17,12 @@
       class="dialog"
       role="alertdialog"
       aria-modal="true"
-      aria-label={isBeta ? t('beta.nightlyWelcomeLabel') : t('beta.macLabel')}
+      aria-label={t('beta.nightlyWelcomeLabel')}
       aria-describedby="beta-welcome"
       use:modal
     >
       <div id="beta-welcome" class="text">
-        {#if isBeta}<p>
-            {t('beta.nightlyWelcome')}
-          </p>{/if}
-        {#if isMacApp}<p>{t('beta.mac', { address: brand.contactEmail })}</p>{/if}
+        <p>{t('beta.nightlyWelcome')}</p>
       </div>
       <div class="actions">
         <button

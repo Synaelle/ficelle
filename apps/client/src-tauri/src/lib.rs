@@ -54,7 +54,7 @@ fn own_pages<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
-/// `tauri://localhost` on Linux and macOS, `http://tauri.localhost` on
+/// `tauri://localhost` on Linux, `http://tauri.localhost` on
 /// Windows and Android, the dev server in a debug build.
 fn own_page(url: &tauri::Url) -> bool {
     match url.scheme() {
@@ -318,8 +318,7 @@ pub fn run() {
         ])
         .build(context)
         .expect("failed to start the app")
-        // file viewer: macOS hands over files as an event
-        .run(opened_files::on_run_event);
+        .run(|_, _| {});
 }
 
 /// A window closed: what it held is let go, and the note windows close with

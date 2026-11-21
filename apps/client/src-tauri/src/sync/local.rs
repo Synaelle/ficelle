@@ -102,7 +102,6 @@ fn read_default_name() -> String {
         .unwrap_or_else(|| {
             match platform() {
                 "android" => "Android phone",
-                "macos" => "Mac",
                 "windows" => "Windows PC",
                 _ => "Linux computer",
             }
@@ -113,8 +112,6 @@ fn read_default_name() -> String {
 fn platform() -> &'static str {
     if cfg!(target_os = "android") {
         "android"
-    } else if cfg!(target_os = "macos") {
-        "macos"
     } else if cfg!(windows) {
         "windows"
     } else {

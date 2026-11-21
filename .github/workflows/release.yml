@@ -1,6 +1,6 @@
 name: release
 
-# A release, from its tag: the Windows, Linux, Android and Mac apps built at
+# A release, from its tag: the Windows, Linux and Android apps built at
 # once, each signed for the app updater with the TAURI_SIGNING_PRIVATE_KEY
 # secret, attached to a draft release with one latest.json for all, and
 # only then published. Until then the release is a draft, which neither
@@ -118,17 +118,8 @@ jobs:
           path: out/
           retention-days: 7
 
-  # untested for want of a Mac, so a failed Mac build does not hold back the
-  # others: that release then has no Mac files and Macs stay where they are
-  mac:
-    needs: draft
-    uses: ./.github/workflows/mac.yml
-    with:
-      signed: true
-    secrets: inherit
-
   publish:
-    needs: [list, windows, linux, android, web, mac]
+    needs: [list, windows, linux, android, web]
     if: >-
       ${{ !cancelled() && needs.list.result == 'success'
       && needs.windows.result == 'success' && needs.linux.result == 'success'
