@@ -140,13 +140,19 @@ jobs:
           set -eu
           version="${TAG#v}"
           base="https://github.com/$GH_REPO/releases/download/$TAG"
-          setup=$(find out -name '*-setup.exe' | head -1)
-          portable=$(find out -name '*_portable.exe' | head -1)
-          appimage=$(find out -name '*.AppImage' | head -1)
+          setup=$(find out -name '*_x64-setup.exe' | head -1)
+          portable=$(find out -name '*_x64_portable.exe' | head -1)
+          appimage=$(find out -name '*_amd64.AppImage' | head -1)
           program=$(find out -name '*_amd64.tar.zst' | head -1)
+          # the ARM builds of the same
+          setup_arm=$(find out -name '*_arm64-setup.exe' | head -1)
+          portable_arm=$(find out -name '*_arm64_portable.exe' | head -1)
+          appimage_arm=$(find out -name '*_aarch64.AppImage' | head -1)
+          program_arm=$(find out -name '*_aarch64.tar.zst' | head -1)
           apk=$(find out -name '*-android.apk' | head -1)
           webzip=$(find out -name 'ficelle-web-*.zip' | head -1)
-          for file in "$setup" "$portable" "$appimage" "$program" "$apk" "$webzip"; do test -f "$file"; done
+          for file in "$setup" "$portable" "$appimage" "$program" "$setup_arm" "$portable_arm" \
+            "$appimage_arm" "$program_arm" "$apk" "$webzip"; do test -f "$file"; done
           # the line apps show and whether it fixes a security problem: apps
           # then ask in the middle of the screen, a critical update. Newer apps
           # show the messages, keys they translate, and the English list of
@@ -184,15 +190,19 @@ jobs:
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --argjson windows "$(entry "$setup")" \
             --argjson linux "$(entry "$appimage")" \
+            --argjson windows_arm "$(entry "$setup_arm")" \
+            --argjson linux_arm "$(entry "$appimage_arm")" \
             --argjson android "$(entry "$apk")" \
             '{version: $version, notes: $notes, messages: $messages, changelog: $changelog,
               critical: $critical, schema: $schema, build: $build, pub_date: $date, platforms: ({
               "windows-x86_64": $windows, "linux-x86_64": $linux,
+              "windows-aarch64": $windows_arm, "linux-aarch64": $linux_arm,
               "android-aarch64": $android, "android-arm": $android, "android-x86_64": $android })}' \
             > latest.json
           cat latest.json
           # the signatures travel in latest.json, not on the release page
-          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$program" "$apk" latest.json --clobber
+          gh release upload "$TAG" "$setup" "$portable" "$appimage" "$program" "$setup_arm" \
+            "$portable_arm" "$appimage_arm" "$program_arm" "$apk" latest.json --clobber
           case "$TAG" in
             *-beta.*) gh release edit "$TAG" --draft=false --prerelease --latest=false ;;
             *) gh release edit "$TAG" --draft=false --latest ;;

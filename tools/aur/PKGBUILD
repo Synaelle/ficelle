@@ -1,20 +1,22 @@
 # Template of the AUR package ficelle-bin, filled for each stable release by
-# tools/aur/update.mjs (@VERSION@ and @SHA256@). It takes the release's
-# archive of the program, its launcher and icons, and uses the system's
+# tools/aur/update.mjs (@VERSION@ and the checksums). It takes the release's
+# archive of the program, for the machine's architecture, its launcher and icons, and uses the system's
 # WebKitGTK.
 pkgname=ficelle-bin
 pkgver=@VERSION@
 pkgrel=1
 pkgdesc='A lightweight, private notes app for your computer and your phone'
-arch=('x86_64')
+arch=('x86_64' 'aarch64')
 url='https://ficelle.synaelle.com'
 license=('AGPL-3.0-or-later')
 depends=('webkit2gtk-4.1' 'gtk3' 'libsoup3' 'glib2' 'cairo' 'gdk-pixbuf2' 'hicolor-icon-theme')
 provides=('ficelle')
 conflicts=('ficelle')
 options=('!strip' '!debug')
-source=("Ficelle_${pkgver}_amd64.tar.zst::https://github.com/Synaelle/ficelle/releases/download/v${pkgver}/Ficelle_${pkgver}_amd64.tar.zst")
-sha256sums=('@SHA256@')
+source_x86_64=("Ficelle_${pkgver}_amd64.tar.zst::https://github.com/Synaelle/ficelle/releases/download/v${pkgver}/Ficelle_${pkgver}_amd64.tar.zst")
+source_aarch64=("Ficelle_${pkgver}_aarch64.tar.zst::https://github.com/Synaelle/ficelle/releases/download/v${pkgver}/Ficelle_${pkgver}_aarch64.tar.zst")
+sha256sums_x86_64=('@SHA256_X86_64@')
+sha256sums_aarch64=('@SHA256_AARCH64@')
 
 package() {
   cd usr

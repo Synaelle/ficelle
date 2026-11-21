@@ -6,7 +6,8 @@
 // --portable builds the portable Windows exe (src-tauri/src/portable.rs),
 // numbered like the release, copied to target/release/bundle/portable/.
 // Build it after the installer: both use target/release/ficelle.exe. With
-// --preview too it is a preview's portable exe, Ficelle_preview_x64_portable.exe.
+// --preview too it is a preview's portable exe, Ficelle_preview_x64_portable.exe
+// (arm64 on an ARM machine, as the installer is named).
 // --unsigned builds the release without the updater's signed copy, for a
 // test build without the key (the Linux workflow's manual runs).
 // Anything after -- goes to tauri build, like --bundles appimage.
@@ -109,7 +110,7 @@ if (portable) {
   mkdirSync(folder, { recursive: true })
   const file = join(
     folder,
-    `${brand.displayName}_${preview ? 'preview' : version}_x64_portable.exe`,
+    `${brand.displayName}_${preview ? 'preview' : version}_${process.arch === 'arm64' ? 'arm64' : 'x64'}_portable.exe`,
   )
   copyFileSync(join(root, 'target/release', `${brand.slug}.exe`), file)
   console.log(`portable exe: ${file}`)

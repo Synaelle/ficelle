@@ -5,8 +5,8 @@
 //
 //   node tools/aur/update.mjs <version> <folder>
 //
-// The checksum comes from the release's own program archive, downloaded from
-// GitHub.
+// The checksums come from the release's own program archives, one per
+// architecture, downloaded from GitHub.
 // Betas are refused: the AUR package follows stable releases only.
 
 import { createHash } from 'node:crypto'
@@ -25,20 +25,24 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) {
 }
 
 const here = dirname(fileURLToPath(import.meta.url))
-const archive = `Ficelle_${version}_amd64.tar.zst`
-const url = `https://github.com/Synaelle/ficelle/releases/download/v${version}/${archive}`
-const response = await fetch(url, { signal: AbortSignal.timeout(120_000) })
-if (!response.ok) {
-  console.error(`${url}: ${response.status}`)
-  process.exit(1)
+/** The checksum of the release's program archive for one architecture. */
+async function checksum(arch) {
+  const url = `https://github.com/Synaelle/ficelle/releases/download/v${version}/Ficelle_${version}_${arch}.tar.zst`
+  const response = await fetch(url, { signal: AbortSignal.timeout(120_000) })
+  if (!response.ok) {
+    console.error(`${url}: ${response.status}`)
+    process.exit(1)
+  }
+  return createHash('sha256')
+    .update(Buffer.from(await response.arrayBuffer()))
+    .digest('hex')
 }
-const sha256 = createHash('sha256')
-  .update(Buffer.from(await response.arrayBuffer()))
-  .digest('hex')
+const sha256 = { x86_64: await checksum('amd64'), aarch64: await checksum('aarch64') }
 
 const pkgbuild = readFileSync(join(here, 'PKGBUILD'), 'utf8')
   .replaceAll('@VERSION@', version)
-  .replaceAll('@SHA256@', sha256)
+  .replaceAll('@SHA256_X86_64@', sha256.x86_64)
+  .replaceAll('@SHA256_AARCH64@', sha256.aarch64)
 const field = (name) => {
   const match = pkgbuild.match(new RegExp(`^${name}=(.*)$`, 'm'))
   if (!match) throw new Error(`the PKGBUILD has no ${name}`)
@@ -62,9 +66,10 @@ const lines = [
   ...values(field('provides')).map((v) => `\tprovides = ${v}`),
   ...values(field('conflicts')).map((v) => `\tconflicts = ${v}`),
   ...values(field('options')).map((v) => `\toptions = ${v}`),
-  ...values(field('source')).map((v) => `\tsource = ${v}`),
-  ...values(field('noextract')).map((v) => `\tnoextract = ${v}`),
-  `\tsha256sums = ${sha256}`,
+  ...['x86_64', 'aarch64'].flatMap((arch) => [
+    ...values(field(`source_${arch}`)).map((v) => `\tsource_${arch} = ${v}`),
+    `\tsha256sums_${arch} = ${sha256[arch]}`,
+  ]),
   '',
   `pkgname = ${field('pkgname')}`,
   '',

@@ -1,7 +1,8 @@
 name: linux
 
-# The Linux AppImage, built on the oldest supported Ubuntu (its glibc is the
-# oldest the AppImage runs on). release.yml calls it for each release, signed
+# The Linux AppImage, for x86_64 and for aarch64 (each on its own kind of
+# runner), built on the oldest supported Ubuntu (its glibc is the oldest the
+# AppImage runs on). release.yml calls it for each release, signed
 # for the app updater with the TAURI_SIGNING_PRIVATE_KEY secret, and attaches
 # it. nightly.yml calls it with a nightly's name and build number. A manual
 # run builds an unsigned AppImage of the chosen branch, kept as an artifact
@@ -27,7 +28,14 @@ permissions:
 
 jobs:
   appimage:
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: amd64
+          - runner: ubuntu-22.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: tauri linux deps
@@ -70,7 +78,7 @@ jobs:
             # nightly's file carries its own name, signed for it
             dir=target/release/bundle/appimage
             built=$(ls "$dir"/*.AppImage | head -1)
-            name="$(jq -r .displayName packages/brand/brand.json | tr ' ' '-')_${APP_NIGHTLY}_amd64.AppImage"
+            name="$(jq -r .displayName packages/brand/brand.json | tr ' ' '-')_${APP_NIGHTLY}_${{ matrix.arch }}.AppImage"
             rm -f "$dir"/*.AppImage.sig
             mv "$built" "$dir/$name"
             pnpm --filter @app/client tauri signer sign --app-version "$APP_NIGHTLY" "$PWD/$dir/$name"
@@ -95,7 +103,7 @@ jobs:
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: appimage
+          name: appimage-${{ matrix.arch }}
           path: |
             target/release/bundle/appimage/*.AppImage
             target/release/bundle/appimage/*.AppImage.sig

@@ -146,9 +146,10 @@ jobs:
           LAST_COMMIT: ${{ needs.plan.outputs.last_commit }}
         run: |
           set -eu
-          appimage=$(find out -name '*.AppImage' | head -1)
+          appimage=$(find out -name '*_amd64.AppImage' | head -1)
+          appimage_arm=$(find out -name '*_aarch64.AppImage' | head -1)
           apk=$(find out -name '*.apk' | head -1)
-          for file in "$appimage" "$apk"; do test -f "$file" && test -f "$file.sig"; done
+          for file in "$appimage" "$appimage_arm" "$apk"; do test -f "$file" && test -f "$file.sig"; done
           if ! gh release view nightly > /dev/null 2>&1; then
             gh release create nightly --prerelease --latest=false --target "$SHA" --title "Nightly" \
               --notes "A build of each night's changes, for the app's Nightly channel. Not a release."
@@ -171,10 +172,11 @@ jobs:
           entry() { jq -n --arg sig "$(cat "$1.sig")" --arg url "$base/$(basename "$1")" '{signature: $sig, url: $url}'; }
           jq -n --arg version "$NAME" --argjson build "$BUILD" --arg changelog "$changelog" \
             --argjson schema "$schema" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --argjson linux "$(entry "$appimage")" --argjson android "$(entry "$apk")" \
+            --argjson linux "$(entry "$appimage")" --argjson linux_arm "$(entry "$appimage_arm")" \
+            --argjson android "$(entry "$apk")" \
             '{version: $version, build: $build, notes: "", messages: [], changelog: $changelog,
               critical: false, schema: $schema, pub_date: $date, platforms: {
-              "linux-x86_64": $linux,
+              "linux-x86_64": $linux, "linux-aarch64": $linux_arm,
               "android-aarch64": $android, "android-arm": $android, "android-x86_64": $android }}' \
             > latest.json
           jq -n --arg name "$NAME" --arg release "$RELEASE" --argjson n "$N" --arg commit "$SHA" \
@@ -183,10 +185,10 @@ jobs:
           cat latest.json nightly.json
           # the files first, the lists last: an app never reads a list whose
           # files are not there yet
-          gh release upload nightly "$appimage" "$apk" --clobber
+          gh release upload nightly "$appimage" "$appimage_arm" "$apk" --clobber
           gh release upload nightly latest.json nightly.json --clobber
           # last night's files go, the ones just added stay
-          keep="$(basename "$appimage")|$(basename "$apk")|latest.json|nightly.json|releases.json"
+          keep="$(basename "$appimage")|$(basename "$appimage_arm")|$(basename "$apk")|latest.json|nightly.json|releases.json"
           gh release view nightly --json assets --jq '.assets[].name' | grep -Ev "^($keep)$" \
             | while read -r old; do gh release delete-asset nightly "$old" --yes; done
           {
