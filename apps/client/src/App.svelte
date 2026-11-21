@@ -41,7 +41,6 @@
   } from './lib/windows'
   import Setup from './screens/Setup.svelte'
   import Unlock from './screens/Unlock.svelte'
-  import Workspace from './workspace/Workspace.svelte'
 
   type Stage = 'loading' | 'failed' | 'elsewhere' | 'unlock' | 'upgrade' | 'ready'
   /** Why the notes cannot be opened, when it is known, and their folder. */
@@ -166,6 +165,9 @@
     if (stage === 'ready') appUpdates.start()
   })
 
+  // the notes' screen loads while the unlock screen shows, not before it
+  const workspaceScreen = import('./workspace/Workspace.svelte')
+
   void start()
 </script>
 
@@ -210,7 +212,9 @@
   <Unlock done={ready} {status} />
 {:else if stage === 'ready'}
   <div class="notes" class:closing>
-    <Workspace onlock={lock} {lockable} />
+    {#await workspaceScreen then { default: Workspace }}
+      <Workspace onlock={lock} {lockable} />
+    {/await}
   </div>
   <BetaFeedback />
   <TagsMerged />

@@ -25,7 +25,6 @@
   import { toasts } from '../lib/toast.svelte'
   import { sendSyncedPrefs, takeSyncedPrefs } from '../lib/syncedPrefs.svelte'
   import Icon from '../lib/icons/Icon.svelte'
-  import Settings from '../settings/Settings.svelte'
   import AttachmentList from './AttachmentList.svelte'
   import NoteList from './NoteList.svelte'
   import NoteView from './NoteView.svelte'
@@ -241,7 +240,10 @@
 </main>
 
 {#if settingsOpen}
-  <Settings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />
+  <!-- loaded when first opened -->
+  {#await import('../settings/Settings.svelte') then { default: Settings }}
+    <Settings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />
+  {/await}
 {/if}
 
 {#if workspace.error}

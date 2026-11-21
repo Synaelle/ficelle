@@ -6,17 +6,12 @@ import './lib/webStorage'
 import { brand } from '@app/brand'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { mount } from 'svelte'
-import App from './App.svelte'
 import { setLocale, systemLocale } from './lib/i18n.svelte'
 import { DESKTOP, HANDHELD, LINUX, PLATFORM, WEB } from './lib/platform'
 import { prefs } from './lib/prefs.svelte'
 import { followScrollbars } from './lib/scrollbars'
 import { followVisibleHeight } from './lib/uiSize'
 import { isQuickWindow } from './lib/quickNote'
-import QuickNote from './QuickNote.svelte'
-// file viewer
-import FileWindow from './fileViewer/FileWindow.svelte'
-import NoteWindow from './NoteWindow.svelte'
 import { windowKind } from './lib/windows'
 import { isScoped } from './lib/webScope'
 import './styles/app.css'
@@ -40,12 +35,16 @@ if (!target) throw new Error('missing #app element in index.html')
 
 // the desktop's other windows load the same page: #quick for the quick note,
 // #file for a file opened with the app (file viewer), #note=<id> for a note of its own
-// (desktop apps only: the phone and the web have one window)
+// (desktop apps only: the phone and the web have one window). Each loads its
+// own screen only.
 const kind = DESKTOP ? windowKind() : { kind: 'main' as const }
 export default DESKTOP && isQuickWindow()
-  ? mount(QuickNote, { target })
+  ? mount((await import('./QuickNote.svelte')).default, { target })
   : kind.kind === 'file'
-    ? mount(FileWindow, { target, props: { close: () => void getCurrentWindow().destroy() } })
+    ? mount((await import('./fileViewer/FileWindow.svelte')).default, {
+        target,
+        props: { close: () => void getCurrentWindow().destroy() },
+      })
     : kind.kind === 'note'
-      ? mount(NoteWindow, { target, props: { id: kind.id } })
-      : mount(App, { target })
+      ? mount((await import('./NoteWindow.svelte')).default, { target, props: { id: kind.id } })
+      : mount((await import('./App.svelte')).default, { target })

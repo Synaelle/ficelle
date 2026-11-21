@@ -7,7 +7,6 @@
   import { backend } from '../lib/backend'
   import { ANDROID } from '../lib/platform'
   import { workspace } from '../lib/workspace.svelte'
-  import FileWindow from './FileWindow.svelte'
   import { onNoteToOpen, takeNoteToOpen, takeOpenedFile, takeOpenedFiles } from './files'
 
   let {
@@ -55,7 +54,11 @@
 
 {#if openedFile}
   {#key openedFile}
-    <div class="opened-file"><FileWindow close={closeFile} /></div>
+    <div class="opened-file">
+      {#await import('./FileWindow.svelte') then { default: FileWindow }}
+        <FileWindow close={closeFile} />
+      {/await}
+    </div>
   {/key}
 {/if}
 
