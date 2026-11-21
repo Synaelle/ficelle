@@ -72,3 +72,25 @@ opt-level = 3
 
 [profile.release.package.blake2]
 opt-level = 3
+
+# what runs over every byte of attachments, backups and sync, at full speed
+# too: these are small, the time they save on large files is not
+[profile.release.package.chacha20]
+opt-level = 3
+
+[profile.release.package.poly1305]
+opt-level = 3
+
+[profile.release.package.sha2]
+opt-level = 3
+
+[profile.release.package.miniz_oxide]
+opt-level = 3
+
+[profile.release.package.app-repo]
+opt-level = 3
+
+# the merge of edits from other devices: large, so built for size but not
+# at any cost in speed
+[profile.release.package.loro-internal]
+opt-level = "s"
