@@ -466,6 +466,9 @@ impl<H: Host> Shared<H> {
                 wants: Vec::new(),
             },
         );
+        // the write follower waits while no device is connected: this one
+        // gets the edits made meanwhile without delay
+        self.wake.notify_all();
         Some(id)
     }
 
@@ -866,7 +869,7 @@ impl<H: Host> Shared<H> {
                 // not blocking: a stop must close the port before a restart
                 // takes the same one again, which paired devices know
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    std::thread::sleep(Duration::from_millis(250));
+                    std::thread::sleep(Duration::from_millis(100));
                 }
                 Err(_) => std::thread::sleep(TICK),
             }
