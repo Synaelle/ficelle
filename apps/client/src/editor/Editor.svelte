@@ -25,7 +25,7 @@
   import type { ActionId } from '../lib/shortcuts'
   import { isBackendError, workspace } from '../lib/workspace.svelte'
   import { createExtensions } from './extensions'
-  import { asWritten } from './asWritten'
+  import { aroundEdit, asWritten } from './asWritten'
   import { deleteLine } from './deleteLine'
   import { linkAddress } from './linkAddress'
   import { patchMarkdown, REMOTE } from './patch'
@@ -339,10 +339,15 @@
     if (!opened) return now
     openedText ??= current.markdown?.serialize(opened.toJSON()) ?? now
     if (openedText === markdown) return now
+    const reads = (text: string) => {
+      const parsed = current.markdown?.parse(text)
+      return parsed && current.markdown?.serialize(parsed).trimEnd() === now.trimEnd()
+    }
     const kept = asWritten(markdown, openedText, now)
-    if (kept === now) return now
-    const parsed = current.markdown?.parse(kept)
-    return parsed && current.markdown?.serialize(parsed).trimEnd() === now.trimEnd() ? kept : now
+    if (kept === now || reads(kept)) return kept
+    // the lines around the change, at least, stay as written
+    const around = aroundEdit(markdown, openedText, now)
+    return reads(around) ? around : now
   }
 
   function save() {
@@ -387,6 +392,11 @@
    * the end when the caret was never placed (it would sit before the first
    * word otherwise). */
   /** Puts the caret at the start of the text: Enter in the title. */
+  /** Passes on typing still waiting for its pause. */
+  export function flush() {
+    save()
+  }
+
   export function focusStart() {
     if (!editor) return
     // TipTap's focus waits for a frame: the caret moves at once

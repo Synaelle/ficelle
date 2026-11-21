@@ -200,3 +200,45 @@ export function asWritten(stored: string, before: string, now: string): string {
   }
   return joined(out)
 }
+
+/**
+ * Coarser than `asWritten`, for a note whose text it gives does not read as
+ * the editor's: the lines from the last one left alone above the change to
+ * the first one left alone under it take the editor's form, all the others
+ * stay as stored. The caller checks again that the text reads the same.
+ */
+export function aroundEdit(stored: string, before: string, now: string): string {
+  if (before === now) return stored
+  const raw = stored.split('\n')
+  const windows = raw.some((line) => line.endsWith('\r'))
+  const kept = windows ? raw.map((line) => line.replace(/\r$/, '')) : raw
+  const base = before.split('\n')
+  const edited = now.split('\n')
+  let top = 0
+  while (top < base.length && top < edited.length && base[top] === edited[top]) top++
+  let tail = 0
+  while (
+    tail < base.length - top &&
+    tail < edited.length - top &&
+    base[base.length - 1 - tail] === edited[edited.length - 1 - tail]
+  )
+    tail++
+  const inKept = linedUp(base, kept)
+  // the lines held on to have text: an empty one lines up with any other
+  const held = (i: number) => inKept[i] !== -1 && base[i] !== ''
+  let above = top - 1
+  while (above >= 0 && !held(above)) above--
+  let under = base.length - tail
+  while (under < base.length && !held(under)) under++
+  const from = above >= 0 ? (inKept[above] as number) + 1 : 0
+  const to = under < base.length ? (inKept[under] as number) : raw.length
+  const typed = edited.slice(above + 1, under + edited.length - base.length)
+  // a stored text that ends its last line keeps doing so
+  if (to === raw.length && raw.at(-1) === '' && typed.at(-1) !== '') typed.push('')
+  const text = [
+    ...raw.slice(0, from),
+    ...(windows ? typed.map((line) => `${line}\r`) : typed),
+    ...raw.slice(to),
+  ].join('\n')
+  return windows && !stored.endsWith('\r') && text.endsWith('\r') ? text.slice(0, -1) : text
+}

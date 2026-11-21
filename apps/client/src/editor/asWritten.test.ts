@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { Editor } from '@tiptap/core'
 import { describe, expect, it } from 'vitest'
-import { asWritten } from './asWritten'
+import { aroundEdit, asWritten } from './asWritten'
 import { createExtensions } from './extensions'
 
 /** A note as another app wrote it. */
@@ -173,5 +173,30 @@ describe('saving a note written in another form', () => {
     expect(asWritten('* a\n\npara', '- a\n\npara', '- a\n- c\n\npara')).toBe('- a\n- c\n\npara')
     expect(asWritten('x', 'x', '')).toBe('')
     expect(asWritten('', '', 'new')).toBe('new')
+  })
+})
+
+describe('aroundEdit', () => {
+  it('rewrites only the block between lines left alone', () => {
+    const stored = '* a\n* b\n\nSetext\n======\n\n- [x] done\n+ plus\n'
+    const before = '- a\n- b\n\n# Setext\n\n- [x] done\n\n- plus'
+    const now = '- a\n- b\n\n# Setext\n\n- [x] done\n\n- plusX\n\n'
+    expect(aroundEdit(stored, before, now)).toBe(
+      '* a\n* b\n\nSetext\n======\n\n- [x] done\n\n- plusX\n\n',
+    )
+  })
+
+  it('keeps Windows line endings and the last one', () => {
+    expect(aroundEdit('# a\r\n\r\nb\r\n', '# a\n\nb', '# a\n\nbX')).toBe('# a\r\n\r\nbX\r\n')
+  })
+
+  it('a file typed in the editor gives back its own text', () => {
+    const editor = editorWith(STORED)
+    const before = editor.getMarkdown()
+    typeAfter(editor, 'after', ' more')
+    const kept = aroundEdit(STORED, before, editor.getMarkdown())
+    expect(kept.startsWith('Heading\n=======\n\nintro\n\n* apples')).toBe(true)
+    expect(kept.endsWith('after more\n')).toBe(true)
+    editor.destroy()
   })
 })
