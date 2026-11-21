@@ -50,12 +50,10 @@ url = "2"
 webauthn-rs = { version = "0.6.2", features = ["danger-allow-state-serialisation", "conditional-ui"] }
 rpassword = "7.5.4"
 
-# the same SQLite build as the core: two builds cannot link into one workspace
-[target.'cfg(target_vendor = "apple")'.dependencies]
-rusqlite = { version = "0.42.0", features = ["bundled-sqlcipher"] }
-
-[target.'cfg(not(target_vendor = "apple"))'.dependencies]
-rusqlite = { version = "0.42.0", features = ["bundled-sqlcipher-vendored-openssl"] }
+# plain SQLite: the server's databases are not encrypted with a key. Built
+# with the rest of the workspace, cargo unifies this with the core's
+# SQLCipher, which opens plain files as well.
+rusqlite = { version = "0.42.0", features = ["bundled"] }
 
 [dev-dependencies]
 app-repo = { workspace = true, features = ["testing"] }
