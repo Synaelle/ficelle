@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The app updating itself (commands/updates.rs). Release builds look once
-// after opening, every few hours, and when the app comes back on screen
-// after a while away (a phone keeps it open for days); a newer version
-// downloads quietly and a
-// card offers to restart into it. On Android the system installer takes over
-// from AppInstaller (MainActivity.kt) and asks the person. With automatic
-// updates off, the app only reads the release list, to tell of a critical
-// security fix, unless that is turned off too. A critical one is asked in the middle of the screen, and
-// never installs without a yes.
+// The app updating itself (commands/updates.rs). Release builds read the
+// release list once after opening, every few hours, and when the app comes
+// back on screen after a while away (a phone keeps it open for days). A
+// newer version gets a card; it downloads only when the person asks, its
+// progress in the card, then the card offers to restart into it. On Android
+// the system installer takes over from AppInstaller (MainActivity.kt) and
+// asks the person. A critical security fix is asked in the middle of the
+// screen, unless that is turned off, and never installs without a yes.
 //
 // Two channels, Stable and Beta, each its own list (commands/updates.rs).
 // An older version is never
 // offered, so a beta moved to Stable waits for Stable to catch up.
 
 import { brand } from '@app/brand'
+import { listen } from '@tauri-apps/api/event'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
 import { NIGHTLY, pretendRelease, resetBetaWelcome } from './beta.svelte'
 import { currentLocale, t } from './i18n.svelte'
@@ -131,7 +131,12 @@ export const waitingForStable = (current: string = thisVersion) =>
   channel() === 'stable' && (parts(current)?.[3] != null || NIGHTLY.test(current))
 
 class AppUpdates {
+  /** The newer version found, downloaded or not. */
   ready: AppUpdate | null = $state(null)
+  /** `ready` is downloaded and checked, waiting to be installed. */
+  downloaded = $state(false)
+  /** Bytes so far and the size, while it downloads. */
+  progress: { done: number; total: number | null } | null = $state(null)
   /** The notes are open: the card waits while the app is locked. */
   shown = $state(false)
   /** The card was closed: it comes back on the next start. */
@@ -161,23 +166,26 @@ class AppUpdates {
     })
   }
 
-  /** The full check with automatic updates on, else the release list alone,
-   * for a critical fix. */
+  /** Reads the release list, downloading nothing. */
   async look() {
     this.lookedAt = Date.now()
     // a pretend release looks for nothing on its own
     if (pretendRelease) return
-    if (prefs.autoUpdates) return this.check()
-    // all turned off: nothing is asked at all
-    if (!prefs.securityChecks && !this.notifying) return
     try {
-      const latest = await backend.appUpdateLatest(channel())
-      if (latest?.critical && prefs.securityChecks && !refused(latest.version))
-        this.critical = latest
-      if (latest) void this.notify(latest)
+      this.found(await backend.appUpdateLatest(channel()))
     } catch {
       // the next look tries again
     }
+  }
+
+  /** What the list offers: kept as downloaded when it is the same version. */
+  private found(update: AppUpdate | null) {
+    if (update?.version !== this.ready?.version) this.downloaded = false
+    this.ready = update
+    this.upToDate = !update
+    if (!update) return
+    if (update.critical && prefs.securityChecks && !refused(update.version)) this.critical = update
+    void this.notify(update)
   }
 
   private get notifying() {
@@ -232,10 +240,7 @@ class AppUpdates {
     this.checking = true
     this.error = ''
     try {
-      this.ready = await backend.appUpdateCheck(channel())
-      this.upToDate = !this.ready
-      if (this.ready?.critical && !refused(this.ready.version)) this.critical = this.ready
-      if (this.ready) void this.notify(this.ready)
+      this.found(await backend.appUpdateLatest(channel()))
     } catch (err) {
       this.error = isBackendError(err) ? err.kind : 'unknown'
     } finally {
@@ -243,8 +248,33 @@ class AppUpdates {
     }
   }
 
+  /** Downloads the version found, its progress in `progress`. A download
+   * cut short goes on from where it stopped on the next try. */
+  async download() {
+    if (!this.ready || this.progress) return
+    this.error = ''
+    this.progress = { done: 0, total: null }
+    const stop = await listen<{ done: number; total: number | null }>(
+      'app-update-progress',
+      (event) => (this.progress = event.payload),
+    )
+    try {
+      const update = await backend.appUpdateCheck(channel())
+      this.ready = update
+      this.downloaded = !!update
+    } catch (err) {
+      this.error = isBackendError(err) ? err.kind : 'unknown'
+    } finally {
+      stop()
+      this.progress = null
+    }
+  }
+
+  /** Downloads first when it is not yet, then installs on the next press;
+   * a release page opens at once. */
   async install() {
     if (!this.ready) return
+    if (!this.ready.page && !this.downloaded) return this.download()
     if (ANDROID && window.AppInstaller) {
       if (!window.AppInstaller.install()) this.error = 'notFound'
       return
@@ -269,16 +299,19 @@ class AppUpdates {
     // the beta welcome greets someone joining Beta, again if they left it
     if (next === 'nightly') resetBetaWelcome()
     this.ready = null
+    this.downloaded = false
     this.critical = null
     this.upToDate = false
     this.error = ''
     if (look && updatesHere && this.timer) void this.look()
   }
 
-  /** "Update now" on a critical fix: downloaded first when it is not yet. */
+  /** "Update now" on a critical fix: downloaded first when it is not yet,
+   * then installed, the person having said yes. */
   async updateCritical() {
     if (!this.ready) await this.check()
-    await this.install()
+    if (this.ready && !this.ready.page && !this.downloaded) await this.download()
+    if (this.downloaded || this.ready?.page) await this.install()
   }
 
   /** "Skip this version": its card comes back no more, the next version's
@@ -339,6 +372,24 @@ export function updateLines(update: AppUpdate): string[] {
     return t(`appUpdate.message.${key}`, { platform: value, language })
   })
   return lines.filter((line, i) => lines.indexOf(line) === i)
+}
+
+/** How far a download is, "Downloading, 12.4 of 24.2 MB", while it runs. */
+export function downloadLine(progress: { done: number; total: number | null }): string {
+  const locale = currentLocale()
+  const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 })
+  const megabytes = new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit: 'megabyte',
+    maximumFractionDigits: 1,
+  })
+  const done = progress.done / 1_000_000
+  return progress.total
+    ? t('appUpdate.downloading', {
+        done: number.format(done),
+        total: megabytes.format(progress.total / 1_000_000),
+      })
+    : t('appUpdate.downloadingSome', { done: megabytes.format(done) })
 }
 
 /** The English list of changes needs a word saying so in other languages. */

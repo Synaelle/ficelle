@@ -11,6 +11,7 @@
   import {
     appUpdates,
     channelChoice,
+    downloadLine,
     notificationsHere,
     updatesHere,
     waitingForStable,
@@ -52,13 +53,6 @@
     <!-- a package's updates are its package manager's: nothing to switch -->
     {#if !packaged}
       <Row
-        label={t('appUpdate.auto')}
-        on={prefs.autoUpdates}
-        onclick={() => (prefs.autoUpdates = !prefs.autoUpdates)}
-      />
-    {/if}
-    {#if !prefs.autoUpdates && !packaged}
-      <Row
         label={t('appUpdate.securityChecks')}
         on={prefs.securityChecks}
         onclick={() => {
@@ -85,12 +79,16 @@
     {/if}
     {#if appUpdates.ready}
       <Row
-        label={appUpdates.ready.page
-          ? t('appUpdate.out', { version: appUpdates.ready.version })
-          : t('appUpdate.ready', { version: appUpdates.ready.version })}
+        label={appUpdates.downloaded
+          ? t('appUpdate.ready', { version: appUpdates.ready.version })
+          : t('appUpdate.out', { version: appUpdates.ready.version })}
+        help={appUpdates.progress ? downloadLine(appUpdates.progress) : undefined}
       >
-        <button class="btn primary" onclick={() => void channelSwitch.update()}
-          >{appUpdates.ready.page
+        <button
+          class="btn primary"
+          disabled={!!appUpdates.progress}
+          onclick={() => void channelSwitch.update()}
+          >{appUpdates.ready.page || !appUpdates.downloaded
             ? t('appUpdate.download')
             : phone
               ? t('appUpdate.install')

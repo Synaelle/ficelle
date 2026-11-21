@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   channel,
   channelChoice,
+  downloadLine,
   isBigJump,
   isFix,
   updateLines,
@@ -91,5 +92,14 @@ describe('updateLines', () => {
 
   it('has nothing to say for a release before the messages', () => {
     expect(updateLines(update())).toEqual([])
+  })
+})
+
+describe('downloadLine', () => {
+  it('says how far the download is, in megabytes', () => {
+    expect(downloadLine({ done: 12_400_000, total: 24_200_000 })).toBe(
+      'Downloading, 12.4 of 24.2 MB',
+    )
+    expect(downloadLine({ done: 3_000_000, total: null })).toBe('Downloading, 3 MB')
   })
 })

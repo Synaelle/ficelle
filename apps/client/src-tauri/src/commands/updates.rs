@@ -4,7 +4,10 @@
 //! preview build has no version to compare. The newest GitHub release carries
 //! tauri's `latest.json`, one entry per platform with the file's address and
 //! its minisign signature, made with the key in `brand.json` (`appUpdatesKey`).
-//! The file is downloaded here and checked against that key.
+//! The app only reads the list on its own. The file is downloaded when the
+//! person asks for it, into a `.part` file a later try goes on from, with
+//! its progress sent to the page (`app-update-progress`), then checked
+//! against that key.
 //!
 //! On Windows the checked installer then runs and the app leaves; on Linux
 //! the AppImage replaces itself and starts again. On Android the APK
@@ -148,11 +151,37 @@ fn failed(kind: &'static str, err: impl std::fmt::Display) -> CommandError {
     CommandError::new(kind, err.to_string())
 }
 
+/// How far a download is, for the page.
+#[derive(Debug, Clone, Copy, Serialize)]
+struct Progress {
+    done: u64,
+    /// `None` when the server does not say the size.
+    total: Option<u64>,
+}
+
+/// Sends a download's progress to the page, a few times a second at most.
+fn reporter(app: &tauri::AppHandle) -> impl FnMut(u64, Option<u64>) {
+    use std::time::{Duration, Instant};
+    use tauri::Emitter;
+
+    let app = app.clone();
+    let mut sent: Option<Instant> = None;
+    move |done, total| {
+        if sent.is_some_and(|at| at.elapsed() < Duration::from_millis(200)) && Some(done) != total {
+            return;
+        }
+        sent = Some(Instant::now());
+        let _ = app.emit("app-update-progress", Progress { done, total });
+    }
+}
+
 mod list {
     //! Reading `latest.json`, downloading and checking a file.
 
     use std::collections::HashMap;
-    use std::io::Read;
+    use std::fs::{self, OpenOptions};
+    use std::io::{Read, Write};
+    use std::path::Path;
     use std::time::Duration;
 
     use base64::{Engine, engine::general_purpose::STANDARD};
@@ -310,6 +339,82 @@ mod list {
         Ok(bytes)
     }
 
+    /// Downloads `url` into `part`, going on from what an earlier try left
+    /// there when the server allows it, refused past `max` bytes. A slow
+    /// connection takes as long as it needs, one where nothing arrives for a
+    /// minute gives up. `progress` hears the bytes so far and the size.
+    pub fn fetch(
+        url: &str,
+        part: &Path,
+        max: u64,
+        progress: &mut dyn FnMut(u64, Option<u64>),
+    ) -> CommandResult<()> {
+        let offline = |e: &dyn std::fmt::Display| failed("offline", e);
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_connect(Some(Duration::from_secs(30)))
+            .timeout_recv_response(Some(Duration::from_secs(60)))
+            .timeout_per_read(Some(Duration::from_secs(60)))
+            .user_agent(app_brand::SLUG)
+            .build()
+            .into();
+        let have = fs::metadata(part).map_or(0, |m| m.len());
+        let mut request = agent.get(url);
+        if have > 0 {
+            request = request.header("Range", format!("bytes={have}-"));
+        }
+        let response = match request.call() {
+            Ok(response) => response,
+            // what was kept is no longer a start of the file: from the beginning
+            Err(ureq::Error::StatusCode(416)) => {
+                fs::remove_file(part).map_err(|e| failed("file", e))?;
+                return fetch(url, part, max, progress);
+            }
+            Err(e) => return Err(offline(&e)),
+        };
+        // 206 goes on from `have`, anything else is the whole file again
+        let start = if response.status() == 206 { have } else { 0 };
+        let total = response
+            .headers()
+            .get("content-length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<u64>().ok())
+            .map(|length| length + start);
+        if total.is_some_and(|t| t > max) {
+            return Err(failed("update", "the download is larger than it may be"));
+        }
+        let mut out = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(start > 0)
+            .truncate(start == 0)
+            .open(part)
+            .map_err(|e| failed("file", e))?;
+        let mut reader = response.into_body().into_reader();
+        let mut buffer = vec![0; 64 * 1024];
+        let mut done = start;
+        progress(done, total);
+        loop {
+            let read = reader.read(&mut buffer).map_err(|e| offline(&e))?;
+            if read == 0 {
+                break;
+            }
+            out.write_all(&buffer[..read])
+                .map_err(|e| failed("file", e))?;
+            done += read as u64;
+            if done > max {
+                drop(out);
+                let _ = fs::remove_file(part);
+                return Err(failed("update", "the download is larger than it may be"));
+            }
+            progress(done, total);
+        }
+        out.flush().map_err(|e| failed("file", e))?;
+        if total.is_some_and(|t| t != done) {
+            return Err(failed("offline", "the download stopped before its end"));
+        }
+        Ok(())
+    }
+
     /// The channel's list, at this build's own address.
     pub fn latest(channel: Channel) -> CommandResult<Latest> {
         serde_json::from_slice(&get(channel.url(), MAX_LIST)?)
@@ -374,14 +479,29 @@ mod list {
         })
     }
 
-    /// This device's file from the list, downloaded and checked: signed by
-    /// the update key, for the version the list announces.
-    pub fn download(file: &Platform, version: &str) -> CommandResult<Vec<u8>> {
-        let bytes = get(&file.url, MAX_FILE)?;
-        let comment = verify(&bytes, &file.signature, app_brand::APP_UPDATES_KEY)
-            .map_err(|e| failed("update", e))?;
-        if !signed_for(&comment, version) {
-            return Err(failed("update", "the file is signed for another version"));
+    /// This device's file from the list, downloaded into `part` and
+    /// checked: signed by the update key, for the version the list
+    /// announces. A file that fails the check is not kept to go on from.
+    pub fn download(
+        file: &Platform,
+        version: &str,
+        part: &Path,
+        progress: &mut dyn FnMut(u64, Option<u64>),
+    ) -> CommandResult<Vec<u8>> {
+        fetch(&file.url, part, MAX_FILE, progress)?;
+        let bytes = fs::read(part).map_err(|e| failed("file", e))?;
+        let checked = verify(&bytes, &file.signature, app_brand::APP_UPDATES_KEY)
+            .map_err(|e| failed("update", e))
+            .and_then(|comment| {
+                if signed_for(&comment, version) {
+                    Ok(())
+                } else {
+                    Err(failed("update", "the file is signed for another version"))
+                }
+            });
+        if let Err(e) = checked {
+            let _ = fs::remove_file(part);
+            return Err(e);
         }
         Ok(bytes)
     }
@@ -396,7 +516,7 @@ mod platform {
 
     use tauri::{AppHandle, Manager};
 
-    use super::list::{Latest, download, here, latest, offered, platform_key};
+    use super::list::{Latest, clean, download, here, latest, offered, platform_key};
     use super::{AppUpdate, Channel, failed};
     use crate::error::CommandResult;
 
@@ -437,10 +557,28 @@ mod platform {
         let Some(file) = list.platforms.get(&platform_key()) else {
             return Ok(None);
         };
+        let dir = app
+            .path()
+            .app_cache_dir()
+            .map_err(|e| failed("file", e))?
+            .join("updates");
+        std::fs::create_dir_all(&dir).map_err(|e| failed("file", e))?;
+        let part = dir.join(format!("{}-{}.part", app_brand::SLUG, clean(&list.version)));
+        // only this version's download is gone on from
+        for entry in std::fs::read_dir(&dir)
+            .map_err(|e| failed("file", e))?
+            .flatten()
+        {
+            if entry.path() != part {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
+        let bytes = download(file, &list.version, &part, &mut super::reporter(app))?;
+        let _ = std::fs::remove_file(&part);
         let ready = Ready {
             channel,
             info: AppUpdate::new(&list, None),
-            bytes: download(file, &list.version)?,
+            bytes,
         };
         let found = ready.info.clone();
         *pending.0.lock().map_err(|e| failed("unknown", e))? = Some(ready);
@@ -581,9 +719,12 @@ mod platform {
         let latest = latest(channel)?;
         let current = offered(&latest, here(), allow_older);
         let name = format!("{}-{}.apk", app_brand::SLUG, clean(&latest.version));
-        // only the newest file stays, an installed or older one goes
+        let part_name = format!("{name}.part");
+        // only the newest file stays, with its download in progress; an
+        // installed or older one goes
         for entry in fs::read_dir(&dir).map_err(|e| failed("file", e))?.flatten() {
-            if !current || entry.file_name().to_string_lossy() != name {
+            let file = entry.file_name().to_string_lossy().into_owned();
+            if !current || (file != name && file != part_name) {
                 let _ = fs::remove_file(entry.path());
             }
         }
@@ -597,11 +738,10 @@ mod platform {
         let Some(file) = latest.platforms.get(&platform_key()) else {
             return Ok(None);
         };
-        let bytes = download(file, &latest.version)?;
-        // written under another name first: a file named like an update has
+        // downloaded under another name: a file named like an update has
         // always been checked
-        let part = dir.join(format!("{name}.part"));
-        fs::write(&part, &bytes).map_err(|e| failed("file", e))?;
+        let part = dir.join(&part_name);
+        download(file, &latest.version, &part, &mut super::reporter(app))?;
         fs::rename(&part, dir.join(&name)).map_err(|e| failed("file", e))?;
         Ok(Some(found))
     }
@@ -652,8 +792,9 @@ pub fn app_update_page_only() -> bool {
     page_only()
 }
 
-/// Looks for a newer version and downloads it. `None`: up to date, or this
-/// build does not update itself. `allow_older`: a beta going back to Stable,
+/// Looks for a newer version and downloads it, when the person asks for
+/// it: the app never does on its own. `None`: up to date, or this build
+/// does not update itself. `allow_older`: a beta going back to Stable,
 /// an older version with the same schema downloads too (never on the
 /// portable exe, which only reads the version).
 #[tauri::command]
@@ -677,9 +818,9 @@ pub async fn app_update_check(
         .map_err(|e| failed("unknown", e))?
 }
 
-/// The newest version on the release list, downloading nothing. With
-/// automatic updates off, the app looks only to tell of a critical security
-/// fix; the person chooses whether to update. `allow_older`: an older
+/// The newest version on the release list, downloading nothing: how the app
+/// looks on its own, to tell of a new version or a critical security fix;
+/// the person chooses whether to update. `allow_older`: an older
 /// version is returned too, schema or not, for a beta to tell whether it can
 /// go back to Stable (`older`, `sameSchema`, `goBack`).
 #[tauri::command]
@@ -734,6 +875,70 @@ pub use platform::Pending;
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_cut_download_goes_on_from_where_it_stopped() {
+        use std::io::{BufRead, BufReader, Write};
+        use std::net::TcpListener;
+
+        let file: Vec<u8> = (0..1000u32).map(|i| (i % 251) as u8).collect();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/app", listener.local_addr().unwrap());
+        let served = file.clone();
+        let host = std::thread::spawn(move || {
+            let mut ranges = Vec::new();
+            for (n, stream) in listener.incoming().take(2).enumerate() {
+                let mut stream = stream.unwrap();
+                let mut range = None;
+                let reader = BufReader::new(stream.try_clone().unwrap());
+                for line in reader.lines() {
+                    let line = line.unwrap();
+                    if line.is_empty() {
+                        break;
+                    }
+                    if let Some(r) = line.to_lowercase().strip_prefix("range: bytes=") {
+                        range = r.trim_end_matches('-').parse::<usize>().ok();
+                    }
+                }
+                ranges.push(range);
+                if n == 0 {
+                    // the whole file announced, the connection cut at 400
+                    write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n").unwrap();
+                    stream.write_all(&served[..400]).unwrap();
+                } else {
+                    let from = range.unwrap_or(0);
+                    write!(
+                        stream,
+                        "HTTP/1.1 206 Partial Content\r\nContent-Length: {}\r\n\r\n",
+                        served.len() - from
+                    )
+                    .unwrap();
+                    stream.write_all(&served[from..]).unwrap();
+                }
+            }
+            ranges
+        });
+        let dir = std::env::temp_dir().join(format!("update-resume-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let part = dir.join("app.part");
+        let mut seen = Vec::new();
+        let first = super::list::fetch(&url, &part, 10_000, &mut |done, total| {
+            seen.push((done, total));
+        });
+        assert!(
+            first.is_err(),
+            "a cut download is not taken for a whole one"
+        );
+        assert_eq!(std::fs::metadata(&part).unwrap().len(), 400);
+        super::list::fetch(&url, &part, 10_000, &mut |done, total| {
+            seen.push((done, total));
+        })
+        .unwrap();
+        assert_eq!(std::fs::read(&part).unwrap(), file);
+        assert_eq!(seen.last(), Some(&(1000, Some(1000))));
+        assert_eq!(host.join().unwrap(), [None, Some(400)]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     use super::list::{
         Latest, clean, listed_rank, newer, offered, older, rank, same_schema, signed_for, verify,
     };

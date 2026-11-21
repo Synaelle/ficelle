@@ -1,11 +1,18 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- A newer version is downloaded: a card above the toasts, the knot tying
-     itself beside the version, the button that installs it, what changed
-     behind "What's changed". "Later" offers waiting for the next start or
+<!-- A newer version is out: a card above the toasts, the knot tying itself
+     beside the version, the button that downloads it (its progress below,
+     the app usable meanwhile) then installs it, what changed behind "What's
+     changed". "Later" offers waiting for the next start or
      skipping this version for the next one (a security fix can only wait). -->
 <script lang="ts">
   import { ANDROID } from './platform'
-  import { appUpdates, changelogLabelled, isFix, updateLines } from './appUpdate.svelte'
+  import {
+    appUpdates,
+    changelogLabelled,
+    downloadLine,
+    isFix,
+    updateLines,
+  } from './appUpdate.svelte'
   import { channelSwitch } from './channelChange.svelte'
   import Icon from './icons/Icon.svelte'
   import Knot from '@app/ui/Knot.svelte'
@@ -30,7 +37,7 @@
     const ready = appUpdates.ready
     if (!ready) return ''
     const fix = isFix(ready.version)
-    if (ready.page) return fix ? t('appUpdate.cardFixOut') : t('appUpdate.cardNewOut')
+    if (!appUpdates.downloaded) return fix ? t('appUpdate.cardFixOut') : t('appUpdate.cardNewOut')
     return fix ? t('appUpdate.cardFixReady') : t('appUpdate.cardNewReady')
   })
 
@@ -73,6 +80,15 @@
         </div>
       {/if}
     {/if}
+    {#if appUpdates.progress}
+      <div class="progress" role="status">
+        <progress
+          max={appUpdates.progress.total ?? undefined}
+          value={appUpdates.progress.total ? appUpdates.progress.done : undefined}
+        ></progress>
+        <span>{downloadLine(appUpdates.progress)}</span>
+      </div>
+    {/if}
     {#if appUpdates.error}<p class="error">{t(`errors.${appUpdates.error}`)}</p>{/if}
     <div class="actions">
       <button
@@ -82,9 +98,9 @@
       >
       <button
         class="btn primary"
-        disabled={appUpdates.installing}
+        disabled={appUpdates.installing || !!appUpdates.progress}
         onclick={() => void channelSwitch.update()}
-        >{appUpdates.ready.page
+        >{appUpdates.ready.page || !appUpdates.downloaded
           ? t('appUpdate.download')
           : appUpdates.installing
             ? t('appUpdate.restarting')
@@ -197,6 +213,17 @@
   }
   .error {
     color: var(--color-danger);
+  }
+  .progress {
+    display: grid;
+    gap: var(--space-1);
+    color: var(--color-text-muted);
+    font-size: 13px;
+  }
+  .progress progress {
+    width: 100%;
+    height: 6px;
+    accent-color: var(--color-accent);
   }
   .actions {
     display: flex;

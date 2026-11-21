@@ -56,10 +56,7 @@ export interface Prefs {
   lastNote: string | null
   /** The list it was opened from: a tag, all notes, those with no tag. */
   lastScope: Scope | null
-  /** Newer versions download by themselves and a card offers them. Off,
-   * only a critical security fix is told, in the middle of the screen. */
-  autoUpdates: boolean
-  /** With automatic updates off, still look for critical security fixes. */
+  /** A critical security fix is asked in the middle of the screen. */
   securityChecks: boolean
   /** A system notification when an update is out. */
   updateNotifications: boolean
@@ -116,7 +113,6 @@ export const DEFAULT_PREFS: Prefs = {
   hiddenTools: [],
   lastNote: null,
   lastScope: null,
-  autoUpdates: true,
   securityChecks: true,
   updateNotifications: false,
   channel: 'stable',
