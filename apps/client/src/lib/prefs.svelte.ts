@@ -136,6 +136,7 @@ export const DEFAULT_PREFS: Prefs = {
 }
 
 const STORAGE_KEY = 'prefs'
+const SORTS: readonly NoteSort[] = ['updatedDesc', 'createdDesc', 'titleAsc']
 
 /** Shows or hides a formatting button, see hiddenTools. */
 export function showTool(icon: string, on: boolean) {
@@ -154,6 +155,8 @@ function load(): Prefs {
     // from older versions: following the system is dark now, a custom arrow the default
     if (loaded.mode !== 'light') loaded.mode = 'dark'
     if (!ARROW_CHOICES.includes(loaded.arrow)) loaded.arrow = DEFAULT_PREFS.arrow
+    // a sort order this version does not know (a newer version's) breaks the list
+    if (!SORTS.includes(loaded.sort)) loaded.sort = DEFAULT_PREFS.sort
     // betas ended, nightlies took their place: back on Stable, told once
     if ((loaded.channel as string) === 'beta') {
       loaded.channel = 'stable'
