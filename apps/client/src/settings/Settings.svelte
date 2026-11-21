@@ -8,7 +8,7 @@
   import { modal } from '../lib/modal'
   import { onMount } from 'svelte'
   import { biometricMethod } from '../lib/biometric'
-  import { LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
+  import { currentLocale, LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { prefs, shortcutFor, showTool } from '../lib/prefs.svelte'
@@ -339,6 +339,9 @@
                   {/each}
                 </select>
               </Row>
+              {#if currentLocale() !== 'en'}
+                <p class="settings-help">{t('settings.translatedWith')}</p>
+              {/if}
               <Row label={t('settings.clock')}>
                 <select
                   class="field compact same-width"

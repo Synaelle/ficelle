@@ -15,7 +15,7 @@
   import { onBack } from '../lib/back'
   import { modal } from '../lib/modal'
   import { biometricMethod } from '../lib/biometric'
-  import { LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
+  import { currentLocale, LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { overlay, type MenuItem } from '../lib/overlay.svelte'
@@ -612,6 +612,9 @@
             />
           {/each}
         </Group>
+        {#if currentLocale() !== 'en'}
+          <p class="settings-help">{t('settings.translatedWith')}</p>
+        {/if}
         <Group title={t('settings.clock')}>
           {#each ['system', '24', '12'] as const as choice (choice)}
             <Row
