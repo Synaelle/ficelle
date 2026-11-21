@@ -4,7 +4,7 @@ Ficelle has no analytics, tracking or crash reports. Requests carry no account, 
 
 ## The apps
 
-- Updates come from GitHub releases, checked on unlock and every few hours. With automatic updates off, the app still checks for security fixes unless you turn that off too.
+- Updates come from GitHub releases, checked on unlock and every few hours. An update downloads only when you ask for it.
 - OpenDyslexic downloads once from ficelle.synaelle.com, else jsDelivr.
 - Feedback goes to ficelle.synaelle.com, or to your sync server if its admin chose so.
 
