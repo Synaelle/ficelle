@@ -287,11 +287,7 @@
         style:min-height={hold ? `${hold}px` : null}
         onclick={(e) => {
           const target = e.target as HTMLElement
-          if (
-            source ||
-            target.closest('button, a, input, summary, aside, [data-note-files], .prose')
-          )
-            return
+          if (source || target.closest('button, a, input, summary, aside, .prose')) return
           const prose = e.currentTarget.querySelector('.prose')
           if (prose && e.clientY > prose.getBoundingClientRect().bottom) editorRef?.writeAtEnd()
         }}
@@ -402,10 +398,13 @@
             </ul>
           </aside>
         {/if}
-
-        <NoteFiles noteId={note.id} body={note.body} editor={source ? undefined : editorRef} />
       </article>
     </div>
+
+    <!-- under the note, not after its text, so attaching never needs a scroll -->
+    <footer class="files-bar">
+      <NoteFiles noteId={note.id} body={note.body} editor={source ? undefined : editorRef} />
+    </footer>
 
     {#if versions}
       <div
@@ -554,6 +553,26 @@
   .scroll {
     flex: 1;
     overflow-y: auto;
+  }
+  .files-bar {
+    flex: none;
+    padding: var(--space-2) var(--space-6);
+    border-top: 1px solid var(--color-border);
+  }
+  .files-bar:empty {
+    display: none;
+  }
+  .narrow .files-bar {
+    padding: var(--space-2) var(--space-4);
+  }
+  /* clear of the editor's bar, fixed at the bottom of a touch screen */
+  @media (pointer: coarse) {
+    .files-bar,
+    .narrow .files-bar {
+      padding-bottom: calc(
+        var(--space-2) + 44px + 2 * var(--space-1) + env(safe-area-inset-bottom)
+      );
+    }
   }
   article {
     /* the note takes the whole pane, as wide as the window makes it, and at

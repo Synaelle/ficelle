@@ -93,16 +93,7 @@
 </script>
 
 {#if files.length}
-  <details
-    class="files"
-    data-note-files
-    ontoggle={(e) => {
-      // at the very bottom of the note, the list opens out of sight on phones
-      const list = e.currentTarget
-      if (list.open)
-        requestAnimationFrame(() => list.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
-    }}
-  >
+  <details class="files" data-note-files>
     <summary>
       <Icon name="attachment" size={14} />
       {t('files.inNote', { count: files.length })}
@@ -171,11 +162,6 @@
 {/if}
 
 <style>
-  .files {
-    margin-top: var(--space-7);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--color-border);
-  }
   summary,
   .attach {
     display: flex;
@@ -187,7 +173,6 @@
     cursor: pointer;
   }
   .attach {
-    margin-top: var(--space-7);
     padding: 0;
     border: 0;
     background: none;
@@ -199,11 +184,14 @@
   .attach:focus-visible {
     opacity: 1;
   }
+  /* a long list scrolls in place and leaves the note most of the pane */
   ul {
     display: grid;
     gap: var(--space-1);
+    max-height: 30vh;
     margin: var(--space-2) 0 0;
     padding: 0;
+    overflow-y: auto;
     list-style: none;
   }
   li {
