@@ -24,7 +24,7 @@ function protocolVersion(): number {
 // `--mode web` builds the web version: the notes app alone, for a static
 // folder, with the core running in the page
 export default defineConfig(({ mode }) => ({
-  plugins: [svelte(), tomlLocales(), localeShares(), iconSets()],
+  plugins: [svelte(), tomlLocales(!!platform), localeShares(), iconSets()],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion()),
     __APP_BUILD_DATE__: JSON.stringify(buildDate()),
@@ -82,10 +82,13 @@ export default defineConfig(({ mode }) => ({
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
     outDir: mode === 'web' ? 'dist-web' : 'dist',
     rollupOptions: {
-      // the admin page ships with the web build, the server serves it at
-      // /admin; the apps leave it out
+      // the admin page ships with the server, which serves it at /admin
+      // (mode admin: nothing else, the server's web version is the web
+      // build); the apps leave it out
       input: {
-        main: fileURLToPath(new URL('index.html', import.meta.url)),
+        ...(mode === 'admin'
+          ? {}
+          : { main: fileURLToPath(new URL('index.html', import.meta.url)) }),
         ...(platform || mode === 'web'
           ? {}
           : { admin: fileURLToPath(new URL('admin.html', import.meta.url)) }),

@@ -4,7 +4,7 @@
 // dev:web) fill that one with the sample notes, so the ui can be worked on
 // without the native shell; the server's admin page gets it empty.
 
-import { WEB } from '../platform'
+import { PLATFORM, WEB } from '../platform'
 import { announcingInvoke } from '../windows'
 import type { Backend } from './backend'
 import { createMemoryBackend } from './memory'
@@ -14,7 +14,9 @@ import { createWebBackend } from './web'
 export type { Backend } from './backend'
 export * from './types'
 
-const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+// an app build is always inside tauri: the other two backends are left out
+const inTauri =
+  PLATFORM !== 'web' || (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)
 
 // dev only: ?fresh starts with no notes, on the first-run setup
 const fresh =

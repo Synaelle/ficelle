@@ -7,13 +7,22 @@ import type { Plugin } from 'vite'
 import { loadLocales, localesDir, parseLocale } from '../../../tools/i18n.mjs'
 import { LUCIDE, PHOSPHOR } from '../src/lib/icons/sets.ts'
 
-/** `import strings from 'x.toml'` gives the flat "section.key" strings. */
-export function tomlLocales(): Plugin {
+/** Texts of the server's admin page and its mails, which the apps never
+ * show, but for the one lib/format.ts shares with the admin page. */
+const serverOnly = (key: string) =>
+  (key.startsWith('admin.') || key.startsWith('mail.')) && key !== 'admin.never'
+
+/** `import strings from 'x.toml'` gives the flat "section.key" strings,
+ * without the server's own for an app. */
+export function tomlLocales(app: boolean): Plugin {
   return {
     name: 'toml-locales',
     transform(source, id) {
       if (!id.endsWith('.toml')) return null
-      return { code: `export default ${JSON.stringify(parseLocale(source))}`, map: null }
+      const strings = Object.entries(parseLocale(source)).filter(
+        ([key]) => !app || !serverOnly(key),
+      )
+      return { code: `export default ${JSON.stringify(Object.fromEntries(strings))}`, map: null }
     },
   }
 }

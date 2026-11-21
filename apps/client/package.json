@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "node ../../tools/wasm.mjs && vite",
     "build": "node ../../tools/wasm.mjs && vite build",
+    "build:app": "vite build",
+    "build:admin": "node ../../tools/wasm.mjs && vite build --mode admin",
     "preview": "vite preview",
     "check": "node ../../tools/wasm.mjs && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && tsc -p tsconfig.node.json",
     "tauri": "tauri",

@@ -47,10 +47,6 @@ jobs:
           # only main saves: caches made on tags and other branches are
           # unreadable from main and push its own out of the 10 GB limit
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      # the client carries the e2ee code as WebAssembly, see tools/wasm.mjs
-      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
-        with:
-          tool: wasm-bindgen@0.2.129
       - run: pnpm install --frozen-lockfile
 
       # the NSIS installer only: the MSI one takes no beta version

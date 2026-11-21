@@ -50,7 +50,7 @@ function build(what, command) {
   console.log(dim(`building ${what}…`))
   execSync(command, { cwd: root, stdio: 'inherit' })
 }
-build('the web pages', 'pnpm --filter @app/client build')
+build('the admin page', 'pnpm --filter @app/client build:admin')
 build('the web version', 'pnpm --filter @app/client build:web')
 // served from the pages' folder, as the image does
 cpSync(join(root, 'apps/client/dist-web'), join(root, 'apps/client/dist/web'), { recursive: true })

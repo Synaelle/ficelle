@@ -55,7 +55,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
       *) echo "CHANNEL is release or preview" >&2; exit 1 ;; \
     esac; \
     export APP_COMMIT="$COMMIT" APP_COMMIT_DATE="$COMMIT_DATE"; \
-    pnpm --filter @app/client build; \
+    pnpm --filter @app/client build:admin; \
     pnpm --filter @app/client build:web; \
     cargo build --release --locked -p server; \
     mkdir -p /out/bin /out/web /out/root; \
