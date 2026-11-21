@@ -197,12 +197,20 @@ export async function prepare(
   const read = await importer.read(source, { add: (item) => report.push(item), progress })
   const settled = settle(read, new Set(source.entries.map((e) => e.path)), report)
   const model = importer.pathKeys ? { ...settled, notes: await withText(settled.notes) } : settled
-  const keys = model.notes.map((n) => n.key)
-  const known = new Set<string>()
+  // notes brought in before keys said the text are known by the path alone
+  const keys = model.notes.flatMap((n, i) =>
+    n.key === settled.notes[i]?.key ? [n.key] : [n.key, settled.notes[i]?.key ?? ''],
+  )
+  const found = new Set<string>()
   for (let i = 0; i < keys.length; i += 1000) {
     for (const key of await backend.importKnown(importer.id, keys.slice(i, i + 1000)))
-      known.add(key)
+      found.add(key)
   }
+  const known = new Set(
+    model.notes
+      .filter((n, i) => found.has(n.key) || found.has(settled.notes[i]?.key ?? ''))
+      .map((n) => n.key),
+  )
   const fresh = model.notes.filter((n) => !known.has(n.key))
   const times = fresh.flatMap((n) => [n.created, n.updated]).filter((t): t is number => !!t)
   return {

@@ -212,6 +212,16 @@ describe('the markdown importer through the pipeline', () => {
     expect(fresh.counts).toMatchObject({ notes: 2, skipped: 0 })
   })
 
+  it('knows notes an earlier version brought in by their path alone', async () => {
+    const backend = await vault()
+    const files = { 'a.md': 'one', 'b.md': 'two' }
+    const first = await prepare(memorySource('Old', files), markdownImporter, backend)
+    const byPath = first.model.notes.map((n) => ({ ...n, key: n.key.split('\n')[0] ?? '' }))
+    await write({ ...first, model: { ...first.model, notes: byPath } }, backend, { name: 'Old' })
+    const again = await prepare(memorySource('Old', files), markdownImporter, backend)
+    expect(again.counts).toMatchObject({ notes: 0, skipped: 2 })
+  })
+
   it('the inline tags option and a cancel between batches', async () => {
     const backend = await vault()
     const files: Record<string, string> = {}
