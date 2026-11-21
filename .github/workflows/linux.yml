@@ -79,6 +79,19 @@ jobs:
       - name: build, unsigned
         if: ${{ !inputs.signed }}
         run: node tools/build-release.mjs --unsigned -- --bundles appimage
+      # the program, its launcher and icons without the libraries the
+      # AppImage carries, for packages that use the system's (ficelle-bin
+      # on the AUR)
+      - name: program archive
+        run: |
+          set -eu
+          dir=target/release/bundle/appimage
+          appimage=$(ls "$dir"/*.AppImage | head -1)
+          (cd "$dir" && "./$(basename "$appimage")" --appimage-extract >/dev/null)
+          tar --zstd -C "$dir/squashfs-root" -cf "${appimage%.AppImage}.tar.zst" \
+            usr/bin usr/share/applications usr/share/icons
+          rm -rf "$dir/squashfs-root"
+          ls -l "$dir"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -86,4 +99,5 @@ jobs:
           path: |
             target/release/bundle/appimage/*.AppImage
             target/release/bundle/appimage/*.AppImage.sig
+            target/release/bundle/appimage/*.tar.zst
           retention-days: 7

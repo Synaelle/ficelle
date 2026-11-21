@@ -5,7 +5,8 @@
 //
 //   node tools/aur/update.mjs <version> <folder>
 //
-// The checksum comes from the release's own AppImage, downloaded from GitHub.
+// The checksum comes from the release's own program archive, downloaded from
+// GitHub.
 // Betas are refused: the AUR package follows stable releases only.
 
 import { createHash } from 'node:crypto'
@@ -24,8 +25,8 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) {
 }
 
 const here = dirname(fileURLToPath(import.meta.url))
-const appimage = `Ficelle_${version}_amd64.AppImage`
-const url = `https://github.com/Synaelle/ficelle/releases/download/v${version}/${appimage}`
+const archive = `Ficelle_${version}_amd64.tar.zst`
+const url = `https://github.com/Synaelle/ficelle/releases/download/v${version}/${archive}`
 const response = await fetch(url, { signal: AbortSignal.timeout(120_000) })
 if (!response.ok) {
   console.error(`${url}: ${response.status}`)
