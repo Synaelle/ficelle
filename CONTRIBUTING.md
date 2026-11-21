@@ -51,6 +51,6 @@ To report a security problem, use [Report a vulnerability](../../security/adviso
 
 [Building Ficelle](docs/building.md) explains how to build and run the app. Before opening a pull request, run `pnpm lint`, `pnpm lint:rust` and `pnpm test`.
 
-### Wanted most, iOS and macOS
+### Wanted most, iOS
 
-The thing Ficelle needs most is someone with a Mac or an iPhone. I don't have the hardware, so the Mac app is built but untested, and there is no iOS app at all. If you can build, test or develop for Apple's platforms, please get in touch in [Discussions](../../discussions).
+The thing Ficelle needs most is someone with an iPhone. I don't have one, so there is no iOS app. If you can build, test or develop for it, please get in touch in [Discussions](../../discussions).

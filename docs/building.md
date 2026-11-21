@@ -23,7 +23,6 @@ Every build needs these.
 
 - Rust from rustup. `rust-toolchain.toml` picks the version (1.100.0) and adds the WebAssembly target.
 - Node 24 and pnpm 12.15.0 (`corepack enable` or `npm install -g pnpm@12.15.0`).
-- wasm-bindgen for the end-to-end encryption code, `cargo install --locked wasm-bindgen-cli --version 0.2.129`.
 
 Then, in the checkout, `pnpm install --frozen-lockfile`.
 
@@ -33,20 +32,19 @@ On Debian or Ubuntu, install the WebKitGTK and system packages first.
 
 ```bash
 sudo apt install build-essential pkg-config libwebkit2gtk-4.1-dev \
-  libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev file
+  librsvg2-dev file
 ```
 
-Windows needs the Visual Studio C++ build tools and Perl for OpenSSL, such as Strawberry Perl with `PERL` set to its `perl.exe`. A Mac needs the Xcode command line tools.
+Windows needs the Visual Studio C++ build tools and Perl for OpenSSL, such as Strawberry Perl with `PERL` set to its `perl.exe`.
 
 `pnpm dev` runs the app from the sources. To build it under its real name, without the update signature:
 
 ```bash
 node tools/build-release.mjs --unsigned -- --bundles appimage   # Linux
 node tools/build-release.mjs --unsigned -- --bundles nsis       # Windows
-node tools/build-release.mjs --unsigned -- --bundles app,dmg    # macOS
 ```
 
-The result is in `target/release/bundle/`, or `target/universal-apple-darwin/release/bundle/` for the universal Mac app. For a Mac app that runs on both Apple Silicon and Intel, run `rustup target add aarch64-apple-darwin x86_64-apple-darwin` and add `--target universal-apple-darwin`. A plain `pnpm --filter @app/client tauri build` gives Ficelle Dev instead, which keeps its notes apart from the real app.
+The result is in `target/release/bundle/`. A plain `pnpm --filter @app/client tauri build` gives Ficelle Dev instead, which keeps its notes apart from the real app.
 
 ## Android
 
