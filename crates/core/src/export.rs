@@ -112,7 +112,7 @@ fn entry_name(path: &Path) -> String {
 impl<W: Write> Out for ZipOut<W> {
     fn dir(&mut self, path: &Path) -> Result<()> {
         // every folder has its entry, so an empty one is kept
-        let dated = match zip_time(jiff::Timestamp::now()) {
+        let dated = match zip_time(crate::clock::Clock::now(&crate::clock::SystemClock)) {
             Some(time) => self.options.last_modified_time(time),
             None => self.options,
         };
@@ -122,10 +122,7 @@ impl<W: Write> Out for ZipOut<W> {
     }
 
     fn file(&mut self, path: &Path, bytes: &[u8], at: Timestamp) -> Result<()> {
-        let dated = match jiff::Timestamp::from_millisecond(at)
-            .ok()
-            .and_then(zip_time)
-        {
+        let dated = match zip_time(at) {
             Some(time) => self.options.last_modified_time(time),
             None => self.options,
         };
@@ -181,15 +178,15 @@ fn set_modified(path: &Path, at: Timestamp) -> Result<()> {
 }
 
 /// A date as a zip entry holds it (no time zone, to the two seconds).
-fn zip_time(at: jiff::Timestamp) -> Option<zip::DateTime> {
-    let day = at.to_zoned(jiff::tz::TimeZone::UTC).datetime();
+fn zip_time(at: Timestamp) -> Option<zip::DateTime> {
+    let day = crate::clock::utc(at);
     zip::DateTime::from_date_and_time(
-        u16::try_from(day.year()).ok()?,
-        u8::try_from(day.month()).ok()?,
-        u8::try_from(day.day()).ok()?,
-        u8::try_from(day.hour()).ok()?,
-        u8::try_from(day.minute()).ok()?,
-        u8::try_from(day.second()).ok()?,
+        u16::try_from(day.year).ok()?,
+        day.month,
+        day.day,
+        day.hour,
+        day.minute,
+        day.second,
     )
     .ok()
 }

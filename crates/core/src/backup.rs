@@ -522,8 +522,8 @@ impl Backup {
 
 /// The name offered for a new backup: the app and the day.
 pub fn default_name(now: i64) -> PathBuf {
-    let date = jiff::Timestamp::from_millisecond(now)
-        .map_or_default(|t| t.strftime("%Y-%m-%d").to_string());
+    let day = crate::clock::utc(now);
+    let date = format!("{:04}-{:02}-{:02}", day.year, day.month, day.day);
     PathBuf::from(format!(
         "{} {date}.{}",
         app_brand::DISPLAY_NAME,

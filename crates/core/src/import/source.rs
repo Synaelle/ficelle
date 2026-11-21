@@ -113,21 +113,14 @@ fn millis(time: std::time::SystemTime) -> Option<i64> {
 /// whose own dates are missing.
 fn zip_millis(time: Option<zip::DateTime>) -> Option<i64> {
     let t = time?;
-    let date = jiff::civil::date(
-        i16::try_from(t.year()).ok()?,
-        i8::try_from(t.month()).ok()?,
-        i8::try_from(t.day()).ok()?,
-    );
-    let at = date
-        .at(
-            i8::try_from(t.hour()).ok()?,
-            i8::try_from(t.minute()).ok()?,
-            i8::try_from(t.second()).ok()?,
-            0,
-        )
-        .to_zoned(jiff::tz::TimeZone::UTC)
-        .ok()?;
-    Some(at.timestamp().as_millisecond())
+    crate::clock::from_utc(crate::clock::Utc {
+        year: i64::from(t.year()),
+        month: t.month(),
+        day: t.day(),
+        hour: t.hour(),
+        minute: t.minute(),
+        second: t.second(),
+    })
 }
 
 /// A path from an archive made safe: `/` separators, no leading `/`, no

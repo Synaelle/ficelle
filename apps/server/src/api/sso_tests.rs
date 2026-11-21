@@ -22,6 +22,7 @@ use openidconnect::{
     JsonWebKeySetUrl, Nonce, PrivateSigningKey, ResponseTypes, StandardClaims, SubjectIdentifier,
     TokenUrl,
 };
+use rsa::pkcs1::{EncodeRsaPrivateKey, LineEnding};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
@@ -50,15 +51,12 @@ struct IdpState {
 async fn provider() -> Idp {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let issuer = format!("http://{}", listener.local_addr().unwrap());
-    let pem = openssl::rsa::Rsa::generate(2048)
+    let pem = rsa::RsaPrivateKey::new(&mut rsa::rand_core::OsRng, 2048)
         .unwrap()
-        .private_key_to_pem()
+        .to_pkcs1_pem(LineEnding::LF)
         .unwrap();
-    let key = CoreRsaPrivateSigningKey::from_pem(
-        std::str::from_utf8(&pem).unwrap(),
-        Some(JsonWebKeyId::new("k1".into())),
-    )
-    .unwrap();
+    let key =
+        CoreRsaPrivateSigningKey::from_pem(&pem, Some(JsonWebKeyId::new("k1".into()))).unwrap();
     let logins = Logins::default();
     let state = IdpState {
         issuer: issuer.clone(),
