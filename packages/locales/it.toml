@@ -35,7 +35,6 @@ update = "Non è stato possibile verificare né installare l’aggiornamento."
 testBuild = "Versione di prova che simula una versione beta, pertanto non viene effettuato alcun controllo, né alcun download o installazione."
 
 [appUpdate]
-auto = "Aggiornamento automatico"
 securityChecks = "Cerca le correzioni di sicurezza critiche"
 notify = "Mi avvisi quando è disponibile un aggiornamento"
 notifyDenied = "Le notifiche sono disattivate per questa app. È possibile abilitarle nelle impostazioni di sistema."
@@ -55,6 +54,8 @@ cardFixReady = "Una correzione per questa versione, scaricata e pronta all’uso
 cardNewOut = "È disponibile una nuova versione"
 cardFixOut = "È disponibile una correzione per questa versione"
 download = "Scarica"
+downloading = "Download in corso, {done} su {total}"
+downloadingSome = "Download in corso, {done}"
 helpPackage = "Installata come pacchetto, questa app non si aggiorna automaticamente. Segnala quando è disponibile una nuova versione e apre la relativa pagina di download, a meno che non sia il gestore dei pacchetti ad aggiornarla."
 restart = "Riavvia per aggiornare"
 changes = "Cosa è cambiato"

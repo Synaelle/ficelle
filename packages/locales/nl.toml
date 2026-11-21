@@ -35,7 +35,6 @@ update = "De update kon niet worden gecontroleerd of geïnstalleerd."
 testBuild = "Testversie die zich voordoet als een bètaversie, zodat er niets wordt gecontroleerd, gedownload of geïnstalleerd."
 
 [appUpdate]
-auto = "Automatisch bijwerken"
 securityChecks = "Zoek naar cruciale beveiligingsupdates"
 notify = "Laat mij weten wanneer er een update beschikbaar is"
 notifyDenied = "Meldingen zijn voor deze app uitgeschakeld. U kunt deze toestaan in de systeeminstellingen."
@@ -55,6 +54,8 @@ cardFixReady = "Een oplossing voor deze versie, gedownload en klaar voor gebruik
 cardNewOut = "Er is een nieuwe versie beschikbaar"
 cardFixOut = "Er is een oplossing voor deze versie beschikbaar"
 download = "Downloaden"
+downloading = "Downloaden, {done} van {total}"
+downloadingSome = "Downloaden, {done}"
 helpPackage = "Deze app wordt als pakket geïnstalleerd en werkt zichzelf niet bij. De app meldt wanneer er een nieuwe versie beschikbaar is en opent de downloadpagina, tenzij uw pakketbeheerder de app bijwerkt."
 restart = "Start opnieuw op om bij te werken"
 changes = "Wat is er veranderd"
