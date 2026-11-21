@@ -14,6 +14,8 @@ mod error;
 mod hello;
 #[cfg(target_os = "linux")]
 mod linux_desktop;
+// file viewer
+mod opened_files;
 mod picked;
 mod portable;
 mod protocol;
@@ -109,6 +111,8 @@ pub fn run() {
         .on_window_event(commands::images::remember_drop);
     builder
         .manage(windows::Windows::default())
+        // file viewer
+        .manage(opened_files::OpenedFiles::default())
         .on_window_event(window_closed)
         .plugin(own_pages())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -143,15 +147,14 @@ pub fn run() {
             // after manage: the thread reads the state from the handle
             app.state::<AppState>().sync.start(app.handle().clone());
             app.state::<sync::local::Local>().start(app.handle());
-            // started to open files: their windows only, nothing of the notes
+            // started to open files (file viewer): their windows only,
+            // nothing of the notes
             #[cfg(desktop)]
             {
                 let cwd = std::env::current_dir().unwrap_or_default();
-                let files = windows::files_in(std::env::args().skip(1), &cwd);
-                if files.is_empty() {
+                let args = std::env::args().collect();
+                if !opened_files::open_from_args(app.handle(), args, &cwd)? {
                     portable::open_main(app.handle())?;
-                } else {
-                    windows::open_files(app.handle(), &files)?;
                 }
             }
             #[cfg(mobile)]
@@ -300,21 +303,23 @@ pub fn run() {
             sync::local::local_sync_now,
             sync::local::local_sync_foreground,
             sync::local::local_sync_permission,
-            windows::opened_file_read,
-            windows::opened_file_write,
-            windows::opened_file_take,
             windows::window_ready,
             windows::window_note_set,
             windows::note_window_focus,
             windows::note_window_open,
             windows::note_window_count,
-            windows::main_window_open,
-            windows::main_window_show,
-            windows::main_window_take_note,
+            // file viewer
+            opened_files::opened_file_read,
+            opened_files::opened_file_write,
+            opened_files::opened_file_take,
+            opened_files::main_window_open,
+            opened_files::main_window_show,
+            opened_files::main_window_take_note,
         ])
         .build(context)
         .expect("failed to start the app")
-        .run(opened);
+        // file viewer: macOS hands over files as an event
+        .run(opened_files::on_run_event);
 }
 
 /// A window closed: what it held is let go, and the note windows close with
@@ -324,6 +329,10 @@ fn window_closed(window: &tauri::Window, event: &tauri::WindowEvent) {
         return;
     }
     window.state::<windows::Windows>().forget(window.label());
+    // file viewer
+    window
+        .state::<opened_files::OpenedFiles>()
+        .forget(window.label());
     #[cfg(desktop)]
     if window.label() == "main" {
         windows::main_closed(window.app_handle());
@@ -331,22 +340,6 @@ fn window_closed(window: &tauri::Window, event: &tauri::WindowEvent) {
         windows::lock_when_alone(window.app_handle(), window.label());
     }
 }
-
-/// macOS hands the files opened with the app as an event, not as arguments.
-#[cfg(target_os = "macos")]
-fn opened(app: &tauri::AppHandle, event: tauri::RunEvent) {
-    if let tauri::RunEvent::Opened { urls } = event {
-        let files: Vec<_> = urls
-            .iter()
-            .filter_map(|url| url.to_file_path().ok())
-            .map(|path| path.to_string_lossy().into_owned())
-            .collect();
-        windows::launched_again(app, [String::new()].into_iter().chain(files).collect(), "/");
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn opened(_: &tauri::AppHandle, _: tauri::RunEvent) {}
 
 #[cfg(test)]
 mod tests {

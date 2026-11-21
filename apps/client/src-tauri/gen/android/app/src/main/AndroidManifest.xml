@@ -48,7 +48,7 @@
                 <!-- AndroidTV support -->
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
-            <!-- "open with" for Markdown and text files: the viewer opens them in place -->
+            <!-- file viewer: "open with" for Markdown and text files, opened in place -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

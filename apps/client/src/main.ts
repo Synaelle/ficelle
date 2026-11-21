@@ -14,7 +14,8 @@ import { followScrollbars } from './lib/scrollbars'
 import { followVisibleHeight } from './lib/uiSize'
 import { isQuickWindow } from './lib/quickNote'
 import QuickNote from './QuickNote.svelte'
-import FileWindow from './FileWindow.svelte'
+// file viewer
+import FileWindow from './fileViewer/FileWindow.svelte'
 import NoteWindow from './NoteWindow.svelte'
 import { windowKind } from './lib/windows'
 import { isScoped } from './lib/webScope'
@@ -38,7 +39,7 @@ const target = document.getElementById('app')
 if (!target) throw new Error('missing #app element in index.html')
 
 // the desktop's other windows load the same page: #quick for the quick note,
-// #file for a file opened with the app, #note=<id> for a note of its own
+// #file for a file opened with the app (file viewer), #note=<id> for a note of its own
 // (desktop apps only: the phone and the web have one window)
 const kind = DESKTOP ? windowKind() : { kind: 'main' as const }
 export default DESKTOP && isQuickWindow()

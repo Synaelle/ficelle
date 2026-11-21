@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const called: string[] = []
 const unlocked = { unlocked: true, exists: true, way: 'plain' }
 
-vi.mock('./lib/backend', () => ({
+vi.mock('../lib/backend', () => ({
   backend: new Proxy(
     {},
     {
@@ -28,15 +28,17 @@ vi.mock('./lib/backend', () => ({
 }))
 
 const written: string[] = []
-vi.mock('./lib/windows', () => ({
+vi.mock('./files', () => ({
   readOpenedFile: () =>
     Promise.resolve({ name: 'todo.txt', text: 'buy *milk*\n', plain: true, stamp: '1' }),
   writeOpenedFile: (text: string) => {
     written.push(text)
     return Promise.resolve('2')
   },
-  announceUnlocked: () => Promise.resolve(),
   showInMain: () => Promise.resolve(),
+}))
+vi.mock('../lib/windows', () => ({
+  announceUnlocked: () => Promise.resolve(),
   windowReady: () => Promise.resolve(),
 }))
 

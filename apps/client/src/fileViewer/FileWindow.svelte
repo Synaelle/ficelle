@@ -9,34 +9,33 @@
   import { brand } from '@app/brand'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { onDestroy } from 'svelte'
-  import Editor from './editor/Editor.svelte'
-  import { autoLock } from './lib/autolock.svelte'
-  import { backend, type VaultStatus } from './lib/backend'
-  import { applyDyslexicFont } from './lib/dyslexicFont'
-  import Icon from './lib/icons/Icon.svelte'
-  import { setLocale, systemLocale, t } from './lib/i18n.svelte'
-  import { parseMarkdownFile, parseTextFile } from './lib/importing'
-  import { onBack } from './lib/back'
-  import { modal } from './lib/modal'
-  import { overlay } from './lib/overlay.svelte'
-  import Overlays from './lib/Overlays.svelte'
-  import { DESKTOP } from './lib/platform'
-  import { prefs } from './lib/prefs.svelte'
-  import { applyTheme } from './lib/theme.svelte'
-  import { toasts } from './lib/toast.svelte'
-  import Toasts from './lib/Toasts.svelte'
-  import { applyUiSize } from './lib/uiSize'
+  import Editor from '../editor/Editor.svelte'
+  import { autoLock } from '../lib/autolock.svelte'
+  import { backend, type VaultStatus } from '../lib/backend'
+  import { applyDyslexicFont } from '../lib/dyslexicFont'
+  import Icon from '../lib/icons/Icon.svelte'
+  import { setLocale, systemLocale, t } from '../lib/i18n.svelte'
+  import { parseMarkdownFile, parseTextFile } from '../lib/importing'
+  import { onBack } from '../lib/back'
+  import { modal } from '../lib/modal'
+  import { overlay } from '../lib/overlay.svelte'
+  import Overlays from '../lib/Overlays.svelte'
+  import { DESKTOP } from '../lib/platform'
+  import { prefs } from '../lib/prefs.svelte'
+  import { applyTheme } from '../lib/theme.svelte'
+  import { toasts } from '../lib/toast.svelte'
+  import Toasts from '../lib/Toasts.svelte'
+  import { applyUiSize } from '../lib/uiSize'
+  import { announceUnlocked, windowReady } from '../lib/windows'
   import {
-    announceUnlocked,
     mainWindowOpen,
     readOpenedFile,
     showInMain,
-    windowReady,
     writeOpenedFile,
     type OpenedFile,
-  } from './lib/windows'
-  import { isBackendError } from './lib/workspace.svelte'
-  import Unlock from './screens/Unlock.svelte'
+  } from './files'
+  import { isBackendError } from '../lib/workspace.svelte'
+  import Unlock from '../screens/Unlock.svelte'
 
   let { close }: { close: () => void } = $props()
 

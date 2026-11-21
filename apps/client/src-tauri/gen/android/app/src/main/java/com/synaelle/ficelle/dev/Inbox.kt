@@ -29,7 +29,7 @@ class Inbox(private val activity: Activity) {
   /** Tells the page something arrived, set once the webview exists. */
   var onArrival: (() -> Unit)? = null
 
-  // Files opened with the app ("open with"), kept apart: the page shows them
+  // File viewer: files opened with the app ("open with"), kept apart: the page shows them
   // even with the notes locked, and reads them in place, never copied in.
   private val files = JSONArray()
 
