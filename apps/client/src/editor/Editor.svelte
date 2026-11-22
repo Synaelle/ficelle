@@ -388,15 +388,12 @@
   /** Whether the person placed the caret in this note since it opened. */
   let placed = false
 
-  /** Mentions a file of the note at the caret, or on a line of its own at
-   * the end when the caret was never placed (it would sit before the first
-   * word otherwise). */
-  /** Puts the caret at the start of the text: Enter in the title. */
   /** Passes on typing still waiting for its pause. */
   export function flush() {
     save()
   }
 
+  /** Puts the caret at the start of the text: Enter in the title. */
   export function focusStart() {
     if (!editor) return
     // TipTap's focus waits for a frame: the caret moves at once
@@ -437,14 +434,21 @@
     } else writeAfter(editor.state.doc.content.size)
   }
 
+  /** Mentions a file of the note on a line of its own, under the caret's
+   * line, or at the end when the caret was never placed (it would sit
+   * before the first word otherwise). An empty line takes it as it is, so
+   * files mentioned one after another go one per line. */
   export function mentionFile(file: AttachmentFile) {
-    if (placed) editor?.chain().focus().insertContent(mentionOf(file)).run()
+    if (!editor) return
+    editor.commands.focus(placed ? null : 'end')
+    const caret = editor.state.selection.$from
+    if (caret.parent.isTextblock && caret.parent.content.size === 0)
+      editor.commands.insertContent(mentionOf(file))
     else
-      editor
-        ?.chain()
-        .focus('end')
-        .insertContent({ type: 'paragraph', content: [mentionOf(file)] })
-        .run()
+      editor.commands.insertContentAt(caret.depth > 0 ? caret.after() : caret.pos, {
+        type: 'paragraph',
+        content: [mentionOf(file)],
+      })
   }
 
   /** Adds files to the note without mentioning them in the text. */
