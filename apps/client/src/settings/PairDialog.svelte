@@ -289,7 +289,7 @@
     gap: var(--space-3);
     padding: var(--space-5);
     background: var(--color-surface);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-window);
   }
   /* a phone: the pairing screens are pages of their own */
