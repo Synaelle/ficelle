@@ -10,9 +10,9 @@ use std::net::{TcpStream, ToSocketAddrs};
 use std::time::{Duration, Instant};
 
 use app_core::sync::engine::{Backoff, RemoteError};
-use app_protocol::sync::{LiveMessage, LiveRequest};
+use app_protocol::sync::LiveMessage;
 use app_protocol::{PROTOCOL_HEADER, PROTOCOL_VERSION};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use tungstenite::client::IntoClientRequest;
 use tungstenite::protocol::frame::coding::CloseCode;
 use tungstenite::{Message, WebSocket};
@@ -138,10 +138,7 @@ fn connection(
     emit_status(app);
     let mut heard = Instant::now();
     let mut looked = Instant::now();
-    // what the server was told on this connection, nothing yet
-    let mut said = Said::Nothing;
     loop {
-        say_viewing(sync, &mut socket, &mut said)?;
         match socket.read() {
             Ok(message) => {
                 heard = Instant::now();
@@ -201,18 +198,9 @@ fn take(
                 sync.set_coediting(coediting);
                 emit_status(app);
             }
-            Ok(LiveMessage::Presence { space, viewers }) => {
-                sync.set_presence(
-                    space.clone(),
-                    viewers.iter().map(|v| v.note.clone()).collect(),
-                );
-                let _ = app.emit(
-                    "sync-presence",
-                    serde_json::json!({ "space": space, "viewers": viewers }),
-                );
-            }
-            // a newer server's message this app does not know
-            Err(_) => {}
+            // who views a shared note, from an older server; or a newer
+            // server's message this app does not know
+            Ok(LiveMessage::Presence { .. }) | Err(_) => {}
         },
         Message::Close(frame) => {
             // 4401: the token ran out or the device was signed out. A
@@ -232,33 +220,6 @@ fn take(
         _ => {}
     }
     None
-}
-
-/// Tells the server the note open in the ui, when it changed since it was
-/// last told on this connection.
-fn say_viewing(
-    sync: &Sync,
-    socket: &mut WebSocket<tungstenite::stream::MaybeTlsStream<TcpStream>>,
-    said: &mut Said,
-) -> Result<(), String> {
-    let now = sync.viewing();
-    if matches!(said, Said::This(told) if *told == now) {
-        return Ok(());
-    }
-    let (space, note) = now.0.clone().unzip();
-    let request =
-        serde_json::to_string(&LiveRequest::Viewing { space, note }).map_err(|e| e.to_string())?;
-    socket
-        .send(Message::Text(request.into()))
-        .map_err(|e| e.to_string())?;
-    *said = Said::This(now);
-    Ok(())
-}
-
-/// What a connection told the server the ui views.
-enum Said {
-    Nothing,
-    This((Option<(String, String)>, bool)),
 }
 
 fn close(socket: &mut WebSocket<tungstenite::stream::MaybeTlsStream<TcpStream>>) {

@@ -48,9 +48,6 @@ const SETTLE: Duration = Duration::from_secs(3);
 /// open (no presence tells), they see an edit a few seconds after it is
 /// typed (the editor saves after a second of quiet).
 const SETTLE_LIVE: Duration = Duration::from_millis(1500);
-/// While someone else is known to have the open note of a shared space
-/// open: co-editing, an edit shows about a second after it is typed.
-const SETTLE_COEDITING: Duration = Duration::from_millis(300);
 
 /// Where sync stands, for the indicator and the settings.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -157,11 +154,6 @@ struct Shared {
     coediting: Option<bool>,
     /// When documents were last offered for compaction.
     compacted: Option<Instant>,
-    /// The note of a shared space open in the ui, said on the live socket.
-    viewing: Option<(String, String)>,
-    /// Per shared space, the note each of its viewers has open, from the
-    /// live socket: two on the open note means someone may be co-editing.
-    presence: std::collections::HashMap<String, Vec<String>>,
     /// The account's files policy and usage, as the last round heard.
     files: Option<app_protocol::files::FilesInfo>,
     /// A round of the notes ended: the files thread makes a pass.
@@ -256,41 +248,9 @@ impl Sync {
         self.shared.1.notify_all();
     }
 
-    /// The note of a shared space open in the ui, none when there is none.
-    pub fn set_viewing(&self, viewing: Option<(String, String)>) {
-        self.lock().viewing = viewing;
-    }
-
-    /// The open note, and whether the server allows co-editing: said
-    /// again when that is turned back on, the server forgot it.
-    fn viewing(&self) -> (Option<(String, String)>, bool) {
-        let shared = self.lock();
-        (shared.viewing.clone(), shared.coediting.unwrap_or(true))
-    }
-
     /// The server's co-editing setting, from the live socket.
     fn set_coediting(&self, on: bool) {
         self.lock().coediting = Some(on);
-    }
-
-    /// Who has which note of a shared space open, from the live socket.
-    fn set_presence(&self, space: String, notes: Vec<String>) {
-        self.lock().presence.insert(space, notes);
-    }
-
-    /// The open note is open somewhere else too (another person, or another
-    /// of this account's devices), and the live socket carries its edits.
-    fn coedited(&self) -> bool {
-        let shared = self.lock();
-        let Some((space, note)) = &shared.viewing else {
-            return false;
-        };
-        shared.live
-            && shared.coediting.unwrap_or(true)
-            && shared
-                .presence
-                .get(space)
-                .is_some_and(|notes| notes.iter().filter(|n| *n == note).count() >= 2)
     }
 
     fn run(&self, app: &AppHandle) {
@@ -325,9 +285,7 @@ impl Sync {
                 shared.kicked = false;
             }
             // let a burst of writes end, then decide whether there is work
-            let settle = if self.coedited() {
-                SETTLE_COEDITING
-            } else if self.lock().live {
+            let settle = if self.lock().live {
                 SETTLE_LIVE
             } else {
                 SETTLE
@@ -735,14 +693,6 @@ impl Remote for Wire<'_> {
         Ok(Some(app_protocol::sync::SharedSpaces {
             spaces: Vec::new(),
         }))
-    }
-
-    fn give_grants(
-        &mut self,
-        _space: &str,
-        _grants: &app_protocol::sync::GiveGrants,
-    ) -> Result<(), RemoteError> {
-        Ok(())
     }
 
     fn files_info(&mut self) -> Result<Option<app_protocol::files::FilesInfo>, RemoteError> {

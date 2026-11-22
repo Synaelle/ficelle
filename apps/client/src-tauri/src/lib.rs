@@ -292,7 +292,6 @@ pub fn run() {
             sync::commands::sync_email_code,
             sync::commands::sync_status,
             sync::commands::sync_now,
-            sync::commands::sync_viewing,
             sync::commands::sync_disconnect,
             sync::local::local_sync_status,
             sync::local::local_sync_set_name,
