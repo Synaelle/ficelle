@@ -507,11 +507,17 @@
     padding: 0 var(--space-3);
     border-bottom: 1px solid var(--color-border);
   }
-  /* sized like the note list's header beside it, so their buttons share a line */
+  /* sized like the note list's header beside it, so their buttons share a
+     line. Zoomed, the header ends between two screen pixels and WebKit can
+     round the note's clip up into that row: the header paints over it, the
+     bars that float in the note too */
   .view > header {
+    position: relative;
+    z-index: 6;
     height: auto;
     padding: var(--space-3) var(--space-3) var(--space-2);
     border-bottom: 0;
+    background: inherit;
   }
   .where {
     flex: 1;
