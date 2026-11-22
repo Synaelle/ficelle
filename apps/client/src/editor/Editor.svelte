@@ -19,7 +19,7 @@
   import { FILES_CHANGED } from '../lib/sync.svelte'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
-  import { overlay, SEPARATOR, textItems, type MenuItem } from '../lib/overlay.svelte'
+  import { overlay, SEPARATOR, textItems, type Around, type MenuItem } from '../lib/overlay.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
   import type { ActionId } from '../lib/shortcuts'
@@ -593,13 +593,28 @@
     found?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }
 
+  /** The lines a selection spans in the window, for a dialog to leave in view. */
+  function selectionBox(current: Editor): Around {
+    const { from, to } = current.state.selection
+    return {
+      top: current.view.coordsAtPos(from).top,
+      bottom: current.view.coordsAtPos(to).bottom,
+    }
+  }
+
   async function promptLink() {
     if (!editor) return
     const current = editor.getAttributes('link').href as string | undefined
+    const around = selectionBox(editor)
     // nothing selected and no link here: the text to show is asked too, a
     // link set on nothing would only take the next letter typed
     if (!current && editor.state.selection.empty) {
-      const asked = await overlay.askLink(t('editor.linkText'), t('editor.linkAddress'), 'https://')
+      const asked = await overlay.askLink(
+        t('editor.linkText'),
+        t('editor.linkAddress'),
+        'https://',
+        around,
+      )
       if (!asked || !editor) return
       const href = linkAddress(asked.href)
       if (!href || href === 'https://') return
@@ -623,7 +638,7 @@
         .run()
       return
     }
-    const asked = await overlay.askText(t('editor.linkPrompt'), current ?? 'https://')
+    const asked = await overlay.askText(t('editor.linkPrompt'), current ?? 'https://', around)
     if (asked === null || !editor) return
     const href = asked === '' ? '' : linkAddress(asked)
     if (href === '') editor.chain().focus().unsetLink().run()

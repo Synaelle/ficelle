@@ -22,6 +22,13 @@
   let textInput: HTMLInputElement | undefined = $state()
   let beforeInput: HTMLInputElement | undefined = $state()
   let draft = $state('')
+  /** A dialog about some text of the page goes to the side with more room,
+   * so the text stays in view. */
+  const dialogSide = $derived.by(() => {
+    const around = overlay.dialog?.kind === 'text' ? overlay.dialog.around : undefined
+    if (!around) return undefined
+    return around.top > window.innerHeight - around.bottom ? 'start' : 'end'
+  })
   /** The seconds left before a question that asks for a pause can be confirmed. */
   let waitLeft = $state(0)
   $effect(() => {
@@ -272,6 +279,7 @@
   <div
     class="backdrop"
     role="presentation"
+    style:align-items={dialogSide}
     onclick={(e) => e.target === e.currentTarget && overlay.answer(null)}
   >
     <!-- Esc is answered by onkeydown above -->

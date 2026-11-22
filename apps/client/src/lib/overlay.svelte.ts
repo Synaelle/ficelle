@@ -48,7 +48,16 @@ interface TextDialog {
   digits?: boolean
   /** A field asked first, above the main one: a new link's text. */
   before?: { message: string; value: string }
+  /** Lines of the window the dialog stays clear of, the text it is about,
+   * as the page measures them. */
+  around?: Around
   resolve: (value: string | null) => void
+}
+
+/** The top and bottom of something on the page, in window coordinates. */
+export interface Around {
+  top: number
+  bottom: number
 }
 
 export type Dialog = AskDialog | TextDialog
@@ -131,10 +140,10 @@ class Overlay {
   }
 
   /** Asks for a line of text, resolves null when dismissed. */
-  askText(message: string, value = ''): Promise<string | null> {
+  askText(message: string, value = '', around?: Around): Promise<string | null> {
     this.answer(null)
     return new Promise((resolve) => {
-      this.dialog = { kind: 'text', message, value, secret: false, resolve }
+      this.dialog = { kind: 'text', message, value, secret: false, around, resolve }
     })
   }
 
@@ -144,6 +153,7 @@ class Overlay {
     textMessage: string,
     addressMessage: string,
     address: string,
+    around?: Around,
   ): Promise<{ text: string; href: string } | null> {
     this.answer(null)
     return new Promise((resolve) => {
@@ -154,6 +164,7 @@ class Overlay {
         value: address,
         secret: false,
         before,
+        around,
         resolve: (href) => resolve(href === null ? null : { text: before.value, href }),
       }
     })
