@@ -100,7 +100,7 @@
     {
       icon: 'code',
       label: () => t('editor.code'),
-      action: 'code',
+      // the code shortcut makes inline code, a code block has none
       run: () => chain().toggleCodeBlock().run(),
       active: () => editor.isActive('codeBlock'),
     },
