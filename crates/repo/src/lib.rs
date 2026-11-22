@@ -4,8 +4,8 @@
 //! on a [`Target`] (a folder, S3, `WebDAV`...). Not the backup archive of
 //! the core, one file made by hand: a repository is filled by scheduled
 //! runs and keeps many snapshots, each stored once whatever it shares with
-//! the others. What goes in a snapshot is the caller's: an app's notes
-//! (the core), a server's database and files (the server).
+//! the others. What goes in a snapshot is the caller's, the server's
+//! database and files.
 //!
 //! Layout, format 1:
 //!
@@ -25,16 +25,13 @@
 
 pub mod chunk;
 mod error;
-#[cfg(not(target_family = "wasm"))]
 mod http;
 mod maintain;
-#[cfg(not(target_family = "wasm"))]
 mod s3;
 mod snapshot;
 pub mod target;
 #[cfg(feature = "testing")]
 pub mod testing;
-#[cfg(not(target_family = "wasm"))]
 mod webdav;
 mod writer;
 
@@ -50,14 +47,10 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
 pub use error::{Error, Result};
-#[cfg(not(target_family = "wasm"))]
-pub use http::host_of;
 pub use maintain::{CheckReport, Lock, PruneReport};
-#[cfg(not(target_family = "wasm"))]
 pub use s3::{S3Config, S3Target};
 pub use snapshot::{Item, Policy, Snapshot, keep};
 pub use target::{FolderTarget, Listed, Target};
-#[cfg(not(target_family = "wasm"))]
 pub use webdav::{WebdavConfig, WebdavTarget};
 pub use writer::{WriteStats, Writer};
 

@@ -28,7 +28,7 @@ pub(crate) fn agent() -> ureq::Agent {
 /// before the path, query or fragment, without a `user@` and the port, and
 /// without the brackets of an IPv6 address.
 #[must_use]
-pub fn host_of(rest: &str) -> String {
+pub(crate) fn host_of(rest: &str) -> String {
     let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
     let host_port = authority.rsplit('@').next().unwrap_or_default();
     match host_port.strip_prefix('[') {
