@@ -385,7 +385,7 @@
                   tabs?.[source ? 1 : 0]?.focus()
                 }}
               >
-                <Icon name={raw ? 'code' : 'eye'} size={16} />
+                <Icon name={raw ? 'code' : 'pencil'} size={16} />
                 {raw ? t('note.raw') : t('note.preview')}
               </button>
             {/each}
