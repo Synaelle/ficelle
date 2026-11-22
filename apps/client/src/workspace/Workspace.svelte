@@ -15,7 +15,7 @@
   import { shortcutFor } from '../lib/prefs.svelte'
   import { workspace } from '../lib/workspace.svelte'
   import { backups } from '../lib/backups.svelte'
-  import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
+  import { appUpdates, channelChoice, updatesHere } from '../lib/appUpdate.svelte'
   import { onMount, tick } from 'svelte'
   import { pageZoom } from '../lib/uiSize'
   import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -76,8 +76,8 @@
   onMount(() => {
     if (WEB && backupDue()) toasts.push(t('backups.title'), t('backups.webReminder'))
     if (prefs.betasEnded) {
-      // it points to Nightly in About: said only where that choice is
-      if (updatesHere && channelChoice)
+      // it points to Nightly in Updates: said only where that choice is
+      if (updatesHere && channelChoice && !appUpdates.elsewhere)
         toasts.push(t('appUpdate.betasEndedTitle'), t('appUpdate.betasEnded'))
       prefs.betasEnded = false
     }

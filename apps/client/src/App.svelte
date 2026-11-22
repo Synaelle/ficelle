@@ -166,7 +166,7 @@
   // updates download while the notes are open, never on the lock screen
   $effect(() => {
     appUpdates.shown = stage === 'ready'
-    if (stage === 'ready') appUpdates.start()
+    if (stage === 'ready') void appUpdates.start()
   })
 
   // the notes' screen loads while the unlock screen shows, not before it

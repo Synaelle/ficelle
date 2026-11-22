@@ -1,18 +1,16 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- The updates group of About: how versions come, the nightly versions and a
-     check right now. Only release builds update themselves, the others show
-     nothing. -->
+<!-- Updates, the same on desktop and phone: how versions come, the nightly
+     versions and a check right now. Only listed where the app has updates.
+     When a store or a package manager brings them, one line says so and the
+     rows stay, greyed. -->
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { backend } from '../lib/backend'
-  import { ANDROID, LINUX } from '../lib/platform'
+  import { ANDROID } from '../lib/platform'
   import { channelSwitch } from '../lib/channelChange.svelte'
   import {
     appUpdates,
     channelChoice,
     downloadLine,
     notificationsHere,
-    updatesHere,
     waitingForStable,
   } from '../lib/appUpdate.svelte'
   import { t } from '../lib/i18n.svelte'
@@ -22,11 +20,8 @@
 
   const phone = ANDROID
 
-  /** Installed as a Linux package, which the system updates. */
-  let packaged = $state(false)
-  onMount(() => {
-    if (LINUX && updatesHere) void backend.appUpdatePageOnly().then((only) => (packaged = only))
-  })
+  /** Nothing here to change: the switches read off, as the app does not look. */
+  const elsewhere = $derived(!!appUpdates.elsewhere)
 
   /** The system refused notifications: says where to allow them. */
   let notifyDenied = $state(false)
@@ -36,77 +31,89 @@
   }
 </script>
 
-{#if updatesHere}
-  <!-- a package has no switch here, so the one line says where its updates come from -->
-  <Group title={t('appUpdate.title')} note={packaged ? t('appUpdate.helpPackage') : undefined}>
-    <!-- a package's updates are its package manager's: nothing to switch -->
-    {#if !packaged}
-      <!-- off, nothing is looked for until the check below is pressed -->
-      <Row
-        label={t('appUpdate.checks')}
-        help={prefs.updateChecks ? undefined : t('appUpdate.checksOff')}
-        on={prefs.updateChecks}
-        onclick={() => (prefs.updateChecks = !prefs.updateChecks)}
-      />
-    {/if}
-    {#if notificationsHere}
-      <Row
-        label={t('appUpdate.notify')}
-        help={notifyDenied ? t('appUpdate.notifyDenied') : undefined}
-        on={prefs.updateNotifications}
-        onclick={() => void setNotifications(!prefs.updateNotifications)}
-      />
-    {/if}
-    {#if phone}
-      <Row
-        label={t('appUpdate.mobileData')}
-        on={prefs.updatesOnMobileData}
-        onclick={() => (prefs.updatesOnMobileData = !prefs.updatesOnMobileData)}
-      />
-    {/if}
-    {#if channelChoice && !packaged}
-      <Row
-        label={t('appUpdate.nightlyVersions')}
-        on={prefs.channel === 'nightly'}
-        onclick={() =>
-          void channelSwitch.choose(prefs.channel === 'nightly' ? 'stable' : 'nightly')}
-      />
-    {/if}
-    {#if appUpdates.ready}
-      <Row
-        label={appUpdates.downloaded
-          ? t('appUpdate.ready', { version: appUpdates.ready.version })
-          : t('appUpdate.out', { version: appUpdates.ready.version })}
-        help={appUpdates.progress ? downloadLine(appUpdates.progress) : undefined}
+{#if appUpdates.elsewhere}
+  <p class="settings-help">
+    {appUpdates.elsewhere === 'package'
+      ? t('appUpdate.fromPackage')
+      : t('appUpdate.fromStore', { store: appUpdates.elsewhere })}
+  </p>
+{/if}
+<Group>
+  <!-- off, nothing is looked for until the check below is pressed -->
+  <Row
+    label={t('appUpdate.checks')}
+    icon="syncing"
+    help={prefs.updateChecks || elsewhere ? undefined : t('appUpdate.checksOff')}
+    on={prefs.updateChecks && !elsewhere}
+    disabled={elsewhere}
+    onclick={() => (prefs.updateChecks = !prefs.updateChecks)}
+  />
+  {#if notificationsHere}
+    <Row
+      label={t('appUpdate.notify')}
+      icon="inbox"
+      help={notifyDenied ? t('appUpdate.notifyDenied') : undefined}
+      on={prefs.updateNotifications && !elsewhere}
+      disabled={elsewhere}
+      onclick={() => void setNotifications(!prefs.updateNotifications)}
+    />
+  {/if}
+  {#if phone}
+    <Row
+      label={t('appUpdate.mobileData')}
+      icon="globe"
+      on={prefs.updatesOnMobileData && !elsewhere}
+      disabled={elsewhere}
+      onclick={() => (prefs.updatesOnMobileData = !prefs.updatesOnMobileData)}
+    />
+  {/if}
+  {#if channelChoice}
+    <Row
+      label={t('appUpdate.nightlyVersions')}
+      icon="flask"
+      on={prefs.channel === 'nightly' && !elsewhere}
+      disabled={elsewhere}
+      onclick={() => void channelSwitch.choose(prefs.channel === 'nightly' ? 'stable' : 'nightly')}
+    />
+  {/if}
+  {#if appUpdates.ready}
+    <Row
+      label={appUpdates.downloaded
+        ? t('appUpdate.ready', { version: appUpdates.ready.version })
+        : t('appUpdate.out', { version: appUpdates.ready.version })}
+      icon="export"
+      help={appUpdates.progress ? downloadLine(appUpdates.progress) : undefined}
+    >
+      <button
+        class="btn primary"
+        disabled={!!appUpdates.progress}
+        onclick={() => void channelSwitch.update()}
+        >{appUpdates.ready.page || !appUpdates.downloaded
+          ? t('appUpdate.download')
+          : phone
+            ? t('appUpdate.install')
+            : t('appUpdate.restart')}</button
       >
-        <button
-          class="btn primary"
-          disabled={!!appUpdates.progress}
-          onclick={() => void channelSwitch.update()}
-          >{appUpdates.ready.page || !appUpdates.downloaded
-            ? t('appUpdate.download')
-            : phone
-              ? t('appUpdate.install')
-              : t('appUpdate.restart')}</button
-        >
-      </Row>
-    {:else}
-      <Row
-        label={appUpdates.checking ? t('appUpdate.checking') : t('appUpdate.check')}
-        help={appUpdates.upToDate
+    </Row>
+  {:else}
+    <Row
+      label={appUpdates.checking ? t('appUpdate.checking') : t('appUpdate.check')}
+      icon="search"
+      help={elsewhere
+        ? undefined
+        : appUpdates.upToDate
           ? t('appUpdate.upToDate')
           : waitingForStable()
             ? t('appUpdate.nightlyWaiting')
             : undefined}
-        disabled={appUpdates.checking}
-        onclick={() => void appUpdates.check()}
-      />
-    {/if}
-    {#if appUpdates.error}<p class="error" role="alert">
-        {t(`errors.${appUpdates.error}`)}
-      </p>{/if}
-  </Group>
-{/if}
+      disabled={appUpdates.checking || elsewhere}
+      onclick={() => void appUpdates.check()}
+    />
+  {/if}
+  {#if appUpdates.error}<p class="error" role="alert">
+      {t(`errors.${appUpdates.error}`)}
+    </p>{/if}
+</Group>
 
 <style>
   .error {

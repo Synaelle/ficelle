@@ -235,13 +235,14 @@ class SystemInfo(private val activity: Activity) {
  */
 class Installer(private val activity: Activity) {
   /**
-   * Whether an app store installed this app, or last updated it: F-Droid,
-   * the apps that read F-Droid repositories, Obtainium. That store updates
-   * it, so the app's own updater stays out of the way. Installed from a
-   * browser or a file manager, the system's installer is named, or nobody.
+   * The name of the app store that installed this app, or last updated it:
+   * F-Droid, the apps that read F-Droid repositories, Obtainium, Google
+   * Play. That store updates it, so the app's own updater stays out of the
+   * way. Empty for any other: installed from a browser or a file manager,
+   * the system's installer is named, or nobody.
    */
   @JavascriptInterface
-  fun fromStore(): Boolean {
+  fun store(): String {
     val installer = try {
       if (Build.VERSION.SDK_INT >= 30) {
         activity.packageManager.getInstallSourceInfo(activity.packageName).installingPackageName
@@ -252,7 +253,7 @@ class Installer(private val activity: Activity) {
     } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
       null
     }
-    return installer in STORES
+    return STORES[installer] ?: ""
   }
 
   /** The connection is metered (mobile data, a phone's hotspot): a download asks first. */
@@ -359,13 +360,14 @@ class Installer(private val activity: Activity) {
   fun backupsKept(): Boolean = Build.VERSION.SDK_INT >= 30
 }
 
-/** The stores that update the app themselves, see [Installer.fromStore]. */
-private val STORES = setOf(
-  "org.fdroid.fdroid",
-  "org.fdroid.basic",
-  "org.fdroid.fdroid.privileged",
-  "com.looker.droidify",
-  "com.machiav3lli.fdroid",
-  "dev.imranr.obtainium",
-  "dev.imranr.obtainium.fdroid",
+/** The stores that update the app themselves, by the name the app shows, see [Installer.store]. */
+private val STORES = mapOf(
+  "org.fdroid.fdroid" to "F-Droid",
+  "org.fdroid.basic" to "F-Droid",
+  "org.fdroid.fdroid.privileged" to "F-Droid",
+  "com.looker.droidify" to "F-Droid",
+  "com.machiav3lli.fdroid" to "F-Droid",
+  "dev.imranr.obtainium" to "Obtainium",
+  "dev.imranr.obtainium.fdroid" to "Obtainium",
+  "com.android.vending" to "Google Play",
 )
