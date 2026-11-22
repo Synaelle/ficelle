@@ -64,6 +64,9 @@ interface Menu {
   /** Opened by a long touch: a sheet along the bottom with large rows,
    * not a small menu under the finger. */
   sheet?: boolean
+  /** What the menu is for, named at the top of a sheet: the finger hides
+   * the row it was opened on. */
+  title?: string
 }
 
 class Overlay {
@@ -181,10 +184,10 @@ class Overlay {
   }
 
   /** Opens a context menu at the pointer and stops the webview menu. */
-  openMenu(event: MouseEvent, items: MenuItem[]) {
+  openMenu(event: MouseEvent, items: MenuItem[], title?: string) {
     event.preventDefault()
     event.stopPropagation()
-    this.openMenuAt(event.clientX, event.clientY, items, false, this.touch)
+    this.openMenuAt(event.clientX, event.clientY, items, false, this.touch, title)
   }
 
   /** Opens a menu under a button, aligned to its right edge when it fits. */
@@ -201,12 +204,19 @@ class Overlay {
   /** Where focus was before the menu, it goes back there when the menu closes. */
   private menuOpener: HTMLElement | null = null
 
-  private openMenuAt(x: number, y: number, items: MenuItem[], alignRight = false, sheet = false) {
+  private openMenuAt(
+    x: number,
+    y: number,
+    items: MenuItem[],
+    alignRight = false,
+    sheet = false,
+    title?: string,
+  ) {
     if (!this.menu) {
       const active = document.activeElement
       this.menuOpener = active instanceof HTMLElement && active !== document.body ? active : null
     }
-    this.menu = { x, y, items, parents: [], alignRight, sheet }
+    this.menu = { x, y, items, parents: [], alignRight, sheet, title }
   }
 
   enterSubmenu(item: MenuItem) {

@@ -209,8 +209,13 @@
     bind:this={menuElement}
     style:left={overlay.menu.sheet ? null : `${position.left / pageZoom()}px`}
     style:top={overlay.menu.sheet ? null : `${position.top / pageZoom()}px`}
+    aria-label={overlay.menu.title}
     onkeydown={(e) => menuKeys(e, menuElement, false)}
   >
+    {#if overlay.menu.sheet && overlay.menu.title && overlay.menu.parents.length === 0}
+      <p class="sheet-title">{overlay.menu.title}</p>
+      <hr />
+    {/if}
     {#if overlay.menu.parents.length > 0}
       <button class="item" role="menuitem" onclick={() => overlay.leaveSubmenu()}>
         <Icon name="back" size={16} />{t('common.back')}
@@ -362,6 +367,15 @@
   .menu.sheet .item {
     min-height: 48px;
     font-size: 16px;
+  }
+  .sheet-title {
+    margin: 0;
+    padding: var(--space-2) var(--space-2) var(--space-1);
+    color: var(--color-text-muted);
+    font-weight: 600;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .menu {
     position: fixed;

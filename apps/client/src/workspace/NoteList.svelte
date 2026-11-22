@@ -166,44 +166,63 @@
     swiped = null
   }
 
-  function noteMenu(event: MouseEvent, note: { id: string; pinned: boolean; tags: string[] }) {
+  /** The row a menu was opened on, marked while the menu stays open. */
+  let menuFor: string | null = $state(null)
+  $effect(() => {
+    if (!overlay.menu) menuFor = null
+  })
+
+  function noteMenu(
+    event: MouseEvent,
+    note: { id: string; title: string; pinned: boolean; tags: string[] },
+  ) {
+    const name = note.title || t('note.untitled')
+    menuFor = note.id
     if (trash) {
-      return overlay.openMenu(event, [
-        { label: t('list.restore'), icon: 'restore', run: () => void workspace.restore(note.id) },
-        { label: t('list.purge'), icon: 'trash', danger: true, run: () => void purge(note.id) },
-      ])
+      return overlay.openMenu(
+        event,
+        [
+          { label: t('list.restore'), icon: 'restore', run: () => void workspace.restore(note.id) },
+          { label: t('list.purge'), icon: 'trash', danger: true, run: () => void purge(note.id) },
+        ],
+        name,
+      )
     }
-    overlay.openMenu(event, [
-      // a phone opens a note with a tap, the menu only repeats it
-      ...(narrow ? [] : [{ label: t('menu.open'), run: () => void workspace.open(note.id) }]),
-      ...(noteWindowsSupported
-        ? [
-            {
-              label: t('menu.openInWindow'),
-              icon: 'window' as const,
-              run: () => void workspace.openInWindow(note.id),
-            },
-          ]
-        : []),
-      {
-        label: note.pinned ? t('note.unpin') : t('note.pin'),
-        icon: 'pin',
-        run: () => void workspace.togglePin(note.id, !note.pinned),
-      },
-      {
-        label: t('note.tags'),
-        icon: 'tag',
-        disabled: workspace.tags.length === 0,
-        items: tagItems(note.id, note.tags),
-      },
-      SEPARATOR,
-      {
-        label: t('note.trash'),
-        icon: 'trash',
-        danger: true,
-        run: () => void workspace.trash(note.id),
-      },
-    ])
+    overlay.openMenu(
+      event,
+      [
+        // a phone opens a note with a tap, the menu only repeats it
+        ...(narrow ? [] : [{ label: t('menu.open'), run: () => void workspace.open(note.id) }]),
+        ...(noteWindowsSupported
+          ? [
+              {
+                label: t('menu.openInWindow'),
+                icon: 'window' as const,
+                run: () => void workspace.openInWindow(note.id),
+              },
+            ]
+          : []),
+        {
+          label: note.pinned ? t('note.unpin') : t('note.pin'),
+          icon: 'pin',
+          run: () => void workspace.togglePin(note.id, !note.pinned),
+        },
+        {
+          label: t('note.tags'),
+          icon: 'tag',
+          disabled: workspace.tags.length === 0,
+          items: tagItems(note.id, note.tags),
+        },
+        SEPARATOR,
+        {
+          label: t('note.trash'),
+          icon: 'trash',
+          danger: true,
+          run: () => void workspace.trash(note.id),
+        },
+      ],
+      name,
+    )
   }
 </script>
 
@@ -399,6 +418,7 @@
               class="row swipe-content"
               data-note={note.id}
               class:selected={workspace.current?.id === note.id}
+              class:pressed={menuFor === note.id}
               aria-current={workspace.current?.id === note.id ? 'true' : undefined}
               onclick={(e) => {
                 if (closingTap) closingTap = false
@@ -686,7 +706,8 @@
     /* it overlaps the search box above the list, which keeps every click */
     pointer-events: none;
   }
-  .row.selected {
+  .row.selected,
+  .row.pressed {
     background: var(--color-selection);
   }
   .title {
