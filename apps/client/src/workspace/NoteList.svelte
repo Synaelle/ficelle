@@ -384,7 +384,8 @@
             onclick={() => workspace.openFound(hit.noteId)}
           >
             <span class="title">{hit.title || t('note.untitled')}</span>
-            <span class="snippet">
+            <span class="snippet" class:blank={!hit.snippet.trim()}>
+              {#if !hit.snippet.trim()}{t('list.noText')}{/if}
               {#each parts(hit.snippet) as part, i (i)}{#if part.hit}<mark>{part.text}</mark
                   >{:else}{part.text}{/if}{/each}
             </span>
@@ -473,7 +474,10 @@
                   >{/if}
                 <span class="name">{note.title || t('note.untitled')}</span>
               </span>
-              <span class="snippet">{note.snippet}</span>
+              <!-- an empty line would read as a gap between the title and the tags -->
+              <span class="snippet" class:blank={!note.snippet.trim()}
+                >{note.snippet.trim() ? note.snippet : t('list.noText')}</span
+              >
               <!-- the list measures one row for all: when any note has tags,
                    every row keeps the line for them -->
               {#if withTags}
@@ -815,6 +819,9 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
+  }
+  .snippet.blank {
+    font-style: italic;
   }
   .date {
     grid-row: 1;
