@@ -348,8 +348,10 @@
   .images {
     padding: var(--space-3);
   }
+  /* the icon above the text, both centred, however many lines it takes */
   .drop {
     display: inline-flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
