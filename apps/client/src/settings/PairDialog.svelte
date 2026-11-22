@@ -237,19 +237,26 @@
           oninput={(e) => (code = e.currentTarget.value)}
         />
         <p id="pair-code-help" class="muted small">{t('local.code.help')}</p>
-        {#if byAddress}
-          <input
-            class="field"
-            inputmode="url"
-            placeholder={t('local.code.address')}
-            aria-label={t('local.code.address')}
-            bind:value={address}
-          />
-        {:else}
-          <button class="link" type="button" onclick={() => (byAddress = true)}
-            >{t('local.code.typeAddress')}</button
+        <div class="fold">
+          <button
+            class="link"
+            type="button"
+            aria-expanded={byAddress}
+            onclick={() => (byAddress = !byAddress)}
           >
-        {/if}
+            <span class="chevron" class:open={byAddress}><Icon name="down" size={16} /></span>
+            {t('local.code.typeAddress')}
+          </button>
+          {#if byAddress}
+            <input
+              class="field"
+              inputmode="url"
+              placeholder={t('local.code.address')}
+              aria-label={t('local.code.address')}
+              bind:value={address}
+            />
+          {/if}
+        </div>
         {#if error}<p class="error" role="alert">{error}</p>{/if}
         <div class="actions">
           <button class="btn" type="button" disabled={busy} onclick={close}
@@ -401,13 +408,10 @@
     padding: 0;
     border: 0;
     background: none;
-    color: var(--color-accent-text);
-    font: inherit;
-    cursor: pointer;
-  }
-  .fold .link {
     color: var(--color-text);
+    font: inherit;
     font-weight: 600;
+    cursor: pointer;
   }
   .chevron {
     display: grid;
