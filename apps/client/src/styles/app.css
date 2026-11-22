@@ -426,7 +426,9 @@ details.settings-group > summary {
 details.settings-group:not([open]) {
   gap: 0;
 }
+/* no margin of its own: the page or group gap sets its distance */
 .settings-help {
+  margin: 0;
   max-width: 62ch;
   color: var(--color-text-muted);
   font-size: 13px;
