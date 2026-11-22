@@ -664,12 +664,8 @@
   .sort {
     flex: none;
     max-width: 120px;
-    padding: 0 var(--space-1);
     font-size: 12px;
     color: var(--color-text-muted);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-control);
-    background: var(--color-surface);
   }
   .row {
     display: grid;

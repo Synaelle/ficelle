@@ -17,6 +17,11 @@
   /* menus, notices and toasts; dialogs and cards that sit above the page */
   --shadow-popover: 0 4px 16px rgb(0 0 0 / 0.25);
   --shadow-dialog: 0 8px 32px rgb(0 0 0 / 0.35);
+  /* Lucide's chevron in --color-text-muted, which a data url cannot read */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A918A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+:root[data-mode='light'] {
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235E5853' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 html,
@@ -146,6 +151,17 @@ button {
   opacity: 1;
 }
 
+/* drawn like the fields instead of by GTK or Android, the same in every
+   mode; the list that opens stays the system's */
+select {
+  appearance: none;
+  padding: 0 calc(var(--space-2) * 2 + 14px) 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface) var(--select-chevron) no-repeat right var(--space-2) center /
+    14px;
+}
+
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
@@ -243,7 +259,11 @@ button {
   /* the edge that shows where to type, 3:1 against the page */
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control);
-  background: var(--color-surface);
+  background-color: var(--color-surface);
+}
+select.field {
+  padding-right: calc(var(--space-3) + 14px + var(--space-2));
+  background-position: right var(--space-3) center;
 }
 .field:focus {
   border-color: var(--color-accent);

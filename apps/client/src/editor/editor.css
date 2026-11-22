@@ -89,11 +89,12 @@
   right: 6px;
   z-index: 1;
   max-width: 45%;
-  padding: 2px 4px;
+  padding: 2px calc(var(--space-1) * 2 + 14px) 2px var(--space-1);
   border: 1px solid transparent;
   /* inside the block's corner, 6px in */
   border-radius: min(var(--radius-control), 8px);
-  background: transparent;
+  background-color: transparent;
+  background-position: right var(--space-1) center;
   color: var(--color-text-muted);
   font: inherit;
   font-family: var(--font-ui);
@@ -102,8 +103,8 @@
 }
 .prose .code-block:hover .code-language,
 .prose .code-language:focus-visible {
-  border-color: var(--color-border);
-  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  background-color: var(--color-surface);
   color: var(--color-text-muted);
 }
 .prose .code-language:disabled {
