@@ -244,18 +244,20 @@
 {/if}
 
 <style>
+  /* inside the bottom bar of the list or the note, where its right end is
+     empty, and drawn like the bar's own icons: no box over the content */
   .launcher {
     position: fixed;
     right: var(--space-3);
-    bottom: var(--space-3);
+    bottom: var(--space-1);
     z-index: 40;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: var(--radius-chip);
     display: grid;
     place-items: center;
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-surface-2);
+    border: 0;
+    background: transparent;
     color: var(--color-text-muted);
     opacity: 0.6;
     cursor: pointer;
@@ -265,7 +267,7 @@
   }
   /* above the formatting bar, which sits at the bottom on touch screens */
   @media (pointer: coarse) {
-    .launcher {
+    :global(:root:has(.toolbar)) .launcher {
       bottom: 72px;
     }
   }
