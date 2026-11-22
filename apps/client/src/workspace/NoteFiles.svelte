@@ -115,24 +115,26 @@
                 .join(' · ')}
             </span>
           </span>
-          {#if editor && !readonly && !mentioned(file)}
-            <button class="btn small" onclick={() => editor?.mentionFile(file)}
-              >{t('files.mention')}</button
-            >
-          {/if}
-          <button
-            class="btn small"
-            disabled={!backend.native && !WEB}
-            onclick={() => saveCopy(file)}>{t('files.saveCopy')}</button
-          >
-          {#if !readonly}
+          <span class="actions">
+            {#if editor && !readonly && !mentioned(file)}
+              <button class="btn small" onclick={() => editor?.mentionFile(file)}
+                >{t('files.mention')}</button
+              >
+            {/if}
             <button
-              class="icon-btn small danger"
-              aria-label={t('files.remove')}
-              title={t('files.remove')}
-              onclick={() => remove(file)}><Icon name="trash" size={14} /></button
+              class="btn small"
+              disabled={!backend.native && !WEB}
+              onclick={() => saveCopy(file)}>{t('files.saveCopy')}</button
             >
-          {/if}
+            {#if !readonly}
+              <button
+                class="icon-btn small danger"
+                aria-label={t('files.remove')}
+                title={t('files.remove')}
+                onclick={() => remove(file)}><Icon name="trash" size={14} /></button
+              >
+            {/if}
+          </span>
         </li>
       {/each}
     </ul>
@@ -215,6 +217,13 @@
   }
   .name {
     overflow-wrap: anywhere;
+  }
+  /* the buttons move as one, all beside the name or all under it */
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
   }
   .muted {
     color: var(--color-text-muted);
