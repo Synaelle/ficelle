@@ -806,6 +806,11 @@
     /* over the formatting bar fixed at the bottom on phones */
     z-index: 35;
   }
+  /* the page margin of the phone's other pages */
+  .narrow .sheet header,
+  .narrow .sheet ul {
+    padding-inline: var(--space-4);
+  }
   .reason {
     font-size: 12px;
     color: var(--color-accent);
@@ -820,9 +825,10 @@
     margin: 0;
     font-size: 15px;
   }
+  /* entries start where the heading does */
   .sheet ul {
     margin: 0;
-    padding: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     list-style: none;
     overflow-y: auto;
   }
@@ -831,7 +837,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
-    padding: var(--space-2);
+    padding: var(--space-2) 0;
     border-bottom: 1px solid var(--color-border);
   }
   .sheet li div {
