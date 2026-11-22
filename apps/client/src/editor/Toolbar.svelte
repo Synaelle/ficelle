@@ -231,12 +231,16 @@
     .toolbar::before {
       content: none;
     }
+    /* a phone's width shared out, but no wider than a thumb needs: on its
+       side the buttons stayed apart by a hand's width */
     .toolbar :global(.icon-btn) {
       flex: 1 1 44px;
+      max-width: 64px;
       height: 44px;
     }
     .divider {
       flex: none;
+      margin-left: auto;
       width: 1px;
       height: 24px;
       background: var(--color-border);

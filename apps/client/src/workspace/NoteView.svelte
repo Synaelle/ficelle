@@ -647,6 +647,18 @@
       display: none;
     }
   }
+  /* a phone on its side has no height for both bars: the editor's bar while
+     typing, the files the rest of the time */
+  @media (pointer: coarse) and (max-height: 500px) {
+    .files-bar,
+    .narrow .files-bar {
+      padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
+    }
+    .view:not(:has(.scroll :global(:is(input, textarea, [contenteditable='true']):focus)))
+      :global(.toolbar) {
+      display: none;
+    }
+  }
   article {
     /* the note takes the whole pane, as wide as the window makes it, and at
        least its height, so a tap on the blank part under it lands here */
