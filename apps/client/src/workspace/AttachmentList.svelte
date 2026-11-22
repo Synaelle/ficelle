@@ -74,7 +74,9 @@
 >
   <header>
     <h1>{t('files.allTitle')}</h1>
-    <span class="muted">{t('files.allCount', { count: all.length, size: bytes(total) })}</span>
+    {#if all.length}
+      <span class="muted">{t('files.allCount', { count: all.length, size: bytes(total) })}</span>
+    {/if}
   </header>
   <div class="tools">
     <label class="search">
