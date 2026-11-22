@@ -747,10 +747,6 @@ thisApp = "This app"
 versionLine = "{version}, protocol {protocol}"
 version_serverOlder = "The server runs an older version than this app. Sync still works, but both are best kept on the same version."
 version_serverNewer = "The server runs a newer version than this app. Sync still works, but both are best kept on the same version."
-signUps = "Sign-ups"
-signUpsOpen = "Open to anyone"
-signUpsInvite = "With an invite"
-signUpsClosed = "Closed, the admin adds people"
 plainWarning = "This server does not use https: your password and notes would cross the network unencrypted, and anyone on it could read them."
 plainConfirm = "Use it anyway, I trust this network"
 username = "Username"
@@ -1074,7 +1070,6 @@ setupHelp = "It has no admin yet. Whoever runs it opens the setup link printed i
 again = "Password again"
 mismatch = "The two passwords are different."
 submit = "Sign in"
-or = "or"
 orPassword = "or with a password"
 withPasskey = "Sign in with a passkey"
 passkeyCancelled = "The passkey was not used. Try again, or use another way."
@@ -1117,21 +1112,6 @@ qrExpired = "This QR code expired."
 qrAgain = "Show a new one"
 qrAlt = "QR code to scan with {app}"
 askOnlyQr = "Only go on if you just scanned this code with your phone."
-
-[admin.register]
-title = "Create your account on {app}"
-help = "This invite lets you create one account. Choose a username and a password."
-submit = "Create my account"
-ready = "Your account {name} is ready"
-readyHelp = "Use it to sign in from the {app} app. You can close this page."
-kind = "Account type"
-e2eeWarning = "Nobody can reset the password of this account, not even an admin. If you forget it, only the recovery code shown next opens the account. For the strongest protection, use the app: this page comes from the server."
-codeTitle = "Your recovery code"
-codeHelp = "Write it down or save it somewhere safe, away from this device. If you forget your password, it is the only way back into your account and your notes. It is shown only now."
-typeBack = "Type the last four characters, to show you kept it"
-typeBackWrong = "That is not the end of the code. Look at it again."
-keptIt = "I kept it, continue"
-codeFile = "{app} recovery code for {name} on {host}. Keep it secret. It opens the account if the password is forgotten."
 
 [admin.overview]
 title = "Overview"
@@ -1227,9 +1207,6 @@ one = "{count} day"
 other = "{count} days"
 
 [admin.policy.from]
-user = "Set for this member"
-group = "From a group"
-instance = "From the rules for everyone"
 config = "From the server's config file"
 
 [admin.policy.help]
@@ -1374,11 +1351,6 @@ codesReady = "New recovery codes. The old ones no longer work."
 codesSaved = "I saved them"
 saveTxt = "Save as .txt"
 codesFile = "{app} recovery codes for {host}. Each one works once."
-ssoTitle = "Single sign-on"
-ssoHelp = "Link your {provider} so it signs you in here."
-linkSso = "Link {provider}"
-ssoLinked = "Linked. It now signs you in."
-ssoUnlinkConfirm = "Unlink {name}? It will no longer sign you in."
 emailTitle = "Email"
 emailOff = "This server sends no email."
 addEmail = "Add an address"
@@ -1388,21 +1360,10 @@ emailSent = "A link went to {email}. Open it to confirm the address, it works fo
 dataTitle = "Your data"
 export = "Download my data"
 exported = "Your data was downloaded."
-delete = "Delete my account"
-deleteConfirm = "Delete your account? It goes in {days} days with everything the server keeps for it. Until then you can sign in and keep it. Your other devices are signed out now."
-deleteNowConfirm = "Delete your account now, with everything the server keeps for it? This cannot be undone."
-deletionPlanned = "Your account will be deleted. You can still keep it until the date shown."
-deletionPending = "Your account will be deleted on {date}."
-keepAccount = "Keep my account"
-deletionCancelled = "Your account stays."
 
 [admin.account.passkeyCount]
 one = "{count} passkey"
 other = "{count} passkeys"
-
-[admin.account.linkedCount]
-one = "{count} linked"
-other = "{count} linked"
 
 [admin.account.codesLeftShort]
 one = "{count} left"
@@ -1411,12 +1372,6 @@ other = "{count} left"
 [admin.account.codesLeft]
 one = "{count} code left."
 other = "{count} codes left."
-
-[admin.kinds]
-standard = "Standard"
-standardHelp = "The server keeps your notes encrypted with its own key and can search them. An admin can set a new password if you forget yours."
-e2ee = "End-to-end encrypted"
-e2eeHelp = "Only your devices can read your notes. Your password never reaches the server and nobody can reset it."
 
 [admin.forgot]
 link = "Forgot your password?"
@@ -1467,11 +1422,8 @@ notTitle = "What it does not do"
 notKept = "No cookies, no trackers, no analytics, no ads. Nothing is sold or shared. The admin page keeps your sign-in in the browser tab only, it ends when the tab closes."
 othersTitle = "Other services involved"
 email = "Email: only to confirm an address, reset a password, and warn before an account is deleted, through the mail server set up by the people who run this server."
-sso = "Single sign-on: when you sign in with {provider}, it learns that you signed in here."
 rightsTitle = "Your choices"
 export = "Download everything kept for your account from Your account, as a file."
-deletion = "Delete your account from Your account. It goes {days} days later with everything kept for it, and you can change your mind until then."
-deletionNow = "Delete your account from Your account. It goes at once with everything kept for it."
 correct = "Change your shown name, email and password yourself, or ask the people who run the server."
 noticeTitle = "From the people who run this server"
 feedbackTitle = "Feedback and bug reports"
@@ -1481,19 +1433,11 @@ feedbackHere = "Feedback sent from the apps of people on this server comes to th
 
 [admin.checklist]
 title = "Security checklist"
-factorsOk = "Every admin has a second step: a passkey, an authenticator app or codes by email."
-factorsMissing = "Admins with a password alone: {names}. A leaked password would hand over the server."
 factorsOkPersonal = "You have a second step after your password."
 factorsMissingPersonal = "You sign in with a password alone. Whoever learns it controls this server and your notes."
-registrationClosedPersonal = "Nobody else can sign up."
 storageLimitPersonal = "Your notes and files can use up to {mb} MB."
 storageUnlimitedPersonal = "Your storage has no limit, only the server's disk."
 tlsLocalPersonal = "This page came from the server itself. Your devices should come over https."
-registrationClosed = "Sign-up is closed: only admins add members."
-registrationInvite = "Members can invite others."
-registrationOpen = "Anyone who reaches this server can make an account."
-storageLimit = "Each member can store up to {mb} MB, notes and files together."
-storageUnlimited = "Storage per member has no limit: one account could fill the server's disk. Set one in Storage."
 backupsNone = "No backups are set up."
 backupsFailing = "The last backup failed: {error}"
 backupsNever = "Backups are set up but none went through yet."
@@ -1506,12 +1450,10 @@ updatesNewer = "This server runs {current}, and {latest} is out."
 updatesWaiting = "This server runs {current}, the release list has not been read yet."
 updatesCurrent = "Version {current} is up to date."
 tlsOk = "This page reached the server over https."
-tlsLocal = "This page came from the server itself. People should come over https."
 tlsPlain = "This page reached the server over plain http: passwords cross the network readable. Put an https reverse proxy in front."
 addressOk = "People reach the server at {url}."
 addressUnset = "server.public_url is not set: links in mails, passkeys and single sign-on need it."
 addressHttp = "server.public_url is {url}, without https."
-secrets = "Keep master.key and the databases apart from this server, in backups or a copy of the data folder: without master.key the standard accounts' notes cannot be opened."
 secretsPersonal = "Keep master.key and the databases apart from this server, in backups or a copy of the data folder: without master.key your notes cannot be opened, unless they are end-to-end encrypted."
 secretsApart = "master.key is kept apart from the data folder (storage.master_key_file). Keep a copy of it away from this server too."
 secretsDone = "Done, hide this"
@@ -1655,11 +1597,6 @@ masterKeyApart = "The master key is read from its own file (storage.master_key_f
 connected = "Backups are set up, the first one is done."
 counts = "Members: {users}, files: {files}"
 testOk = "This backup restores whole (members: {users}, files: {files}), tried in a scratch folder since removed."
-person = "Bring someone back"
-from = "From the backup of"
-personConfirm = "Bring back what is missing of {name} from the backup of {when}?"
-personBack = "The account is back. Spaces back: {spaces}, files: {files}."
-personSpaces = "Spaces back: {spaces}, files: {files}."
 recovery = "To restore the whole instance"
 recoveryHelp = "Keep this, with its secrets filled in, and the backup password, somewhere other than this server. With the server stopped: ficelle-server backup restore --target <this file> --into <an empty folder>, then point storage.data_dir at that folder."
 stopConfirm = "Stop backing up this instance? The backups made stay where they are."
@@ -1686,30 +1623,6 @@ hostKeyHelp = "Leave the fingerprint empty the first time: the answer gives the 
 
 [admin.invites]
 copyFailed = "Copying failed, select the text and copy it."
-
-[admin.onePerson]
-title = "Go to one person"
-pointer = "This server has several accounts. Servers for several people are no longer supported, they keep working but only get security fixes."
-help = "Choose the account to keep. It becomes this server's admin and the others are removed from the server, with everything it holds for them."
-choose = "Account to keep"
-seen = "last seen {date}"
-typeName = "Type {name} to confirm"
-
-[admin.onePerson.notes]
-one = "about {count} note"
-other = "about {count} notes"
-
-[admin.onePerson.devices]
-one = "{count} device"
-other = "{count} devices"
-
-[admin.onePerson.warning]
-one = "{count} other account will be removed and {name} kept. This can't be undone. Their notes stay on their devices only once their apps are updated to this version, so ask them to update first, and to export anything they want to be sure of."
-other = "{count} other accounts will be removed and {name} kept. This can't be undone. Their notes stay on their devices only once their apps are updated to this version, so ask them to update first, and to export anything they want to be sure of."
-
-[admin.onePerson.submit]
-one = "Remove {count} other account"
-other = "Remove {count} other accounts"
 
 [admin.feedback]
 saveZip = "Save as zip"
@@ -1781,10 +1694,6 @@ sendTo = "Where this server's members send their reports"
 sendTo_main = "To the project's main server (helps fix the app)"
 sendTo_here = "To this server's inbox"
 sendTo_off = "Nowhere, Send feedback is hidden in the apps"
-readers = "Who reads the inbox"
-noReaders = "Only the admins."
-addReader = "Add"
-remove = "Remove"
 token = "Token for reports pull"
 tokenOnce = "Copy it now, it is shown once:"
 tokenMade = "A token was made {when}."
@@ -1847,10 +1756,6 @@ body = "The password of your account {username} was just changed through a link 
 [mail.code]
 subject = "Your sign-in code"
 body = "Your code to sign in as {username} is\n\n{code}\n\nIt works for 10 minutes. If you are not signing in, someone has your password: change it now."
-
-[mail.deletion]
-subject = "Your account will be deleted"
-body = "Your account {username} will be deleted on {date}, with everything the server keeps for it. To keep it, sign in before then and cancel the deletion."
 
 [reset]
 title = "Reset everything"
