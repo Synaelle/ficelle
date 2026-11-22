@@ -62,24 +62,24 @@
         <p class="muted">{t('welcome.backupsHelp')}</p>
         {#if error}<p class="error" role="alert">{error}</p>{/if}
         <div class="actions">
-          <button class="btn" type="button" disabled={busy} onclick={() => answerBackups(false)}
-            >{t('common.no')}</button
-          >
           <button
             class="btn primary"
             type="button"
             disabled={busy}
             onclick={() => answerBackups(true)}>{t('common.yes')}</button
           >
+          <button class="btn" type="button" disabled={busy} onclick={() => answerBackups(false)}
+            >{t('common.no')}</button
+          >
         </div>
       {:else}
         <h1>{t('welcome.encryptTitle')}</h1>
         <p class="muted">{t('welcome.encryptHelp')}</p>
         <div class="actions">
-          <button class="btn" type="button" onclick={done}>{t('common.no')}</button>
           <button class="btn primary" type="button" onclick={() => (step = 'password')}
             >{t('common.yes')}</button
           >
+          <button class="btn" type="button" onclick={done}>{t('common.no')}</button>
         </div>
       {/if}
     </div>
