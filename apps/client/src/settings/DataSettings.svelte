@@ -171,7 +171,8 @@
   }
 
   function restored(report: { notes: number; skipped: number }) {
-    message = t('backups.restored', { notes: report.notes, skipped: report.skipped })
+    message = t('backup.restored', { count: report.notes })
+    if (report.skipped) message += ` ${t('backup.skipped', { count: report.skipped })}`
   }
 
   async function restore(file: BackupFile) {
@@ -223,6 +224,19 @@
     if (!path.startsWith('content://')) return path
     const id = decodeURIComponent(path.slice(path.lastIndexOf('/') + 1))
     return id.slice(id.indexOf(':') + 1)
+  }
+
+  /** Where the files go: a folder of their own inside the chosen one, as
+   * the app's backups command places them (`app_core::repo::folder_name`),
+   * unless the chosen one is that folder already. A phone's folder takes
+   * them as it is. */
+  function filesFolder(chosen: string): string {
+    if (chosen.startsWith('content://')) return chosen
+    const trimmed = chosen.replace(/[\\/]+$/, '')
+    const last = trimmed.slice(Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\')) + 1)
+    if (last.startsWith(brand.displayName) && last.endsWith(' backups')) return trimmed
+    const separator = trimmed.includes('\\') && !trimmed.includes('/') ? '\\' : '/'
+    return `${trimmed}${separator}${brand.displayName} backups`
   }
 
   /** What is true of the backups now, in a few words. */
@@ -283,7 +297,7 @@
           >{t('backups.now')}</button
         >
       </Row>
-      <Row label={t('backups.place')} help={shown(config.folder)} />
+      <Row label={t('backups.place')} help={shown(filesFolder(config.folder))} />
       <Row label={t('backups.when')}>
         <select
           class="field compact same-width"

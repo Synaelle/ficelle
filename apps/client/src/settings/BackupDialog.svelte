@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Make a backup of the whole vault, or put one back. A backup of an
-     encrypted vault is encrypted too, with a password of its own; a plain
-     vault's can be. Restoring shows what the backup holds and how much of
+     encrypted vault is encrypted too, with the notes password; a plain
+     vault's can be, with a password of its own. Restoring shows what the backup holds and how much of
      it is here already before anything is written. -->
 <script lang="ts">
   import { MIN_PASSWORD } from '../lib/passwords'
@@ -30,6 +30,9 @@
   const filters = [{ name: brand.displayName, extensions: [brand.backupExtension] }]
 
   let vaultEncrypted = $state(false)
+  /** The notes have a password: the backup is sealed with it, as the
+   * automatic ones are, so one password opens every backup. */
+  let notesPassword = $state(false)
   let protect = $state(false)
   let password = $state('')
   let again = $state('')
@@ -52,16 +55,24 @@
     }).format(time)
 
   onMount(async () => {
-    vaultEncrypted = (await backend.vaultStatus()).encrypted
+    const status = await backend.vaultStatus()
+    vaultEncrypted = status.encrypted
+    notesPassword = status.encrypted && status.hasPassword
     protect = vaultEncrypted
     if (mode === 'restore') await chooseBackup()
   })
 
   const sealed = $derived(vaultEncrypted || protect)
-  const passwordOk = $derived(!sealed || (password.length >= MIN_PASSWORD && password === again))
+  const passwordOk = $derived(
+    !sealed || (notesPassword ? !!password : password.length >= MIN_PASSWORD && password === again),
+  )
 
   async function make() {
     error = null
+    if (notesPassword && !(await backend.vaultCheckPassword(password))) {
+      error = t('errors.wrongPassword')
+      return
+    }
     const target = await pickToSave({
       title: t('backup.saveTitle'),
       defaultPath: await backend.backupDefaultName(),
@@ -153,14 +164,25 @@
     {#if mode === 'make' && !made}
       <p class="muted">{t('backup.makeHelp')}</p>
       {#if vaultEncrypted}
-        <p>{t('backup.encryptedVault')}</p>
+        <p>{notesPassword ? t('backup.encryptedVault') : t('backup.encryptedNoPassword')}</p>
       {:else}
         <label class="check">
           <input type="checkbox" bind:checked={protect} />
           {t('backup.protect')}
         </label>
       {/if}
-      {#if sealed}
+      {#if notesPassword}
+        <form onsubmit={(e) => (e.preventDefault(), passwordOk && !busy && void make())}>
+          <PasswordField
+            class="field"
+            autocomplete="current-password"
+            placeholder={t('backups.notesPassword')}
+            aria-label={t('backups.notesPassword')}
+            bind:value={password}
+            data-autofocus
+          />
+        </form>
+      {:else if sealed}
         <PasswordField
           class="field"
           autocomplete="new-password"
@@ -210,10 +232,10 @@
         <dt>{t('import.files')}</dt>
         <dd>{inspected.manifest.files}</dd>
       </dl>
-      {#if inspected.present}
+      {#if !toRestore}<p>{t('backup.nothing')}</p>
+      {:else if inspected.present}
         <p class="muted">{t('backup.present', { count: inspected.present })}</p>
       {/if}
-      {#if !toRestore}<p>{t('backup.nothing')}</p>{/if}
     {:else if path && needsPassword}
       <p>{t('backup.needsPassword')}</p>
       <form onsubmit={(e) => (e.preventDefault(), void inspect())}>
