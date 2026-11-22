@@ -232,6 +232,29 @@
 .prose td > p {
   margin: 0;
 }
+/* on a phone, squeezed to its width, every column broke ("200 / cm"): the
+   table takes the width its cells need, at least the note's, a long text
+   wrapping after a few words, and scrolls sideways. Grown as a flex item,
+   since the table's own minimum width is set inline by the editor */
+.prose {
+  container-type: inline-size;
+}
+.prose .tableWrapper {
+  overflow-x: auto;
+}
+@container (max-width: 24em) {
+  .prose .tableWrapper {
+    display: flex;
+  }
+  .prose table {
+    flex: 1 0 auto;
+    width: max-content;
+  }
+  .prose th > p,
+  .prose td > p {
+    max-width: 14em;
+  }
+}
 /* cells chosen together, dragged across or with Shift and the arrows */
 .prose .selectedCell {
   background: color-mix(in srgb, var(--color-accent) 18%, transparent);

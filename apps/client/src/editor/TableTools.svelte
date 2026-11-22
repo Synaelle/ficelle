@@ -89,8 +89,10 @@
     if (!where?.cell || !host) return ''
     const box = where.cell.getBoundingClientRect()
     const frame = host.getBoundingClientRect()
+    // a table wider than the note scrolls sideways: the button stays in sight
+    const right = Math.min(box.right, where.table.getBoundingClientRect().right)
     const zoom = pageZoom()
-    return `top:${(box.top - frame.top) / zoom + 4}px;left:${(box.right - frame.left) / zoom - 32}px`
+    return `top:${(box.top - frame.top) / zoom + 4}px;left:${(right - frame.left) / zoom - 32}px`
   })
 
   // presses keep the caret in the cell, and the keyboard open on a phone

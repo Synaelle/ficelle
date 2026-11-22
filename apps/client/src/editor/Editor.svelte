@@ -943,7 +943,14 @@
       onimage={loose ? undefined : () => fileInput.click()}
     />
   {/if}
-  <div class="surface" bind:this={element} oncontextmenu={editorMenu} role="presentation">
+  <!-- a table or code scrolled sideways moves what the bars are placed by -->
+  <div
+    class="surface"
+    bind:this={element}
+    oncontextmenu={editorMenu}
+    onscrollcapture={() => (tick += 1)}
+    role="presentation"
+  >
     {#if selectedImage && editor}
       <div
         class="image-bar"
