@@ -360,10 +360,16 @@
   <div class="pull" use:pullDown={{ scroller: '.rows', onPull: () => searchInput?.focus() }}>
     <p class="pull-hint" aria-hidden="true">{t('list.pullToSearch')}</p>
     {#if workspace.hits}
-      <VirtualList items={workspace.hits} key={(hit) => hit.noteId} label={t('list.label')}>
-        {#snippet row(hit)}
+      <VirtualList
+        items={workspace.hits}
+        key={(hit) => hit.noteId}
+        label={t('list.label')}
+        active={workspace.current?.id}
+      >
+        {#snippet row(hit, tabbable)}
           <button
             class="row"
+            tabindex={tabbable ? 0 : -1}
             class:selected={workspace.current?.id === hit.noteId}
             onclick={() => workspace.openFound(hit.noteId)}
           >
@@ -379,8 +385,13 @@
         {/snippet}
       </VirtualList>
     {:else}
-      <VirtualList items={listed} key={(note) => note.id} label={t('list.label')}>
-        {#snippet row(note)}
+      <VirtualList
+        items={listed}
+        key={(note) => note.id}
+        label={t('list.label')}
+        active={workspace.current?.id}
+      >
+        {#snippet row(note, tabbable)}
           <div
             class="swipe"
             use:swipeRow={{
@@ -425,6 +436,7 @@
             {/if}
             <button
               class="row swipe-content"
+              tabindex={tabbable ? 0 : -1}
               data-note={note.id}
               class:selected={workspace.current?.id === note.id}
               class:pressed={menuFor === note.id}
@@ -472,12 +484,14 @@
               <div class="row-actions">
                 <button
                   class="icon-btn"
+                  tabindex={tabbable ? 0 : -1}
                   aria-label={t('list.restore')}
                   title={t('list.restore')}
                   onclick={() => workspace.restore(note.id)}><Icon name="restore" /></button
                 >
                 <button
                   class="icon-btn purge"
+                  tabindex={tabbable ? 0 : -1}
                   aria-label={t('list.purge')}
                   title={t('list.purge')}
                   onclick={() => purge(note.id)}><Icon name="trash" /></button
