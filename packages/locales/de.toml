@@ -737,10 +737,6 @@ thisApp = "Diese App"
 versionLine = "{version}, Protokoll {protocol}"
 version_serverOlder = "Auf dem Server läuft eine ältere Version als in dieser App. Die Synchronisierung funktioniert zwar weiterhin, es ist jedoch empfehlenswert, bei beiden die gleiche Version zu verwenden."
 version_serverNewer = "Auf dem Server läuft eine neuere Version als in dieser App. Die Synchronisierung funktioniert zwar weiterhin, es ist jedoch empfehlenswert, bei beiden die gleiche Version zu verwenden."
-signUps = "Registrierungen"
-signUpsOpen = "Für jedermann zugänglich"
-signUpsInvite = "Mit einer Einladung"
-signUpsClosed = "Im geschlossenen Modus fügt der Administrator Personen hinzu"
 plainWarning = "Dieser Server verwendet kein HTTPS: Ihr Passwort und Ihre Notizen würden unverschlüsselt über das Netzwerk übertragen, sodass jeder, der Zugang dazu hat, diese lesen könnte."
 plainConfirm = "Verwenden Sie es trotzdem, ich vertraue diesem Netzwerk"
 username = "Benutzername"
@@ -1063,7 +1059,6 @@ setupHelp = "Es gibt noch keinen Administrator. Wer die Anwendung betreibt, öff
 again = "Passwort erneut"
 mismatch = "Die beiden Passwörter sind unterschiedlich."
 submit = "Anmelden"
-or = "oder"
 orPassword = "oder mit einem Passwort"
 withPasskey = "Mit einem Passkey anmelden"
 passkeyCancelled = "Der Passkey wurde nicht verwendet. Versuchen Sie es erneut oder wählen Sie eine andere Methode."
@@ -1106,21 +1101,6 @@ qrExpired = "Dieser QR-Code ist abgelaufen."
 qrAgain = "Eine neue anzeigen"
 qrAlt = "QR-Code zum Scannen mit {app}"
 askOnlyQr = "Fahren Sie nur fort, wenn Sie diesen Code gerade mit Ihrem Smartphone gescannt haben."
-
-[admin.register]
-title = "Erstellen Sie Ihr Konto auf {app}"
-help = "Mit dieser Einladung können Sie ein Konto erstellen. Wählen Sie einen Benutzernamen und ein Passwort."
-submit = "Mein Konto erstellen"
-ready = "Ihr Konto {name} ist bereit"
-readyHelp = "Verwenden Sie diese, um sich über die {app}-App anzumelden. Sie können diese Seite schließen."
-kind = "Kontotyp"
-e2eeWarning = "Niemand kann das Passwort dieses Kontos zurücksetzen, nicht einmal ein Administrator. Sollten Sie es vergessen haben, können Sie das Konto nur mit dem anschließend angezeigten Wiederherstellungscode öffnen. Für den bestmöglichen Schutz nutzen Sie bitte die App: Diese Seite wird vom Server bereitgestellt."
-codeTitle = "Ihr Wiederherstellungscode"
-codeHelp = "Notieren Sie sich diese oder bewahren Sie sie an einem sicheren Ort auf, der nicht mit diesem Gerät in Verbindung steht. Sollten Sie Ihr Passwort vergessen, ist dies die einzige Möglichkeit, wieder Zugriff auf Ihr Konto und Ihre Notizen zu erhalten. Es wird nur jetzt angezeigt."
-typeBack = "Geben Sie die letzten vier Zeichen ein, um zu zeigen, dass Sie sich daran erinnert haben."
-typeBackWrong = "Das ist noch nicht das Ende des Codes. Sehen Sie sich diesen noch einmal an."
-keptIt = "Ich habe ihn aufbewahrt, weiter"
-codeFile = "{app}-Wiederherstellungscode für {name} auf {host}. Bewahren Sie diesen geheim auf. Er ermöglicht den Zugriff auf das Konto, falls das Passwort vergessen wurde."
 
 [admin.overview]
 title = "Übersicht"
@@ -1212,9 +1192,6 @@ one = "{count} Tag"
 other = "{count} Tage"
 
 [admin.policy.from]
-user = "Für dieses Mitglied festgelegt"
-group = "Aus einer Gruppe"
-instance = "Aus den Regeln für alle"
 config = "Aus der Konfigurationsdatei des Servers"
 
 [admin.policy.help]
@@ -1359,11 +1336,6 @@ codesReady = "Neue Wiederherstellungscodes. Die alten funktionieren nicht mehr."
 codesSaved = "Ich habe sie gespeichert"
 saveTxt = "Als .txt speichern"
 codesFile = "{app}-Wiederherstellungscodes für {host}. Jeder Code kann nur einmal verwendet werden."
-ssoTitle = "Single Sign-On"
-ssoHelp = "Verbinden Sie Ihren {provider}, damit Sie hier angemeldet werden."
-linkSso = "{provider} verknüpfen"
-ssoLinked = "Verlinkt. Sie werden nun angemeldet."
-ssoUnlinkConfirm = "{name} entkoppeln? Sie werden dann nicht mehr angemeldet sein."
 emailTitle = "E-Mail"
 emailOff = "Dieser Server versendet keine E-Mails."
 addEmail = "Adresse hinzufügen"
@@ -1373,21 +1345,10 @@ emailSent = "Ein Link führte zu {email}. Öffnen Sie ihn, um die Adresse zu bes
 dataTitle = "Ihre Daten"
 export = "Meine Daten herunterladen"
 exported = "Ihre Daten wurden heruntergeladen."
-delete = "Mein Konto löschen"
-deleteConfirm = "Möchten Sie Ihr Konto löschen? Es wird in {days} Tagen gelöscht, zusammen mit allen Daten, die der Server dazu speichert. Bis dahin können Sie sich weiterhin anmelden und das Konto behalten. Ihre anderen Geräte sind nun abgemeldet."
-deleteNowConfirm = "Möchten Sie Ihr Konto jetzt löschen, einschließlich aller Daten, die der Server dazu gespeichert hat? Dieser Vorgang kann nicht rückgängig gemacht werden."
-deletionPlanned = "Ihr Konto wird gelöscht. Sie können es bis zu dem angegebenen Datum weiterhin nutzen."
-deletionPending = "Ihr Konto wird am {date} gelöscht."
-keepAccount = "Mein Konto beibehalten"
-deletionCancelled = "Ihr Konto bleibt bestehen."
 
 [admin.account.passkeyCount]
 one = "{count} Passkey"
 other = "{count} Passkeys"
-
-[admin.account.linkedCount]
-one = "{count} verknüpft"
-other = "{count} verknüpft"
 
 [admin.account.codesLeftShort]
 one = "Noch {count}"
@@ -1396,12 +1357,6 @@ other = "{count} noch übrig"
 [admin.account.codesLeft]
 one = "Noch {count} Code übrig."
 other = "Noch {count} Codes übrig."
-
-[admin.kinds]
-standard = "Standard"
-standardHelp = "Der Server speichert Ihre Notizen verschlüsselt mit einem eigenen Schlüssel und kann diese durchsuchen. Ein Administrator kann ein neues Passwort festlegen, falls Sie Ihr eigenes vergessen haben."
-e2ee = "End-to-End-verschlüsselt"
-e2eeHelp = "Nur Ihre Geräte können Ihre Notizen lesen. Ihr Passwort gelangt niemals auf den Server, und niemand kann es zurücksetzen."
 
 [admin.forgot]
 link = "Haben Sie Ihr Passwort vergessen?"
@@ -1452,11 +1407,8 @@ notTitle = "Was der Server nicht tut"
 notKept = "Keine Cookies, keine Tracker, keine Analysen, keine Werbung. Es wird nichts verkauft oder weitergegeben. Die Admin-Seite speichert Ihre Anmeldung ausschließlich im Browser-Tab; sie endet, sobald der Tab geschlossen wird."
 othersTitle = "Weitere beteiligte Dienste"
 email = "E-Mail: ausschließlich zur Bestätigung einer Adresse, zum Zurücksetzen eines Passworts und zur Warnung vor der Löschung eines Kontos über den E-Mail-Server, der von den Betreibern dieses Servers eingerichtet wurde."
-sso = "Single Sign-On: Wenn Sie sich bei {provider} anmelden, wird dort erfasst, dass Sie sich hier angemeldet haben."
 rightsTitle = "Ihre Auswahlmöglichkeiten"
 export = "Laden Sie alle für Ihr Konto gespeicherten Daten unter „Ihr Konto“ als Datei herunter."
-deletion = "Löschen Sie Ihr Konto unter „Ihr Konto“. Der Vorgang wird {days} Tage später ausgeführt, wobei alle Daten erhalten bleiben, und Sie können Ihre Entscheidung bis dahin noch rückgängig machen."
-deletionNow = "Löschen Sie Ihr Konto unter „Ihr Konto“. Dabei werden alle damit verbundenen Daten sofort gelöscht."
 correct = "Ändern Sie Ihren Anzeigenamen, Ihre E-Mail-Adresse und Ihr Passwort selbst oder wenden Sie sich an die Betreiber des Servers."
 noticeTitle = "Von den Betreibern dieses Servers"
 feedbackTitle = "Feedback und Fehlermeldungen"
@@ -1466,19 +1418,11 @@ feedbackHere = "Feedback, das von den Apps der Nutzer auf diesem Server gesendet
 
 [admin.checklist]
 title = "Sicherheitscheckliste"
-factorsOk = "Jeder Admin-Zugang erfordert einen zweiten Schritt: ein Passkey, eine Authentifizierungs-App oder Codes per E-Mail."
-factorsMissing = "Administratoren, die nur über ein Passwort verfügen: {names}. Ein durchgesickertes Passwort würde den Zugriff auf den Server ermöglichen."
 factorsOkPersonal = "Nach der Eingabe Ihres Passworts folgt ein zweiter Schritt."
 factorsMissingPersonal = "Sie melden sich ausschließlich mit einem Passwort an. Wer dieses Passwort erfährt, hat die Kontrolle über diesen Server und Ihre Notizen."
-registrationClosedPersonal = "Niemand sonst kann sich registrieren."
 storageLimitPersonal = "Ihre Notizen und Dateien dürfen bis zu {mb} MB groß sein."
 storageUnlimitedPersonal = "Ihr Speicherplatz ist unbegrenzt – nur durch die Festplattenkapazität des Servers begrenzt."
 tlsLocalPersonal = "Diese Seite stammt direkt vom Server. Ihre Geräte sollten die Verbindung über HTTPS herstellen."
-registrationClosed = "Die Registrierung ist geschlossen: Nur Administratoren können Mitglieder hinzufügen."
-registrationInvite = "Mitglieder können andere einladen."
-registrationOpen = "Jeder, der auf diesen Server zugreifen kann, kann ein Konto erstellen."
-storageLimit = "Jedes Mitglied kann bis zu {mb} MB an Notizen und Dateien zusammen speichern."
-storageUnlimited = "Der Speicherplatz pro Benutzer ist unbegrenzt: Ein einziges Konto könnte den gesamten Speicherplatz des Servers belegen. Legen Sie einen Wert unter „Speicher“ fest."
 backupsNone = "Es sind keine Backups eingerichtet."
 backupsFailing = "Das letzte Backup ist fehlgeschlagen: {error}"
 backupsNever = "Backups sind eingerichtet, es wurde jedoch noch keines durchgeführt."
@@ -1491,12 +1435,10 @@ updatesNewer = "Auf diesem Server läuft {current}, und {latest} ist bereits ver
 updatesWaiting = "Auf diesem Server läuft {current}; die Release-Liste wurde noch nicht gelesen."
 updatesCurrent = "Die Version {current} ist auf dem neuesten Stand."
 tlsOk = "Diese Seite wurde über HTTPS auf den Server übertragen."
-tlsLocal = "Diese Seite stammt direkt vom Server. Der Zugriff sollte über https erfolgen."
 tlsPlain = "Diese Seite wurde über einfaches HTTP an den Server gesendet: Passwörter werden lesbar über das Netzwerk übertragen. Richten Sie einen HTTPS-Reverse-Proxy davor ein."
 addressOk = "Der Zugriff auf den Server erfolgt über {url}."
 addressUnset = "„server.public_url“ ist nicht festgelegt: Links in E-Mails, Passkeys und Single Sign-On benötigen diese Angabe."
 addressHttp = "server.public_url lautet {url}, ohne https."
-secrets = "Bewahren Sie die Datei „master.key“ und die Datenbanken getrennt von diesem Server auf, beispielsweise in Backups oder einer Kopie des Datenordners: Ohne die Datei „master.key“ können die Notizen der Standardkonten nicht geöffnet werden."
 secretsPersonal = "Bewahren Sie die Datei „master.key“ und die Datenbanken getrennt von diesem Server auf, beispielsweise in Backups oder einer Kopie des Datenordners: Ohne „master.key“ können Ihre Notizen nicht geöffnet werden, es sei denn, sie sind durchgehend verschlüsselt."
 secretsApart = "Die Datei „master.key“ wird getrennt vom Datenordner („storage.master_key_file“) aufbewahrt. Bewahren Sie auch eine Kopie davon außerhalb dieses Servers auf."
 secretsDone = "Fertig, ausblenden"
@@ -1640,11 +1582,6 @@ masterKeyApart = "Der Hauptschlüssel wird aus einer eigenen Datei (storage.mast
 connected = "Das Backup wurde eingerichtet, das erste ist abgeschlossen."
 counts = "Mitglieder: {users}, Dateien: {files}"
 testOk = "Dieses Backup stellt den gesamten Inhalt wieder her (Benutzer: {users}, Dateien: {files}); der Test erfolgte in einem temporären Ordner, der inzwischen gelöscht wurde."
-person = "Eine Person wiederherstellen"
-from = "Aus dem Backup von"
-personConfirm = "Was fehlt bei {name} und soll aus dem Backup vom {when} wiederhergestellt werden?"
-personBack = "Das Konto ist wieder verfügbar. Leerzeichen wiederhergestellt: {spaces}, Dateien: {files}."
-personSpaces = "Leerzeichen: {spaces}, Dateien: {files}."
 recovery = "So stellen Sie die gesamte Instanz wieder her"
 recoveryHelp = "Bewahren Sie diese Datei mit den eingetragenen Geheimnissen und dem Backup-Passwort an einem anderen Ort als auf diesem Server auf. Bei angehaltenem Server führen Sie folgenden Befehl aus: ficelle-server backup restore --target <diese Datei> --into <ein leerer Ordner>; richten Sie anschließend storage.data_dir auf diesen Ordner aus."
 stopConfirm = "Möchten Sie die Backups dieser Instanz beenden? Die bereits erstellten Backups bleiben an ihrem Speicherort erhalten."
@@ -1671,30 +1608,6 @@ hostKeyHelp = "Lassen Sie den Fingerabdruck beim ersten Mal leer: Die Antwort gi
 
 [admin.invites]
 copyFailed = "Das Kopieren ist fehlgeschlagen. Bitte markieren Sie den Text und kopieren Sie ihn."
-
-[admin.onePerson]
-title = "Zu einer Person wechseln"
-pointer = "Dieser Server verfügt über mehrere Konten. Server für mehrere Personen werden nicht mehr unterstützt; sie funktionieren zwar weiterhin, erhalten jedoch nur noch Sicherheitsupdates."
-help = "Wählen Sie das Konto aus, das Sie behalten möchten. Dieses wird zum Administrator dieses Servers, während die anderen Konten zusammen mit allen darin enthaltenen Daten vom Server entfernt werden."
-choose = "Konto, das erhalten bleibt"
-seen = "Zuletzt gesehen am {date}"
-typeName = "Geben Sie {name} ein, um zu bestätigen"
-
-[admin.onePerson.notes]
-one = "Über {count} Notiz"
-other = "Über {count} Notizen"
-
-[admin.onePerson.devices]
-one = "{count} Gerät"
-other = "{count} Geräte"
-
-[admin.onePerson.warning]
-one = "{count} weitere Konten werden gelöscht und {name} bleibt erhalten. Dieser Vorgang kann nicht rückgängig gemacht werden. Die Notizen der betroffenen Nutzer bleiben erst dann auf deren Geräten erhalten, wenn deren Apps auf diese Version aktualisiert wurden. Bitten Sie sie daher, zunächst die Aktualisierung durchzuführen und alle Daten zu exportieren, die sie unbedingt behalten möchten."
-other = "{count} weitere Konten werden gelöscht und {name} bleibt erhalten. Dieser Vorgang kann nicht rückgängig gemacht werden. Die Notizen dieser Nutzer bleiben erst dann auf ihren Geräten erhalten, wenn deren Apps auf diese Version aktualisiert wurden. Bitten Sie sie daher, zunächst die Aktualisierung durchzuführen und alle Daten zu exportieren, die sie unbedingt behalten möchten."
-
-[admin.onePerson.submit]
-one = "{count} weiteres Konto entfernen"
-other = "{count} weitere Konten entfernen"
 
 [admin.feedback]
 saveZip = "Als ZIP-Datei speichern"
@@ -1766,10 +1679,6 @@ sendTo = "An die Mitglieder dieses Servers, die ihre Berichte einsenden"
 sendTo_main = "Zum Hauptserver des Projekts (hilft bei der Fehlerbehebung in der App)"
 sendTo_here = "In den Posteingang dieses Servers"
 sendTo_off = "„Nirgendwo“ und „Feedback senden“ sind in den Apps versteckt"
-readers = "Wer liest den Posteingang?"
-noReaders = "Nur für Administratoren."
-addReader = "Hinzufügen"
-remove = "Entfernen"
 token = "Token für das Abrufen von Berichten"
 tokenOnce = "Kopieren Sie diese nun, sie wird nur einmal angezeigt:"
 tokenMade = "Ein Token wurde {when} erstellt."
@@ -1831,10 +1740,6 @@ body = "Das Passwort Ihres Kontos {username} wurde soeben über einen an diese A
 [mail.code]
 subject = "Ihr Anmeldecode"
 body = "Ihr Code zum Anmelden als {username} lautet\n\n{code}\n\nEr ist 10 Minuten lang gültig. Falls Sie sich nicht anmelden, hat jemand Ihr Passwort: Ändern Sie es umgehend."
-
-[mail.deletion]
-subject = "Ihr Konto wird gelöscht"
-body = "Ihr Konto {username} wird am {date} gelöscht, einschließlich aller darauf gespeicherten Daten. Um es zu behalten, melden Sie sich bitte vor diesem Zeitpunkt an und brechen Sie die Löschung ab."
 
 [reset]
 title = "Alles zurücksetzen"

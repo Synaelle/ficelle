@@ -737,10 +737,6 @@ thisApp = "Deze app"
 versionLine = "{version}, protocol {protocol}"
 version_serverOlder = "De server draait een oudere versie dan deze app. De synchronisatie werkt nog steeds, maar het is aan te raden om beide op dezelfde versie te houden."
 version_serverNewer = "Op de server draait een nieuwere versie dan deze app. De synchronisatie werkt nog steeds, maar het is aan te raden om beide op dezelfde versie te houden."
-signUps = "Aanmeldingen"
-signUpsOpen = "Toegankelijk voor iedereen"
-signUpsInvite = "Met een uitnodiging"
-signUpsClosed = "Gesloten, de beheerder voegt mensen toe"
 plainWarning = "Deze server maakt geen gebruik van https: uw wachtwoord en notities zouden onversleuteld over het netwerk worden verzonden, waardoor iedereen op dat netwerk ze zou kunnen lezen."
 plainConfirm = "Gebruik het toch maar, ik vertrouw dit netwerk"
 username = "Gebruikersnaam"
@@ -1063,7 +1059,6 @@ setupHelp = "Er is nog geen beheerder. Degene die het systeem beheert, opent de 
 again = "Wachtwoord nogmaals"
 mismatch = "De twee wachtwoorden zijn verschillend."
 submit = "Inloggen"
-or = "of"
 orPassword = "of met een wachtwoord"
 withPasskey = "Meld u aan met een passkey"
 passkeyCancelled = "De passkey is niet gebruikt. Probeer het nogmaals of gebruik een andere methode."
@@ -1106,21 +1101,6 @@ qrExpired = "Deze QR-code is verlopen."
 qrAgain = "Toon een nieuwe"
 qrAlt = "QR-code om te scannen met {app}"
 askOnlyQr = "Ga alleen verder als u deze code zojuist met uw telefoon hebt gescand."
-
-[admin.register]
-title = "Maak uw account aan op {app}"
-help = "Met deze uitnodiging kunt u één account aanmaken. Kies een gebruikersnaam en een wachtwoord."
-submit = "Mijn account aanmaken"
-ready = "Uw account {name} is gereed"
-readyHelp = "Gebruik dit om in te loggen vanuit de {app}-app. U kunt deze pagina sluiten."
-kind = "Accounttype"
-e2eeWarning = "Niemand kan het wachtwoord van dit account resetten, zelfs een beheerder niet. Mocht u het vergeten zijn, dan kunt u het account alleen openen met de hiernaast weergegeven herstelcode. Gebruik voor de beste beveiliging de app: deze pagina wordt vanaf de server geladen."
-codeTitle = "Uw herstelcode"
-codeHelp = "Schrijf deze op of bewaar ze op een veilige plek, buiten dit apparaat. Mocht u uw wachtwoord vergeten, dan is dit de enige manier om weer toegang te krijgen tot uw account en uw notities. Deze wordt alleen nu weergegeven."
-typeBack = "Typ de laatste vier tekens in, om te laten zien dat u de code hebt bewaard"
-typeBackWrong = "Dat is nog niet het einde van de code. Bekijk het nog eens."
-keptIt = "Ik heb de code bewaard, doorgaan"
-codeFile = "{app}-herstelcode voor {name} op {host}. Houd deze geheim. Hiermee kunt u het account weer openen als u het wachtwoord bent vergeten."
 
 [admin.overview]
 title = "Overzicht"
@@ -1212,9 +1192,6 @@ one = "{count} dag"
 other = "{count} dagen"
 
 [admin.policy.from]
-user = "Ingesteld voor dit lid"
-group = "Uit een groep"
-instance = "Uit de regels voor iedereen"
 config = "Uit het configuratiebestand van de server"
 
 [admin.policy.help]
@@ -1359,11 +1336,6 @@ codesReady = "Nieuwe herstelcodes. De oude werken niet meer."
 codesSaved = "Ik heb ze opgeslagen"
 saveTxt = "Opslaan als .txt"
 codesFile = "{app}-herstelcodes voor {host}. Elke code kan slechts één keer worden gebruikt."
-ssoTitle = "Single sign-on"
-ssoHelp = "Koppel uw {provider}, zodat u hier automatisch wordt aangemeld."
-linkSso = "Link {provider}"
-ssoLinked = "Gekoppeld. U wordt nu aangemeld."
-ssoUnlinkConfirm = "{name} ontkoppelen? U wordt dan niet langer automatisch aangemeld."
 emailTitle = "E-mail"
 emailOff = "Deze server verstuurt geen e-mail."
 addEmail = "Een adres toevoegen"
@@ -1373,21 +1345,10 @@ emailSent = "Er is een link verzonden naar {email}. Open deze om het adres te be
 dataTitle = "Uw gegevens"
 export = "Mijn gegevens downloaden"
 exported = "Uw gegevens zijn gedownload."
-delete = "Mijn account verwijderen"
-deleteConfirm = "Wilt u uw account verwijderen? Over {days} dagen wordt het account verwijderd, samen met alle gegevens die de server ervan bewaart. Tot die tijd kunt u inloggen en het account behouden. U bent nu uitgelogd op uw andere apparaten."
-deleteNowConfirm = "Wilt u uw account nu verwijderen, inclusief alle gegevens die de server hierover bewaart? Deze handeling kan niet ongedaan worden gemaakt."
-deletionPlanned = "Uw account wordt verwijderd. U kunt het nog behouden tot de aangegeven datum."
-deletionPending = "Uw account wordt op {date} verwijderd."
-keepAccount = "Mijn account behouden"
-deletionCancelled = "Uw account blijft behouden."
 
 [admin.account.passkeyCount]
 one = "{count} passkey"
 other = "{count} passkeys"
-
-[admin.account.linkedCount]
-one = "{count} gekoppeld"
-other = "{count} gekoppeld"
 
 [admin.account.codesLeftShort]
 one = "Nog {count}"
@@ -1396,12 +1357,6 @@ other = "Nog {count}"
 [admin.account.codesLeft]
 one = "Nog {count} code over."
 other = "Nog {count} codes over."
-
-[admin.kinds]
-standard = "Standaard"
-standardHelp = "De server bewaart uw notities versleuteld met een eigen sleutel en kan deze doorzoeken. Een beheerder kan een nieuw wachtwoord instellen als u het uwe bent vergeten."
-e2ee = "End-to-end versleuteld"
-e2eeHelp = "Alleen uw apparaten kunnen uw notities lezen. Uw wachtwoord wordt nooit naar de server verzonden en niemand kan het resetten."
 
 [admin.forgot]
 link = "Wachtwoord vergeten?"
@@ -1452,11 +1407,8 @@ notTitle = "Wat de server niet doet"
 notKept = "Geen cookies, geen trackers, geen analysegegevens, geen advertenties. Er wordt niets verkocht of gedeeld. De beheerpagina bewaart uw inloggegevens uitsluitend in het browsertabblad; deze worden verwijderd zodra het tabblad wordt gesloten."
 othersTitle = "Andere betrokken diensten"
 email = "E-mail: uitsluitend ter bevestiging van een adres, het opnieuw instellen van een wachtwoord en het versturen van een waarschuwing voordat een account wordt verwijderd, via de e-mailserver die is ingesteld door de beheerders van deze server."
-sso = "Single sign-on: wanneer u zich aanmeldt bij {provider}, wordt geregistreerd dat u zich hier hebt aangemeld."
 rightsTitle = "Uw keuzes"
 export = "Download alle gegevens die voor uw account zijn opgeslagen vanuit ‘Uw account’ als één bestand."
-deletion = "Verwijder uw account via ‘Uw account’. Dit gebeurt {days} dagen later, samen met alle bijbehorende gegevens, en tot die tijd kunt u nog van gedachten veranderen."
-deletionNow = "Verwijder uw account via ‘Uw account’. Hierbij wordt alles wat erbij is opgeslagen onmiddellijk verwijderd."
 correct = "Wijzig uw weergavenaam, e-mailadres en wachtwoord zelf, of vraag dit aan de beheerders van de server."
 noticeTitle = "Van de beheerders van deze server"
 feedbackTitle = "Feedback en bugmeldingen"
@@ -1466,19 +1418,11 @@ feedbackHere = "Feedback die vanuit de apps van gebruikers op deze server wordt 
 
 [admin.checklist]
 title = "Beveiligingschecklist"
-factorsOk = "Elke beheerder doorloopt een tweede stap: een passkey, een authenticatie-app of codes per e-mail."
-factorsMissing = "Beheerders met alleen een wachtwoord: {names}. Een uitgelekt wachtwoord zou de controle over de server overdragen."
 factorsOkPersonal = "Na het invoeren van uw wachtwoord volgt er nog een tweede stap."
 factorsMissingPersonal = "U logt in met alleen een wachtwoord. Wie dit wachtwoord te weten komt, heeft de controle over deze server en uw notities."
-registrationClosedPersonal = "Niemand anders kan zich aanmelden."
 storageLimitPersonal = "Uw notities en bestanden mogen maximaal {mb} MB in beslag nemen."
 storageUnlimitedPersonal = "Uw opslagruimte is onbeperkt; de enige beperking is de schijfruimte van de server."
 tlsLocalPersonal = "Deze pagina is afkomstig van de server zelf. Uw apparaten zouden via https verbinding moeten maken."
-registrationClosed = "De aanmelding is gesloten: alleen beheerders kunnen leden toevoegen."
-registrationInvite = "Leden kunnen anderen uitnodigen."
-registrationOpen = "Iedereen die toegang heeft tot deze server kan een account aanmaken."
-storageLimit = "Elk lid kan tot {mb} MB aan notities en bestanden samen opslaan."
-storageUnlimited = "De opslagruimte per lid is onbeperkt: één account zou de schijfruimte van de server volledig kunnen vullen. Stel dit in onder ‘Opslag’."
 backupsNone = "Er zijn geen back-ups ingesteld."
 backupsFailing = "De laatste back-up is mislukt: {error}"
 backupsNever = "Er zijn back-ups ingesteld, maar er is er nog geen uitgevoerd."
@@ -1491,12 +1435,10 @@ updatesNewer = "Op deze server draait {current}, en {latest} is beschikbaar."
 updatesWaiting = "Op deze server draait {current}; de releaselijst is nog niet gelezen."
 updatesCurrent = "Versie {current} is up-to-date."
 tlsOk = "Deze pagina is via https op de server geladen."
-tlsLocal = "Deze pagina is afkomstig van de server zelf. Bezoekers dienen via https te komen."
 tlsPlain = "Deze pagina werd via gewoon http naar de server verzonden: wachtwoorden zijn via het netwerk leesbaar. Plaats een https-reverse-proxy ervoor."
 addressOk = "Gebruikers bereiken de server via {url}."
 addressUnset = "server.public_url is niet ingesteld: dit is vereist voor links in e-mails, passkeys en single sign-on."
 addressHttp = "server.public_url is {url}, zonder https."
-secrets = "Bewaar het bestand ‘master.key’ en de databases apart van deze server, bijvoorbeeld in back-ups of in een kopie van de gegevensmap: zonder ‘master.key’ kunnen de notities van de standaardaccounts niet worden geopend."
 secretsPersonal = "Bewaar het bestand master.key en de databases apart van deze server, bijvoorbeeld in back-ups of in een kopie van de gegevensmap: zonder master.key kunnen uw notities niet worden geopend, tenzij ze end-to-end versleuteld zijn."
 secretsApart = "master.key wordt apart bewaard van de gegevensmap (storage.master_key_file). Bewaar ook een kopie hiervan buiten deze server."
 secretsDone = "Klaar, dit verbergen"
@@ -1640,11 +1582,6 @@ masterKeyApart = "De hoofdsleutel wordt uit een eigen bestand (storage.master_ke
 connected = "Er zijn back-ups ingesteld; de eerste is voltooid."
 counts = "Leden: {users}, bestanden: {files}"
 testOk = "Deze back-up herstelt het geheel (leden: {users}, bestanden: {files}); getest in een tijdelijke map die inmiddels is verwijderd."
-person = "Iemand terugbrengen"
-from = "Uit de back-up van"
-personConfirm = "Wat ontbreekt van {name} terugzetten vanuit de back-up van {when}?"
-personBack = "Het account is weer beschikbaar. Spaces terug: {spaces}, bestanden: {files}."
-personSpaces = "Spaces terug: {spaces}, bestanden: {files}."
 recovery = "Om de volledige instantie te herstellen"
 recoveryHelp = "Bewaar dit bestand, met de ingevulde geheimen en het back-upwachtwoord, op een andere locatie dan deze server. Terwijl de server is gestopt: ficelle-server backup restore --target <dit bestand> --into <een lege map>, en wijs vervolgens storage.data_dir naar die map."
 stopConfirm = "Wilt u stoppen met het maken van back-ups van deze instantie? De gemaakte back-ups blijven waar ze zijn."
@@ -1671,30 +1608,6 @@ hostKeyHelp = "Laat de vingerafdruk de eerste keer leeg: het antwoord toont de v
 
 [admin.invites]
 copyFailed = "Het kopiëren is mislukt; selecteer de tekst en kopieer deze."
-
-[admin.onePerson]
-title = "Overstappen naar één persoon"
-pointer = "Deze server beschikt over meerdere accounts. Servers voor meerdere gebruikers worden niet langer ondersteund; zij blijven weliswaar functioneren, maar ontvangen uitsluitend beveiligingsupdates."
-help = "Kies het account dat u wilt behouden. Dit account wordt de beheerder van deze server en de overige accounts worden van de server verwijderd, samen met alle gegevens die voor hen zijn opgeslagen."
-choose = "Te behouden account"
-seen = "laatst gezien {date}"
-typeName = "Typ {name} om te bevestigen"
-
-[admin.onePerson.notes]
-one = "over {count} notitie"
-other = "over {count} notities"
-
-[admin.onePerson.devices]
-one = "{count} apparaat"
-other = "{count} apparaten"
-
-[admin.onePerson.warning]
-one = "{count} andere account wordt verwijderd en {name} blijft behouden. Dit kan niet ongedaan worden gemaakt. Hun notities blijven pas op hun apparaten staan nadat hun apps naar deze versie zijn bijgewerkt; vraag hen daarom eerst om de app bij te werken en alles te exporteren waarvan zij zeker willen zijn dat het bewaard blijft."
-other = "{count} andere accounts worden verwijderd en {name} blijft behouden. Dit kan niet ongedaan worden gemaakt. Hun notities blijven pas op hun apparaten staan nadat hun apps naar deze versie zijn bijgewerkt; vraag hen daarom eerst om de update uit te voeren en alles te exporteren waarvan zij zeker willen zijn dat het bewaard blijft."
-
-[admin.onePerson.submit]
-one = "{count} andere accounts verwijderen"
-other = "{count} andere accounts verwijderen"
 
 [admin.feedback]
 saveZip = "Opslaan als zip-bestand"
@@ -1766,10 +1679,6 @@ sendTo = "Waar de leden van deze server hun rapporten naartoe sturen"
 sendTo_main = "Naar de hoofdserver van het project (helpt bij het oplossen van problemen met de app)"
 sendTo_here = "Naar de inbox van deze server"
 sendTo_off = "Nergens, ‘Feedback verzenden’ wordt verborgen in de apps"
-readers = "Wie leest de inbox?"
-noReaders = "Alleen de beheerders."
-addReader = "Toevoegen"
-remove = "Verwijderen"
 token = "Token voor het ophalen van rapporten"
 tokenOnce = "Kopieer het nu, want het wordt slechts één keer weergegeven:"
 tokenMade = "Er werd een token aangemaakt {when}."
@@ -1831,10 +1740,6 @@ body = "Het wachtwoord van uw account {username} is zojuist gewijzigd via een li
 [mail.code]
 subject = "Uw inlogcode"
 body = "Uw code om in te loggen als {username} is\n\n{code}\n\nDeze code is 10 minuten geldig. Als u niet inlogt, heeft iemand uw wachtwoord: wijzig het dan onmiddellijk."
-
-[mail.deletion]
-subject = "Uw account wordt verwijderd"
-body = "Uw account {username} wordt op {date} verwijderd, samen met alle gegevens die de server hierover bewaart. Om uw account te behouden, dient u vóór die datum in te loggen en de verwijdering te annuleren."
 
 [reset]
 title = "Alles resetten"

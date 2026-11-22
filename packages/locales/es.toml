@@ -737,10 +737,6 @@ thisApp = "Esta aplicación"
 versionLine = "{version}, protocolo {protocol}"
 version_serverOlder = "El servidor ejecuta una versión anterior a la de esta aplicación. La sincronización sigue funcionando, pero es recomendable que ambos tengan la misma versión."
 version_serverNewer = "El servidor ejecuta una versión más reciente que esta aplicación. La sincronización sigue funcionando, pero es recomendable que ambas tengan la misma versión."
-signUps = "Registro de cuentas"
-signUpsOpen = "Abierto a todo el mundo"
-signUpsInvite = "Con una invitación"
-signUpsClosed = "Cerrado, el administrador añade a las personas"
 plainWarning = "Este servidor no utiliza https: su contraseña y sus notas se transmitirían por la red sin cifrar, y cualquier persona que accediera a ella podría leerlas."
 plainConfirm = "Usarlo de todos modos, confío en esta red"
 username = "Nombre de usuario"
@@ -1063,7 +1059,6 @@ setupHelp = "Aún no cuenta con un administrador. Quienquiera que la ejecute abr
 again = "Repetir contraseña"
 mismatch = "Las dos contraseñas son diferentes."
 submit = "Iniciar sesión"
-or = "o"
 orPassword = "o con una contraseña"
 withPasskey = "Iniciar sesión con una clave de acceso"
 passkeyCancelled = "No se ha utilizado la clave de acceso. Inténtelo de nuevo o utilice otro método."
@@ -1106,21 +1101,6 @@ qrExpired = "Este código QR ha caducado."
 qrAgain = "Mostrar uno nuevo"
 qrAlt = "Código QR para escanear con {app}"
 askOnlyQr = "Continúe únicamente si acaba de escanear este código con su teléfono."
-
-[admin.register]
-title = "Crear su cuenta en {app}"
-help = "Esta invitación le permite crear una cuenta. Elija un nombre de usuario y una contraseña."
-submit = "Crear mi cuenta"
-ready = "Su cuenta {name} está lista"
-readyHelp = "Utilícela para iniciar sesión desde la aplicación {app}. Puede cerrar esta página."
-kind = "Tipo de cuenta"
-e2eeWarning = "Nadie puede restablecer la contraseña de esta cuenta, ni siquiera un administrador. Si la olvida, solo podrá acceder a la cuenta mediante el código de recuperación que se muestra a continuación. Para disfrutar de la máxima protección, utilice la aplicación: esta página procede del servidor."
-codeTitle = "Su código de recuperación"
-codeHelp = "Anótelo o guárdelo en un lugar seguro, lejos de este dispositivo. Si olvida su contraseña, es la única forma de volver a acceder a su cuenta y a sus notas. Solo se muestra ahora."
-typeBack = "Escriba los cuatro últimos caracteres para comprobar que lo ha conservado."
-typeBackWrong = "Ese no es el final del código. Vuelva a mirarlo."
-keptIt = "Lo he conservado, continuar"
-codeFile = "Código de recuperación de {app} para {name} en {host}. Manténgalo en secreto. Permite acceder a la cuenta en caso de que se olvide la contraseña."
 
 [admin.overview]
 title = "Resumen"
@@ -1212,9 +1192,6 @@ one = "{count} día"
 other = "{count} días"
 
 [admin.policy.from]
-user = "Definido para este miembro"
-group = "De un grupo"
-instance = "De las normas para todos"
 config = "Del archivo de configuración del servidor"
 
 [admin.policy.help]
@@ -1359,11 +1336,6 @@ codesReady = "Nuevos códigos de recuperación. Los antiguos ya no funcionan."
 codesSaved = "Los he guardado"
 saveTxt = "Guardar como .txt"
 codesFile = "Códigos de recuperación de {app} para {host}. Cada uno de ellos solo funciona una vez."
-ssoTitle = "Inicio de sesión único"
-ssoHelp = "Vincule su {provider} para que le permita iniciar sesión aquí."
-linkSso = "Vincular {provider}"
-ssoLinked = "Vinculado. Ahora le permite iniciar sesión."
-ssoUnlinkConfirm = "¿Desea desvincular {name}? Ya no iniciará sesión con él."
 emailTitle = "Correo electrónico"
 emailOff = "Este servidor no envía correos electrónicos."
 addEmail = "Añadir una dirección"
@@ -1373,21 +1345,10 @@ emailSent = "Se ha enviado un enlace a {email}. Ábralo para confirmar la direcc
 dataTitle = "Sus datos"
 export = "Descargar mis datos"
 exported = "Se han descargado sus datos."
-delete = "Eliminar mi cuenta"
-deleteConfirm = "¿Desea eliminar su cuenta? Se eliminará en {days} días, junto con toda la información que el servidor conserve sobre ella. Hasta entonces, puede iniciar sesión y mantenerla. Ya se ha cerrado la sesión en sus demás dispositivos."
-deleteNowConfirm = "¿Desea eliminar su cuenta ahora, junto con toda la información que el servidor tiene almacenada sobre ella? Esta acción no se puede deshacer."
-deletionPlanned = "Su cuenta será eliminada. No obstante, podrá conservarla hasta la fecha indicada."
-deletionPending = "Su cuenta se eliminará el {date}."
-keepAccount = "Mantener mi cuenta"
-deletionCancelled = "Su cuenta se mantiene."
 
 [admin.account.passkeyCount]
 one = "{count} clave de acceso"
 other = "{count} claves de acceso"
-
-[admin.account.linkedCount]
-one = "{count} vinculado"
-other = "{count} vinculados"
 
 [admin.account.codesLeftShort]
 one = "Queda {count}"
@@ -1396,12 +1357,6 @@ other = "Quedan {count}"
 [admin.account.codesLeft]
 one = "Queda {count} código."
 other = "Quedan {count} códigos."
-
-[admin.kinds]
-standard = "Estándar"
-standardHelp = "El servidor almacena sus notas cifradas con su propia clave y puede realizar búsquedas en ellas. Un administrador puede establecer una nueva contraseña en caso de que usted olvide la suya."
-e2ee = "Cifrado de extremo a extremo"
-e2eeHelp = "Solo sus dispositivos pueden leer sus notas. Su contraseña nunca llega al servidor y nadie puede restablecerla."
 
 [admin.forgot]
 link = "¿Ha olvidado su contraseña?"
@@ -1452,11 +1407,8 @@ notTitle = "Lo que no hace"
 notKept = "Sin cookies, sin rastreadores, sin análisis de datos, sin anuncios. No se vende ni se comparte nada. La página de administración mantiene su sesión de inicio de sesión únicamente en la pestaña del navegador; esta finaliza cuando se cierra la pestaña."
 othersTitle = "Otros servicios implicados"
 email = "Correo electrónico: únicamente para confirmar una dirección, restablecer una contraseña y avisar antes de que se elimine una cuenta, a través del servidor de correo configurado por los responsables de este servidor."
-sso = "Inicio de sesión único: cuando inicia sesión con {provider}, el sistema registra que ha iniciado sesión aquí."
 rightsTitle = "Sus opciones"
 export = "Descargue todo el contenido guardado en su cuenta desde «Su cuenta», en forma de archivo."
-deletion = "Elimine su cuenta desde «Su cuenta». La eliminación se hará efectiva {days} días después, conservándose toda la información, y podrá cambiar de opinión hasta entonces."
-deletionNow = "Elimine su cuenta desde «Su cuenta». Se eliminará de inmediato junto con todo lo que se haya guardado en ella."
 correct = "Modifique usted mismo su nombre visible, su correo electrónico y su contraseña, o solicítelo a las personas que gestionan el servidor."
 noticeTitle = "De parte de los responsables de este servidor"
 feedbackTitle = "Comentarios e informes de errores"
@@ -1466,19 +1418,11 @@ feedbackHere = "Los comentarios enviados desde las aplicaciones de los usuarios 
 
 [admin.checklist]
 title = "Lista de comprobación de seguridad"
-factorsOk = "Cada administrador cuenta con un segundo paso: una clave de acceso, una aplicación de autenticación o códigos enviados por correo electrónico."
-factorsMissing = "Administradores que solo disponen de una contraseña: {names}. La filtración de una contraseña supondría la entrega del control del servidor."
 factorsOkPersonal = "Tiene un segundo paso tras su contraseña."
 factorsMissingPersonal = "Inicia sesión solo con una contraseña. Quien la conozca controlará este servidor y sus notas."
-registrationClosedPersonal = "Nadie más puede registrarse."
 storageLimitPersonal = "Sus notas y archivos pueden ocupar hasta {mb} MB."
 storageUnlimitedPersonal = "Su espacio de almacenamiento no tiene límite, salvo el disco del servidor."
 tlsLocalPersonal = "Esta página procede del propio servidor. Sus dispositivos deberían conectarse a través de https."
-registrationClosed = "El registro está cerrado: solo los administradores pueden añadir miembros."
-registrationInvite = "Los miembros pueden invitar a otras personas."
-registrationOpen = "Cualquier persona que acceda a este servidor puede crear una cuenta."
-storageLimit = "Cada usuario puede almacenar hasta {mb} MB, entre notas y archivos."
-storageUnlimited = "El almacenamiento por usuario no tiene límite: una sola cuenta podría ocupar todo el disco del servidor. Configúrelo en «Almacenamiento»."
 backupsNone = "No se ha configurado ninguna copia de seguridad."
 backupsFailing = "La última copia de seguridad ha fallado: {error}"
 backupsNever = "Las copias de seguridad están configuradas, pero aún no se ha realizado ninguna."
@@ -1491,12 +1435,10 @@ updatesNewer = "Este servidor ejecuta la versión {current}, y ya está disponib
 updatesWaiting = "Este servidor ejecuta la versión {current}; aún no se ha consultado la lista de versiones."
 updatesCurrent = "La versión {current} está actualizada."
 tlsOk = "Esta página se ha cargado en el servidor a través de https."
-tlsLocal = "Esta página procede del propio servidor. Se recomienda acceder a ella a través de https."
 tlsPlain = "Esta página se ha enviado al servidor a través de http sin cifrar: las contraseñas se transmiten por la red de forma legible. Instale un proxy inverso https delante."
 addressOk = "Los usuarios acceden al servidor en {url}."
 addressUnset = "No se ha configurado «server.public_url»: los enlaces en los correos electrónicos, las claves de acceso y el inicio de sesión único lo requieren."
 addressHttp = "server.public_url es {url}, sin https."
-secrets = "Mantenga el archivo master.key y las bases de datos separados de este servidor, ya sea en copias de seguridad o en una copia de la carpeta de datos: sin el archivo master.key no se pueden abrir las notas de las cuentas estándar."
 secretsPersonal = "Mantenga el archivo master.key y las bases de datos separados de este servidor, ya sea en copias de seguridad o en una copia de la carpeta de datos: sin el archivo master.key no se podrán abrir sus notas, a menos que estén cifradas de extremo a extremo."
 secretsApart = "El archivo «master.key» se guarda separado de la carpeta de datos (storage.master_key_file). Guarde también una copia del mismo fuera de este servidor."
 secretsDone = "Hecho, ocultar esto"
@@ -1640,11 +1582,6 @@ masterKeyApart = "La clave maestra se lee desde su propio archivo (storage.maste
 connected = "Se han configurado las copias de seguridad y ya se ha realizado la primera."
 counts = "Miembros: {users}, archivos: {files}"
 testOk = "Esta copia de seguridad restaura todo el contenido (miembros: {users}, archivos: {files}); se ha probado en una carpeta temporal que ya se ha eliminado."
-person = "Recuperar a alguien"
-from = "Procedentes de la copia de seguridad de"
-personConfirm = "¿Desea recuperar lo que falta de {name} a partir de la copia de seguridad de {when}?"
-personBack = "La cuenta ha vuelto. Espacios: {spaces}; archivos: {files}."
-personSpaces = "Espacios: {spaces}; archivos: {files}."
 recovery = "Para restaurar toda la instancia"
 recoveryHelp = "Guarde este archivo, con los campos «secretos» rellenados y la contraseña de copia de seguridad, en un lugar distinto de este servidor. Con el servidor detenido, ejecute: ficelle-server backup restore --target <este archivo> --into <una carpeta vacía>; a continuación, asigne esa carpeta a storage.data_dir."
 stopConfirm = "¿Desea dejar de realizar copias de seguridad de esta instancia? Las copias de seguridad realizadas permanecerán donde están."
@@ -1671,30 +1608,6 @@ hostKeyHelp = "Deje la huella digital en blanco la primera vez: la respuesta es 
 
 [admin.invites]
 copyFailed = "No se ha podido copiar; seleccione el texto y cópielo."
-
-[admin.onePerson]
-title = "Pasar a una sola persona"
-pointer = "Este servidor cuenta con varias cuentas. Ya no se admiten los servidores para varias personas; siguen funcionando, pero solo reciben correcciones de seguridad."
-help = "Elija la cuenta que desea conservar. Esta se convertirá en la cuenta de administrador de este servidor y las demás se eliminarán del servidor, junto con todo el contenido que contengan."
-choose = "Cuenta que debe mantener"
-seen = "Visto por última vez: {date}"
-typeName = "Escriba {name} para confirmar"
-
-[admin.onePerson.notes]
-one = "aprox. {count} nota"
-other = "aprox. {count} notas"
-
-[admin.onePerson.devices]
-one = "{count} dispositivo"
-other = "{count} dispositivos"
-
-[admin.onePerson.warning]
-one = "Se eliminará {count} otra cuenta y se conservará {name}. Esta acción no se puede deshacer. Sus notas permanecerán en sus dispositivos únicamente una vez que hayan actualizado sus aplicaciones a esta versión, por lo que debe pedirles que las actualicen primero y que exporten todo aquello que deseen conservar."
-other = "Se eliminarán {count} otras cuentas y se conservará {name}. Esta acción no se puede deshacer. Sus notas permanecerán en sus dispositivos únicamente una vez que hayan actualizado sus aplicaciones a esta versión, por lo que debe pedirles que las actualicen primero y que exporten todo aquello que deseen conservar."
-
-[admin.onePerson.submit]
-one = "Eliminar {count} otra cuenta"
-other = "Eliminar {count} cuentas más"
 
 [admin.feedback]
 saveZip = "Guardar como archivo ZIP"
@@ -1766,10 +1679,6 @@ sendTo = "Lugar al que los miembros de este servidor envían sus informes"
 sendTo_main = "Al servidor principal del proyecto (ayuda a corregir la aplicación)"
 sendTo_here = "A la bandeja de entrada de este servidor"
 sendTo_off = "Ningún sitio, la opción «Enviar comentarios» se oculta en las aplicaciones"
-readers = "¿Quién consulta la bandeja de entrada?"
-noReaders = "Solo los administradores."
-addReader = "Añadir"
-remove = "Eliminar"
 token = "Token para la obtención de informes"
 tokenOnce = "Cópielo ahora, ya que solo se muestra una vez:"
 tokenMade = "Se creó un token {when}."
@@ -1831,10 +1740,6 @@ body = "La contraseña de su cuenta {username} acaba de modificarse a través de
 [mail.code]
 subject = "Su código de inicio de sesión"
 body = "Su código para iniciar sesión como {username} es\n\n{code}\n\nTiene una validez de 10 minutos. Si no está iniciando sesión usted, alguien tiene su contraseña: cámbiela ahora mismo."
-
-[mail.deletion]
-subject = "Su cuenta será eliminada"
-body = "Su cuenta {username} se eliminará el {date}, junto con toda la información que el servidor conserve sobre ella. Para conservarla, inicie sesión antes de esa fecha y cancele la eliminación."
 
 [reset]
 title = "Restablecer todo"

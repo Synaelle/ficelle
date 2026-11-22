@@ -737,10 +737,6 @@ thisApp = "Questa app"
 versionLine = "{version}, protocollo {protocol}"
 version_serverOlder = "Il server utilizza una versione precedente rispetto a questa app. La sincronizzazione funziona comunque, ma è preferibile che entrambi utilizzino la stessa versione."
 version_serverNewer = "Il server utilizza una versione più recente rispetto a questa app. La sincronizzazione funziona comunque, ma è preferibile che entrambi utilizzino la stessa versione."
-signUps = "Registrazioni"
-signUpsOpen = "Aperte a chiunque"
-signUpsInvite = "Su invito"
-signUpsClosed = "Chiuse, l’amministratore aggiunge le persone"
 plainWarning = "Questo server non utilizza il protocollo https: la Sua password e le Sue note verrebbero trasmesse in rete senza crittografia e chiunque si trovasse sulla rete potrebbe leggerle."
 plainConfirm = "Usala comunque, mi fido di questa rete"
 username = "Nome utente"
@@ -1063,7 +1059,6 @@ setupHelp = "Non dispone ancora di un amministratore. Chiunque la gestisca apre 
 again = "Inserisca nuovamente la password"
 mismatch = "Le due password sono diverse."
 submit = "Accedi"
-or = "oppure"
 orPassword = "oppure con una password"
 withPasskey = "Accedi con una passkey"
 passkeyCancelled = "La passkey non è stata usata. Riprovi oppure usi un altro metodo."
@@ -1106,21 +1101,6 @@ qrExpired = "Questo codice QR è scaduto."
 qrAgain = "Mostra un nuovo codice"
 qrAlt = "Codice QR da scansionare con {app}"
 askOnlyQr = "Prosegua solo se ha appena scansionato questo codice con il Suo telefono."
-
-[admin.register]
-title = "Crei il Suo account su {app}"
-help = "Questo invito Le consente di creare un account. Scelga un nome utente e una password."
-submit = "Crea il mio account"
-ready = "Il Suo account {name} è pronto"
-readyHelp = "Lo utilizzi per effettuare l’accesso dall’app {app}. Può chiudere questa pagina."
-kind = "Tipo di account"
-e2eeWarning = "Nessuno può reimpostare la password di questo account, nemmeno un amministratore. Se la dimentica, solo il codice di recupero riportato di seguito consente di accedere all’account. Per la massima protezione, usi l’app: questa pagina proviene dal server."
-codeTitle = "Il Suo codice di recupero"
-codeHelp = "La scriva o la conservi in un luogo sicuro, lontano da questo dispositivo. Se dovesse dimenticare la password, questo è l’unico modo per accedere nuovamente al Suo account e alle Sue note. Viene visualizzata solo in questo momento."
-typeBack = "Digiti gli ultimi quattro caratteri per dimostrare che l’ha conservata"
-typeBackWrong = "Ma il codice non finisce qui. Lo esamini ancora una volta."
-keptIt = "L’ho conservato, continua"
-codeFile = "Codice di recupero {app} per {name} su {host}. Lo mantenga segreto. Consente di accedere all’account in caso di smarrimento della password."
 
 [admin.overview]
 title = "Panoramica"
@@ -1212,9 +1192,6 @@ one = "{count} giorno"
 other = "{count} giorni"
 
 [admin.policy.from]
-user = "Impostato per questo membro"
-group = "Da un gruppo"
-instance = "Tratto dalle regole valide per tutti"
 config = "Dal file di configurazione del server"
 
 [admin.policy.help]
@@ -1359,11 +1336,6 @@ codesReady = "Nuovi codici di recupero. Quelli precedenti non funzionano più."
 codesSaved = "Li ho salvati"
 saveTxt = "Salva come .txt"
 codesFile = "Codici di recupero {app} per {host}. Ognuno funziona una sola volta."
-ssoTitle = "Accesso unico"
-ssoHelp = "Colleghi il Suo {provider} in modo che effettui l’accesso qui."
-linkSso = "Collega {provider}"
-ssoLinked = "Collegato. Ora effettua l’accesso."
-ssoUnlinkConfirm = "Scollegare {name}? Non consentirà più l’accesso."
 emailTitle = "E-mail"
 emailOff = "Questo server non invia alcuna e-mail."
 addEmail = "Aggiungere un indirizzo"
@@ -1373,21 +1345,10 @@ emailSent = "È stato inviato un link all’indirizzo {email}. Lo apra per confe
 dataTitle = "I Suoi dati"
 export = "Scarica i miei dati"
 exported = "I Suoi dati sono stati scaricati."
-delete = "Elimina il mio account"
-deleteConfirm = "Desidera eliminare il Suo account? Verrà cancellato tra {days} giorni, insieme a tutti i dati che il server conserva al Suo riguardo. Fino ad allora potrà effettuare l’accesso e mantenerlo attivo. Gli altri Suoi dispositivi sono ora disconnessi."
-deleteNowConfirm = "Desidera cancellare subito il Suo account, compreso tutto ciò che il server conserva al Suo riguardo? Questa operazione non può essere annullata."
-deletionPlanned = "Il Suo account verrà eliminato. Potrà comunque mantenerlo fino alla data indicata."
-deletionPending = "Il Suo account verrà cancellato il {date}."
-keepAccount = "Mantieni il mio account"
-deletionCancelled = "Il Suo account rimane attivo."
 
 [admin.account.passkeyCount]
 one = "{count} passkey"
 other = "{count} passkeys"
-
-[admin.account.linkedCount]
-one = "{count} collegato"
-other = "{count} collegati"
 
 [admin.account.codesLeftShort]
 one = "{count} rimasto"
@@ -1396,12 +1357,6 @@ other = "{count} rimasti"
 [admin.account.codesLeft]
 one = "Resta {count} codice."
 other = "Rimangono {count} codici."
-
-[admin.kinds]
-standard = "Standard"
-standardHelp = "Il server conserva le Sue note crittografate con una propria chiave e può cercare al loro interno. Un amministratore può impostare una nuova password se dimentica la Sua."
-e2ee = "Crittografia end-to-end"
-e2eeHelp = "Solo i Suoi dispositivi possono leggere le Sue note. La Sua password non viene mai trasmessa al server e nessuno può reimpostarla."
 
 [admin.forgot]
 link = "Ha dimenticato la password?"
@@ -1452,11 +1407,8 @@ notTitle = "Cosa non fa"
 notKept = "Nessun cookie, nessun tracker, nessuna analisi dei dati, nessuna pubblicità. Nulla viene venduto o condiviso. La pagina di amministrazione mantiene la Sua sessione di accesso solo nella scheda del browser; essa termina quando la scheda viene chiusa."
 othersTitle = "Altri servizi coinvolti"
 email = "Posta elettronica: utilizzata esclusivamente per confermare un indirizzo, reimpostare una password e inviare un avviso prima della cancellazione di un account, tramite il server di posta configurato dai gestori di questo server."
-sso = "Accesso unico (Single Sign-On): quando effettua l’accesso tramite {provider}, il sistema rileva che ha effettuato l’accesso anche qui."
 rightsTitle = "Le Sue scelte"
 export = "Scarichi tutto ciò che è stato salvato per il Suo account dalla sezione «Il Suo account», sotto forma di file."
-deletion = "Elimini il Suo account dalla sezione «Il Suo account». L’eliminazione avverrà {days} giorni dopo, con tutti i dati conservati, e fino ad allora potrà cambiare idea."
-deletionNow = "Elimini il Suo account dalla sezione «Il Suo account». Verrà eliminato immediatamente insieme a tutti i dati ad esso associati."
 correct = "Modifichi autonomamente il Suo nome visualizzato, l’indirizzo e-mail e la password, oppure si rivolga ai gestori del server."
 noticeTitle = "Da parte dei gestori di questo server"
 feedbackTitle = "Feedback e segnalazioni di bug"
@@ -1466,19 +1418,11 @@ feedbackHere = "I feedback inviati dalle app degli utenti presenti su questo ser
 
 [admin.checklist]
 title = "Lista di controllo per la sicurezza"
-factorsOk = "Ogni amministratore ha un secondo passaggio: una passkey, un’app di autenticazione o codici inviati via e-mail."
-factorsMissing = "Amministratori con sola password: {names}. La divulgazione della password comporterebbe la perdita del controllo del server."
 factorsOkPersonal = "È previsto un secondo passaggio dopo l’inserimento della password."
 factorsMissingPersonal = "L’accesso avviene esclusivamente tramite password. Chiunque ne venga a conoscenza controlla questo server e le Sue note."
-registrationClosedPersonal = "Nessun altro può registrarsi."
 storageLimitPersonal = "Le Sue note e i Suoi file possono occupare fino a {mb} MB."
 storageUnlimitedPersonal = "Lo spazio di archiviazione a Sua disposizione non ha limiti, se non quello del disco del server."
 tlsLocalPersonal = "Questa pagina proviene direttamente dal server. I Suoi dispositivi dovrebbero collegarsi tramite https."
-registrationClosed = "Le iscrizioni sono chiuse: solo gli amministratori possono aggiungere membri."
-registrationInvite = "I membri possono invitare altre persone."
-registrationOpen = "Chiunque acceda a questo server può creare un account."
-storageLimit = "Ogni utente può archiviare fino a {mb} MB, tra note e file."
-storageUnlimited = "Lo spazio di archiviazione per utente non ha limiti: un singolo account potrebbe occupare l’intero spazio su disco del server. Impostare un valore in “Archiviazione”."
 backupsNone = "Non sono stati configurati backup."
 backupsFailing = "L’ultimo backup non è andato a buon fine: {error}"
 backupsNever = "I backup sono stati configurati, ma non ne è stato ancora eseguito nessuno."
@@ -1491,12 +1435,10 @@ updatesNewer = "Questo server utilizza la versione {current}, mentre è disponib
 updatesWaiting = "Questo server esegue la versione {current}; l’elenco delle versioni non è stato ancora consultato."
 updatesCurrent = "La versione {current} è aggiornata."
 tlsOk = "Questa pagina è stata caricata sul server tramite https."
-tlsLocal = "Questa pagina proviene direttamente dal server stesso. Si raccomanda di accedervi tramite https."
 tlsPlain = "Questa pagina è stata inviata al server tramite protocollo HTTP semplice: le password transitano in rete in chiaro. Si raccomanda di inserire un proxy inverso HTTPS a monte."
 addressOk = "Gli utenti accedono al server all’indirizzo {url}."
 addressUnset = "server.public_url non è impostato: è necessario per i link nelle e-mail, le chiavi di accesso e il Single Sign-On."
 addressHttp = "server.public_url è {url}, senza https."
-secrets = "Conservi il file master.key e i database separatamente da questo server, in backup o in una copia della cartella dei dati: senza il file master.key non è possibile aprire le note degli account standard."
 secretsPersonal = "Conservi il file master.key e i database separatamente da questo server, in backup o in una copia della cartella dei dati: senza il file master.key le Sue note non potranno essere aperte, a meno che non siano crittografate end-to-end."
 secretsApart = "Il file master.key è conservato separatamente dalla cartella dei dati (storage.master_key_file). Si raccomanda di conservarne una copia anche al di fuori di questo server."
 secretsDone = "Fatto, nascondi questo"
@@ -1640,11 +1582,6 @@ masterKeyApart = "La chiave principale viene letta dal proprio file (storage.mas
 connected = "I backup sono stati configurati e il primo è stato eseguito."
 counts = "Utenti: {users}, file: {files}"
 testOk = "Questo backup ripristina l’intero contenuto (utenti: {users}, file: {files}); è stato testato in una cartella temporanea, ora rimossa."
-person = "Ripristina un utente"
-from = "Dal backup di"
-personConfirm = "Ripristinare ciò che manca di {name} dal backup del {when}?"
-personBack = "L’account è stato ripristinato. Spazi: {spaces}, file: {files}."
-personSpaces = "Spazi: {spaces}, file: {files}."
 recovery = "Per ripristinare l’intera istanza"
 recoveryHelp = "Conservi questo file, con i campi riservati compilati, e la password di backup in un luogo diverso da questo server. Con il server arrestato, esegua il comando: ficelle-server backup restore --target <questo file> --into <una cartella vuota>, quindi imposti storage.data_dir in modo che punti a tale cartella."
 stopConfirm = "Desidera interrompere il backup di questa istanza? I backup effettuati rimarranno dove si trovano."
@@ -1671,30 +1608,6 @@ hostKeyHelp = "La prima volta, lasci l’impronta digitale vuota: la risposta fo
 
 [admin.invites]
 copyFailed = "La copia non è andata a buon fine; selezioni il testo e lo copi."
-
-[admin.onePerson]
-title = "Passa a una sola persona"
-pointer = "Questo server dispone di diversi account. I server destinati a più utenti non sono più supportati; continuano a funzionare, ma ricevono solo correzioni di sicurezza."
-help = "Selezioni l’account da mantenere. Esso diventerà l’amministratore di questo server, mentre gli altri saranno rimossi dal server, insieme a tutti i dati ad essi associati."
-choose = "Account da conservare"
-seen = "ultimo accesso {date}"
-typeName = "Digiti {name} per confermare"
-
-[admin.onePerson.notes]
-one = "circa {count} nota"
-other = "circa {count} note"
-
-[admin.onePerson.devices]
-one = "{count} dispositivo"
-other = "{count} dispositivi"
-
-[admin.onePerson.warning]
-one = "{count} altro account verrà rimosso e {name} verrà mantenuto. Questa operazione non può essere annullata. Le loro note rimarranno sui loro dispositivi solo dopo che le loro app saranno state aggiornate a questa versione; pertanto, li inviti ad aggiornarle prima e a esportare tutto ciò che desiderano conservare."
-other = "{count} altri account verranno rimossi e {name} verrà mantenuto. Questa operazione non può essere annullata. Le loro note rimarranno sui loro dispositivi solo dopo che le loro app saranno state aggiornate a questa versione; pertanto, li inviti ad aggiornarle prima e a esportare tutto ciò che desiderano conservare."
-
-[admin.onePerson.submit]
-one = "Rimuovi {count} altro account"
-other = "Rimuovi {count} altri account"
 
 [admin.feedback]
 saveZip = "Salva come file zip"
@@ -1766,10 +1679,6 @@ sendTo = "Dove i membri di questo server inviano i propri rapporti"
 sendTo_main = "Verso il server principale del progetto (aiuta a correggere l’app)"
 sendTo_here = "Alla casella di posta in arrivo di questo server"
 sendTo_off = "Da nessuna parte, «Invia feedback» è nascosto nelle app"
-readers = "Chi legge la posta in arrivo"
-noReaders = "Solo gli amministratori."
-addReader = "Aggiungi"
-remove = "Rimuovi"
 token = "Token per il recupero dei report"
 tokenOnce = "Lo copi ora, viene mostrato una sola volta:"
 tokenMade = "Un token è stato creato {when}."
@@ -1831,10 +1740,6 @@ body = "La password del Suo account {username} è stata appena modificata tramit
 [mail.code]
 subject = "Il Suo codice di accesso"
 body = "Il Suo codice per accedere come {username} è\n\n{code}\n\nÈ valido per 10 minuti. Se non sta effettuando l’accesso, qualcuno è in possesso della Sua password: la modifichi subito."
-
-[mail.deletion]
-subject = "Il Suo account verrà cancellato"
-body = "Il Suo account {username} verrà cancellato il {date}, insieme a tutti i dati che il server conserva al suo riguardo. Per mantenerlo, effettui l'accesso prima di tale data e annulli la cancellazione."
 
 [reset]
 title = "Reimposta tutto"
