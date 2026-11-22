@@ -16,7 +16,7 @@
   import { isBackendError, workspace } from '../lib/workspace.svelte'
   import TagSheet from './TagSheet.svelte'
 
-  let { narrow }: { narrow: boolean } = $props()
+  let { narrow, onsettings }: { narrow: boolean; onsettings: () => void } = $props()
 
   let all: NoteAttachment[] = $state([])
   let filter = $state('')
@@ -51,8 +51,6 @@
     return list
   })
   const total = $derived(all.reduce((sum, f) => sum + f.size, 0))
-  const kind = (file: NoteAttachment) =>
-    file.fileName.includes('.') ? file.fileName.split('.').pop()?.toUpperCase() : file.mimeType
   const day = (ms: number) =>
     new Intl.DateTimeFormat(currentLocale(), { dateStyle: 'medium' }).format(ms)
 
@@ -89,8 +87,10 @@
     {:else}
       <h1>{t('files.allTitle')}</h1>
     {/if}
-    {#if all.length}
-      <span class="muted">{t('files.allCount', { count: all.length, size: bytes(total) })}</span>
+    {#if narrow}
+      <button class="icon-btn" aria-label={t('sidebar.settings')} onclick={() => onsettings()}>
+        <Icon name="settings" />
+      </button>
     {/if}
   </header>
   <div class="tools">
@@ -138,9 +138,11 @@
               <b>{file.fileName}</b>
               <span class="muted size">{bytes(file.size)}</span>
             </span>
-            <span class="muted"
-              >{kind(file)} · {file.noteTitle || t('note.untitled')} · {day(file.createdAt)}</span
-            >
+            <!-- the type is in the name's ending and the icon -->
+            <span class="meta muted">
+              <span class="note">{file.noteTitle || t('note.untitled')}</span>
+              <span>{day(file.createdAt)}</span>
+            </span>
           </button>
           <button
             class="icon-btn"
@@ -153,6 +155,9 @@
     </ul>
   {:else}
     <p class="muted empty">{all.length ? t('files.noMatch') : t('files.none')}</p>
+  {/if}
+  {#if all.length}
+    <footer class="muted">{t('files.allCount', { count: all.length, size: bytes(total) })}</footer>
   {/if}
   {#if picking}
     <TagSheet close={() => (picking = false)} />
@@ -174,17 +179,28 @@
     width: 100%;
     border-right: 0;
   }
+  /* the same as the note list's header */
   header {
-    display: grid;
-    gap: 2px;
-    padding: var(--space-4) var(--space-4) var(--space-2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    /* the note list's buttons set its height, this one has none on a desktop */
+    min-height: 52px;
+    padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
   }
   h1 {
+    flex: 1;
+    min-width: 0;
     margin: 0;
     font-size: var(--title-screen);
+    font-weight: 650;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .scope {
-    justify-self: start;
+    min-width: 0;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -308,6 +324,26 @@
   }
   .size {
     flex-shrink: 0;
+  }
+  .meta {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+  .meta .note {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .meta :last-child {
+    flex: none;
+  }
+  footer {
+    padding: var(--space-2) var(--space-4);
+    /* at this size the UI font's space nearly vanishes after digits */
+    word-spacing: 0.15em;
+    border-top: 1px solid var(--color-border);
   }
   .empty {
     padding: var(--space-4);
