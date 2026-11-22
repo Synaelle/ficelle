@@ -99,9 +99,6 @@ pub struct PrivacyInfo {
     pub account_kinds: AccountKinds,
     /// The server sends email.
     pub email: bool,
-    /// Single sign-on provider's label, when there is one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sso: Option<String>,
     /// Days the security log keeps an entry.
     pub audit_days: u32,
     /// Days between asking for deletion and the deletion.

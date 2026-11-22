@@ -129,7 +129,7 @@ pub async fn options(State(state): State<AppState>) -> Result<Json<AuthOptions>,
         account_kinds,
         email_reset: state.mailer.enabled(),
         passkeys: state.webauthn.is_some(),
-        sso: state.sso.as_ref().map(|_| state.config.sso.label.clone()),
+        sso: None,
     }))
 }
 
@@ -261,8 +261,9 @@ pub async fn login(
         .call(move |c| store::user_by_name(c, &lookup))
         .await?;
     not_locked(&state, user.as_ref(), &name, ip, now).await?;
-    // an account without a password (made by single sign-on) is checked
-    // against the dummy hash, it takes as long and always fails
+    // an account without a password (made by the single sign-on of older
+    // versions) is checked against the dummy hash, it takes as long and
+    // always fails
     let stored = user
         .as_ref()
         .map(|u| u.password_hash.clone())

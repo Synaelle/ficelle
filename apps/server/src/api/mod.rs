@@ -21,7 +21,6 @@ mod second_factor;
 mod security;
 mod setup;
 mod sharing;
-pub mod sso;
 mod sync;
 mod updates;
 mod web;
@@ -83,10 +82,6 @@ pub fn router() -> Router<AppState> {
         .route("/privacy", get(profile::privacy))
         .route("/auth/passkey/start", post(passkeys::sign_in_start))
         .route("/auth/passkey/finish", post(passkeys::sign_in_finish))
-        .route("/auth/sso/start", post(sso::sign_in_start))
-        .route("/auth/sso/exchange", post(sso::exchange))
-        .route("/me/sso/link", post(sso::link_start))
-        .route("/me/sso/{id}", delete(sso::unlink))
         .route("/auth/refresh", post(auth::refresh))
         .route("/auth/logout", post(auth::logout))
         .route("/me", get(me::me))
@@ -335,8 +330,6 @@ mod setup_attack_tests;
 mod setup_tests;
 #[cfg(test)]
 mod sharing_tests;
-#[cfg(test)]
-mod sso_tests;
 #[cfg(test)]
 mod sync_tests;
 #[cfg(test)]

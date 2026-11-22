@@ -152,7 +152,6 @@ pub async fn security(
         totp,
         recovery_codes_left: codes,
         passkeys: super::passkeys::list(&state, &me.user.id).await?,
-        sso: super::sso::list(&state, &me.user.id).await?,
         email,
         email_available: state.mailer.enabled(),
         email_codes,

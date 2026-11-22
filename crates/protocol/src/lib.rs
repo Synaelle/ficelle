@@ -140,14 +140,6 @@ pub mod error_code {
     pub const PASSKEY_INVALID: &str = "passkeyInvalid";
     /// Passkeys need `server.public_url`, which is not set.
     pub const PASSKEYS_UNAVAILABLE: &str = "passkeysUnavailable";
-    /// Single sign-on is not set up on this server.
-    pub const SSO_UNAVAILABLE: &str = "ssoUnavailable";
-    /// The provider refused, or its answer does not check out.
-    pub const SSO_FAILED: &str = "ssoFailed";
-    /// No account is linked to this identity and the server does not create one.
-    pub const SSO_NO_ACCOUNT: &str = "ssoNoAccount";
-    /// This identity is already linked to an account.
-    pub const SSO_TAKEN: &str = "ssoTaken";
     /// The server cannot do this for an end-to-end encrypted account, for
     /// example set its password.
     pub const E2EE_ACCOUNT: &str = "e2eeAccount";

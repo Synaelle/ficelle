@@ -39,8 +39,6 @@ pub struct AppState {
     pub clock: Clock,
     /// Passkey checks, `None` without `server.public_url`.
     pub webauthn: Option<Arc<Webauthn>>,
-    /// Single sign-on provider, `None` when it is off.
-    pub sso: Option<Arc<crate::sso::Provider>>,
     /// Outgoing email.
     pub mailer: crate::mail::Mailer,
     /// Wraps the space keys of standard accounts.
@@ -84,7 +82,6 @@ impl AppState {
             passwords: Passwords::new(&config.auth),
             rate_limit: RateLimit::new(config.auth.rate_limit_per_minute),
             webauthn: crate::passkeys::relying_party(&config),
-            sso: crate::sso::Provider::new(&config).map(Arc::new),
             opaque: Arc::default(),
             live: Arc::default(),
             files,
@@ -145,7 +142,6 @@ pub fn router(state: AppState) -> Router {
     let app = Router::new()
         .route(INFO_PATH, get(info))
         .route("/health", get(health))
-        .route(crate::sso::CALLBACK_PATH, get(crate::api::sso::callback))
         .nest("/api/v1", crate::api::router())
         .merge(crate::web::router())
         .merge(crate::webapp::router(
@@ -252,7 +248,7 @@ async fn check_protocol(req: Request, next: Next) -> Response {
 /// and the apps' first look need. The pages themselves load.
 async fn setup_pending(State(state): State<AppState>, req: Request, next: Next) -> Response {
     let path = req.uri().path();
-    let open = (!path.starts_with("/api/") && path != crate::sso::CALLBACK_PATH)
+    let open = !path.starts_with("/api/")
         || path == INFO_PATH
         || path == "/api/v1/auth/options"
         || path == "/api/v1/privacy"

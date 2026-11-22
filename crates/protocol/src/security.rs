@@ -83,8 +83,6 @@ pub struct Security {
     pub recovery_codes_left: u32,
     /// Passkeys and security keys.
     pub passkeys: Vec<Passkey>,
-    /// Single sign-on identities linked to the account.
-    pub sso: Vec<SsoIdentity>,
     /// The confirmed email, for resets and notices.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
@@ -111,18 +109,6 @@ pub struct Passkey {
     pub created_at: i64,
     /// Last sign-in with it.
     pub last_used_at: Option<i64>,
-}
-
-/// A linked single sign-on identity.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SsoIdentity {
-    /// Id, to unlink it.
-    pub id: String,
-    /// The provider's name for the account, an email or a username.
-    pub name: String,
-    /// When it was linked.
-    pub created_at: i64,
 }
 
 /// Proof that the person at the keyboard owns the account, for changes to
@@ -238,39 +224,6 @@ pub struct PasskeySignInFinish {
     pub id: String,
     /// The answer of `navigator.credentials.get`.
     pub credential: Value,
-    /// This device.
-    pub device: DeviceInfo,
-}
-
-/// `POST /api/v1/auth/sso/start` and `/api/v1/me/sso/link`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SsoStartRequest {
-    /// Path on this server to come back to, for example `/admin`. The
-    /// sign-in code arrives in its fragment, `#sso=<code>`.
-    pub return_to: String,
-    /// For linking, see [`Confirm`].
-    #[serde(default)]
-    pub password: Option<String>,
-    /// For an e2ee account, the proof from `/me/confirm` instead.
-    #[serde(default)]
-    pub proof: Option<String>,
-}
-
-/// Where to send the browser for single sign-on.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SsoStart {
-    /// The provider's sign-in page.
-    pub url: String,
-}
-
-/// `POST /api/v1/auth/sso/exchange`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SsoExchangeRequest {
-    /// The code from the fragment. It works once, for a minute.
-    pub code: String,
     /// This device.
     pub device: DeviceInfo,
 }

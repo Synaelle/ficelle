@@ -24,8 +24,11 @@ pub struct Config {
     pub log: LogConfig,
     /// Accounts and sign-in.
     pub auth: AuthConfig,
-    /// Single sign-on with an OpenID Connect provider.
-    pub sso: SsoConfig,
+    /// The old `[sso]` section, no longer read: single sign-on left with
+    /// servers for several people, a server that still has it keeps
+    /// starting.
+    #[serde(skip_serializing)]
+    pub sso: Option<toml::Value>,
     /// Outgoing email, for verification, password resets and notices.
     pub smtp: SmtpConfig,
     /// What the privacy page says about who runs the server.
@@ -127,11 +130,7 @@ impl SetupConfig {
 /// Keys holding secrets: a plain environment variable is refused for them,
 /// `docker inspect` and `/proc` show those to anyone on the machine. The
 /// `_FILE` form (a Docker secret) or the config file works.
-const SECRET_KEYS: &[(&str, &str)] = &[
-    ("smtp", "password"),
-    ("sso", "client_secret"),
-    ("setup", "admin_password"),
-];
+const SECRET_KEYS: &[(&str, &str)] = &[("smtp", "password"), ("setup", "admin_password")];
 
 /// `[feedback]`: the starting switches, before the admin page changes them,
 /// and the limits against floods.
@@ -482,59 +481,6 @@ impl Default for FilesConfig {
     }
 }
 
-/// `[sso]`. Off while `issuer` is empty.
-#[derive(Clone, PartialEq, Deserialize, Serialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct SsoConfig {
-    /// The provider's issuer address, where its discovery document lives.
-    pub issuer: String,
-    /// This server's client id at the provider.
-    pub client_id: String,
-    /// Its client secret, best given through `SSO__CLIENT_SECRET_FILE`.
-    pub client_secret: String,
-    /// Text of the sign-in button.
-    pub label: String,
-    /// Scopes asked for besides `openid`.
-    pub scopes: Vec<String>,
-    /// Make an account on a first sign-in. Off, only identities linked to
-    /// an existing account sign in.
-    pub create_accounts: bool,
-}
-
-impl SsoConfig {
-    /// Whether single sign-on is set up.
-    pub fn enabled(&self) -> bool {
-        !self.issuer.is_empty()
-    }
-}
-
-/// The secret stays out of debug output, which can end up in logs.
-impl fmt::Debug for SsoConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SsoConfig")
-            .field("issuer", &self.issuer)
-            .field("client_id", &self.client_id)
-            .field("client_secret", &"***")
-            .field("label", &self.label)
-            .field("scopes", &self.scopes)
-            .field("create_accounts", &self.create_accounts)
-            .finish()
-    }
-}
-
-impl Default for SsoConfig {
-    fn default() -> Self {
-        Self {
-            issuer: String::new(),
-            client_id: String::new(),
-            client_secret: String::new(),
-            label: "Single sign-on".into(),
-            scopes: vec!["profile".into(), "email".into()],
-            create_accounts: false,
-        }
-    }
-}
-
 /// How log lines are written.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -742,24 +688,6 @@ impl Config {
         ] {
             if value == 0 {
                 return Err(ConfigError::Invalid(format!("{key} must be at least 1")));
-            }
-        }
-        let sso = &self.sso;
-        if sso.enabled() {
-            if url::Url::parse(&sso.issuer).is_err() {
-                return Err(ConfigError::Invalid(format!(
-                    "sso.issuer must be an address, got {:?}",
-                    sso.issuer
-                )));
-            }
-            if sso.client_id.is_empty() {
-                return Err(ConfigError::Invalid("sso.client_id is needed".into()));
-            }
-            if self.server.public_url.is_empty() {
-                return Err(ConfigError::Invalid(
-                    "single sign-on needs server.public_url, the provider sends people back there"
-                        .into(),
-                ));
             }
         }
         let smtp = &self.smtp;
@@ -1022,38 +950,14 @@ mod tests {
     }
 
     #[test]
-    fn single_sign_on_needs_its_keys_and_hides_its_secret() {
-        let dir = tempfile::tempdir().unwrap();
-        let secret = dir.path().join("secret");
-        std::fs::write(
-            &secret, "s3cret
-",
-        )
-        .unwrap();
-        let file = "[server]
-public_url = \"https://notes.example.org\"
-[sso]
-issuer = \"https://id.example.org\"
-client_id = \"notes\"
-";
+    fn an_old_sso_section_still_starts() {
         let config = Config::from_sources(
-            file,
-            env(&[("FICELLE_SSO__CLIENT_SECRET_FILE", secret.to_str().unwrap())]),
-        )
-        .unwrap();
-        assert!(config.sso.enabled());
-        assert_eq!(config.sso.client_secret, "s3cret");
-        assert!(!format!("{config:?}").contains("s3cret"));
-
-        let no_url = Config::from_sources(
-            "[sso]
-issuer = \"https://id.example.org\"
-client_id = \"notes\"
-",
+            "[sso]\nissuer = \"https://id.example.org\"\nclient_id = \"notes\"\n",
             env(&[]),
         )
-        .unwrap_err();
-        assert!(no_url.to_string().contains("public_url"), "{no_url}");
+        .unwrap();
+        assert!(config.sso.is_some());
+        assert!(!toml::to_string(&config).unwrap().contains("[sso]"));
     }
 
     #[test]
@@ -1077,11 +981,7 @@ client_id = \"notes\"
 
     #[test]
     fn secrets_are_refused_from_plain_variables() {
-        for var in [
-            "FICELLE_SMTP__PASSWORD",
-            "FICELLE_SSO__CLIENT_SECRET",
-            "FICELLE_SETUP__ADMIN_PASSWORD",
-        ] {
+        for var in ["FICELLE_SMTP__PASSWORD", "FICELLE_SETUP__ADMIN_PASSWORD"] {
             let refused = Config::from_sources("", env(&[(var, "hunter22")])).unwrap_err();
             assert!(
                 refused.to_string().contains(&format!("{var}_FILE")),

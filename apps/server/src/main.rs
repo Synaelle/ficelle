@@ -25,7 +25,6 @@ mod secrets;
 mod setup;
 mod sftp;
 mod sharing;
-mod sso;
 mod sync;
 mod updates;
 mod web;
@@ -292,11 +291,7 @@ async fn main() {
         println!("configuration, master key and database ok");
         return;
     }
-    if config.setup.allow_http {
-        tracing::warn!(
-            "setup.allow_http is on: the setup link and the admin password may cross the network unencrypted"
-        );
-    }
+    config_warnings(&config);
 
     let addr = config.server.bind;
     let listener = match tokio::net::TcpListener::bind(addr).await {
@@ -450,6 +445,20 @@ fn spawn_cleanup(state: AppState) {
             }
         }
     });
+}
+
+/// Settings worth a word in the log at every start.
+fn config_warnings(config: &Config) {
+    if config.sso.is_some() {
+        tracing::warn!(
+            "the [sso] section is no longer read: sign in with the password or a passkey"
+        );
+    }
+    if config.setup.allow_http {
+        tracing::warn!(
+            "setup.allow_http is on: the setup link and the admin password may cross the network unencrypted"
+        );
+    }
 }
 
 /// Prints to stderr, which works before logging is set up, and exits.

@@ -187,12 +187,6 @@ pub fn export(conn: &Connection, user_id: &str, now: i64) -> Result<Value, DbErr
         user_id,
         &["name", "addedAt", "lastUsedAt"],
     )?;
-    let sso = rows(
-        conn,
-        "SELECT issuer, name, created_at FROM sso_identities WHERE user_id = ?1 ORDER BY created_at",
-        user_id,
-        &["provider", "name", "linkedAt"],
-    )?;
     let log = rows(
         conn,
         "SELECT at, event, ip, detail FROM audit_log WHERE user_id = ?1 ORDER BY at",
@@ -212,7 +206,6 @@ pub fn export(conn: &Connection, user_id: &str, now: i64) -> Result<Value, DbErr
             "authenticatorApp": totp,
             "recoveryCodesLeft": codes,
             "passkeys": passkeys,
-            "singleSignOn": sso,
         },
         "e2eeKeys": e2ee::keys(conn, user_id)?,
         // the notes themselves come out of the app, as markdown: here only

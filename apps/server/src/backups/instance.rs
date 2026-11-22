@@ -482,7 +482,7 @@ pub fn restore_person(
             )? > 0,
             ..PersonReport::default()
         };
-        for table in ["recovery_codes", "passkeys", "sso_identities"] {
+        for table in ["recovery_codes", "passkeys"] {
             tx.execute(
                 &format!("INSERT OR IGNORE INTO main.{table} SELECT * FROM snap.{table} WHERE user_id = ?1"),
                 [user],

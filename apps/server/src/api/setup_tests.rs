@@ -137,16 +137,6 @@ async fn until_setup_only_the_setup_and_first_look_answer() {
         .await
         .unwrap();
     assert_eq!(health.status(), StatusCode::OK);
-    let callback = app
-        .clone()
-        .oneshot(
-            Request::get(crate::sso::CALLBACK_PATH)
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(callback.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
 
 #[tokio::test]

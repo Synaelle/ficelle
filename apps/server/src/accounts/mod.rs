@@ -43,34 +43,6 @@ pub fn display_name(raw: Option<&str>, username: &str) -> String {
     }
 }
 
-/// A username for an account made by single sign-on, from what the
-/// provider calls the person: their username, else the start of their
-/// email, made to fit the username rules.
-pub fn sso_username(username: Option<&str>, email: Option<&str>) -> String {
-    let source = username
-        .filter(|u| !u.trim().is_empty())
-        .or_else(|| email.and_then(|e| e.split('@').next()))
-        .unwrap_or("");
-    let mut name: String = source
-        .trim()
-        .to_ascii_lowercase()
-        .chars()
-        .map(|c| {
-            if c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-') {
-                c
-            } else {
-                '-'
-            }
-        })
-        .skip_while(|c| !c.is_ascii_alphanumeric())
-        .take(32)
-        .collect();
-    if name.len() < 3 {
-        name = format!("user{name}");
-    }
-    normal_username(&name).unwrap_or_else(|| "user".into())
-}
-
 /// Device details as stored: a name to recognise it and a known platform.
 /// A `replaces` that cannot be a device id is dropped.
 pub fn device_info(raw: &DeviceInfo) -> DeviceInfo {
@@ -117,19 +89,6 @@ mod tests {
         );
         assert_eq!(normal_username("anna b"), None);
         assert_eq!(normal_username("annà"), None, "ascii only, no look-alikes");
-    }
-
-    #[test]
-    fn usernames_from_a_provider() {
-        assert_eq!(sso_username(Some("Anna.B"), None), "anna.b");
-        assert_eq!(
-            sso_username(None, Some("Zoé Martin@example.org")),
-            "zo--martin"
-        );
-        assert_eq!(sso_username(Some("  "), Some("jo@x")), "userjo");
-        assert_eq!(sso_username(Some("__x"), None), "userx");
-        assert_eq!(sso_username(None, None), "user");
-        assert_eq!(sso_username(Some(&"a".repeat(50)), None).len(), 32);
     }
 
     #[test]

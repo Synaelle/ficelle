@@ -33,7 +33,8 @@ pub struct AuthOptions {
     pub account_kinds: AccountKinds,
     /// A forgotten password can be reset by email.
     pub email_reset: bool,
-    /// Label of the single sign-on button, absent without single sign-on.
+    /// Always absent: single sign-on left with servers for several
+    /// people, the field stays for apps that read it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sso: Option<String>,
 }

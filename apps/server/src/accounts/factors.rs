@@ -22,10 +22,6 @@ pub enum ChallengeKind {
     PasskeyAdd,
     /// Signing in with a passkey alone.
     PasskeySignIn,
-    /// Gone to the single sign-on provider, waiting for its callback.
-    SsoStart,
-    /// Back from the provider, the page trades it for a session.
-    SsoGrant,
     /// An OPAQUE sign-in between its two requests.
     OpaqueLogin,
     /// An OPAQUE run proving the password of a signed in account.
@@ -46,8 +42,6 @@ impl ChallengeKind {
             Self::SecondFactor => "second_factor",
             Self::PasskeyAdd => "passkey_add",
             Self::PasskeySignIn => "passkey_sign_in",
-            Self::SsoStart => "sso_start",
-            Self::SsoGrant => "sso_grant",
             Self::OpaqueLogin => "opaque_login",
             Self::OpaqueConfirm => "opaque_confirm",
             Self::ConfirmProof => "confirm_proof",
@@ -97,8 +91,7 @@ pub fn create_challenge<T: Serialize>(
     Ok(token)
 }
 
-/// Stores a challenge for a token made beforehand, for a token that has to
-/// travel before the data exists (the state of a single sign-on).
+/// Stores a challenge for a token made beforehand.
 ///
 /// # Errors
 ///
@@ -679,90 +672,6 @@ pub fn delete_passkey(conn: &Connection, user_id: &str, id: &str) -> Result<bool
     )? == 1;
     guard_admin(conn, user_id)?;
     Ok(deleted)
-}
-
-/// A linked single sign-on identity.
-#[derive(Debug, Clone)]
-pub struct SsoRow {
-    /// Id.
-    pub id: String,
-    /// What to show for it.
-    pub name: String,
-    /// When it was linked.
-    pub created_at: i64,
-}
-
-/// The account linked to a provider identity.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn sso_user(conn: &Connection, issuer: &str, subject: &str) -> Result<Option<String>, DbError> {
-    Ok(conn
-        .query_row(
-            "SELECT user_id FROM sso_identities WHERE issuer = ?1 AND subject = ?2",
-            params![issuer, subject],
-            |r| r.get(0),
-        )
-        .optional()?)
-}
-
-/// Links an identity to an account. `false` when it is linked already.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn link_sso(
-    conn: &Connection,
-    user_id: &str,
-    issuer: &str,
-    subject: &str,
-    name: &str,
-    now: i64,
-) -> Result<bool, DbError> {
-    Ok(conn.execute(
-        "INSERT OR IGNORE INTO sso_identities (id, user_id, issuer, subject, name, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![
-            uuid::Uuid::now_v7().to_string(),
-            user_id,
-            issuer,
-            subject,
-            name,
-            now
-        ],
-    )? == 1)
-}
-
-/// The identities linked to an account.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn sso_identities(conn: &Connection, user_id: &str) -> Result<Vec<SsoRow>, DbError> {
-    let mut stmt = conn.prepare(
-        "SELECT id, name, created_at FROM sso_identities WHERE user_id = ?1 ORDER BY created_at, id",
-    )?;
-    let rows = stmt.query_map([user_id], |r| {
-        Ok(SsoRow {
-            id: r.get(0)?,
-            name: r.get(1)?,
-            created_at: r.get(2)?,
-        })
-    })?;
-    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
-}
-
-/// Unlinks an identity of the account, `false` when it has no such identity.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn unlink_sso(conn: &Connection, user_id: &str, id: &str) -> Result<bool, DbError> {
-    Ok(conn.execute(
-        "DELETE FROM sso_identities WHERE id = ?1 AND user_id = ?2",
-        params![id, user_id],
-    )? == 1)
 }
 
 /// Removes every second factor: the app, the recovery codes, the passkeys.
