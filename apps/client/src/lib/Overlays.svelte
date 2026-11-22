@@ -331,18 +331,6 @@
           />
         {/if}
         <div class="actions">
-          <!-- a dangerous question starts on Cancel, Enter by habit keeps everything -->
-          <button
-            class="btn"
-            type="button"
-            data-autofocus={overlay.dialog.kind === 'ask' && overlay.dialog.danger ? '' : undefined}
-            onclick={() => overlay.answer(null)}>{t('common.cancel')}</button
-          >
-          {#if overlay.dialog.kind === 'ask' && overlay.dialog.altLabel}
-            <button class="btn" type="button" onclick={() => overlay.answer('alt')}
-              >{overlay.dialog.altLabel}</button
-            >
-          {/if}
           <button
             class="btn primary"
             class:danger={overlay.dialog.kind === 'ask' && overlay.dialog.danger}
@@ -354,6 +342,18 @@
             >{overlay.dialog.kind === 'ask'
               ? overlay.dialog.confirmLabel
               : t('common.ok')}{waitLeft > 0 ? ` (${waitLeft})` : ''}</button
+          >
+          {#if overlay.dialog.kind === 'ask' && overlay.dialog.altLabel}
+            <button class="btn" type="button" onclick={() => overlay.answer('alt')}
+              >{overlay.dialog.altLabel}</button
+            >
+          {/if}
+          <!-- a dangerous question starts on Cancel, Enter by habit keeps everything -->
+          <button
+            class="btn"
+            type="button"
+            data-autofocus={overlay.dialog.kind === 'ask' && overlay.dialog.danger ? '' : undefined}
+            onclick={() => overlay.answer(null)}>{t('common.cancel')}</button
           >
         </div>
       </form>
