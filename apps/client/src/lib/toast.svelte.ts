@@ -8,6 +8,8 @@ export interface Toast {
   /** Who says it, shown before the text. */
   from: string
   text: string
+  /** A button that undoes what the message reports. */
+  action?: { label: string; run: () => void }
 }
 
 const SHOWN_MS = 5000
@@ -18,12 +20,12 @@ let next = 1
 class Toasts {
   list: Toast[] = $state([])
 
-  push(from: string, text: string) {
+  push(from: string, text: string, action?: Toast['action']) {
     // over its share, a source's oldest message makes room: the newest is
     // the one that matters
     const mine = this.list.filter((t) => t.from === from)
     if (mine.length >= PER_SOURCE) this.dismiss((mine[0] as Toast).id)
-    const toast = { id: next++, from, text: text.slice(0, 300) }
+    const toast = { id: next++, from, text: text.slice(0, 300), action }
     this.list.push(toast)
     setTimeout(() => this.dismiss(toast.id), SHOWN_MS)
   }

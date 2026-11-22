@@ -15,6 +15,16 @@
   {#each toasts.list as toast (toast.id)}
     <div class="toast">
       <span class="text"><b>{toast.from}</b> {toast.text}</span>
+      {#if toast.action}
+        {@const action = toast.action}
+        <button
+          class="btn small"
+          onclick={() => {
+            toasts.dismiss(toast.id)
+            action.run()
+          }}>{action.label}</button
+        >
+      {/if}
       <button
         class="icon-btn"
         aria-label={t('common.close')}
@@ -59,5 +69,15 @@
     flex: 1 1 12rem;
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+  .small {
+    padding: 2px var(--space-2);
+    font-size: 12px;
+  }
+  @media (pointer: coarse) {
+    .small {
+      min-height: 44px;
+      padding: 0 var(--space-3);
+    }
   }
 </style>

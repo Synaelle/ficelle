@@ -2,6 +2,7 @@
 <!-- Note list with search, sort and new note. On a phone the title is a
      scope picker, since there is no sidebar. -->
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { hour12 } from '../lib/clock.svelte'
   import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
@@ -44,6 +45,15 @@
   }
   $effect(() => {
     if (searchFocus > 0) searchInput?.focus()
+  })
+
+  let rows: { focusStop: () => void } | undefined = $state()
+  // a note sent to the trash takes its menu or row with it, and the focus
+  // would fall to the page: the row now in its place takes it
+  $effect(() => {
+    if (workspace.trashed === 0) return
+    const lost = !document.activeElement || document.activeElement === document.body
+    if (lost) untrack(() => rows?.focusStop())
   })
 
   const trash = $derived(workspace.scope.kind === 'trash')
@@ -386,6 +396,7 @@
       </VirtualList>
     {:else}
       <VirtualList
+        bind:this={rows}
         items={listed}
         key={(note) => note.id}
         label={t('list.label')}

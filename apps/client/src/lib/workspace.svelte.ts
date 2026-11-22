@@ -81,6 +81,9 @@ class Workspace {
   hits: SearchHit[] | null = $state(null)
   /** The search found more notes than `hits` lists. */
   moreHits = $state(false)
+  /** Grows when a note goes to the trash here: the list takes the focus
+   * the note's menu or row had. */
+  trashed = $state(0)
   current: Note | null = $state(null)
   /** A note just made here, its title takes the caret once shown. */
   fresh: Id | null = $state(null)
@@ -645,12 +648,19 @@ class Workspace {
   }
 
   async trash(id: Id) {
-    if (this.current?.id === id) {
+    const open = this.current?.id === id
+    const title = (open ? this.current : this.notes.find((n) => n.id === id))?.title
+    if (open) {
       await this.flush()
       this.current = null
     }
     await backend.trashNote(id)
     await this.refreshTagsAndNotes()
+    this.trashed++
+    toasts.push(title?.trim() || t('note.untitled'), t('note.trashed'), {
+      label: t('note.undoTrash'),
+      run: () => void this.restore(id).then(() => (open ? this.open(id) : undefined)),
+    })
   }
 
   async restore(id: Id) {

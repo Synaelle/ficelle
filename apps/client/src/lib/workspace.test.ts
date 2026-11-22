@@ -669,3 +669,16 @@ describe('searching', () => {
     expect(workspace.hits).toBeNull()
   })
 })
+
+describe('the trash', () => {
+  it('says the note went and brings the open one back on undo', async () => {
+    const note = await create({ title: 'Boiler notice' })
+    await workspace.trash(note.id)
+    expect(workspace.current).toBeNull()
+    const toast = toasts.list.at(-1)
+    expect(toast).toMatchObject({ from: 'Boiler notice' })
+    toast?.action?.run()
+    await vi.waitFor(() => expect(workspace.current?.id).toBe(note.id))
+    expect((await backend.getNote(note.id)).trashedAt).toBeNull()
+  })
+})
