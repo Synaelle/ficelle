@@ -890,6 +890,12 @@
   .snippet.blank {
     font-style: italic;
   }
+  /* smaller than the title, it shares its baseline rather than its middle */
+  .title,
+  .title .name,
+  .date {
+    align-self: baseline;
+  }
   .date {
     grid-row: 1;
     grid-column: 2;
