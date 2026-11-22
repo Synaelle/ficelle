@@ -114,6 +114,9 @@
         {/each}
       </div>
       <footer>
+        <button class="btn primary" disabled={busy} onclick={() => keep('merged')}
+          >{t('conflict.keepMerged')}</button
+        >
         <button class="btn" disabled={busy} onclick={() => keep('mine')}
           >{t('conflict.keepMine')}</button
         >
@@ -122,9 +125,6 @@
         >
         <button class="btn" disabled={busy} onclick={() => keep('both')}
           >{t('conflict.keepBoth')}</button
-        >
-        <button class="btn primary" disabled={busy} onclick={() => keep('merged')}
-          >{t('conflict.keepMerged')}</button
         >
       </footer>
     </div>

@@ -176,10 +176,10 @@
         <p>{t('testTools.noFolder')}</p>
         <p class="muted">{t('testTools.folderHelpPhone')}</p>
         <div class="actions">
-          <button class="btn" type="button" onclick={close}>{t('common.close')}</button>
           <button class="btn primary" type="button" onclick={chooseFolder}
             >{t('testTools.choose')}</button
           >
+          <button class="btn" type="button" onclick={close}>{t('common.close')}</button>
         </div>
       {:else}
         <p class="muted">{phone ? t('devReport.helpPhone') : t('devReport.help')}</p>
@@ -230,13 +230,13 @@
         </label>
         {#if failed}<p class="error" role="alert">{failed}</p>{/if}
         <div class="actions">
-          <button class="btn" type="button" onclick={close}>{t('common.close')}</button>
           <button
             class="btn primary"
             type="submit"
             disabled={busy || (!text.trim() && images.length === 0)}
             >{busy ? t('devReport.saving') : t('devReport.save')}</button
           >
+          <button class="btn" type="button" onclick={close}>{t('common.close')}</button>
         </div>
       {/if}
     </form>

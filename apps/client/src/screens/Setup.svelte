@@ -234,9 +234,9 @@
           >
         {:else}
           <div class="actions">
-            <button class="btn" type="button" onclick={cancel}>{t('common.back')}</button>
             <button class="btn primary" type="submit" disabled={!!problem}>{t('setup.next')}</button
             >
+            <button class="btn" type="button" onclick={cancel}>{t('common.back')}</button>
           </div>
         {/if}
       </form>
@@ -258,11 +258,6 @@
         </div>
         {#if error}<p class="error" role="alert">{error}</p>{/if}
         <div class="actions">
-          {#if !encrypted}
-            <button class="btn" type="button" onclick={() => (step = 'password')}
-              >{t('common.back')}</button
-            >
-          {/if}
           <button class="btn primary" type="submit" disabled={busy}
             >{busy
               ? t('setup.working')
@@ -272,6 +267,11 @@
                   ? t('settings.encrypt')
                   : t('setup.start')}</button
           >
+          {#if !encrypted}
+            <button class="btn" type="button" onclick={() => (step = 'password')}
+              >{t('common.back')}</button
+            >
+          {/if}
         </div>
       </form>
     {:else if step === 'pin'}

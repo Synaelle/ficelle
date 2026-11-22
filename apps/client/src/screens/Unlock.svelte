@@ -205,11 +205,11 @@
           </p>{/if}
         {#if error}<p class="error" role="alert">{error}</p>{/if}
         <div class="actions">
-          <button class="btn" type="button" onclick={() => ((recovering = false), (error = ''))}
-            >{t('common.back')}</button
-          >
           <button class="btn primary" type="submit" disabled={busy || !code || !!recoverProblem}
             >{t('unlock.open')}</button
+          >
+          <button class="btn" type="button" onclick={() => ((recovering = false), (error = ''))}
+            >{t('common.back')}</button
           >
         </div>
       </form>

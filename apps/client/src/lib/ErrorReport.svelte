@@ -143,10 +143,10 @@
     {:else if place && !place.available}
       <p>{t('errorReport.off', { address: brand.contactEmail })}</p>
       <div class="actions">
+        <button class="btn primary" type="button" onclick={close}>{t('common.close')}</button>
         <button class="btn" type="button" onclick={copy}
           >{copied ? t('settings.contactCopied') : t('errorReport.copyAddress')}</button
         >
-        <button class="btn primary" type="button" onclick={close}>{t('common.close')}</button>
       </div>
     {:else}
       <form onsubmit={send}>
@@ -199,11 +199,11 @@
         {#if place}<p class="muted">{t('errorReport.sentTo', { host: place.host })}</p>{/if}
         {#if problem}<p class="error" role="alert">{problem}</p>{/if}
         <div class="actions">
-          <button class="btn" type="button" disabled={busy} onclick={close}
-            >{t('common.cancel')}</button
-          >
           <button class="btn primary" type="submit" disabled={busy || !place || contactBad}
             >{busy ? t('feedback.sending') : t('feedback.send')}</button
+          >
+          <button class="btn" type="button" disabled={busy} onclick={close}
+            >{t('common.cancel')}</button
           >
         </div>
       </form>
