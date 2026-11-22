@@ -20,6 +20,7 @@
 
   let all: NoteAttachment[] = $state([])
   let filter = $state('')
+  let filterInput: HTMLInputElement | undefined = $state()
   let sort = $state<'newest' | 'largest' | 'name'>('newest')
   /** The file whose note was opened from here: the others of that note stay
    * unmarked. */
@@ -96,7 +97,26 @@
     <label class="search">
       <Icon name="search" size={16} />
       <span class="visually-hidden">{t('files.filter')}</span>
-      <input type="search" placeholder={t('files.filter')} bind:value={filter} />
+      <input
+        bind:this={filterInput}
+        type="search"
+        placeholder={t('files.filter')}
+        bind:value={filter}
+      />
+      {#if filter}
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label={t('files.clearFilter')}
+          title={t('files.clearFilter')}
+          onclick={() => {
+            filter = ''
+            filterInput?.focus()
+          }}
+        >
+          <Icon name="close" size={14} />
+        </button>
+      {/if}
     </label>
     <select class="sort" bind:value={sort} aria-label={t('files.sort')}>
       <option value="newest">{t('files.sort_newest')}</option>
@@ -210,6 +230,14 @@
     background: transparent;
     color: var(--color-text);
   }
+  .search input::-webkit-search-cancel-button {
+    display: none;
+  }
+  .search .icon-btn {
+    width: 24px;
+    height: 24px;
+    margin-right: -4px;
+  }
   .sort {
     flex: none;
     max-width: 120px;
@@ -219,6 +247,11 @@
   @media (pointer: coarse) {
     .search {
       height: 44px;
+    }
+    .search .icon-btn {
+      width: 44px;
+      height: 42px;
+      margin-right: calc(-1 * var(--space-2));
     }
     .sort {
       font-size: 14px;

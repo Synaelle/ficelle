@@ -411,6 +411,20 @@
         value={workspace.query}
         oninput={(e) => workspace.search(e.currentTarget.value)}
       />
+      {#if workspace.query}
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label={t('list.clearSearch')}
+          title={t('list.clearSearch')}
+          onclick={() => {
+            void workspace.search('')
+            searchInput?.focus()
+          }}
+        >
+          <Icon name="close" size={14} />
+        </button>
+      {/if}
     </label>
     {#if !searching}
       <select
@@ -712,9 +726,23 @@
     background: transparent;
     color: var(--color-text);
   }
+  /* the engine's own clear glyph, a close icon in its place */
+  .search input::-webkit-search-cancel-button {
+    display: none;
+  }
+  .search .icon-btn {
+    width: 24px;
+    height: 24px;
+    margin-right: -4px;
+  }
   @media (pointer: coarse) {
     .search {
       height: 44px;
+    }
+    .search .icon-btn {
+      width: 44px;
+      height: 42px;
+      margin-right: calc(-1 * var(--space-2));
     }
     .sort {
       font-size: 14px;
