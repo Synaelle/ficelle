@@ -5,6 +5,7 @@
 import { MIN_PASSWORD } from '../lib/passwords'
 import { encryptFlow } from '../lib/encryptFlow.svelte'
 import { backend, PIN_LENGTH, type VaultStatus, type VaultWay } from '../lib/backend'
+import { backups } from '../lib/backups.svelte'
 import { t } from '../lib/i18n.svelte'
 import { pickToOpen, pickToSave } from '../lib/pick'
 import { overlay } from '../lib/overlay.svelte'
@@ -151,6 +152,7 @@ export class SettingsState {
     try {
       await backend.vaultChangePassword(old, next)
       this.message = t('settings.passwordChanged')
+      void backups.runAfterPasswordChange()
       return true
     } catch (err) {
       this.message = errorText(err)

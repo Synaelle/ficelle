@@ -344,7 +344,8 @@ fn unprotected() -> CommandError {
 }
 
 /// The notes got a password, or another one: the next backups are sealed
-/// with it. Those made before keep the password they were made with.
+/// with it. Those made before keep the password they were made with, so the
+/// next run makes a file even when no note changed.
 ///
 /// # Errors
 ///
@@ -355,7 +356,12 @@ pub async fn protect(app: AppHandle, password: String) -> CommandResult<()> {
             return Ok(());
         };
         config.password = Some(password);
-        state.quietly(|s| s.store.set_auto_backups(Some(&config)))
+        state.quietly(|s| {
+            s.store.set_auto_backups(Some(&config))?;
+            let mut status = s.store.backup_status()?;
+            status.last_digest = None;
+            s.store.set_backup_status(&status)
+        })
     })
     .await
 }

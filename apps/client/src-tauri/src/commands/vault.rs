@@ -544,6 +544,7 @@ pub async fn vault_remove_recovery(
 /// until a quicker one is chosen again.
 #[tauri::command]
 pub async fn vault_recover(
+    app: AppHandle,
     state: State<'_, AppState>,
     code: String,
     new_password: String,
@@ -552,14 +553,19 @@ pub async fn vault_recover(
         return Err(needs_password());
     }
     let dir = state.dir.clone();
+    let password = new_password.clone();
     let (vault, store) = blocking(move || {
         let mut vault = Vault::open(&dir)?;
         let key = vault.key_with_recovery(&code)?;
-        vault.set_password(&key, &new_password, KdfParams::DEFAULT)?;
+        vault.set_password(&key, &password, KdfParams::DEFAULT)?;
         forget_kept(&vault)?;
         let store = vault.unlock_with_key(&key)?;
         Ok((vault, store))
     })
     .await?;
-    state.open(vault, store)
+    state.open(vault, store)?;
+    // the forgotten password no longer seals the next backups; the notes
+    // are open either way, as in vault_set_way
+    let _ = super::backups::protect(app, new_password).await;
+    Ok(())
 }

@@ -83,6 +83,14 @@ class Backups {
     }
   }
 
+  /** The notes password changed: a backup now, when they are on, so one
+   * opens with the new password. Older ones keep the password they had. */
+  async runAfterPasswordChange() {
+    await this.refresh()
+    const config = this.view?.config
+    if (config && PERIOD[config.schedule] !== null) await this.run({ scheduled: true })
+  }
+
   /** Looks at the schedule now and every few minutes, while the notes are open. */
   start() {
     this.stop()

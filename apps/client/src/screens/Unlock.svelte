@@ -14,6 +14,7 @@
   import { onBack } from '../lib/back'
   import { backend, type VaultStatus } from '../lib/backend'
   import { asksOnItsOwn, biometricMethod } from '../lib/biometric'
+  import { backups } from '../lib/backups.svelte'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import Knot from '@app/ui/Knot.svelte'
@@ -142,9 +143,11 @@
   async function recover(event: SubmitEvent) {
     event.preventDefault()
     if (recoverProblem) return
-    await attempt(() => backend.vaultRecover(code, newPassword)).catch((err) => {
-      if (kind(err) === 'wrongPassword' || kind(err) === 'invalid') error = t('recovery.wrongKey')
-    })
+    await attempt(() => backend.vaultRecover(code, newPassword))
+      .then(() => void backups.runAfterPasswordChange())
+      .catch((err) => {
+        if (kind(err) === 'wrongPassword' || kind(err) === 'invalid') error = t('recovery.wrongKey')
+      })
   }
 
   // ask right away on phones, the way they unlock themselves; Windows Hello
