@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// How a tag's path reads, by the mark chosen in Settings, Appearance: with
-// the folder mark "projects › garden", with # "#projects/garden".
-
-import { prefs } from './prefs.svelte'
-
-/** The marks to choose from. */
-export const TAG_MARKS = ['folder', 'hash'] as const
+// How a tag's path reads, "projects › garden".
 
 /** A tag's whole path, as rows and notes show it. */
 export function tagLabel(name: string): string {
-  return prefs.tagMark === 'hash' ? `#${name}` : name.split('/').join(' › ')
+  return name.split('/').join(' › ')
 }
 
 /** The last level of a tag, as the sidebar tree shows it. */

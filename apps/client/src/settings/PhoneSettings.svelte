@@ -28,7 +28,6 @@
   import AboutSettings from './AboutSettings.svelte'
   import { MODES } from '../lib/theme.svelte'
   import { LINUX, MOBILE, WEB } from '../lib/platform'
-  import { TAG_MARKS } from '../lib/tagMark.svelte'
   import { UI_SIZES } from '../lib/uiSize'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
   import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
@@ -513,15 +512,6 @@
             })}
           </Group>
         {/if}
-        <Group title={t('settings.tagMark')}>
-          {#each TAG_MARKS as mark (mark)}
-            <Row
-              label={t(`settings.tagMark_${mark}`)}
-              checked={prefs.tagMark === mark}
-              onclick={() => (prefs.tagMark = mark)}
-            />
-          {/each}
-        </Group>
       {:else if page === 'accessibility'}
         <Group title={t('settings.uiSize')}>
           {#each UI_SIZES as size (size)}

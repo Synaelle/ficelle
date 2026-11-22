@@ -9,7 +9,6 @@ import { workspace } from './workspace.svelte'
 
 export const SYNCED = [
   'mode',
-  'tagMark',
   'sort',
   'openNoteFirst',
   'nameFromAttachment',
@@ -32,7 +31,6 @@ const isSynced = (key: string): key is Synced => (SYNCED as readonly string[]).i
 /** The values this version knows for the choices that are one of a few. */
 const CHOICES: Partial<Record<Synced, readonly string[]>> = {
   mode: ['dark', 'light'],
-  tagMark: ['folder', 'hash'],
   sort: ['folderAsc', 'updatedDesc', 'createdDesc', 'titleAsc'],
   arrow: ARROW_CHOICES,
   clock: ['system', '24', '12'],

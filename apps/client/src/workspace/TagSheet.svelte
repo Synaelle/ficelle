@@ -10,7 +10,6 @@
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { modal } from '../lib/modal'
-  import { prefs } from '../lib/prefs.svelte'
   import { tagLabel, tagLeaf, tagParent } from '../lib/tagMark.svelte'
   import { tagKey, UNFILED, workspace } from '../lib/workspace.svelte'
 
@@ -76,11 +75,7 @@
 {/snippet}
 
 {#snippet mark(open: boolean)}
-  {#if prefs.tagMark === 'hash'}
-    <Icon name="hash" size={18} />
-  {:else}
-    <Icon name={open ? 'folderOpen' : 'folder'} size={18} />
-  {/if}
+  <Icon name={open ? 'folderOpen' : 'folder'} size={18} />
 {/snippet}
 
 {#snippet tree(parent: string, depth: number)}

@@ -15,7 +15,6 @@
   import { TOOL_NAMES } from '../editor/toolNames'
   import { MODES } from '../lib/theme.svelte'
   import { LINUX, WEB } from '../lib/platform'
-  import { TAG_MARKS } from '../lib/tagMark.svelte'
   import {
     applyQuickShortcut,
     DEFAULT_QUICK_SHORTCUT,
@@ -238,22 +237,6 @@
                   <Switch label={t('settings.pureBlack')} bind:checked={prefs.pureBlack} />
                 </Row>
               {/if}
-            </Group>
-            <Group title={t('settings.tags')}>
-              <Row label={t('settings.tagMark')}>
-                <div class="segmented" role="radiogroup" aria-label={t('settings.tagMark')}>
-                  {#each TAG_MARKS as mark (mark)}
-                    <label class:checked={prefs.tagMark === mark}>
-                      <input
-                        type="radio"
-                        name="tagMark"
-                        value={mark}
-                        bind:group={prefs.tagMark}
-                      />{t(`settings.tagMark_${mark}`)}
-                    </label>
-                  {/each}
-                </div>
-              </Row>
             </Group>
           {:else if section === 'accessibility'}
             <Group

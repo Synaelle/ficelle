@@ -7,7 +7,6 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { noteDropTarget, startTagDrag, tagDropTarget } from '../lib/noteDrag'
   import { overlay, SEPARATOR, type MenuItem } from '../lib/overlay.svelte'
-  import { prefs } from '../lib/prefs.svelte'
   import { tagLeaf, tagParent } from '../lib/tagMark.svelte'
   import { TAG_COLORS } from '../lib/backend'
   import { moveTag, tagKey, UNFILED, workspace } from '../lib/workspace.svelte'
@@ -134,11 +133,7 @@
         }}
         oncontextmenu={(e) => oncontextmenu(e, tag)}
       >
-        {#if prefs.tagMark === 'hash'}
-          <Icon name="hash" size={16} />
-        {:else}
-          <Icon name={open ? 'folderOpen' : 'folder'} size={16} />
-        {/if}
+        <Icon name={open ? 'folderOpen' : 'folder'} size={16} />
         <span class="name" title={tag.name}>{tagLeaf(tag.name)}</span>
         {#if tag.color}<span class="tag-mark" data-color={tag.color}></span>{/if}
         <span class="count">{tag.noteCount}</span>

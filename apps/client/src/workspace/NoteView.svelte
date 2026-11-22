@@ -350,8 +350,8 @@
             {@const color = workspace.tags.find((o) => o.name === tag)?.color}
             <!-- named as the list's chips are, the whole path on hover -->
             <span class="tag" title={tagLabel(tag)}>
-              {#if prefs.tagMark === 'folder'}<Icon name="folder" size={12} />{/if}
-              {prefs.tagMark === 'hash' ? `#${tagShort(tag, note.tags)}` : tagShort(tag, note.tags)}
+              <Icon name="folder" size={12} />
+              {tagShort(tag, note.tags)}
               {#if color}<span class="tag-mark" data-color={color}></span>{/if}
               <button
                 aria-label={t('note.removeTag', { tag })}

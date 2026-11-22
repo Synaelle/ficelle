@@ -76,8 +76,7 @@
   /** The levels above the tag shown, dimmed before its name. */
   const titleParent = $derived.by(() => {
     const parent = shownTag ? tagParent(shownTag.name) : ''
-    if (!parent) return prefs.tagMark === 'hash' && shownTag ? '#' : ''
-    return prefs.tagMark === 'hash' ? `#${parent}/` : `${tagLabel(parent)} › `
+    return parent ? `${tagLabel(parent)} › ` : ''
   })
 
   const title = $derived.by(() => {
@@ -558,13 +557,11 @@
               <!-- the list measures one row for all: when any note has tags,
                    every row keeps the line for them -->
               {#if withTags}
-                <span class="chips" use:fitChips={`${prefs.tagMark}:${note.tags.join('\n')}`}>
+                <span class="chips" use:fitChips={note.tags.join('\n')}>
                   {#each chipsOf(note.tags) as chip (chip.tag)}
                     <span class="chip" title={tagLabel(chip.tag)}
                       >{#if chip.color}<span class="tag-mark" data-color={chip.color}
-                        ></span>{/if}<span class="label"
-                        >{prefs.tagMark === 'hash' ? `#${chip.label}` : chip.label}</span
-                      ></span
+                        ></span>{/if}<span class="label">{chip.label}</span></span
                     >
                   {/each}
                   <span class="chip more" hidden></span>

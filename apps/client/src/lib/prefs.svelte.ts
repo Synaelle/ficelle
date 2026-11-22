@@ -17,8 +17,6 @@ export interface Prefs {
   mode: Mode
   /** Dark mode on pure black, for OLED screens. */
   pureBlack: boolean
-  /** The mark beside each tag: a folder, or # as other apps write tags. */
-  tagMark: 'folder' | 'hash'
   /** Phones: a short vibration when a swipe on a note acts. */
   haptics: boolean
   /** null follows the system language. */
@@ -96,7 +94,6 @@ export interface Prefs {
 export const DEFAULT_PREFS: Prefs = {
   mode: 'dark',
   pureBlack: false,
-  tagMark: 'folder',
   haptics: false,
   language: null,
   sort: 'folderAsc',

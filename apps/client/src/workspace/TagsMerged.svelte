@@ -1,14 +1,13 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Said once, after an update turned someone's folders into tags: what
-     changed, their own lists before and now, and where the # mark is. A
-     centred dialog on a computer, a sheet from the bottom on a phone. -->
+     changed, their own lists before and now. A centred dialog on a
+     computer, a sheet from the bottom on a phone. -->
 <script lang="ts">
   import { onMount } from 'svelte'
   import { backend } from '../lib/backend'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { modal } from '../lib/modal'
-  import { prefs } from '../lib/prefs.svelte'
 
   let open = $state(false)
 
@@ -35,11 +34,6 @@
   async function close() {
     open = false
     await backend.tagsMergedSeen()
-  }
-
-  function useHash() {
-    prefs.tagMark = 'hash'
-    void close()
   }
 </script>
 
@@ -74,10 +68,7 @@
           <span class="cap">{t('merged.now')}</span>
           {#each now as item (item.name)}
             <span class="item" class:inner={item.inner}>
-              {#if prefs.tagMark === 'hash'}<span class="hash">#</span>{:else}<Icon
-                  name={item.name === 'exProjects' ? 'folderOpen' : 'folder'}
-                  size={14}
-                />{/if}
+              <Icon name={item.name === 'exProjects' ? 'folderOpen' : 'folder'} size={14} />
               {t(`merged.${item.name}`)}
             </span>
           {/each}
@@ -85,11 +76,6 @@
       </div>
       <p>{t('merged.body')}</p>
       <div class="actions">
-        {#if prefs.tagMark !== 'hash'}
-          <button class="link" onclick={useHash}>{t('merged.hash')}</button>
-        {:else}
-          <span></span>
-        {/if}
         <button class="btn primary" data-autofocus onclick={close}>{t('merged.ok')}</button>
       </div>
     </div>
@@ -181,15 +167,8 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: var(--space-3);
-  }
-  .link {
-    padding: var(--space-2) 0;
-    border: 0;
-    background: none;
-    color: var(--color-accent-text);
-    font-size: 13px;
   }
   /* a phone: a sheet from the bottom, the buttons stacked to reach */
   @media (max-width: 640px) {
