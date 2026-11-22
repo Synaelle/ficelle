@@ -6,11 +6,14 @@
 import { t } from './i18n.svelte'
 import { WEB } from './platform'
 
+export const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform)
+
 export const ACTIONS = [
   'newNote',
   'search',
   'pin',
   'trash',
+  'back',
   'settings',
   'syncNow',
   'bold',
@@ -30,6 +33,8 @@ export const DEFAULT_SHORTCUTS: Record<ActionId, string> = {
   search: 'Mod+F',
   pin: 'Mod+Shift+P',
   trash: 'Mod+Backspace',
+  // Alt+Left moves by a word in a Mac's text, where back is Cmd+[
+  back: isMac ? 'Mod+[' : 'Alt+ArrowLeft',
   settings: 'Mod+,',
   syncNow: 'Mod+S',
   bold: 'Mod+B',
@@ -40,8 +45,6 @@ export const DEFAULT_SHORTCUTS: Record<ActionId, string> = {
   checklist: 'Mod+Shift+9',
   deleteLine: 'Mod+K',
 }
-
-export const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform)
 
 /** The binding of a key event, in the same format as the settings. */
 export function bindingOf(event: KeyboardEvent): string | null {
@@ -66,6 +69,7 @@ const KEY_NAMES: Record<string, () => string> = {
   Enter: () => t('keys.enter'),
   Escape: () => t('keys.escape'),
   Space: () => t('keys.space'),
+  ArrowLeft: () => '←',
 }
 
 /** Human form of a binding for this platform, for example ⌘N or Ctrl+N. */
@@ -75,7 +79,13 @@ export function displayBinding(binding: string): string {
       .split('+')
       .map((part) => KEY_NAMES[part]?.() ?? part)
       .join('+')
-  const symbols: Record<string, string> = { Mod: '⌘', Shift: '⇧', Alt: '⌥', Backspace: '⌫' }
+  const symbols: Record<string, string> = {
+    Mod: '⌘',
+    Shift: '⇧',
+    Alt: '⌥',
+    Backspace: '⌫',
+    ArrowLeft: '←',
+  }
   return binding
     .split('+')
     .map((part) => symbols[part] ?? part)

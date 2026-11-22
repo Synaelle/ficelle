@@ -111,6 +111,7 @@
       workspace.current &&
       void workspace.togglePin(workspace.current.id, !workspace.current.pinned),
     trash: () => workspace.current && void workspace.trash(workspace.current.id),
+    back: () => void workspace.back(),
     settings: () => (settingsOpen = true),
     // the note is saved first, then sent to the server and the paired
     // devices now rather than at the next round

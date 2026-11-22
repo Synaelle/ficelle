@@ -126,6 +126,11 @@
   $effect(() => {
     if (historyShown) return onBack(() => (versions = null))
   })
+  // after a link, back walks the notes it came through before the list
+  const linked = $derived(workspace.trail.length > 0)
+  $effect(() => {
+    if (linked) return onBack(() => void workspace.back())
+  })
   let source = $state(false)
   /** The open editor, for the attachments list to add, mention and remove files. */
   let editorRef: Editor | undefined = $state()
@@ -250,6 +255,15 @@
     <header>
       {#if narrow}
         <button class="icon-btn" aria-label={t('common.back')} onclick={() => workspace.open(null)}>
+          <Icon name="back" />
+        </button>
+      {:else if linked}
+        <button
+          class="icon-btn"
+          aria-label={t('note.backToLinked')}
+          title={`${t('note.backToLinked')} (${displayBinding(shortcutFor('back'))})`}
+          onclick={() => workspace.back()}
+        >
           <Icon name="back" />
         </button>
       {/if}
@@ -400,7 +414,7 @@
             <ul>
               {#each backlinks as link (link.id)}
                 <li>
-                  <button onclick={() => workspace.open(link.id)}
+                  <button onclick={() => workspace.openLinked(link.id)}
                     >{link.title || t('note.untitled')}</button
                   >
                 </li>

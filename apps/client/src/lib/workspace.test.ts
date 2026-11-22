@@ -682,3 +682,28 @@ describe('the trash', () => {
     expect((await backend.getNote(note.id)).trashedAt).toBeNull()
   })
 })
+
+describe('following links', () => {
+  it('back goes to the notes the links came from, in turn', async () => {
+    const first = await create({ title: 'Garden plan' })
+    const second = await backend.createNote({ title: 'Seed list' })
+    const third = await backend.createNote({ title: 'Seed shop' })
+    await workspace.openByTitle('Seed list')
+    await workspace.openLinked(third.id)
+    expect(workspace.trail).toEqual([first.id, second.id])
+    await workspace.back()
+    expect(workspace.current?.id).toBe(second.id)
+    await workspace.back()
+    expect(workspace.current?.id).toBe(first.id)
+    expect(workspace.trail).toEqual([])
+  })
+
+  it('opening a note from the list starts again', async () => {
+    const first = await create({ title: 'Trip' })
+    await backend.createNote({ title: 'Packing' })
+    await workspace.openByTitle('Packing')
+    expect(workspace.trail).toEqual([first.id])
+    await workspace.open(first.id)
+    expect(workspace.trail).toEqual([])
+  })
+})

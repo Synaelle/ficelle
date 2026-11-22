@@ -98,6 +98,9 @@ class Workspace {
   /** The last save failed: the edit waits, tried again, and the note stays
    * open until it is saved. */
   unsaved = $state(false)
+  /** The notes links were followed from, the last one on top. Opening a
+   * note another way starts again. */
+  trail: Id[] = $state([])
   /** Heading the next opened note should scroll to, from a [[Note#Heading]] link. */
   pendingHeading: string | null = null
   /** Grows when the open note's text is replaced (an older version brought
@@ -210,11 +213,17 @@ class Workspace {
         undefined,
       )
     await this.setScope(deepest ? { kind: 'tag', id: deepest.id } : UNFILED)
+    this.trail = []
     this.show(note)
     await this.refreshConflicts()
   }
 
   async open(id: Id | null) {
+    this.trail = []
+    await this.visit(id)
+  }
+
+  private async visit(id: Id | null) {
     // a note is open in one place: the window that has it comes forward
     if (id && (await focusNoteWindow(id))) return
     if (!(await this.leave(id))) return
@@ -256,6 +265,7 @@ class Workspace {
     this.notes = []
     this.tags = []
     this.hits = null
+    this.trail = []
   }
 
   /** Puts a new text of the open note in the editor, an older version
@@ -442,9 +452,26 @@ class Workspace {
     const id = await backend.resolveLink(title)
     if (id) {
       this.pendingHeading = heading
-      await this.open(id)
+      await this.openLinked(id)
     }
     return id !== null
+  }
+
+  /** Opens a note reached from the open one, a link or a backlink: back
+   * comes to the open one again. */
+  async openLinked(id: Id) {
+    const from = this.current?.id
+    await this.visit(id)
+    if (from && from !== id && this.current?.id === id) this.trail = [...this.trail, from]
+  }
+
+  /** Goes back to the note a link was followed from. */
+  async back() {
+    const id = this.trail.at(-1)
+    if (!id) return
+    this.trail = this.trail.slice(0, -1)
+    // it may have gone to the trash since
+    await this.visit(id).catch((err: unknown) => this.report(err))
   }
 
   /**
@@ -459,6 +486,7 @@ class Workspace {
     const tags = this.scope.kind === 'tag' ? [this.tagName(this.scope.id)] : []
     const note = await backend.createNote({ ...initial, tags })
     if (open) {
+      this.trail = []
       this.fresh = note.id
       this.show(note)
     }
