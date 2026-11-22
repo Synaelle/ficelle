@@ -223,7 +223,9 @@
         { label: t('note.raw'), icon: 'code', checked: source, run: () => (source = !source) },
         SEPARATOR,
       )
-    overlay.openMenuBelow(button, items)
+    // a finger gets the sheet a long touch opens, a mouse the menu under ⋯
+    if (overlay.byTouch) overlay.openSheet(items)
+    else overlay.openMenuBelow(button, items)
     menuOpen = true
   }
 
