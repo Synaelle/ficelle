@@ -5,6 +5,7 @@
      for Nearby devices, then the system asks. -->
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { backend } from '../lib/backend'
   import Icon from '../lib/icons/Icon.svelte'
   import { t } from '../lib/i18n.svelte'
   import { isLocalError, localSync } from '../lib/localSync.svelte'
@@ -24,6 +25,12 @@
   let typedPaired: string | null = $state(null)
   let copied = $state(false)
   let addressOpen = $state(false)
+  /** Whether the notes are encrypted here: pairing gives the other device
+   * every note, kept its own way, so the person hears it before pairing. */
+  let encryptedHere: boolean | null = $state(null)
+  /** This device's name as the other one shows it, read in the hello: two
+   * computers often share a host name. */
+  let ownName = $state(localSync.status.name)
 
   const pairing = $derived(localSync.status.pairing)
   const pairedName = $derived(mode === 'show' ? (pairing?.paired ?? null) : typedPaired)
@@ -52,7 +59,14 @@
     step = 'ready'
   }
 
+  async function saveName() {
+    const name = ownName.trim()
+    if (!name || name === localSync.status.name) return
+    await localSync.rename(name)
+  }
+
   onMount(() => {
+    void backend.vaultStatus().then((status) => (encryptedHere = status.encrypted))
     void (async () => {
       const state = await localSync.permission(false).catch(() => 'granted')
       if (state === 'granted') await begin()
@@ -74,8 +88,8 @@
     if (digits.length !== 6 || busy) return
     busy = true
     error = ''
-    localSync
-      .pairCode(digits, byAddress ? address.trim() : null)
+    saveName()
+      .then(() => localSync.pairCode(digits, byAddress ? address.trim() : null))
       .then((name) => (typedPaired = name))
       .catch((err) => (error = explain(err)))
       .finally(() => (busy = false))
@@ -90,6 +104,23 @@
   const minutes = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
   const closeIfIdle = () => !busy && close()
 </script>
+
+{#snippet beforePairing()}
+  <label class="name">
+    <span class="muted small">{t('local.pairing.ownName')}</span>
+    <input
+      class="field"
+      maxlength="60"
+      bind:value={ownName}
+      onchange={() => void saveName().catch((err) => (error = explain(err)))}
+    />
+  </label>
+  {#if encryptedHere !== null}
+    <p class="note small">
+      {encryptedHere ? t('local.pairing.encryptedHere') : t('local.pairing.plainHere')}
+    </p>
+  {/if}
+{/snippet}
 
 <div
   class="backdrop"
@@ -144,6 +175,7 @@
         <button class="btn primary" onclick={close}>{t('local.pairing.done')}</button>
       </div>
     {:else if mode === 'show'}
+      {@render beforePairing()}
       {#if pairing && !pairing.failed && pairing.code}
         <p>{t('local.pairing.typeOn')}</p>
         <p class="code">{grouped(pairing.code)}</p>
@@ -189,6 +221,7 @@
       </div>
     {:else}
       <form onsubmit={submit}>
+        {@render beforePairing()}
         <label for="pair-code" class="label">{t('local.code.label')}</label>
         <p class="muted small">{t('local.code.where')}</p>
         <!-- svelte-ignore a11y_autofocus -->
@@ -391,5 +424,14 @@
   }
   .error {
     color: var(--color-danger);
+  }
+  .name {
+    display: grid;
+    gap: var(--space-1);
+  }
+  .note {
+    padding: var(--space-2) var(--space-3);
+    border-left: 3px solid var(--color-warning);
+    background: var(--color-surface-2);
   }
 </style>
