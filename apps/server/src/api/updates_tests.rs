@@ -151,7 +151,7 @@ async fn the_checklist_says_what_to_fix() {
         line(&list, "secondFactors").unwrap()["values"]["names"],
         "admin"
     );
-    assert_eq!(state_of("registration").as_deref(), Some("ok"));
+    assert!(line(&list, "registration").is_none(), "no sign-up to watch");
     assert_eq!(state_of("backups").as_deref(), Some("warn"));
     assert_eq!(line(&list, "backups").unwrap()["values"]["state"], "none");
     assert_eq!(
@@ -162,7 +162,7 @@ async fn the_checklist_says_what_to_fix() {
     assert_eq!(state_of("address").as_deref(), Some("fail"));
     assert_eq!(state_of("secrets").as_deref(), Some("warn"));
 
-    // an admin with a factor, open registration, the reminder hidden
+    // an admin with a factor, the reminder hidden
     let (_, setup) = call(&app, "POST", "/me/totp/setup", Some(&token), None).await;
     let code =
         crate::accounts::totp::code_now(setup["secret"].as_str().unwrap(), state.clock.now());
@@ -175,14 +175,6 @@ async fn the_checklist_says_what_to_fix() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    call(
-        &app,
-        "PUT",
-        "/admin/registration",
-        Some(&token),
-        Some(json!({ "registration": "open" })),
-    )
-    .await;
     let (status, _) = call(
         &app,
         "POST",
@@ -208,23 +200,18 @@ async fn the_checklist_says_what_to_fix() {
         "POST",
         "/admin/checklist/dismiss",
         Some(&token),
-        Some(json!({ "key": "registration" })),
+        Some(json!({ "key": "storage" })),
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (_, list) = call(&app, "GET", "/admin/checklist", Some(&token), None).await;
-    assert_eq!(line(&list, "registration").unwrap()["dismissed"], true);
+    assert_eq!(line(&list, "storage").unwrap()["dismissed"], true);
     assert_eq!(line(&list, "secondFactors").unwrap()["dismissed"], true);
     assert!(line(&list, "tls").unwrap().get("dismissed").is_none());
     let (status, _) = call(&app, "POST", "/admin/checklist/restore", Some(&token), None).await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (_, list) = call(&app, "GET", "/admin/checklist", Some(&token), None).await;
-    assert!(
-        line(&list, "registration")
-            .unwrap()
-            .get("dismissed")
-            .is_none()
-    );
+    assert!(line(&list, "storage").unwrap().get("dismissed").is_none());
     let (status, _) = call(
         &app,
         "POST",
@@ -236,7 +223,7 @@ async fn the_checklist_says_what_to_fix() {
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (_, list) = call(&app, "GET", "/admin/checklist", Some(&token), None).await;
     assert_eq!(line(&list, "secondFactors").unwrap()["state"], "ok");
-    assert_eq!(line(&list, "registration").unwrap()["state"], "warn");
+    assert_eq!(line(&list, "storage").unwrap()["state"], "ok");
     assert!(line(&list, "secrets").is_none());
 
     // a failing backup, then a good one gone stale

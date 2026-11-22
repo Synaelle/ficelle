@@ -14,8 +14,7 @@ use sha2::{Digest, Sha256};
 use tower::ServiceExt;
 
 use super::files::status_of;
-use super::sharing_tests::{e2ee, open_registration, share, standard, token, user_id};
-use super::tests::{call, login, server_with, with_admin};
+use super::tests::{call, e2ee_device, login, person, server_with, token, user_id, with_admin};
 use crate::clock::DAY;
 use crate::config::{Config, FilesConfig};
 use crate::routes::AppState;
@@ -324,8 +323,7 @@ async fn content_that_is_not_its_address_is_not_kept() {
 #[tokio::test]
 async fn the_same_file_from_two_accounts_is_stored_once_each_uploading_it() {
     let (state, app, admin) = with_admin().await;
-    open_registration(&app, &admin).await;
-    let alex = standard(&app, "alex").await;
+    let alex = person(&state, "alex").await;
     let bytes = content(2 * CHUNK, 3);
     let address = sha(&bytes);
     upload(&app, &admin, None, &address, &bytes, CHUNK).await;
@@ -429,48 +427,16 @@ async fn sizes_quotas_and_types_are_enforced() {
     assert_eq!(status, StatusCode::OK);
 }
 
+/// Older apps named a shared folder's space: only the account's own is left.
 #[tokio::test]
-async fn members_read_editors_write_and_strangers_see_nothing() {
+async fn files_of_another_space_are_not_found() {
     let (_, app, admin) = with_admin().await;
-    open_registration(&app, &admin).await;
-    let reader = standard(&app, "reader").await;
-    let editor = standard(&app, "editor").await;
-    let stranger = standard(&app, "stranger").await;
-    let (_, me) = call(&app, "GET", "/me", Some(&admin), None).await;
-    let _ = me;
-    let space = share(
-        &app,
-        &json!({ "accessToken": admin }),
-        json!([
-            { "userId": user_id(&reader), "role": "read" },
-            { "userId": user_id(&editor), "role": "edit" }
-        ]),
-    )
-    .await;
     let bytes = content(CHUNK, 5);
     let address = sha(&bytes);
-    let (status, _) = upload(&app, token(&reader), Some(&space), &address, &bytes, CHUNK).await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
-    let (status, answer) =
-        upload(&app, token(&editor), Some(&space), &address, &bytes, CHUNK).await;
-    assert_eq!(status, StatusCode::OK, "{answer}");
-    let (status, _, back) = download(&app, token(&reader), Some(&space), &address, None).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(back, bytes);
-    let (status, _, _) = download(&app, token(&stranger), Some(&space), &address, None).await;
+    let (status, _) = upload(&app, &admin, Some("elsewhere"), &address, &bytes, CHUNK).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
-    // the editor's upload counts against the owner
-    let (_, info) = call(&app, "GET", "/sync/files/policy", Some(&admin), None).await;
-    assert_eq!(info["usage"]["files"], 1);
-    let (_, info) = call(
-        &app,
-        "GET",
-        "/sync/files/policy",
-        Some(token(&editor)),
-        None,
-    )
-    .await;
-    assert_eq!(info["usage"]["files"], 0);
+    let (status, _, _) = download(&app, &admin, Some("elsewhere"), &address, None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
@@ -482,9 +448,8 @@ async fn e2ee_files_are_kept_as_sent_and_never_typed() {
         },
         ..Config::default()
     };
-    let (state, app, admin) = super::tests::admin_on(server_with(config).await).await;
-    open_registration(&app, &admin).await;
-    let (zoe, _device) = e2ee(&app, "zoe").await;
+    let (state, app, _) = super::tests::admin_on(server_with(config).await).await;
+    let (zoe, _device) = e2ee_device(&state, &app, "zoe").await;
     let files = app_e2ee::files_key_from(&[9u8; 32]);
     let plain = content(2 * CHUNK + 3, 6);
     let digest = sha(&plain);

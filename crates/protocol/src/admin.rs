@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The admin api: people, groups, the security log and the instance at a
-//! glance. Times are unix milliseconds.
+//! The admin api: the security log, the files policy and the instance at
+//! a glance. Times are unix milliseconds.
 
-use crate::e2ee::{AccountKind, AccountKinds};
 use serde::{Deserialize, Serialize};
-
-use crate::account::{Device, Registration, Role};
 
 /// `GET /api/v1/admin/overview`
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -16,59 +13,13 @@ pub struct Overview {
     pub version: String,
     /// When this instance was first started.
     pub created_at: String,
-    /// Accounts.
-    pub users: u64,
-    /// Of which admins.
-    pub admins: u64,
-    /// Of which turned off.
-    pub disabled: u64,
-    /// Groups.
-    pub groups: u64,
     /// Devices signed in now.
     pub devices: u64,
-    /// Registration mode.
-    pub registration: Registration,
-    /// Which kinds of accounts sign-up creates.
-    pub account_kinds: AccountKinds,
-    /// End-to-end encrypted accounts.
-    pub e2ee: u64,
     /// Open notes follow other devices' edits live.
     pub coediting: bool,
     /// Admins act as admin only once they have a second step.
     #[serde(default = "yes")]
     pub admins_need_second_step: bool,
-    /// The server is for its admin alone, chosen at setup: the admin page
-    /// shows only what is about one person.
-    #[serde(default)]
-    pub personal: bool,
-}
-
-/// One account in `GET /api/v1/admin/one-person`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OnePersonAccount {
-    /// Id.
-    pub id: String,
-    /// Username.
-    pub username: String,
-    /// Shown name.
-    pub display_name: String,
-    /// Latest request from any device.
-    pub last_seen_at: Option<i64>,
-    /// Devices signed in.
-    pub devices: u64,
-    /// Documents the server holds for it, roughly its notes.
-    pub notes: u64,
-}
-
-/// `POST /api/v1/admin/one-person`: this account stays, every other goes.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OnePersonRequest {
-    /// The account to keep.
-    pub keep: String,
-    /// Its username typed again, so the wrong one is not kept by a slip.
-    pub confirm: String,
 }
 
 fn yes() -> bool {
@@ -89,134 +40,6 @@ pub struct SecondStepRequest {
 pub struct CoeditingRequest {
     /// On or off for every account.
     pub coediting: bool,
-}
-
-/// An account as an admin sees it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AdminUser {
-    /// Id.
-    pub id: String,
-    /// Username.
-    pub username: String,
-    /// Shown name.
-    pub display_name: String,
-    /// Role.
-    pub role: Role,
-    /// Creation time.
-    pub created_at: i64,
-    /// Set when turned off.
-    pub disabled_at: Option<i64>,
-    /// Set while sign-in is locked after failures.
-    pub locked_until: Option<i64>,
-    /// Latest request from any device.
-    pub last_seen_at: Option<i64>,
-    /// Devices signed in.
-    pub devices: u64,
-    /// Groups, by name.
-    pub groups: Vec<String>,
-    /// Signs in with a second factor.
-    pub second_factor: bool,
-    /// Standard or end-to-end encrypted.
-    pub kind: AccountKind,
-    /// The confirmed email.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub email: Option<String>,
-    /// Set while the account waits for its deletion.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delete_at: Option<i64>,
-}
-
-/// One account with its devices.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AdminUserDetail {
-    /// The account.
-    pub user: AdminUser,
-    /// Its signed in devices. `current` is always false here.
-    pub device_list: Vec<Device>,
-}
-
-/// A page of a list.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Page<T> {
-    /// Matches in all.
-    pub total: u64,
-    /// This page.
-    pub items: Vec<T>,
-}
-
-/// `PATCH /api/v1/admin/users/{id}`: only the fields present change.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateUserRequest {
-    /// New shown name.
-    #[serde(default)]
-    pub display_name: Option<String>,
-    /// New role.
-    #[serde(default)]
-    pub role: Option<Role>,
-    /// Turn the account off (signs out its devices) or back on.
-    #[serde(default)]
-    pub disabled: Option<bool>,
-    /// Lift a lock after failed sign-ins.
-    #[serde(default)]
-    pub unlock: bool,
-}
-
-/// `POST /api/v1/admin/users/{id}/password`: signs out every device.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SetPasswordRequest {
-    /// New password, to pass on to the person.
-    pub password: String,
-}
-
-/// A group of people.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Group {
-    /// Id.
-    pub id: String,
-    /// Name, unique whatever the letter case.
-    pub name: String,
-    /// Creation time.
-    pub created_at: i64,
-    /// Members.
-    pub members: u64,
-}
-
-/// A group with its members.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GroupDetail {
-    /// The group.
-    pub group: Group,
-    /// Members, by username.
-    pub member_list: Vec<GroupMember>,
-}
-
-/// One member.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GroupMember {
-    /// Account id.
-    pub user_id: String,
-    /// Username.
-    pub username: String,
-    /// Shown name.
-    pub display_name: String,
-    /// When added.
-    pub added_at: i64,
-}
-
-/// `POST /api/v1/admin/groups` and `PATCH .../{id}`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GroupRequest {
-    /// Name.
-    pub name: String,
 }
 
 /// One line of the security log.
@@ -251,9 +74,8 @@ pub struct AuditPage {
     pub next_before: Option<i64>,
 }
 
-/// A files policy as set at one level, the instance, a group or a person.
-/// A field left out takes the level below: a person's group, then the
-/// instance, then the server's config file.
+/// The instance's files policy as set in the admin page. A field left out
+/// takes the server's config file.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PolicySettings {
@@ -290,15 +112,11 @@ pub struct PolicySettings {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PolicySource {
-    /// `user`, `group`, `instance` or `config`.
+    /// `instance` or `config`.
     pub level: String,
-    /// The groups whose value it is, for `group`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub groups: Vec<String>,
 }
 
-/// `GET /api/v1/admin/policy`, `.../groups/{id}/policy`,
-/// `.../users/{id}/policy`: what is set at that level and what follows.
+/// `GET /api/v1/admin/policy`: what is set and what follows.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PolicyView {
@@ -311,30 +129,7 @@ pub struct PolicyView {
     pub sources: std::collections::BTreeMap<String, PolicySource>,
 }
 
-/// What one person stores.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PersonStorage {
-    /// Account id.
-    pub user_id: String,
-    /// Username.
-    pub username: String,
-    /// Shown name.
-    pub display_name: String,
-    /// Counted against the quota: files and notes of the spaces they own.
-    pub used_bytes: u64,
-    /// Of which files.
-    pub file_bytes: u64,
-    /// Number of files.
-    pub files: u64,
-    /// The largest one.
-    pub largest_bytes: u64,
-    /// Their quota, 0 for no limit.
-    pub quota_bytes: u64,
-}
-
-/// `GET /api/v1/admin/storage?offset=&limit=`: the instance's storage and
-/// people by what they use, most first.
+/// `GET /api/v1/admin/storage`: the instance's storage.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageOverview {
@@ -349,8 +144,6 @@ pub struct StorageOverview {
     pub unique_bytes: u64,
     /// Synced notes, all spaces.
     pub note_bytes: u64,
-    /// People, most used first.
-    pub people: Page<PersonStorage>,
 }
 
 /// `POST /api/v1/admin/mail/test`: a test mail, sent at once so the answer

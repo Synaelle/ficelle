@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Email, password reset, export, deletion and the privacy facts, through
+//! Email, password reset, export and the privacy facts, through
 //! the full router with mail kept in memory.
 
 use axum::Router;
 use axum::http::StatusCode;
-use serde_json::{Value, json};
+use serde_json::json;
 
 use super::tests::{admin_on, call, events, login, server_with, with_admin};
-use crate::clock::DAY;
 use crate::config::Config;
 use crate::mail::TEST_HOST;
 use crate::routes::AppState;
@@ -284,110 +283,6 @@ async fn the_export_holds_the_account_but_no_secret() {
 }
 
 #[tokio::test]
-async fn deletion_waits_for_the_grace_period_and_can_be_cancelled() {
-    let (state, app, admin) = with_mail().await;
-    // someone to delete, signed in on two devices
-    call(
-        &app,
-        "POST",
-        "/admin/users",
-        Some(&admin),
-        Some(json!({ "username": "zoe", "password": "zoe password" })),
-    )
-    .await;
-    let (_, first) = login(&app, "zoe", "zoe password").await;
-    let (_, second) = login(&app, "zoe", "zoe password").await;
-    let token = first["accessToken"].as_str().unwrap().to_owned();
-    let other = second["accessToken"].as_str().unwrap().to_owned();
-
-    let (status, _) = call(&app, "POST", "/me/deletion", Some(&token), Some(json!({}))).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "needs the password");
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/me/deletion",
-        Some(&token),
-        Some(json!({ "password": "zoe password" })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
-    let at = body["deleteAt"].as_i64().unwrap();
-    assert!(at - state.clock.now() > 29 * DAY);
-    assert_eq!(
-        call(&app, "GET", "/me", Some(&other), None).await.0,
-        StatusCode::UNAUTHORIZED,
-        "other devices signed out"
-    );
-    let (_, security) = call(&app, "GET", "/me/security", Some(&token), None).await;
-    assert_eq!(security["deleteAt"], at);
-
-    let (status, _) = call(&app, "DELETE", "/me/deletion", Some(&token), None).await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-    state.clock.advance(31 * DAY);
-    assert_eq!(super::run_deletions(&state).await.unwrap(), 0);
-    let (_, again) = login(&app, "zoe", "zoe password").await;
-    let token = again["accessToken"].as_str().unwrap().to_owned();
-
-    call(
-        &app,
-        "POST",
-        "/me/deletion",
-        Some(&token),
-        Some(json!({ "password": "zoe password" })),
-    )
-    .await;
-    state.clock.advance(29 * DAY);
-    assert_eq!(super::run_deletions(&state).await.unwrap(), 0, "not yet");
-    state.clock.advance(2 * DAY);
-    assert_eq!(super::run_deletions(&state).await.unwrap(), 1);
-    assert_eq!(
-        login(&app, "zoe", "zoe password").await.0,
-        StatusCode::UNAUTHORIZED
-    );
-    // the admin's own token is long expired by now
-    let (_, admin) = login(&app, "admin", PASSWORD).await;
-    let admin = admin["accessToken"].as_str().unwrap();
-    let (_, log) = call(
-        &app,
-        "GET",
-        "/admin/audit?event=user_deleted",
-        Some(admin),
-        None,
-    )
-    .await;
-    let detail: Vec<&Value> = log["items"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|e| &e["detail"])
-        .collect();
-    assert!(
-        detail.iter().any(|d| d
-            .as_str()
-            .unwrap_or("")
-            .contains("zoe, after the grace period")),
-        "{log}"
-    );
-}
-
-#[tokio::test]
-async fn the_last_admin_cannot_ask_to_be_deleted() {
-    let (_, app, token) = with_mail().await;
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/me/deletion",
-        Some(&token),
-        Some(json!({ "password": PASSWORD })),
-    )
-    .await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::CONFLICT, Some("lastAdmin"))
-    );
-}
-
-#[tokio::test]
 async fn privacy_facts_come_from_the_configuration() {
     let (_, app, _) = with_mail().await;
     let (status, info) = call(&app, "GET", "/privacy", None, None).await;
@@ -396,8 +291,7 @@ async fn privacy_facts_come_from_the_configuration() {
     assert!(info.get("contact").is_none());
     assert_eq!(info["email"], true);
     assert_eq!(info["auditDays"], 365);
-    assert_eq!(info["deletionGraceDays"], 30);
-    assert_eq!(info["accountKinds"], "choice");
+    assert!(info.get("accountKinds").is_none());
     // feedback: not taken here by default, people's reports go to the project
     assert_eq!(info["feedbackReceive"], false);
     assert_eq!(info["feedbackKeepDays"], 30);

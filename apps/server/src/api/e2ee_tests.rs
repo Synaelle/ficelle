@@ -26,22 +26,9 @@ struct Account {
     recovery_code: String,
 }
 
-async fn set(app: &Router, admin: &str, path: &str, body: Value) {
-    let (status, answer) = call(app, "PUT", path, Some(admin), Some(body)).await;
-    assert_eq!(status, StatusCode::OK, "{answer}");
-}
-
-/// A server whose admin opened sign-up.
+/// A server with its admin.
 async fn open_server() -> (AppState, Router, String) {
-    let (state, app, admin) = with_admin().await;
-    set(
-        &app,
-        &admin,
-        "/admin/registration",
-        json!({ "registration": "open" }),
-    )
-    .await;
-    (state, app, admin)
+    with_admin().await
 }
 
 /// The OPAQUE registration of a password, as the client runs it.
@@ -77,30 +64,22 @@ async fn register_password_with(
     (finish.upload, finish.export_key.to_vec())
 }
 
-async fn sign_up(app: &Router, username: &str) -> (StatusCode, Value, Option<Account>) {
+/// An e2ee account as sign-up made them before servers were for one person.
+async fn sign_up(
+    state: &AppState,
+    app: &Router,
+    username: &str,
+) -> (StatusCode, Value, Option<Account>) {
     let (upload, export_key) = register_password(app, username, PASSWORD).await;
     let account = new_account(&export_key);
-    let (status, body) = call(
-        app,
-        "POST",
-        "/auth/e2ee/register",
-        None,
-        Some(json!({
-            "username": username,
-            "ksf": 2, "upload": upload,
-            "keys": account.bundle,
-            "recoveryVerifier": account.recovery_verifier,
-            "device": device("phone"),
-        })),
-    )
-    .await;
+    let body = super::tests::e2ee_account(state, username, &upload, 2, &account).await;
     let made = body["accessToken"].as_str().map(|token| Account {
         token: token.into(),
         export_key,
         bundle: account.bundle.clone(),
         recovery_code: account.recovery_code.to_string(),
     });
-    (status, body, made)
+    (StatusCode::CREATED, body, made)
 }
 
 /// Signs in over OPAQUE: the finish answer and the export key, if the
@@ -176,7 +155,7 @@ async fn proof(app: &Router, token: &str, username: &str, password: &str) -> (St
 #[tokio::test]
 async fn sign_up_and_sign_in_without_the_password_reaching_the_server() {
     let (state, app, _) = open_server().await;
-    let (status, session, account) = sign_up(&app, "Zoe").await;
+    let (status, session, account) = sign_up(&state, &app, "Zoe").await;
     assert_eq!(status, StatusCode::CREATED, "{session}");
     assert_eq!(session["user"]["kind"], "e2ee");
     assert_eq!(session["user"]["username"], "zoe");
@@ -215,7 +194,7 @@ async fn sign_up_and_sign_in_without_the_password_reaching_the_server() {
 #[tokio::test]
 async fn wrong_passwords_and_unknown_names_are_refused_alike_and_lock() {
     let (state, app, _) = open_server().await;
-    sign_up(&app, "zoe").await;
+    sign_up(&state, &app, "zoe").await;
     let ((status, body), export_key) = opaque_login(&app, "nobody", PASSWORD).await;
     assert_eq!(
         (status, body["error"].as_str(), export_key),
@@ -246,9 +225,9 @@ async fn wrong_passwords_and_unknown_names_are_refused_alike_and_lock() {
 }
 
 #[tokio::test]
-async fn the_kind_of_an_account_and_the_admin_policy() {
-    let (_, app, admin) = open_server().await;
-    sign_up(&app, "zoe").await;
+async fn the_kind_of_an_account() {
+    let (state, app, _) = open_server().await;
+    sign_up(&state, &app, "zoe").await;
     let kind = |name: &'static str| {
         let app = app.clone();
         async move {
@@ -270,59 +249,12 @@ async fn the_kind_of_an_account_and_the_admin_policy() {
         kind("ghost").await,
         "the same answer every time"
     );
-
-    set(
-        &app,
-        &admin,
-        "/admin/account-kinds",
-        json!({ "accountKinds": "e2ee" }),
-    )
-    .await;
-    assert_eq!(kind("ghost").await, "e2ee");
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/auth/register",
-        None,
-        Some(json!({ "username": "bob", "password": "bob password", "device": device("x") })),
-    )
-    .await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::FORBIDDEN, Some("accountKindClosed"))
-    );
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/admin/users",
-        Some(&admin),
-        Some(json!({ "username": "bob", "password": "bob password" })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "the admin invites instead");
-
-    set(
-        &app,
-        &admin,
-        "/admin/account-kinds",
-        json!({ "accountKinds": "standard" }),
-    )
-    .await;
-    let (status, body, _) = sign_up(&app, "eve").await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::FORBIDDEN, Some("accountKindClosed"))
-    );
-    let (_, options) = call(&app, "GET", "/auth/options", None, None).await;
-    assert_eq!(options["accountKinds"], "standard");
-    let (_, overview) = call(&app, "GET", "/admin/overview", Some(&admin), None).await;
-    assert_eq!(overview["e2ee"], 1);
 }
 
 #[tokio::test]
 async fn sensitive_changes_need_a_proof_of_the_password() {
-    let (state, app, admin) = open_server().await;
-    let (_, _, account) = sign_up(&app, "zoe").await;
+    let (state, app, _) = open_server().await;
+    let (_, _, account) = sign_up(&state, &app, "zoe").await;
     let token = account.unwrap().token;
 
     let (status, setup) = call(&app, "POST", "/me/totp/setup", Some(&token), None).await;
@@ -381,30 +313,6 @@ async fn sensitive_changes_need_a_proof_of_the_password() {
     .await;
     assert_eq!(status, StatusCode::OK);
 
-    // nobody else sets the password
-    let (_, user) = call(&app, "GET", "/me", Some(&token), None).await;
-    let id = user["id"].as_str().unwrap();
-    let (_, detail) = call(
-        &app,
-        "GET",
-        &format!("/admin/users/{id}"),
-        Some(&admin),
-        None,
-    )
-    .await;
-    assert_eq!(detail["user"]["kind"], "e2ee");
-    let (status, body) = call(
-        &app,
-        "POST",
-        &format!("/admin/users/{id}/password"),
-        Some(&admin),
-        Some(json!({ "password": "admin chosen" })),
-    )
-    .await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::CONFLICT, Some("e2eeAccount"))
-    );
     let (status, _) = call(
         &app,
         "POST",
@@ -418,8 +326,8 @@ async fn sensitive_changes_need_a_proof_of_the_password() {
 
 #[tokio::test]
 async fn a_new_password_keeps_the_keys_and_signs_out_other_devices() {
-    let (_, app, _) = open_server().await;
-    let (_, _, account) = sign_up(&app, "zoe").await;
+    let (state, app, _) = open_server().await;
+    let (_, _, account) = sign_up(&state, &app, "zoe").await;
     let account = account.unwrap();
     let ((_, other), _) = opaque_login(&app, "zoe", PASSWORD).await;
     let other = other["accessToken"].as_str().unwrap().to_owned();
@@ -471,7 +379,7 @@ async fn a_new_password_keeps_the_keys_and_signs_out_other_devices() {
 #[tokio::test]
 async fn the_recovery_code_sets_a_new_password() {
     let (state, app, _) = open_server().await;
-    let (_, _, account) = sign_up(&app, "zoe").await;
+    let (_, _, account) = sign_up(&state, &app, "zoe").await;
     let account = account.unwrap();
 
     let other = new_account(&account.export_key);
@@ -553,21 +461,7 @@ async fn an_old_record_is_strengthened_and_keeps_its_keys() {
     let (upload, export_key) =
         register_password_with(&app, "olga", PASSWORD, app_e2ee::Ksf::V1).await;
     let account = new_account(&export_key);
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/auth/e2ee/register",
-        None,
-        Some(json!({
-            "username": "olga",
-            "upload": upload,
-            "keys": account.bundle,
-            "recoveryVerifier": account.recovery_verifier,
-            "device": device("phone"),
-        })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let body = super::tests::e2ee_account(&state, "olga", &upload, 1, &account).await;
     let token = body["accessToken"].as_str().unwrap().to_owned();
 
     // the sign-in says how the record stretches, and opens it

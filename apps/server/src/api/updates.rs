@@ -4,7 +4,6 @@
 
 use std::collections::BTreeMap;
 
-use app_protocol::account::Registration;
 use app_protocol::admin::{CheckState, Checklist, ChecklistItem};
 use app_protocol::releases::{UpdatesRequest, UpdatesView};
 use axum::Json;
@@ -87,13 +86,12 @@ pub async fn check(
 /// What the checklist reads from the database at once.
 struct Facts {
     admins_without: Vec<String>,
-    registration: Registration,
     /// Settings that do not read back are kept as the reason, to be shown.
     backups: Result<Option<crate::backups::BackupConfig>, String>,
     status: crate::backups::BackupStatus,
     updates: bool,
     secrets_dismissed: bool,
-    /// Storage per person for someone with no rule of their own, 0 for none.
+    /// Storage an account may use, 0 for no limit.
     quota_bytes: u64,
 }
 
@@ -124,7 +122,6 @@ fn facts(
         .optional()?;
     Ok(Facts {
         admins_without,
-        registration: store::registration(conn)?,
         backups: match crate::backups::config(conn, master) {
             Err(crate::db::DbError::Data(why)) => Err(why),
             read => Ok(read?),
@@ -132,7 +129,7 @@ fn facts(
         status: crate::backups::status(conn)?,
         updates: updates::enabled(conn)?,
         secrets_dismissed: dismissed.is_some(),
-        quota_bytes: crate::files::policy::everyone(conn, files)?.quota_bytes,
+        quota_bytes: crate::files::policy::effective(conn, files)?.quota_bytes,
     })
 }
 
@@ -310,11 +307,6 @@ async fn lines(state: &AppState, secure: &Secure) -> Result<Vec<ChecklistItem>, 
             CheckState::Fail,
             &[("names", facts.admins_without.join(", "))],
         )
-    });
-    items.push(match facts.registration {
-        Registration::Open => item("registration", CheckState::Warn, &[("mode", "open".into())]),
-        Registration::Invite => item("registration", CheckState::Ok, &[("mode", "invite".into())]),
-        Registration::Closed => item("registration", CheckState::Ok, &[("mode", "closed".into())]),
     });
     items.push(if facts.quota_bytes == 0 {
         item(

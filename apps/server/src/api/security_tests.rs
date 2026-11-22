@@ -244,44 +244,6 @@ async fn turning_the_app_off_needs_the_password_and_drops_the_codes() {
     assert_eq!(status, StatusCode::CONFLICT, "no codes without a factor");
 }
 
-#[tokio::test]
-async fn an_admin_resets_a_lost_second_factor() {
-    let (state, app, token, _, _) = with_totp().await;
-    let (_, me) = call(&app, "GET", "/me", Some(&token), None).await;
-    let id = me["id"].as_str().unwrap();
-    let (_, user) = call(
-        &app,
-        "GET",
-        &format!("/admin/users/{id}"),
-        Some(&token),
-        None,
-    )
-    .await;
-    assert_eq!(user["user"]["secondFactor"], true);
-    let (status, _) = call(
-        &app,
-        "POST",
-        &format!("/admin/users/{id}/second-factors/reset"),
-        Some(&token),
-        None,
-    )
-    .await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-    let (status, _) = call(&app, "GET", "/me", Some(&token), None).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "devices signed out");
-    let (status, session) = login(&app, "admin", PASSWORD).await;
-    assert_eq!(status, StatusCode::OK, "the password alone again");
-    let token = session["accessToken"].as_str().unwrap();
-    let (_, security) = call(&app, "GET", "/me/security", Some(token), None).await;
-    assert_eq!(security["recoveryCodesLeft"], 0);
-    assert!(
-        events(&state)
-            .await
-            .iter()
-            .any(|e| e == "second_factors_reset")
-    );
-}
-
 /// A stolen session cannot guess the password
 /// through re-confirmations faster than a sign-in could.
 #[tokio::test]

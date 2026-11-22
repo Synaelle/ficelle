@@ -92,9 +92,6 @@ pub struct Security {
     /// [`SecondFactor::Email`].
     #[serde(default)]
     pub email_codes: bool,
-    /// Set while the account waits for its deletion.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delete_at: Option<i64>,
 }
 
 /// A registered passkey.

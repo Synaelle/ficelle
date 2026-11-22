@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Signing in and out: registration, sign-in, refresh.
+//! Signing in and out: sign-in, refresh.
 //! Each of these is rate limited per address.
 
 use app_protocol::account::{
-    AuthOptions, DeviceInfo, LoginRequest, RefreshRequest, RegisterRequest, Registration, Role,
-    Session,
+    AuthOptions, DeviceInfo, LoginRequest, RefreshRequest, Registration, Session,
 };
-use app_protocol::e2ee::{AccountKind, AccountKinds};
+use app_protocol::e2ee::AccountKinds;
 use app_protocol::error_code;
 use axum::Json;
 use axum::extract::State;
@@ -19,7 +18,7 @@ use super::second_factor;
 use super::user_json;
 use crate::accounts::password::{self, Check};
 use crate::accounts::store::{self, Event, RefreshRefused, Tokens, UserRow};
-use crate::accounts::{device_info, display_name, e2ee, normal_username, token};
+use crate::accounts::{device_info, normal_username, token};
 use crate::error::Error;
 use crate::routes::AppState;
 
@@ -103,146 +102,17 @@ pub(super) fn new_credentials(username: &str, password: &str) -> Result<String, 
     Ok(username)
 }
 
-pub(super) fn taken() -> Error {
-    Error::new(
-        StatusCode::CONFLICT,
-        error_code::USERNAME_TAKEN,
-        "this username is taken",
-    )
-}
-
 /// `GET /api/v1/auth/options`
 pub async fn options(State(state): State<AppState>) -> Result<Json<AuthOptions>, Error> {
-    let (registration, locked, account_kinds) = state
-        .db
-        .call(|c| {
-            Ok((
-                store::registration(c)?,
-                crate::setup::is_locked(c)?,
-                e2ee::account_kinds(c)?,
-            ))
-        })
-        .await?;
+    let locked = state.db.call(|c| crate::setup::is_locked(c)).await?;
     Ok(Json(AuthOptions {
-        registration,
+        registration: Registration::Closed,
         setup_needed: !locked,
-        account_kinds,
+        account_kinds: AccountKinds::Choice,
         email_reset: state.mailer.enabled(),
         passkeys: state.webauthn.is_some(),
         sso: None,
     }))
-}
-
-/// Whether sign-up may create an account of `kind`, with this invite.
-/// Returns the invite's hash, to spend it with the account.
-pub(super) async fn admission(
-    state: &AppState,
-    invite: Option<&str>,
-    kind: AccountKind,
-) -> Result<Option<token::TokenHash>, Error> {
-    let now = state.clock.now();
-    let invite = invite
-        .map(str::trim)
-        .filter(|t| !t.is_empty())
-        .map(token::hash);
-    let (mode, kinds, invite_ok) = state
-        .db
-        .call(move |c| {
-            let ok = match invite {
-                Some(h) => Some(store::invite_usable(c, &h, now)?),
-                None => None,
-            };
-            Ok((store::registration(c)?, e2ee::account_kinds(c)?, ok))
-        })
-        .await?;
-    if !kind_allowed(kinds, kind) {
-        return Err(kind_closed());
-    }
-    match (mode, invite_ok) {
-        (_, Some(false)) => Err(Error::new(
-            StatusCode::FORBIDDEN,
-            error_code::INVITE_INVALID,
-            "this invite is used, revoked or expired",
-        )),
-        (Registration::Closed | Registration::Invite, None) => Err(Error::new(
-            StatusCode::FORBIDDEN,
-            error_code::REGISTRATION_CLOSED,
-            "registration needs an invite",
-        )),
-        _ => Ok(invite),
-    }
-}
-
-/// Whether the policy lets new accounts be of `kind`.
-pub(super) fn kind_allowed(kinds: AccountKinds, kind: AccountKind) -> bool {
-    matches!(
-        (kinds, kind),
-        (AccountKinds::Choice, _)
-            | (AccountKinds::Standard, AccountKind::Standard)
-            | (AccountKinds::E2ee, AccountKind::E2ee)
-    )
-}
-
-pub(super) fn kind_closed() -> Error {
-    Error::new(
-        StatusCode::FORBIDDEN,
-        error_code::ACCOUNT_KIND_CLOSED,
-        "this server does not create accounts of this kind",
-    )
-}
-
-/// `POST /api/v1/auth/register`
-pub async fn register(
-    State(state): State<AppState>,
-    ip: ClientIp,
-    Body(req): Body<RegisterRequest>,
-) -> Result<(StatusCode, Json<Session>), Error> {
-    rate_limit(&state, ip)?;
-    let now = state.clock.now();
-    let invite = admission(&state, req.invite.as_deref(), AccountKind::Standard).await?;
-    let username = new_credentials(&req.username, &req.password)?;
-    let display = display_name(req.display_name.as_deref(), &username);
-    let hash = hash_password(&state, req.password).await?;
-    let device = device_info(&req.device);
-    let auth = state.config.auth.clone();
-    let ip_text = ip.0.to_string();
-    let result = state
-        .db
-        .call(move |c| {
-            let tx = c.transaction()?;
-            let Some(user) = store::insert_user(&tx, &username, &display, &hash, Role::User, now)?
-            else {
-                return Ok(Err(taken()));
-            };
-            if let Some(h) = invite
-                && !store::use_invite(&tx, &h, &user.id, now)?
-            {
-                // used by someone else in the meantime: nothing is kept
-                return Ok(Err(Error::new(
-                    StatusCode::FORBIDDEN,
-                    error_code::INVITE_INVALID,
-                    "this invite is used, revoked or expired",
-                )));
-            }
-            let tokens = store::create_session(&tx, &user.id, &device, now, &auth)?;
-            let detail = if invite.is_some() { "invite" } else { "open" };
-            store::audit(
-                &tx,
-                now,
-                &Event {
-                    name: "registered",
-                    user_id: Some(&user.id),
-                    device_id: Some(&tokens.device_id),
-                    ip: Some(&ip_text),
-                    detail: Some(detail),
-                },
-            )?;
-            tx.commit()?;
-            Ok(Ok((user, tokens)))
-        })
-        .await??;
-    let (user, tokens) = result;
-    Ok((StatusCode::CREATED, Json(session(&user, tokens))))
 }
 
 /// `POST /api/v1/auth/login`: a session, or 202 and a challenge when the

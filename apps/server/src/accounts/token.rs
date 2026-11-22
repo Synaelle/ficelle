@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Random secrets handed to clients: access and refresh tokens, invites,
-//! setup links and sessions. Only their sha-256 is stored, a token has 256 random bits
+//! Random secrets handed to clients: access and refresh tokens, setup
+//! links and sessions. Only their sha-256 is stored, a token has 256 random bits
 //! so a fast hash is enough, nothing can be guessed from it.
 
 use base64::Engine;
@@ -19,8 +19,6 @@ pub enum Kind {
     Access,
     /// Single use token for the next pair.
     Refresh,
-    /// Invite link.
-    Invite,
     /// A step of a sign-in or passkey ceremony.
     Challenge,
     /// Reads the feedback inbox, for `reports pull`.
@@ -42,7 +40,6 @@ impl Kind {
         match self {
             Self::Access => "at_",
             Self::Refresh => "rt_",
-            Self::Invite => "inv_",
             Self::Challenge => "ch_",
             Self::Feedback => "fb_",
             Self::SetupLink => "sl_",

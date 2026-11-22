@@ -284,43 +284,8 @@ async fn standard_changes_are_encrypted_at_rest_with_the_master_key() {
 
 #[tokio::test]
 async fn e2ee_changes_are_kept_as_sent_with_their_keys() {
-    let (_, app, admin) = with_admin().await;
-    let (_, _) = call(
-        &app,
-        "PUT",
-        "/admin/registration",
-        Some(&admin),
-        Some(json!({ "registration": "open" })),
-    )
-    .await;
-    // an e2ee account, made through the real OPAQUE exchange
-    let start = app_e2ee::registration_start("e2ee password").unwrap();
-    let (_, response) = call(
-        &app,
-        "POST",
-        "/auth/opaque/registration",
-        None,
-        Some(json!({ "username": "zoe", "request": start.request })),
-    )
-    .await;
-    let finish = app_e2ee::registration_finish(
-        &start.state,
-        "e2ee password",
-        response["response"].as_str().unwrap(),
-        "zoe",
-        app_e2ee::Ksf::CURRENT,
-    )
-    .unwrap();
-    let account = app_e2ee::new_account(&finish.export_key);
-    let (status, session) = call(
-        &app,
-        "POST",
-        "/auth/e2ee/register",
-        None,
-        Some(json!({ "username": "zoe", "ksf": 2, "upload": finish.upload, "keys": account.bundle, "recoveryVerifier": account.recovery_verifier, "device": device("phone") })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::CREATED, "{session}");
+    let (state, app, _) = with_admin().await;
+    let (session, _) = super::tests::e2ee_person(&state, "zoe").await;
     let token = session["accessToken"].as_str().unwrap();
 
     let (_, info) = call(&app, "GET", "/sync", Some(token), None).await;
@@ -356,18 +321,11 @@ async fn e2ee_changes_are_kept_as_sent_with_their_keys() {
 
 #[tokio::test]
 async fn an_account_sees_only_its_own_space_and_bad_changes_are_refused() {
-    let (_, app, admin) = with_admin().await;
+    let (state, app, _) = with_admin().await;
     let mut laptop = device_of(&app, "admin", PASSWORD).await;
     laptop.store.create_note(&NewNote::default()).unwrap();
     laptop.push(&app).await;
-    call(
-        &app,
-        "POST",
-        "/admin/users",
-        Some(&admin),
-        Some(json!({ "username": "bob", "password": "bob password" })),
-    )
-    .await;
+    super::tests::person(&state, "bob").await;
     let bob = device_of(&app, "bob", "bob password").await;
     let (_, info) = call(&app, "GET", "/sync", Some(&bob.token), None).await;
     assert_eq!(info["head"], 0, "nothing of admin's space");
@@ -592,24 +550,13 @@ impl app_core::sync::engine::Remote for Wire {
         Ok(serde_json::from_value(answer).unwrap())
     }
 
+    /// As the apps since sharing left them: no shared space.
     fn spaces(
         &mut self,
     ) -> Result<Option<app_protocol::sync::SharedSpaces>, app_core::sync::engine::RemoteError> {
-        let answer = self.call("GET", "/sync/spaces", None)?;
-        Ok(Some(serde_json::from_value(answer).unwrap()))
-    }
-
-    fn give_grants(
-        &mut self,
-        space: &str,
-        grants: &app_protocol::sync::GiveGrants,
-    ) -> Result<(), app_core::sync::engine::RemoteError> {
-        self.call(
-            "POST",
-            &format!("/sync/spaces/{space}/grants"),
-            Some(serde_json::to_value(grants).unwrap()),
-        )
-        .map(drop)
+        Ok(Some(app_protocol::sync::SharedSpaces {
+            spaces: Vec::new(),
+        }))
     }
 
     fn files_info(
@@ -744,18 +691,6 @@ pub(super) async fn round(
 ) {
     tokio::task::spawn_blocking(move || {
         let (store, mut wire, dir) = device;
-        // the owner chose its spaces' members in the app's share dialog,
-        // which lets them in; these tests add them through the api
-        if let Ok(Some(listed)) = app_core::sync::engine::Remote::spaces(&mut wire) {
-            let mut s = store.lock().unwrap();
-            for space in &listed.spaces {
-                for wanted in &space.grants_wanted {
-                    if !s.space_trusted(&space.id, &wanted.user_id).unwrap() {
-                        s.space_trust(&space.id, &wanted.user_id, None).unwrap();
-                    }
-                }
-            }
-        }
         let round = app_core::sync::engine::run(&store, &mut wire).unwrap();
         ((store, wire, dir), round)
     })
@@ -768,17 +703,8 @@ pub(super) fn view_of(device: &(std::sync::Mutex<Store>, Wire, tempfile::TempDir
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[expect(clippy::too_many_lines, reason = "one story, read top to bottom")]
 async fn the_client_engine_syncs_standard_and_e2ee_accounts_through_the_server() {
-    let (_, app, admin) = with_admin().await;
-    call(
-        &app,
-        "PUT",
-        "/admin/registration",
-        Some(&admin),
-        Some(json!({ "registration": "open" })),
-    )
-    .await;
+    let (state, app, _) = with_admin().await;
 
     // standard: two sign-ins of the admin
     let (_, s1) = login(&app, "admin", PASSWORD).await;
@@ -796,38 +722,12 @@ async fn the_client_engine_syncs_standard_and_e2ee_accounts_through_the_server()
     let (a, _) = round(a).await;
     assert_eq!(view_of(&a), view_of(&b));
 
-    // e2ee: sign up, then a second device signs in and opens the keys
-    let start = app_e2ee::registration_start("e2ee password").unwrap();
-    let (_, response) = call(
-        &app,
-        "POST",
-        "/auth/opaque/registration",
-        None,
-        Some(json!({ "username": "zoe", "request": start.request })),
-    )
-    .await;
-    let finish = app_e2ee::registration_finish(
-        &start.state,
-        "e2ee password",
-        response["response"].as_str().unwrap(),
-        "zoe",
-        app_e2ee::Ksf::CURRENT,
-    )
-    .unwrap();
-    let made = app_e2ee::new_account(&finish.export_key);
-    let (status, z1) = call(
-        &app,
-        "POST",
-        "/auth/e2ee/register",
-        None,
-        Some(json!({ "username": "zoe", "ksf": 2, "upload": finish.upload, "keys": made.bundle, "recoveryVerifier": made.recovery_verifier, "device": device("phone") })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::CREATED, "{z1}");
-    let master =
-        app_e2ee::AccountKeys::open_with_password(&made.bundle, &finish.export_key).unwrap();
+    // e2ee: an account made by an older sign-up, then a second device signs
+    // in and opens the keys
+    let (z1, made) = super::tests::e2ee_person(&state, "zoe").await;
+    let master = app_e2ee::AccountKeys::open_with_password(&made.bundle, &made.export_key).unwrap();
     let phone = linked(&app, &z1, Some(&master));
-    let start = app_e2ee::login_start("e2ee password").unwrap();
+    let start = app_e2ee::login_start("zoe password").unwrap();
     let (_, started) = call(
         &app,
         "POST",
@@ -838,7 +738,7 @@ async fn the_client_engine_syncs_standard_and_e2ee_accounts_through_the_server()
     .await;
     let done = app_e2ee::login_finish(
         &start.state,
-        "e2ee password",
+        "zoe password",
         started["response"].as_str().unwrap(),
         "zoe",
         super::tests::ksf(&started),
@@ -928,7 +828,7 @@ pub(super) async fn next_message(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn live_sockets_hear_of_other_devices_changes_and_the_admin_setting() {
-    let (_, app, admin) = with_admin().await;
+    let (state, app, admin) = with_admin().await;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let served = app.clone();
@@ -970,14 +870,7 @@ async fn live_sockets_hear_of_other_devices_changes_and_the_admin_setting() {
     );
 
     // another account's changes are not heard either
-    call(
-        &app,
-        "POST",
-        "/admin/users",
-        Some(&admin),
-        Some(json!({ "username": "bob", "password": "bob password" })),
-    )
-    .await;
+    super::tests::person(&state, "bob").await;
     let mut bob = device_of(&app, "bob", "bob password").await;
     bob.store.create_note(&NewNote::default()).unwrap();
     bob.push(&app).await;

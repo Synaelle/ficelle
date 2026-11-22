@@ -15,8 +15,6 @@ pub struct Clock {
 
 /// One minute in milliseconds.
 pub const MINUTE: i64 = 60_000;
-/// One hour in milliseconds.
-pub const HOUR: i64 = 60 * MINUTE;
 /// One day in milliseconds.
 pub const DAY: i64 = 24 * 60 * MINUTE;
 

@@ -544,12 +544,8 @@ async fn a_command_line_admin_adds_a_factor_before_acting() {
     assert_eq!(status, StatusCode::OK, "{session}");
     assert_eq!(session["user"]["factorRequired"], true);
     let token = session["accessToken"].as_str().unwrap();
-    for path in ["/admin/overview", "/admin/users", "/invites"] {
+    for path in ["/admin/overview", "/admin/audit"] {
         let (status, body) = call(&app, "GET", path, Some(token), None).await;
-        if path == "/invites" {
-            assert_eq!(status, StatusCode::OK, "only its own invites");
-            continue;
-        }
         assert_eq!(
             (status, body["error"].as_str()),
             (StatusCode::FORBIDDEN, Some("secondFactorRequired")),
@@ -629,31 +625,4 @@ async fn an_admin_without_a_second_step_when_chosen() {
         log.iter().any(|e| e == "admin_second_step_changed"),
         "{log:?}"
     );
-}
-
-#[tokio::test]
-async fn a_server_for_its_admin_alone_says_so() {
-    let (state, app) = fresh(false, "");
-    let session = session(&state, &app).await;
-    let mut body = finish_body(&session, &json!({ "type": "none" }));
-    body["personal"] = json!(true);
-    let (status, done) = call(&app, "POST", "/setup/finish", None, Some(body)).await;
-    assert_eq!(status, StatusCode::CREATED, "{done}");
-    let token = done["session"]["accessToken"].as_str().unwrap().to_owned();
-    let (_, overview) = call(&app, "GET", "/admin/overview", Some(&token), None).await;
-    assert_eq!(overview["personal"], true);
-    assert_eq!(overview["registration"], "closed");
-
-    // nobody else gets in: no invites, sign-up stays closed
-    let (status, _) = call(&app, "POST", "/invites", Some(&token), Some(json!({}))).await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
-    let (status, _) = call(
-        &app,
-        "PUT",
-        "/admin/registration",
-        Some(&token),
-        Some(json!({ "registration": "open" })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
 }

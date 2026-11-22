@@ -257,7 +257,7 @@ pub fn room_in(
     space: &str,
 ) -> Result<Option<u64>, DbError> {
     let owner = owner_of(conn, space)?.unwrap_or_default();
-    let quota = policy::effective(conn, config, &owner)?.quota_bytes;
+    let quota = policy::effective(conn, config)?.quota_bytes;
     room_for(conn, &owner, quota)
 }
 
@@ -625,18 +625,13 @@ pub fn live_uploads(conn: &Connection) -> Result<Vec<String>, DbError> {
     Ok(names)
 }
 
-/// The instance's storage, and every person's use, most first.
+/// The instance's storage.
 ///
 /// # Errors
 ///
 /// Database errors.
-pub fn storage(
-    conn: &Connection,
-    config: &crate::config::FilesConfig,
-    offset: u32,
-    limit: u32,
-) -> Result<app_protocol::admin::StorageOverview, DbError> {
-    use app_protocol::admin::{Page, PersonStorage, StorageOverview};
+pub fn storage(conn: &Connection) -> Result<app_protocol::admin::StorageOverview, DbError> {
+    use app_protocol::admin::StorageOverview;
     let size = |n: i64| u64::try_from(n).unwrap_or(0);
     let (stored, files, unique): (i64, i64, i64) = conn.query_row(
         "SELECT coalesce(sum(stored), 0), count(*), coalesce(sum(size), 0) FROM files",
@@ -652,57 +647,12 @@ pub fn storage(
         [],
         |row| row.get(0),
     )?;
-    let mut people: Vec<PersonStorage> = {
-        let mut stmt = conn.prepare(
-            "WITH used AS (
-                 SELECT DISTINCT s.owner_id, r.object, r.size FROM file_refs r
-                 JOIN sync_spaces s ON s.id = r.space_id WHERE r.released_at IS NULL),
-             files AS (
-                 SELECT owner_id, sum(size) AS bytes, count(*) AS n, max(size) AS largest
-                 FROM used GROUP BY owner_id),
-             notes AS (
-                 SELECT s.owner_id, sum(c.size) AS bytes FROM sync_changes c
-                 JOIN sync_spaces s ON s.id = c.space_id GROUP BY s.owner_id)
-             SELECT u.id, u.username, u.display_name, coalesce(f.bytes, 0), coalesce(f.n, 0),
-                 coalesce(f.largest, 0), coalesce(n.bytes, 0)
-             FROM users u LEFT JOIN files f ON f.owner_id = u.id LEFT JOIN notes n ON n.owner_id = u.id",
-        )?;
-        stmt.query_map([], |row| {
-            let file_bytes = size(row.get(3)?);
-            Ok(PersonStorage {
-                user_id: row.get(0)?,
-                username: row.get(1)?,
-                display_name: row.get(2)?,
-                used_bytes: file_bytes + size(row.get(6)?),
-                file_bytes,
-                files: size(row.get(4)?),
-                largest_bytes: size(row.get(5)?),
-                quota_bytes: 0,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?
-    };
-    people.sort_by(|a, b| {
-        b.used_bytes
-            .cmp(&a.used_bytes)
-            .then_with(|| a.username.cmp(&b.username))
-    });
-    let total = people.len() as u64;
-    let mut items: Vec<PersonStorage> = people
-        .into_iter()
-        .skip(usize::try_from(offset).unwrap_or(usize::MAX))
-        .take(usize::try_from(limit).unwrap_or(usize::MAX))
-        .collect();
-    for person in &mut items {
-        person.quota_bytes = policy::effective(conn, config, &person.user_id)?.quota_bytes;
-    }
     Ok(StorageOverview {
         stored_bytes: size(stored),
         files: size(files),
         referenced_bytes: size(referenced),
         unique_bytes: size(unique),
         note_bytes: size(notes),
-        people: Page { total, items },
     })
 }
 

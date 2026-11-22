@@ -4,7 +4,6 @@
 //! Each call is rate limited per address, refused unless the request passes
 //! the https rule, and answers 410 once setup is locked, for good.
 
-use app_protocol::account::Registration;
 use app_protocol::error_code;
 use app_protocol::security::TotpSetup;
 use app_protocol::setup::{
@@ -20,7 +19,7 @@ use webauthn_rs::prelude::{PasskeyRegistration, RegisterPublicKeyCredential, Uui
 use super::auth::{hash_password, new_credentials, rate_limit, session};
 use super::extract::{Body, ClientIp, Peer, Secure};
 use crate::accounts::store::{self, Event};
-use crate::accounts::{device_info, display_name, e2ee, factors, normal_username, totp};
+use crate::accounts::{device_info, display_name, factors, normal_username, totp};
 use crate::error::Error;
 use crate::routes::AppState;
 use crate::setup;
@@ -421,9 +420,6 @@ pub async fn finish(
     let auth = state.config.auth.clone();
     let codes = totp::new_recovery_codes();
     let hashes: Vec<_> = codes.iter().map(|(_, h)| *h).collect();
-    let registration = req.registration.unwrap_or(Registration::Closed);
-    let kinds = req.account_kinds;
-    let personal = req.personal;
     let ip_text = ip.0.to_string();
     let master = state.master.clone();
     let made = state
@@ -447,11 +443,6 @@ pub async fn finish(
                 return Ok(None);
             };
             let factor = keep_factor(&tx, &master, &user.id, proven, &hashes, now)?;
-            store::set_registration(&tx, registration)?;
-            crate::admin::set_personal(&tx, personal)?;
-            if let Some(kinds) = kinds {
-                e2ee::set_account_kinds(&tx, kinds)?;
-            }
             setup::lock(&tx)?;
             let tokens = store::create_session(&tx, &user.id, &device, now, &auth)?;
             store::audit(

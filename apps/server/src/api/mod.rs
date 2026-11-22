@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The `/api/v1` endpoints for accounts, groups and admins. Versions,
+//! The `/api/v1` endpoints for the account, sync and the admin. Versions,
 //! headers and limits are handled around them in [`crate::routes`].
 
 mod admin;
@@ -11,8 +11,6 @@ mod e2ee;
 pub mod extract;
 mod feedback;
 pub mod files;
-mod groups;
-mod invites;
 mod me;
 mod passkeys;
 mod policies;
@@ -20,7 +18,6 @@ mod profile;
 mod second_factor;
 mod security;
 mod setup;
-mod sharing;
 mod sync;
 mod updates;
 mod web;
@@ -33,7 +30,6 @@ use crate::accounts::store::UserRow;
 use crate::routes::AppState;
 
 /// Account routes, relative to `/api/v1`.
-#[expect(clippy::too_many_lines, reason = "the route table, one line per route")]
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/auth/options", get(auth::options))
@@ -51,13 +47,11 @@ pub fn router() -> Router<AppState> {
         .route("/admin/checklist", get(updates::checklist))
         .route("/admin/checklist/dismiss", post(updates::dismiss))
         .route("/admin/checklist/restore", post(updates::restore))
-        .route("/auth/register", post(auth::register))
         .route("/auth/login", post(auth::login))
         .route("/auth/second-factor", post(second_factor::second_factor))
         .route("/auth/second-factor/email", post(second_factor::email_code))
         .route("/auth/kind", post(e2ee::kind))
         .route("/auth/opaque/registration", post(e2ee::registration))
-        .route("/auth/e2ee/register", post(e2ee::register))
         .route("/auth/opaque/login/start", post(e2ee::login_start))
         .route("/auth/opaque/login/finish", post(e2ee::login_finish))
         .route("/auth/recovery/start", post(e2ee::recovery_start))
@@ -75,10 +69,6 @@ pub fn router() -> Router<AppState> {
         .route("/auth/reset/request", post(profile::reset_request))
         .route("/auth/reset/finish", post(profile::reset_finish))
         .route("/me/export", get(profile::export))
-        .route(
-            "/me/deletion",
-            post(profile::request_deletion).delete(profile::cancel_deletion),
-        )
         .route("/privacy", get(profile::privacy))
         .route("/auth/passkey/start", post(passkeys::sign_in_start))
         .route("/auth/passkey/finish", post(passkeys::sign_in_finish))
@@ -101,29 +91,8 @@ pub fn router() -> Router<AppState> {
         .route("/me/passkeys/finish", post(passkeys::add_finish))
         .route("/me/passkeys/{id}", delete(passkeys::remove))
         .route("/me/devices/{id}", delete(me::revoke_device))
-        .route("/invites", get(invites::list).post(invites::create))
-        .route("/invites/{id}", delete(invites::revoke))
-        .route("/me/groups", get(groups::mine))
         .route("/admin/overview", get(admin::overview))
-        .route("/admin/users", get(admin::users).post(admin::create_user))
-        .route(
-            "/admin/users/{id}",
-            get(admin::user)
-                .patch(admin::update_user)
-                .delete(admin::delete_user),
-        )
-        .route("/admin/users/{id}/password", post(admin::set_password))
-        .route("/admin/users/{id}/signout", post(admin::sign_out))
-        .route(
-            "/admin/users/{id}/second-factors/reset",
-            post(admin::reset_second_factors),
-        )
-        .route(
-            "/admin/registration",
-            get(admin::registration).put(admin::set_registration),
-        )
         .route("/admin/audit", get(admin::audit))
-        .route("/admin/account-kinds", put(admin::set_account_kinds))
         .route("/admin/coediting", put(admin::set_coediting))
         .route("/admin/web", get(web::get).put(web::set))
         .route("/admin/web/limits", put(web::set_limits))
@@ -144,11 +113,7 @@ pub fn router() -> Router<AppState> {
             post(connect::link_offer_approve),
         )
         .route("/admin/second-step", put(admin::set_second_step))
-        .route(
-            "/admin/one-person",
-            get(admin::one_person_list).post(admin::one_person),
-        )
-        .merge(group_routes())
+        .merge(policy_routes())
         .merge(
             sync_routes()
                 .merge(backup_routes())
@@ -156,32 +121,13 @@ pub fn router() -> Router<AppState> {
         )
 }
 
-/// Groups and the storage policies, relative to `/api/v1`.
-fn group_routes() -> Router<AppState> {
+/// The files policy and storage, relative to `/api/v1`.
+fn policy_routes() -> Router<AppState> {
     Router::new()
-        .route("/admin/groups", get(groups::list).post(groups::create))
-        .route(
-            "/admin/groups/{id}",
-            get(groups::detail)
-                .patch(groups::rename)
-                .delete(groups::delete),
-        )
         .route("/admin/storage", get(policies::storage))
         .route(
             "/admin/policy",
             get(policies::instance).put(policies::set_instance),
-        )
-        .route(
-            "/admin/groups/{id}/policy",
-            get(policies::group).put(policies::set_group),
-        )
-        .route(
-            "/admin/users/{id}/policy",
-            get(policies::user).put(policies::set_user),
-        )
-        .route(
-            "/admin/groups/{id}/members/{user}",
-            put(groups::add_member).delete(groups::remove_member),
         )
 }
 
@@ -207,7 +153,6 @@ fn feedback_routes() -> Router<AppState> {
             post(feedback::send_to_main)
                 .layer(axum::extract::DefaultBodyLimit::max(feedback::MAX_REQUEST)),
         )
-        .route("/admin/feedback/access", get(feedback::access))
         .route("/admin/feedback/reports", get(feedback::reports))
         .route(
             "/admin/feedback/reports/{id}",
@@ -230,10 +175,6 @@ fn feedback_routes() -> Router<AppState> {
                 .delete(feedback::remove_block),
         )
         .route(
-            "/admin/feedback/readers/{name}",
-            put(feedback::add_reader).delete(feedback::remove_reader),
-        )
-        .route(
             "/admin/feedback/token",
             post(feedback::new_token).delete(feedback::revoke_token),
         )
@@ -253,13 +194,9 @@ fn backup_routes() -> Router<AppState> {
         .route("/admin/backups/snapshots", get(backups::snapshots))
         .route("/admin/backups/check", post(backups::check))
         .route("/admin/backups/test-restore", post(backups::test_restore))
-        .route(
-            "/admin/backups/restore-person",
-            post(backups::restore_person),
-        )
 }
 
-/// Sync and sharing routes, relative to `/api/v1`.
+/// Sync routes, relative to `/api/v1`.
 fn sync_routes() -> Router<AppState> {
     Router::new()
         .route("/sync", get(sync::info))
@@ -267,19 +204,6 @@ fn sync_routes() -> Router<AppState> {
         .route("/sync/changes", get(sync::pull))
         .route("/sync/live", get(sync::live))
         .route("/sync/heavy", get(sync::heavy))
-        .route("/sync/spaces", get(sharing::list).post(sharing::create))
-        .route("/sync/spaces/{id}", delete(sharing::stop))
-        .route("/sync/spaces/{id}/me", delete(sharing::leave))
-        .route(
-            "/sync/spaces/{id}/members",
-            get(sharing::members).put(sharing::set_members),
-        )
-        .route("/sync/spaces/{id}/grants", post(sharing::give))
-        .route("/sync/people", get(sharing::person))
-        .route(
-            "/sync/key-pair",
-            get(sharing::key_pair).put(sharing::set_key_pair),
-        )
         .route("/sync/files/policy", get(files::info))
         .route(
             "/sync/files/{address}",
@@ -288,8 +212,6 @@ fn sync_routes() -> Router<AppState> {
         .route("/sync/files/{address}/state", get(files::state_of))
         .route("/sync/files/{address}/keep", post(files::keep))
 }
-
-pub use profile::run_deletions;
 
 /// An account as its owner and admins see it.
 fn user_json(user: &UserRow) -> User {
@@ -328,8 +250,6 @@ mod security_tests;
 mod setup_attack_tests;
 #[cfg(test)]
 mod setup_tests;
-#[cfg(test)]
-mod sharing_tests;
 #[cfg(test)]
 mod sync_tests;
 #[cfg(test)]

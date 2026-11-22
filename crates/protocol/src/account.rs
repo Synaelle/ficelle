@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::e2ee::{AccountKind, AccountKinds};
 
-/// Who may create an account on this server.
+/// Who may create an account on this server. Always closed since servers
+/// are for one person, kept for the apps that read it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Registration {
@@ -23,13 +24,14 @@ pub enum Registration {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthOptions {
-    /// Registration mode.
+    /// Registration mode, always closed.
     pub registration: Registration,
     /// No admin yet: the first one is made with the setup link from the log.
     pub setup_needed: bool,
     /// Passkeys can sign in.
     pub passkeys: bool,
-    /// Which kinds of accounts sign-up creates.
+    /// Which kinds of accounts sign-up created, always the choice: nothing
+    /// signs up any more.
     pub account_kinds: AccountKinds,
     /// A forgotten password can be reset by email.
     pub email_reset: bool,
@@ -53,24 +55,6 @@ pub struct DeviceInfo {
     /// same account. Servers before 0.2.1 ignore it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replaces: Option<String>,
-}
-
-/// `POST /api/v1/auth/register`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RegisterRequest {
-    /// New username.
-    pub username: String,
-    /// New password.
-    pub password: String,
-    /// Name shown to others, the username when absent.
-    #[serde(default)]
-    pub display_name: Option<String>,
-    /// Invite token, needed unless registration is open.
-    #[serde(default)]
-    pub invite: Option<String>,
-    /// This device.
-    pub device: DeviceInfo,
 }
 
 /// `POST /api/v1/auth/login`.
@@ -323,63 +307,4 @@ pub struct Device {
     pub last_seen_at: i64,
     /// The device making this request.
     pub current: bool,
-}
-
-/// `POST /api/v1/invites`.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateInviteRequest {
-    /// Days before it expires, the server default when absent.
-    #[serde(default)]
-    pub days: Option<u32>,
-    /// Hours before it expires, for a short one, used before `days`. Up to
-    /// a day.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hours: Option<u32>,
-}
-
-/// An invite. `token` and `link` appear only in the answer that creates it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Invite {
-    /// Id, to revoke it.
-    pub id: String,
-    /// The secret part, to paste into the app.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub token: Option<String>,
-    /// Ready to send link, when the server knows its public address.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub link: Option<String>,
-    /// Who made it.
-    pub created_by: String,
-    /// When.
-    pub created_at: i64,
-    /// Stops working then.
-    pub expires_at: i64,
-    /// `pending`, `used`, `revoked` or `expired`.
-    pub state: String,
-}
-
-/// `POST /api/v1/admin/users`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateUserRequest {
-    /// Username.
-    pub username: String,
-    /// First password, to pass on to the person.
-    pub password: String,
-    /// Name shown to others, the username when absent.
-    #[serde(default)]
-    pub display_name: Option<String>,
-    /// Role, user when absent.
-    #[serde(default)]
-    pub role: Option<Role>,
-}
-
-/// `PUT /api/v1/admin/registration`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RegistrationRequest {
-    /// New mode.
-    pub registration: Registration,
 }

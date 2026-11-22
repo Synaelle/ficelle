@@ -2,18 +2,16 @@
 
 //! Attachment files between real vaults of the app core and the full
 //! router: uploads after the notes' round, fetches, releases, sealing for
-//! e2ee accounts and shared spaces, refusals and quotas.
+//! e2ee accounts, refusals and quotas.
 
 use app_core::blobs::BlobStore;
 use app_core::id::NoteId;
-use app_core::store::Item;
 use app_core::sync::files::FilesRound;
 use axum::http::StatusCode;
 use serde_json::json;
 
-use super::sharing_tests::{Device, e2ee, open_registration, share, standard, token, user_id};
 use super::sync_tests::{linked, round};
-use super::tests::{call, login, with_admin};
+use super::tests::{Device, call, e2ee_device, login, person, with_admin};
 use crate::routes::AppState;
 
 fn blobs(device: &Device) -> BlobStore {
@@ -190,9 +188,8 @@ async fn large_files_wait_until_asked_for_and_thumbnails_come_at_once() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn e2ee_files_are_sealed_on_the_device_and_opened_on_the_other() {
-    let (state, app, admin) = with_admin().await;
-    open_registration(&app, &admin).await;
-    let (zoe, laptop) = e2ee(&app, "zoe").await;
+    let (state, app, _) = with_admin().await;
+    let (zoe, laptop) = e2ee_device(&state, &app, "zoe").await;
     let master = laptop.0.lock().unwrap().sync_master_key().unwrap().unwrap();
     let phone = linked(&app, &e2ee_login(&app, "zoe").await, Some(&master));
     drop(zoe);
@@ -211,47 +208,8 @@ async fn e2ee_files_are_sealed_on_the_device_and_opened_on_the_other() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn files_moved_into_an_e2ee_share_are_sealed_with_its_key_for_the_members() {
-    let (state, app, admin) = with_admin().await;
-    open_registration(&app, &admin).await;
-    let (zoe, owner) = e2ee(&app, "zoe").await;
-    let (yan, member) = e2ee(&app, "yan").await;
-    let bytes = content(200_000, 5);
-    let (note, sha) = attach(&owner, "Plans", "plans.pdf", &bytes);
-    let (owner, _) = sync(owner, 10 * MB as u64).await;
-    let space = share(
-        &app,
-        &zoe,
-        json!([{ "userId": user_id(&yan), "role": "edit" }]),
-    )
-    .await;
-    // the key first, then the move
-    let (owner, _) = round(owner).await;
-    owner
-        .0
-        .lock()
-        .unwrap()
-        .move_to_space(Item::Note(note), &space)
-        .unwrap();
-    let (owner, done) = sync(owner, 10 * MB as u64).await;
-    assert_eq!(done.uploaded, 1);
-    // the epoch went into the document: a second round sends it
-    let (_owner, _) = sync(owner, 10 * MB as u64).await;
-    let (member, done) = sync(member, 10 * MB as u64).await;
-    assert_eq!(done.fetched, 1, "{done:?}");
-    assert_eq!(blobs(&member).get(&sha).unwrap().unwrap(), bytes);
-    let in_space: Vec<String> = objects(&state)
-        .await
-        .into_iter()
-        .filter(|o| o.contains(&space))
-        .collect();
-    assert_eq!(in_space.len(), 1);
-    drop((member, token(&zoe)));
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn refused_files_are_noted_once_and_a_full_quota_stops_uploads() {
-    let (_, app, admin) = with_admin().await;
+    let (state, app, admin) = with_admin().await;
     let (status, _) = call(
         &app,
         "PUT",
@@ -261,8 +219,7 @@ async fn refused_files_are_noted_once_and_a_full_quota_stops_uploads() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    open_registration(&app, &admin).await;
-    let alex = standard(&app, "alex").await;
+    let alex = person(&state, "alex").await;
     let laptop = linked(&app, &alex, None);
     attach(&laptop, "Tool", "setup.exe", b"MZ a program");
     let (laptop, done) = sync(laptop, 10 * MB as u64).await;
@@ -282,18 +239,17 @@ async fn refused_files_are_noted_once_and_a_full_quota_stops_uploads() {
 #[ignore = "measurement, run by hand"]
 async fn file_costs_through_the_server() {
     use std::time::Instant;
-    let (_, app, admin) = with_admin().await;
-    open_registration(&app, &admin).await;
+    let (state, app, _) = with_admin().await;
     let big = content(100 * MB, 9);
     for kind in ["standard", "e2ee"] {
         let (laptop, phone) = if kind == "standard" {
-            let sam = standard(&app, "sam").await;
+            let sam = person(&state, "sam").await;
             (
                 linked(&app, &sam, None),
                 linked(&app, &login(&app, "sam", "sam password").await.1, None),
             )
         } else {
-            let (zoe, laptop) = e2ee(&app, "zoe").await;
+            let (zoe, laptop) = e2ee_device(&state, &app, "zoe").await;
             let master = laptop.0.lock().unwrap().sync_master_key().unwrap().unwrap();
             drop(zoe);
             let phone = linked(&app, &e2ee_login(&app, "zoe").await, Some(&master));

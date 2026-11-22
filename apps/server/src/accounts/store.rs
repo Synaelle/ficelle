@@ -4,7 +4,7 @@
 //! tests control time. Callers run them in [`crate::db::Db::call`], several
 //! in one transaction where they must succeed together.
 
-use app_protocol::account::{DeviceInfo, Registration, Role};
+use app_protocol::account::{DeviceInfo, Role};
 use app_protocol::e2ee::AccountKind;
 use std::net::IpAddr;
 
@@ -97,21 +97,6 @@ pub struct DeviceRow {
     pub created_at: i64,
     /// Last request.
     pub last_seen_at: i64,
-}
-
-/// A stored invite.
-#[derive(Debug, Clone)]
-pub struct InviteRow {
-    /// Id.
-    pub id: String,
-    /// Username of the creator, empty if the account is gone.
-    pub created_by: String,
-    /// Creation time.
-    pub created_at: i64,
-    /// Expiry.
-    pub expires_at: i64,
-    /// `pending`, `used`, `revoked` or `expired`.
-    pub state: &'static str,
 }
 
 /// A refresh token with its device: device id, user id, expiry, use time
@@ -699,173 +684,6 @@ pub fn owns_device(conn: &Connection, user_id: &str, device_id: &str) -> Result<
     )?)
 }
 
-/// Current registration mode.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn registration(conn: &Connection) -> Result<Registration, DbError> {
-    let value: String = conn.query_row(
-        "SELECT value FROM settings WHERE key = 'registration'",
-        [],
-        |r| r.get(0),
-    )?;
-    Ok(match value.as_str() {
-        "open" => Registration::Open,
-        "invite" => Registration::Invite,
-        _ => Registration::Closed,
-    })
-}
-
-/// Changes the registration mode.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn set_registration(conn: &Connection, mode: Registration) -> Result<(), DbError> {
-    let value = match mode {
-        Registration::Closed => "closed",
-        Registration::Invite => "invite",
-        Registration::Open => "open",
-    };
-    conn.execute(
-        "UPDATE settings SET value = ?1 WHERE key = 'registration'",
-        [value],
-    )?;
-    Ok(())
-}
-
-/// Creates an invite. Returns its id, plain token and expiry.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn create_invite(
-    conn: &Connection,
-    created_by: &str,
-    now: i64,
-    life: i64,
-) -> Result<(String, String, i64), DbError> {
-    let (plain, hash) = token::new_token(Kind::Invite);
-    let id = new_id();
-    let expires_at = now + life;
-    conn.execute(
-        "INSERT INTO invites (id, hash, created_by, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![id, hash.as_slice(), created_by, now, expires_at],
-    )?;
-    Ok((id, plain, expires_at))
-}
-
-/// Marks a pending invite used. False when it cannot be used.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn use_invite(
-    conn: &Connection,
-    hash: &TokenHash,
-    user_id: &str,
-    now: i64,
-) -> Result<bool, DbError> {
-    let changed = conn.execute(
-        "UPDATE invites SET used_at = ?3, used_by = ?2
-         WHERE hash = ?1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?3",
-        params![hash.as_slice(), user_id, now],
-    )?;
-    Ok(changed == 1)
-}
-
-/// Whether an invite could be used now, checked before creating the account.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn invite_usable(conn: &Connection, hash: &TokenHash, now: i64) -> Result<bool, DbError> {
-    let creator: Option<Option<String>> = conn
-        .query_row(
-            "SELECT created_by FROM invites
-             WHERE hash = ?1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?2",
-            params![hash.as_slice(), now],
-            |r| r.get(0),
-        )
-        .optional()?;
-    let Some(creator) = creator else {
-        return Ok(false);
-    };
-    // an invite lasts as long as who made it may let people in: their
-    // account still here and on, and for a member, sign-up still open to
-    // invites
-    let Some(user) = creator
-        .map(|id| user_by_id(conn, &id))
-        .transpose()?
-        .flatten()
-    else {
-        return Ok(false);
-    };
-    if user.disabled_at.is_some() {
-        return Ok(false);
-    }
-    Ok(user.role == Role::Admin || registration(conn)? != Registration::Closed)
-}
-
-/// Invites, all of them or those one account created, latest first.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn list_invites(
-    conn: &Connection,
-    created_by: Option<&str>,
-    now: i64,
-) -> Result<Vec<InviteRow>, DbError> {
-    let mut stmt = conn.prepare(
-        "SELECT i.id, COALESCE(u.username, ''), i.created_at, i.expires_at, i.used_at, i.revoked_at
-         FROM invites i LEFT JOIN users u ON u.id = i.created_by
-         WHERE ?1 IS NULL OR i.created_by = ?1 ORDER BY i.created_at DESC",
-    )?;
-    let rows = stmt.query_map([created_by], |r| {
-        let used: Option<i64> = r.get(4)?;
-        let revoked: Option<i64> = r.get(5)?;
-        let expires_at: i64 = r.get(3)?;
-        Ok(InviteRow {
-            id: r.get(0)?,
-            created_by: r.get(1)?,
-            created_at: r.get(2)?,
-            expires_at,
-            state: if used.is_some() {
-                "used"
-            } else if revoked.is_some() {
-                "revoked"
-            } else if expires_at <= now {
-                "expired"
-            } else {
-                "pending"
-            },
-        })
-    })?;
-    Ok(rows.collect::<rusqlite::Result<_>>()?)
-}
-
-/// Revokes a pending invite. With `created_by`, only one that account made.
-/// False when there was nothing to revoke.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn revoke_invite(
-    conn: &Connection,
-    id: &str,
-    created_by: Option<&str>,
-    now: i64,
-) -> Result<bool, DbError> {
-    let changed = conn.execute(
-        "UPDATE invites SET revoked_at = ?3
-         WHERE id = ?1 AND (?2 IS NULL OR created_by = ?2) AND used_at IS NULL AND revoked_at IS NULL",
-        params![id, created_by, now],
-    )?;
-    Ok(changed == 1)
-}
-
 /// One security event in the audit log.
 #[derive(Debug, Default)]
 pub struct Event<'a> {
@@ -1236,54 +1054,5 @@ mod tests {
         })
         .await
         .unwrap();
-    }
-
-    #[tokio::test]
-    async fn invites_work_once_until_they_expire_or_are_revoked() {
-        let (db, user) = with_user().await;
-        let id = user.id.clone();
-        db.call(move |c| {
-            let (_, plain, _) = create_invite(c, &id, 0, 7 * DAY)?;
-            let hash = token::hash(&plain);
-            // A member's invite needs sign-up
-            // open to invites, and its maker's account on
-            assert!(!invite_usable(c, &hash, DAY)?, "sign-up closed");
-            set_registration(c, Registration::Invite)?;
-            assert!(invite_usable(c, &hash, DAY)?);
-            c.execute("UPDATE users SET disabled_at = 1 WHERE id = ?1", [&id])?;
-            assert!(!invite_usable(c, &hash, DAY)?, "its maker turned off");
-            c.execute("UPDATE users SET disabled_at = NULL WHERE id = ?1", [&id])?;
-            assert!(use_invite(c, &hash, &id, DAY)?);
-            assert!(!use_invite(c, &hash, &id, DAY)?, "single use");
-
-            let (late_id, late, _) = create_invite(c, &id, 0, DAY)?;
-            assert!(!invite_usable(c, &token::hash(&late), 2 * DAY)?, "expired");
-            assert!(revoke_invite(c, &late_id, Some(&id), 0)?);
-
-            let states: Vec<&str> = list_invites(c, None, 2 * DAY)?
-                .iter()
-                .map(|i| i.state)
-                .collect();
-            assert_eq!(states.len(), 2);
-            assert!(states.contains(&"used") && states.contains(&"revoked"));
-            Ok(())
-        })
-        .await
-        .unwrap();
-    }
-
-    #[tokio::test]
-    async fn registration_defaults_to_closed() {
-        let db = Db::in_memory().unwrap();
-        let (before, after) = db
-            .call(|c| {
-                let before = registration(c)?;
-                set_registration(c, Registration::Open)?;
-                Ok((before, registration(c)?))
-            })
-            .await
-            .unwrap();
-        assert_eq!(before, Registration::Closed);
-        assert_eq!(after, Registration::Open);
     }
 }

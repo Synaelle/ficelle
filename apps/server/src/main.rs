@@ -24,7 +24,6 @@ mod routes;
 mod secrets;
 mod setup;
 mod sftp;
-mod sharing;
 mod sync;
 mod updates;
 mod web;
@@ -437,11 +436,6 @@ fn spawn_cleanup(state: AppState) {
                 Ok(0) => {}
                 Ok(n) => tracing::debug!("deleted {n} files no longer used"),
                 Err(err) => tracing::warn!("file cleanup: {err:?}"),
-            }
-            match api::run_deletions(&state).await {
-                Ok(0) => {}
-                Ok(n) => tracing::info!("deleted {n} accounts at the end of their grace period"),
-                Err(err) => tracing::warn!("scheduled deletions: {err:?}"),
             }
         }
     });

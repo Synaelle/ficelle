@@ -6,8 +6,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::e2ee::AccountKinds;
-
 /// `PUT /api/v1/me/email`: sends a link to the address, which becomes the
 /// account's once opened. Needs the password, see `Confirm`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,26 +59,6 @@ pub struct ResetFinish {
     pub password: String,
 }
 
-/// `POST /api/v1/me/deletion`: deletes the account after the grace period.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeletionRequest {
-    /// Current password.
-    #[serde(default)]
-    pub password: Option<String>,
-    /// For an e2ee account, the proof from `/me/confirm`.
-    #[serde(default)]
-    pub proof: Option<String>,
-}
-
-/// A pending deletion.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Deletion {
-    /// When the account goes. Signing in and cancelling before keeps it.
-    pub delete_at: i64,
-}
-
 /// `GET /api/v1/privacy`: facts for the privacy page, from the server's
 /// configuration. Needs no sign-in.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,14 +73,10 @@ pub struct PrivacyInfo {
     /// More from them, plain text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notice: Option<String>,
-    /// Which kinds of accounts sign-up creates.
-    pub account_kinds: AccountKinds,
     /// The server sends email.
     pub email: bool,
     /// Days the security log keeps an entry.
     pub audit_days: u32,
-    /// Days between asking for deletion and the deletion.
-    pub deletion_grace_days: u32,
     /// Days a device stays signed in without being used.
     pub session_days: u32,
     /// This server takes feedback reports from anyone's apps.

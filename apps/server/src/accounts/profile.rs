@@ -45,48 +45,6 @@ pub fn set_email(
     super::store::end_resets(conn, user_id)
 }
 
-/// When the account goes, if a deletion is pending.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn delete_at(conn: &Connection, user_id: &str) -> Result<Option<i64>, DbError> {
-    Ok(conn
-        .query_row(
-            "SELECT delete_at FROM users WHERE id = ?1",
-            [user_id],
-            |r| r.get(0),
-        )
-        .optional()?
-        .flatten())
-}
-
-/// Sets or clears the pending deletion.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn set_delete_at(conn: &Connection, user_id: &str, at: Option<i64>) -> Result<(), DbError> {
-    conn.execute(
-        "UPDATE users SET delete_at = ?2 WHERE id = ?1",
-        params![user_id, at],
-    )?;
-    Ok(())
-}
-
-/// Accounts whose grace period is over: id and username.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn due_deletions(conn: &Connection, now: i64) -> Result<Vec<(String, String)>, DbError> {
-    let mut stmt = conn.prepare(
-        "SELECT id, username FROM users WHERE delete_at IS NOT NULL AND delete_at <= ?1",
-    )?;
-    let rows = stmt.query_map([now], |r| Ok((r.get(0)?, r.get(1)?)))?;
-    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
-}
-
 /// Deletes security log entries older than `before`.
 ///
 /// # Errors
@@ -167,20 +125,6 @@ pub fn export(conn: &Connection, user_id: &str, now: i64) -> Result<Value, DbErr
             "signedOutAt",
         ],
     )?;
-    let groups = rows(
-        conn,
-        "SELECT g.name, m.added_at FROM group_members m JOIN groups g ON g.id = m.group_id
-         WHERE m.user_id = ?1 ORDER BY g.name",
-        user_id,
-        &["name", "addedAt"],
-    )?;
-    let invites = rows(
-        conn,
-        "SELECT created_at, expires_at, used_at, revoked_at FROM invites
-         WHERE created_by = ?1 ORDER BY created_at",
-        user_id,
-        &["createdAt", "expiresAt", "usedAt", "revokedAt"],
-    )?;
     let passkeys = rows(
         conn,
         "SELECT name, created_at, last_used_at FROM passkeys WHERE user_id = ?1 ORDER BY created_at",
@@ -200,8 +144,6 @@ pub fn export(conn: &Connection, user_id: &str, now: i64) -> Result<Value, DbErr
         "exportedAt": now,
         "account": account,
         "devices": devices,
-        "groups": groups,
-        "invitesCreated": invites,
         "signIn": {
             "authenticatorApp": totp,
             "recoveryCodesLeft": codes,

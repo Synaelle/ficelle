@@ -7,8 +7,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::account::{DeviceInfo, Registration, Session};
-use crate::e2ee::AccountKinds;
+use crate::account::{DeviceInfo, Session};
 
 /// `GET /api/v1/setup`: what the setup page needs before the link is used.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,16 +92,6 @@ pub struct SetupFinishRequest {
     pub password: String,
     /// The second factor, or none chosen past a warning.
     pub factor: SetupFactor,
-    /// The server is for its admin alone ("Sync for myself"): the admin
-    /// page then leaves out what is about other people.
-    #[serde(default)]
-    pub personal: bool,
-    /// Who may make an account, closed when absent.
-    #[serde(default)]
-    pub registration: Option<Registration>,
-    /// Which kinds of accounts sign-up makes, unchanged when absent.
-    #[serde(default)]
-    pub account_kinds: Option<AccountKinds>,
     /// This device.
     pub device: DeviceInfo,
 }

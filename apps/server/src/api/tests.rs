@@ -121,6 +121,130 @@ pub(super) async fn admin_on((state, app): (AppState, Router)) -> (AppState, Rou
     (state, app, tokens.access)
 }
 
+/// Another standard account, as a server that had several still holds,
+/// and its sign-in answer. Its password is "<name> password".
+pub(super) async fn person(state: &AppState, name: &str) -> Value {
+    let hash = super::auth::hash_password(state, format!("{name} password"))
+        .await
+        .unwrap();
+    let auth = state.config.auth.clone();
+    let device = crate::accounts::device_info(&serde_json::from_value(device("phone")).unwrap());
+    let now = state.clock.now();
+    let name = name.to_owned();
+    let (user, tokens) = state
+        .db
+        .call(move |c| {
+            let user = store::insert_user(
+                c,
+                &name,
+                &name,
+                &hash,
+                app_protocol::account::Role::User,
+                now,
+            )?
+            .unwrap();
+            let tokens = store::create_session(c, &user.id, &device, now, &auth)?;
+            Ok((user, tokens))
+        })
+        .await
+        .unwrap();
+    serde_json::to_value(super::auth::session(&user, tokens)).unwrap()
+}
+
+/// An e2ee account, as sign-up made them before servers were for one
+/// person: its sign-in answer and the keys it was made with.
+pub(super) async fn e2ee_person(state: &AppState, name: &str) -> (Value, E2eeMade) {
+    let password = format!("{name} password");
+    let start = app_e2ee::registration_start(&password).unwrap();
+    let setup = super::e2ee::setup(state).await.unwrap();
+    let response = setup.registration_response(&start.request, name).unwrap();
+    let finish = app_e2ee::registration_finish(
+        &start.state,
+        &password,
+        &response,
+        name,
+        app_e2ee::Ksf::CURRENT,
+    )
+    .unwrap();
+    let made = app_e2ee::new_account(&finish.export_key);
+    let session = e2ee_account(
+        state,
+        name,
+        &finish.upload,
+        app_e2ee::Ksf::CURRENT.number(),
+        &made,
+    )
+    .await;
+    (
+        session,
+        E2eeMade {
+            export_key: finish.export_key,
+            bundle: made.bundle,
+        },
+    )
+}
+
+/// Stores an e2ee account from its OPAQUE upload and new keys, as sign-up
+/// did, and signs a device in: its sign-in answer.
+pub(super) async fn e2ee_account(
+    state: &AppState,
+    name: &str,
+    upload: &str,
+    ksf: u8,
+    made: &app_e2ee::NewAccount,
+) -> Value {
+    let record = app_e2ee::server::Setup::record(upload).unwrap();
+    let bundle: app_protocol::e2ee::KeyBundle =
+        serde_json::from_value(serde_json::to_value(&made.bundle).unwrap()).unwrap();
+    let verifier = made.recovery_verifier.clone();
+    let auth = state.config.auth.clone();
+    let device = crate::accounts::device_info(&serde_json::from_value(device("phone")).unwrap());
+    let now = state.clock.now();
+    let n = name.trim().to_ascii_lowercase();
+    let (user, tokens) = state
+        .db
+        .call(move |c| {
+            let user =
+                store::insert_user(c, &n, &n, "", app_protocol::account::Role::User, now)?.unwrap();
+            crate::accounts::e2ee::make_e2ee(c, &user.id, &record, ksf, &bundle, &verifier)?;
+            let user = store::user_by_id(c, &user.id)?.unwrap();
+            let tokens = store::create_session(c, &user.id, &device, now, &auth)?;
+            Ok((user, tokens))
+        })
+        .await
+        .unwrap();
+    serde_json::to_value(super::auth::session(&user, tokens)).unwrap()
+}
+
+/// A device of the app core signed in through the router.
+pub(super) type Device = (
+    std::sync::Mutex<app_core::store::Store>,
+    super::sync_tests::Wire,
+    tempfile::TempDir,
+);
+
+/// An e2ee account and a linked device holding its master key.
+pub(super) async fn e2ee_device(state: &AppState, app: &Router, name: &str) -> (Value, Device) {
+    let (session, made) = e2ee_person(state, name).await;
+    let master = app_e2ee::AccountKeys::open_with_password(&made.bundle, &made.export_key).unwrap();
+    let device = super::sync_tests::linked(app, &session, Some(&master));
+    (session, device)
+}
+
+/// What an e2ee account was made with, for the tests that open its keys.
+pub(super) struct E2eeMade {
+    pub(super) export_key: zeroize::Zeroizing<Vec<u8>>,
+    pub(super) bundle: app_e2ee::KeyBundle,
+}
+
+pub(super) fn token(session: &Value) -> &str {
+    session["accessToken"].as_str().unwrap()
+}
+
+pub(super) fn user_id(session: &Value) -> &str {
+    session["user"]["id"].as_str().unwrap()
+}
+
 pub(super) async fn login(app: &Router, username: &str, password: &str) -> (StatusCode, Value) {
     call(
         app,
@@ -230,101 +354,6 @@ async fn a_refresh_token_used_twice_closes_the_device() {
 }
 
 #[tokio::test]
-async fn registration_follows_the_mode_and_invites_work_once() {
-    let (_, app, admin) = with_admin().await;
-    let anna =
-        json!({ "username": "anna", "password": "anna password", "device": device("phone") });
-    let (status, body) = call(&app, "POST", "/auth/register", None, Some(anna.clone())).await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::FORBIDDEN, Some("registrationClosed"))
-    );
-
-    let (status, invite) = call(&app, "POST", "/invites", Some(&admin), Some(json!({}))).await;
-    assert_eq!(status, StatusCode::CREATED);
-    let token = invite["token"].as_str().unwrap().to_owned();
-    let mut with_invite = anna.clone();
-    with_invite["invite"] = json!(token);
-    let (status, session) = call(
-        &app,
-        "POST",
-        "/auth/register",
-        None,
-        Some(with_invite.clone()),
-    )
-    .await;
-    assert_eq!(status, StatusCode::CREATED, "{session}");
-    let anna_token = session["accessToken"].as_str().unwrap().to_owned();
-
-    with_invite["username"] = json!("bob");
-    let (status, body) = call(&app, "POST", "/auth/register", None, Some(with_invite)).await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::FORBIDDEN, Some("inviteInvalid"))
-    );
-
-    // a regular user invites only in invite mode
-    let (status, _) = call(&app, "POST", "/invites", Some(&anna_token), Some(json!({}))).await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
-    let (status, _) = call(
-        &app,
-        "PUT",
-        "/admin/registration",
-        Some(&anna_token),
-        Some(json!({ "registration": "open" })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "admins only");
-    call(
-        &app,
-        "PUT",
-        "/admin/registration",
-        Some(&admin),
-        Some(json!({ "registration": "invite" })),
-    )
-    .await;
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/invites",
-        Some(&anna_token),
-        Some(json!({ "days": 3 })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::CREATED);
-    let (_, mine) = call(&app, "GET", "/invites", Some(&anna_token), None).await;
-    assert_eq!(
-        mine.as_array().unwrap().len(),
-        1,
-        "a user sees only their invites"
-    );
-
-    call(
-        &app,
-        "PUT",
-        "/admin/registration",
-        Some(&admin),
-        Some(json!({ "registration": "open" })),
-    )
-    .await;
-    let carl =
-        json!({ "username": "carl", "password": "carl password", "device": device("phone") });
-    let (status, _) = call(&app, "POST", "/auth/register", None, Some(carl.clone())).await;
-    assert_eq!(status, StatusCode::CREATED);
-    let (status, body) = call(&app, "POST", "/auth/register", None, Some(carl)).await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::CONFLICT, Some("usernameTaken"))
-    );
-    let weak = json!({ "username": "dana", "password": "short", "device": device("phone") });
-    let (status, body) = call(&app, "POST", "/auth/register", None, Some(weak)).await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::BAD_REQUEST, Some("passwordWeak"))
-    );
-}
-
-#[tokio::test]
 async fn changing_the_password_signs_out_the_other_devices() {
     let (_, app, laptop) = with_admin().await;
     let (_, phone) = login(&app, "admin", "admin password").await;
@@ -413,73 +442,43 @@ async fn sign_in_attempts_are_rate_limited_per_address() {
     assert!(body["retryAfterSeconds"].as_u64().unwrap() >= 1);
 }
 
+/// Apps and pages from before servers were for one person may still ask
+/// for what left: they get the usual not found.
 #[tokio::test]
-async fn admins_add_people_who_then_sign_in() {
+async fn what_left_with_servers_for_several_people_is_not_found() {
     let (_, app, admin) = with_admin().await;
-    let (status, user) = call(
-        &app,
-        "POST",
-        "/admin/users",
-        Some(&admin),
-        Some(json!({ "username": "Erin", "password": "erin password", "displayName": "Erin M." })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::CREATED);
-    assert_eq!(
-        (user["username"].as_str(), user["role"].as_str()),
-        (Some("erin"), Some("user"))
-    );
-    assert_eq!(login(&app, "erin", "erin password").await.0, StatusCode::OK);
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/admin/users",
-        Some(&admin),
-        Some(json!({ "username": "bad name!", "password": "erin password" })),
-    )
-    .await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::BAD_REQUEST, Some("usernameInvalid"))
-    );
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/admin/users",
-        Some(&admin),
-        Some(json!({ "username": 3 })),
-    )
-    .await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::BAD_REQUEST, Some("invalid")),
-        "{body}"
-    );
-}
-
-#[tokio::test]
-async fn an_invite_can_last_an_hour() {
-    let (state, app, admin) = with_admin().await;
-    let now = state.clock.now();
-    let (status, short) = call(
-        &app,
-        "POST",
-        "/invites",
-        Some(&admin),
-        Some(json!({ "hours": 1 })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::CREATED, "{short}");
-    let life = |invite: &Value| invite["expiresAt"].as_i64().unwrap() - now;
-    // the clock moves on a little between the two
-    assert!((crate::clock::HOUR..crate::clock::HOUR + 5_000).contains(&life(&short)));
-    let (_, long) = call(
-        &app,
-        "POST",
-        "/invites",
-        Some(&admin),
-        Some(json!({ "days": 3 })),
-    )
-    .await;
-    assert!((3 * crate::clock::DAY..3 * crate::clock::DAY + 5_000).contains(&life(&long)));
+    for (method, path) in [
+        ("POST", "/auth/register"),
+        ("POST", "/auth/e2ee/register"),
+        ("GET", "/invites"),
+        ("POST", "/invites"),
+        ("GET", "/me/groups"),
+        ("POST", "/me/deletion"),
+        ("GET", "/admin/users"),
+        ("GET", "/admin/users/x"),
+        ("GET", "/admin/registration"),
+        ("PUT", "/admin/account-kinds"),
+        ("GET", "/admin/groups"),
+        ("GET", "/admin/one-person"),
+        ("GET", "/admin/feedback/access"),
+        ("PUT", "/admin/feedback/readers/x"),
+        ("POST", "/admin/backups/restore-person"),
+        ("GET", "/sync/spaces"),
+        ("POST", "/sync/spaces"),
+        ("GET", "/sync/people?name=x"),
+        ("GET", "/sync/key-pair"),
+        ("POST", "/auth/sso/start"),
+    ] {
+        let body = (method != "GET").then(|| json!({}));
+        let (status, answer) = call(&app, method, path, Some(&admin), body).await;
+        assert_eq!(
+            (status, answer["error"].as_str()),
+            (StatusCode::NOT_FOUND, Some("notFound")),
+            "{method} {path}"
+        );
+    }
+    let (status, options) = call(&app, "GET", "/auth/options", None, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(options["registration"], "closed");
+    assert_eq!(options["accountKinds"], "choice");
 }

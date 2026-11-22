@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Feedback from anyone's apps (`/feedback/*`, no account, any origin), the
-//! moderation inbox (admins, the readers they name, and a read-only token
-//! for `reports pull`), and the admin's switches. The report routes read no
+//! moderation inbox (the admin, and a read-only token for `reports
+//! pull`), and the admin's switches. The report routes read no
 //! session: a signed-in person's report is as anonymous as anyone's.
 
 use std::time::Duration;
@@ -331,15 +331,7 @@ fn read_token(c: &Connection) -> Result<Option<TokenRow>, DbError> {
     Ok(text.and_then(|t| serde_json::from_str(&t).ok()))
 }
 
-fn is_reader(c: &Connection, user_id: &str) -> Result<bool, DbError> {
-    Ok(c.query_row(
-        "SELECT count(*) FROM feedback_readers WHERE user_id = ?1",
-        [user_id],
-        |r| r.get::<_, i64>(0),
-    )? > 0)
-}
-
-/// An admin, a reader, or the read-only token.
+/// The admin, or the read-only token.
 async fn moderator(state: &AppState, headers: &HeaderMap) -> Result<Moderator, Error> {
     let bearer = headers
         .get(header::AUTHORIZATION)
@@ -358,7 +350,7 @@ async fn moderator(state: &AppState, headers: &HeaderMap) -> Result<Moderator, E
             let Some(me) = store::authenticate(c, &hash, now)? else {
                 return Ok(Err(Error::unauthorized()));
             };
-            if me.user.acts_as_admin() || is_reader(c, &me.user.id)? {
+            if me.user.acts_as_admin() {
                 Ok(Ok(Moderator { me: Some(me) }))
             } else {
                 Ok(Err(Error::forbidden()))
@@ -387,29 +379,6 @@ async fn moderated(state: &AppState, me: &Authed, ip: ClientIp, name: &'static s
     if let Err(err) = logged {
         tracing::warn!("security log: {err}");
     }
-}
-
-/// `GET /api/v1/admin/feedback/access`: what the signed-in person may do
-/// with feedback, so the page shows the inbox to readers too.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Access {
-    inbox: bool,
-    admin: bool,
-}
-
-/// `GET /api/v1/admin/feedback/access`
-pub async fn access(
-    State(state): State<AppState>,
-    CurrentUser(me): CurrentUser,
-) -> Result<Json<Access>, Error> {
-    let admin = me.user.acts_as_admin();
-    let id = me.user.id.clone();
-    let reader = state.db.call(move |c| is_reader(c, &id)).await?;
-    Ok(Json(Access {
-        inbox: admin || reader,
-        admin,
-    }))
 }
 
 /// `GET /api/v1/admin/feedback/reports`
@@ -673,23 +642,13 @@ pub async fn remove_block(
     Ok(Json(list))
 }
 
-/// A reader of the inbox.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Reader {
-    id: String,
-    username: String,
-    added_at: i64,
-}
-
-/// `GET /api/v1/admin/feedback/settings`: the switches, the readers and
-/// whether a pull token exists.
+/// `GET /api/v1/admin/feedback/settings`: the switches and whether a pull
+/// token exists.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SettingsView {
     #[serde(flatten)]
     settings: Settings,
-    readers: Vec<Reader>,
     /// When the read-only token was made.
     token_created_at: Option<i64>,
     /// The caps set on the page, empty for the config's.
@@ -700,97 +659,17 @@ pub struct SettingsView {
 
 async fn settings_view(state: &AppState) -> Result<SettingsView, Error> {
     let settings = current(state).await?;
-    let (readers, token) = state
+    let token = state
         .db
-        .call(|c| {
-            let mut stmt = c.prepare(
-                "SELECT u.id, u.username, r.added_at FROM feedback_readers r
-                 JOIN users u ON u.id = r.user_id ORDER BY u.username",
-            )?;
-            let readers = stmt
-                .query_map([], |r| {
-                    Ok(Reader {
-                        id: r.get(0)?,
-                        username: r.get(1)?,
-                        added_at: r.get(2)?,
-                    })
-                })?
-                .collect::<Result<Vec<_>, _>>()?;
-            Ok((readers, read_token(c)?.map(|t| t.created_at)))
-        })
+        .call(|c| Ok(read_token(c)?.map(|t| t.created_at)))
         .await?;
     let caps = state.db.call(|c| feedback::caps(c)).await?;
     Ok(SettingsView {
         settings,
-        readers,
         token_created_at: token,
         caps,
         default_caps: Caps::of(&state.config.feedback),
     })
-}
-
-/// `PUT /api/v1/admin/feedback/readers/{username}`
-pub async fn add_reader(
-    State(state): State<AppState>,
-    ip: ClientIp,
-    CurrentUser(me): CurrentUser,
-    Path(username): Path<String>,
-) -> Result<Json<SettingsView>, Error> {
-    admin(&me)?;
-    let now = state.clock.now();
-    let ip = ip.0.to_string();
-    let found = state
-        .db
-        .call(move |c| {
-            let Some(user) = store::user_by_name(c, &username)? else {
-                return Ok(false);
-            };
-            c.execute(
-                "INSERT OR IGNORE INTO feedback_readers (user_id, added_at) VALUES (?1, ?2)",
-                rusqlite::params![user.id, now],
-            )?;
-            admin_event(
-                c,
-                now,
-                "feedback_reader_added",
-                Some(&user.id),
-                &me,
-                &ip,
-                "",
-            )?;
-            Ok(true)
-        })
-        .await?;
-    if !found {
-        return Err(Error::new(
-            StatusCode::NOT_FOUND,
-            error_code::NOT_FOUND,
-            "no such person",
-        ));
-    }
-    Ok(Json(settings_view(&state).await?))
-}
-
-/// `DELETE /api/v1/admin/feedback/readers/{id}`
-pub async fn remove_reader(
-    State(state): State<AppState>,
-    ip: ClientIp,
-    CurrentUser(me): CurrentUser,
-    Path(id): Path<String>,
-) -> Result<Json<SettingsView>, Error> {
-    admin(&me)?;
-    let now = state.clock.now();
-    let ip = ip.0.to_string();
-    state
-        .db
-        .call(move |c| {
-            if c.execute("DELETE FROM feedback_readers WHERE user_id = ?1", [&id])? > 0 {
-                admin_event(c, now, "feedback_reader_removed", Some(&id), &me, &ip, "")?;
-            }
-            Ok(())
-        })
-        .await?;
-    Ok(Json(settings_view(&state).await?))
 }
 
 /// `POST /api/v1/admin/feedback/token`: a new read-only token for

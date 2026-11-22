@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The instance's backups on the admin page (`/admin/backups`): set up,
-//! run, list, check, test restore, and bring back one person's data. A
-//! whole instance is restored from the command line, the server stopped.
+//! run, list, check and test restore. A whole instance is restored from
+//! the command line, the server stopped.
 
 use axum::Json;
 use axum::extract::State;
@@ -12,8 +12,7 @@ use serde::{Deserialize, Serialize};
 use super::admin::{admin, admin_event};
 use super::extract::{Body, ClientIp, CurrentUser};
 use crate::backups::{
-    self, BackupConfig, BackupStatus, Schedule, ServerTarget,
-    instance::{PersonReport, TestRestore},
+    self, BackupConfig, BackupStatus, Schedule, ServerTarget, instance::TestRestore,
 };
 use crate::db::DbError;
 use crate::error::Error;
@@ -322,78 +321,4 @@ pub async fn test_restore(
         .map_err(|e| Error::internal(&e.to_string()))?
         .map_err(failed)?,
     ))
-}
-
-/// `POST /api/v1/admin/backups/restore-person`
-#[derive(Deserialize)]
-pub struct Person {
-    snapshot: String,
-    username: String,
-}
-
-/// `POST /api/v1/admin/backups/restore-person`: what is missing of a
-/// person comes back, nothing here changes.
-pub async fn restore_person(
-    State(state): State<AppState>,
-    ip: ClientIp,
-    CurrentUser(me): CurrentUser,
-    Body(person): Body<Person>,
-) -> Result<Json<PersonReport>, Error> {
-    admin(&me)?;
-    let repo = std::sync::Arc::new(opened(&state).await?);
-    let scratch = backups::scratch(&state, "person");
-    let (r, s, snap) = (repo.clone(), scratch.clone(), person.snapshot.clone());
-    let database = tokio::task::spawn_blocking(move || {
-        std::fs::create_dir_all(&s).map_err(|e| e.to_string())?;
-        backups::instance::snapshot_database(&r, &snap, &s)
-    })
-    .await
-    .map_err(|e| Error::internal(&e.to_string()))?;
-    let result = async {
-        let database = database.map_err(failed)?;
-        let (db, name) = (database.clone(), person.username.clone());
-        let (user, objects) = state
-            .db
-            .call(move |c| Ok(backups::instance::person_plan(c, &db, &name)))
-            .await?
-            .map_err(Error::invalid)?;
-        // the files first: the rows that name them come after
-        let files = state.files.clone();
-        let (r, snap) = (repo.clone(), person.snapshot.clone());
-        let restored_files = tokio::task::spawn_blocking(move || {
-            backups::instance::restore_objects(&r, &snap, &objects, files.as_ref())
-        })
-        .await
-        .map_err(|e| Error::internal(&e.to_string()))?
-        .map_err(failed)?;
-        let now = state.clock.now();
-        let ip_text = ip.0.to_string();
-        let username = person.username.clone();
-        let mut report = state
-            .db
-            .call(move |c| {
-                let report = backups::instance::restore_person(c, &database, &user);
-                if report.is_ok() {
-                    admin_event(
-                        c,
-                        now,
-                        "backup_person_restored",
-                        Some(&user),
-                        &me,
-                        &ip_text,
-                        &username,
-                    )?;
-                }
-                Ok(report)
-            })
-            .await?
-            .map_err(failed)?;
-        report.files = restored_files;
-        Ok::<_, Error>(report)
-    }
-    .await;
-    if scratch.exists() {
-        let _ = std::fs::remove_dir_all(&scratch);
-    }
-    Ok(Json(result?))
 }

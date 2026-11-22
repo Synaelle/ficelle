@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Requests per minute from one address, for the sign-in, registration,
-//! refresh and setup endpoints. A token bucket per address in memory: it
+//! Requests per minute from one address, for the sign-in, refresh and
+//! setup endpoints. A token bucket per address in memory: it
 //! resets with the server, which is fine for slowing down guessing. Account
 //! lockout covers guessing spread over many addresses.
 

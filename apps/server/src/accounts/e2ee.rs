@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Storage for end-to-end encrypted accounts: the OPAQUE setup of the
-//! server, each account's record and wrapped keys, and the policy on which
-//! kinds sign-up creates.
+//! server, each account's record and wrapped keys.
 
 use app_e2ee::server::Setup;
-use app_protocol::e2ee::{AccountKind, AccountKinds, KeyBundle};
+use app_protocol::e2ee::{AccountKind, KeyBundle};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use rusqlite::{Connection, OptionalExtension, params};
@@ -69,45 +68,6 @@ fn store_setup(conn: &Connection, master: &MasterKey, setup: &Setup) -> Result<(
         "INSERT INTO instance (key, value) VALUES ('opaque_setup', ?1)
          ON CONFLICT (key) DO UPDATE SET value = excluded.value",
         [format!("{SEALED}{}", STANDARD.encode(sealed))],
-    )?;
-    Ok(())
-}
-
-/// What sign-up creates.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn account_kinds(conn: &Connection) -> Result<AccountKinds, DbError> {
-    let value: Option<String> = conn
-        .query_row(
-            "SELECT value FROM settings WHERE key = 'account_kinds'",
-            [],
-            |r| r.get(0),
-        )
-        .optional()?;
-    Ok(match value.as_deref() {
-        Some("standard") => AccountKinds::Standard,
-        Some("e2ee") => AccountKinds::E2ee,
-        _ => AccountKinds::Choice,
-    })
-}
-
-/// Changes what sign-up creates.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn set_account_kinds(conn: &Connection, kinds: AccountKinds) -> Result<(), DbError> {
-    let value = match kinds {
-        AccountKinds::Standard => "standard",
-        AccountKinds::E2ee => "e2ee",
-        AccountKinds::Choice => "choice",
-    };
-    conn.execute(
-        "INSERT INTO settings (key, value) VALUES ('account_kinds', ?1)
-         ON CONFLICT (key) DO UPDATE SET value = excluded.value",
-        [value],
     )?;
     Ok(())
 }
@@ -186,11 +146,14 @@ pub fn verifier_matches(conn: &Connection, user_id: &str, verifier: &str) -> Res
     Ok(stored.is_some_and(|s| s.as_slice() == verifier_hash(verifier)))
 }
 
-/// Makes a freshly inserted account an e2ee one.
+/// Makes a freshly inserted account an e2ee one. Only tests make them now:
+/// e2ee accounts came from sign-up, which left with servers for several
+/// people, and the ones made then keep signing in.
 ///
 /// # Errors
 ///
 /// Database errors, or a bundle that does not serialise.
+#[cfg(test)]
 pub fn make_e2ee(
     conn: &Connection,
     user_id: &str,

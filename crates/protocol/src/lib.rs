@@ -103,12 +103,6 @@ pub mod error_code {
     pub const SESSION_REVOKED: &str = "sessionRevoked";
     /// Signed in, but not allowed to do this.
     pub const FORBIDDEN: &str = "forbidden";
-    /// Registration needs an invite, or is closed.
-    pub const REGISTRATION_CLOSED: &str = "registrationClosed";
-    /// The invite is unknown, used, revoked or expired.
-    pub const INVITE_INVALID: &str = "inviteInvalid";
-    /// Someone already has this username.
-    pub const USERNAME_TAKEN: &str = "usernameTaken";
     /// Username outside 3 to 32 of `a-z 0-9 . _ -`.
     pub const USERNAME_INVALID: &str = "usernameInvalid";
     /// Password shorter than 8 characters, or the username itself.
@@ -126,10 +120,6 @@ pub mod error_code {
     pub const SECOND_FACTOR_REQUIRED: &str = "secondFactorRequired";
     /// The mail server refused or could not be reached, the message says why.
     pub const MAIL_FAILED: &str = "mailFailed";
-    /// The change would leave the server without an active admin.
-    pub const LAST_ADMIN: &str = "lastAdmin";
-    /// Another group has this name.
-    pub const GROUP_NAME_TAKEN: &str = "groupNameTaken";
     /// The second factor is wrong, or the challenge expired or was used up.
     pub const SECOND_FACTOR_INVALID: &str = "secondFactorInvalid";
     /// The code from the authenticator app is wrong.
@@ -143,8 +133,6 @@ pub mod error_code {
     /// The server cannot do this for an end-to-end encrypted account, for
     /// example set its password.
     pub const E2EE_ACCOUNT: &str = "e2eeAccount";
-    /// This server does not create accounts of this kind.
-    pub const ACCOUNT_KIND_CLOSED: &str = "accountKindClosed";
     /// The recovery code is wrong, or the recovery took too long.
     pub const RECOVERY_INVALID: &str = "recoveryInvalid";
     /// The server sends no email, `[smtp]` is not set up.

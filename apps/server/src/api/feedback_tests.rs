@@ -164,7 +164,6 @@ async fn off_until_the_admin_turns_it_on() {
             json!({
                 "receive": false,
                 "sendTo": "main",
-                "readers": [],
                 "tokenCreatedAt": null,
                 "caps": { "perHour": null, "perDay": null },
                 "defaultCaps": { "perHour": 20, "perDay": 100 },
@@ -589,11 +588,10 @@ async fn other_origins_may_call_the_feedback_routes_only() {
 
 #[tokio::test]
 #[expect(clippy::too_many_lines, reason = "one story, read top to bottom")]
-async fn admins_and_readers_moderate_the_token_only_reads() {
-    use super::sharing_tests::{open_registration, standard};
+async fn the_admin_moderates_the_token_only_reads() {
     let (state, app, admin) = receiving(FeedbackConfig::default()).await;
-    open_registration(&app, &admin).await;
-    let kim = standard(&app, "kim").await;
+    // another account a server for several people may still hold
+    let kim = super::tests::person(&state, "kim").await;
     let kim = kim["accessToken"].as_str().unwrap().to_owned();
     let png = crate::feedback::images::tests::png_of(8, 8);
     let install = "0123456789abcdef0123456789abcdef";
@@ -619,37 +617,9 @@ async fn admins_and_readers_moderate_the_token_only_reads() {
         assert_eq!(report(&app, ip, extra).await.0, StatusCode::NO_CONTENT);
     }
 
-    // kim is nobody here yet
-    let (status, access) = call(&app, "GET", "/admin/feedback/access", Some(&kim), None).await;
-    assert_eq!(
-        (status, access),
-        (StatusCode::OK, json!({ "inbox": false, "admin": false }))
-    );
     let (status, _) = call(&app, "GET", "/admin/feedback/reports", Some(&kim), None).await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
-    let (status, _) = call(&app, "PUT", "/admin/feedback/readers/kim", Some(&kim), None).await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
-    let (status, view) = call(
-        &app,
-        "PUT",
-        "/admin/feedback/readers/kim",
-        Some(&admin),
-        None,
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(view["readers"][0]["username"], "kim");
-    let (status, _) = call(
-        &app,
-        "PUT",
-        "/admin/feedback/readers/nobody",
-        Some(&admin),
-        None,
-    )
-    .await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-    let (_, access) = call(&app, "GET", "/admin/feedback/access", Some(&kim), None).await;
-    assert_eq!(access, json!({ "inbox": true, "admin": false }));
+    assert_eq!(status, StatusCode::FORBIDDEN, "only the admin reads them");
+    let kim = admin.clone();
 
     // the list: spam apart, newest first, filters, pages
     let (status, page) = call(&app, "GET", "/admin/feedback/reports", Some(&kim), None).await;
@@ -770,8 +740,6 @@ async fn admins_and_readers_moderate_the_token_only_reads() {
     assert_eq!(list.as_array().unwrap().len(), 1);
 
     // the read-only token for reports pull
-    let (status, _) = call(&app, "POST", "/admin/feedback/token", Some(&kim), None).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "readers make no tokens");
     let (_, made) = call(&app, "POST", "/admin/feedback/token", Some(&admin), None).await;
     let pull = made["token"].as_str().unwrap().to_owned();
     assert!(pull.starts_with("fb_"));
@@ -803,22 +771,10 @@ async fn admins_and_readers_moderate_the_token_only_reads() {
     let (status, _) = call(&app, "GET", "/admin/feedback/reports", Some(&pull), None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 
-    // deleting, then kim reads no more
     let (status, _) = call(&app, "DELETE", &path, Some(&kim), None).await;
     assert_eq!(status, StatusCode::NO_CONTENT);
-    let kim_id = view["readers"][0]["id"].as_str().unwrap().to_owned();
-    let reader = format!("/admin/feedback/readers/{kim_id}");
-    call(&app, "DELETE", &reader, Some(&admin), None).await;
-    let (status, _) = call(&app, "GET", "/admin/feedback/reports", Some(&kim), None).await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
     let log = events(&state).await;
-    for event in [
-        "feedback_reader_added",
-        "feedback_blocked",
-        "feedback_token",
-        "feedback_deleted",
-        "feedback_reader_removed",
-    ] {
+    for event in ["feedback_blocked", "feedback_token", "feedback_deleted"] {
         assert!(log.iter().any(|e| e == event), "{event}");
     }
 }

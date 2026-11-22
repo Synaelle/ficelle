@@ -2,8 +2,7 @@
 
 //! Attachment files over http: the policy and usage of an account, the
 //! state of a file, uploads in parts, downloads with ranges, release.
-//! `space=` names a shared space as for sync: members read, editors and the
-//! owner write. See [`crate::files`] for how files are kept.
+//! See [`crate::files`] for how files are kept.
 
 use std::io::Read;
 use std::pin::Pin;
@@ -15,7 +14,6 @@ use app_protocol::error_code;
 use app_protocol::files::{
     FileState, FilesInfo, FilesPolicy, MAX_PART, NAME_HEADER, TYPE_HEADER, decode_name,
 };
-use app_protocol::sync::SpaceRole;
 use axum::Json;
 use axum::body::{Body as HttpBody, Bytes};
 use axum::extract::{Path, Query, State};
@@ -24,7 +22,7 @@ use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 
 use super::extract::CurrentUser;
-use super::sync::{Target, target};
+use super::sync::target;
 use crate::error::Error;
 use crate::files::{self as store, Incoming, Part, PlainReader, Refusal, policy};
 use crate::routes::AppState;
@@ -32,7 +30,7 @@ use crate::routes::AppState;
 /// Bytes handed to the network at a time when reading a file.
 const READ_PIECE: usize = 256 * 1024;
 
-/// `space=` and, to release a file, `head=`.
+/// `space=`, see [`super::sync::InSpace`], and, to release a file, `head=`.
 #[derive(Debug, Default, Deserialize)]
 pub struct Where {
     #[serde(default)]
@@ -57,17 +55,6 @@ fn checked(address: &str) -> Result<(), Error> {
     }
 }
 
-fn writer(target: &Target) -> Result<(), Error> {
-    if target.role == SpaceRole::Read {
-        return Err(Error::new(
-            StatusCode::FORBIDDEN,
-            error_code::FORBIDDEN,
-            "this is shared with you to read only",
-        ));
-    }
-    Ok(())
-}
-
 /// The largest part this server takes, whole chunks under the body limit.
 pub(crate) fn part_bytes(state: &AppState) -> u64 {
     let body = u64::from(state.config.server.max_body_mb) * 1024 * 1024;
@@ -75,20 +62,12 @@ pub(crate) fn part_bytes(state: &AppState) -> u64 {
     (MAX_PART.min(body.saturating_sub(chunk)) / chunk).max(1) * chunk
 }
 
-async fn policy_of(state: &AppState, owner: String) -> Result<FilesPolicy, Error> {
+async fn policy_of(state: &AppState) -> Result<FilesPolicy, Error> {
     let config = state.config.clone();
     Ok(state
         .db
-        .call(move |c| policy::effective(c, &config.files, &owner))
+        .call(move |c| policy::effective(c, &config.files))
         .await?)
-}
-
-async fn owner(state: &AppState, space: String) -> Result<String, Error> {
-    Ok(state
-        .db
-        .call(move |c| store::owner_of(c, &space))
-        .await?
-        .unwrap_or_default())
 }
 
 /// `GET /api/v1/sync/files/policy`
@@ -96,7 +75,7 @@ pub async fn info(
     State(state): State<AppState>,
     CurrentUser(me): CurrentUser,
 ) -> Result<Json<FilesInfo>, Error> {
-    let policy = policy_of(&state, me.user.id.clone()).await?;
+    let policy = policy_of(&state).await?;
     let id = me.user.id.clone();
     let usage = state.db.call(move |c| store::usage(c, &id)).await?;
     Ok(Json(FilesInfo {
@@ -115,7 +94,7 @@ pub async fn state_of(
 ) -> Result<Json<FileState>, Error> {
     checked(&address)?;
     let target = target(&state, &me, at.space).await?;
-    let space = target.space.id;
+    let space = target.id;
     Ok(Json(
         state
             .db
@@ -134,8 +113,7 @@ pub async fn keep(
 ) -> Result<StatusCode, Error> {
     checked(&address)?;
     let target = target(&state, &me, at.space).await?;
-    writer(&target)?;
-    let space = target.space.id;
+    let space = target.id;
     let config = state.config.files.clone();
     match state
         .db
@@ -236,10 +214,9 @@ pub async fn put(
         return Err(invalid("the part does not match its Content-Range"));
     }
     let target = target(&state, &me, at.space).await?;
-    writer(&target)?;
-    let kind = target.space.kind;
-    let space = target.space.id.clone();
-    let policy = policy_of(&state, owner(&state, space.clone()).await?).await?;
+    let kind = target.kind;
+    let space = target.id.clone();
+    let policy = policy_of(&state).await?;
     // standard files show what they are: the type rules apply here too
     if kind == AccountKind::Standard && part.start == 0 && !type_allowed(&policy, &headers, &body) {
         return Err(file_error(
@@ -376,8 +353,8 @@ pub async fn get(
 ) -> Result<Response, Error> {
     checked(&address)?;
     let target = target(&state, &me, at.space).await?;
-    let kind = target.space.kind;
-    let space = target.space.id;
+    let kind = target.kind;
+    let space = target.id;
     let a = address.clone();
     let (object, size) = state
         .db
@@ -469,8 +446,7 @@ pub async fn release(
         .head
         .ok_or_else(|| invalid("a release names the head it saw"))?;
     let target = target(&state, &me, at.space).await?;
-    writer(&target)?;
-    let space = target.space.id;
+    let space = target.id;
     let now = state.clock.now();
     if state
         .db
@@ -501,8 +477,8 @@ pub async fn sweep(state: &AppState) -> Result<usize, Error> {
     let (objects, uploads, live) = state
         .db
         .call(move |c| {
-            let retention = |c: &rusqlite::Connection, owner: &str| {
-                Ok(policy::effective(c, &config.files, owner)?.retention_days)
+            let retention = |c: &rusqlite::Connection, _owner: &str| {
+                Ok(policy::effective(c, &config.files)?.retention_days)
             };
             let (objects, uploads) = store::sweep(c, now, &retention)?;
             Ok((objects, uploads, store::live_uploads(c)?))

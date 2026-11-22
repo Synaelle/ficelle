@@ -102,22 +102,6 @@ pub fn space_of(
     })
 }
 
-/// A space's key wrapped by the master key, none for e2ee.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn data_key(conn: &Connection, space: &str) -> Result<Option<Vec<u8>>, DbError> {
-    Ok(conn
-        .query_row(
-            "SELECT data_key FROM sync_spaces WHERE id = ?1",
-            [space],
-            |row| row.get(0),
-        )
-        .optional()?
-        .flatten())
-}
-
 /// Whether open notes may follow other devices' edits live. On unless an
 /// admin turned it off.
 ///

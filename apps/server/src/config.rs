@@ -205,8 +205,8 @@ pub struct ServerConfig {
     pub web_path: Option<String>,
 }
 
-/// The first part of every path the server answers itself, which the web
-/// version's path must not take.
+/// The first part of every path the server answers itself, or answered
+/// once (`invite`), which the web version's path must not take.
 const SERVER_PATHS: &[&str] = &[
     "api", "admin", "assets", "fonts", "invite", "verify", "reset", "recover", "privacy", "setup",
     "connect", "link", "health",
@@ -348,15 +348,17 @@ pub struct AuthConfig {
     pub lockout_minutes: u32,
     /// Longest lock.
     pub lockout_max_minutes: u32,
-    /// Sign-in, registration and refresh requests per minute from one address.
+    /// Sign-in and refresh requests per minute from one address.
     pub rate_limit_per_minute: u32,
-    /// Default life of an invite link.
-    pub invite_days: u32,
     /// Days the security log keeps an entry, addresses included.
     pub audit_days: u32,
-    /// Days between asking to delete an account and its deletion, while it
-    /// can still be cancelled. 0 deletes at once.
-    pub deletion_grace_days: u32,
+    /// The old life of invite links, no longer read: invites left with
+    /// servers for several people, a config that still sets it starts.
+    #[serde(skip_serializing)]
+    pub invite_days: Option<toml::Value>,
+    /// The old grace period of account deletions, no longer read.
+    #[serde(skip_serializing)]
+    pub deletion_grace_days: Option<toml::Value>,
 }
 
 /// `[smtp]`. Off while `host` is empty: no email at all, so no password
@@ -521,9 +523,9 @@ impl Default for AuthConfig {
             lockout_minutes: 1,
             lockout_max_minutes: 60,
             rate_limit_per_minute: 20,
-            invite_days: 7,
             audit_days: 365,
-            deletion_grace_days: 30,
+            invite_days: None,
+            deletion_grace_days: None,
         }
     }
 }
@@ -684,7 +686,6 @@ impl Config {
             ("auth.refresh_token_days", auth.refresh_token_days),
             ("auth.lockout_attempts", auth.lockout_attempts),
             ("auth.rate_limit_per_minute", auth.rate_limit_per_minute),
-            ("auth.invite_days", auth.invite_days),
         ] {
             if value == 0 {
                 return Err(ConfigError::Invalid(format!("{key} must be at least 1")));
@@ -947,6 +948,18 @@ mod tests {
         );
         let weak = Config::from_sources("[auth]\nargon2_memory_kib = 1\n", env(&[])).unwrap_err();
         assert!(weak.to_string().contains("argon2"), "{weak}");
+    }
+
+    #[test]
+    fn old_invite_and_deletion_keys_still_start() {
+        let config = Config::from_sources(
+            "[auth]\ninvite_days = 7\ndeletion_grace_days = 30\n",
+            env(&[]),
+        )
+        .unwrap();
+        assert!(config.auth.invite_days.is_some());
+        let written = toml::to_string(&config).unwrap();
+        assert!(!written.contains("invite_days") && !written.contains("deletion_grace_days"));
     }
 
     #[test]

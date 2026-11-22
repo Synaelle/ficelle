@@ -135,14 +135,13 @@ pub async fn security(
     CurrentUser(me): CurrentUser,
 ) -> Result<Json<Security>, Error> {
     let id = me.user.id.clone();
-    let (totp, codes, email, delete_at, email_codes) = state
+    let (totp, codes, email, email_codes) = state
         .db
         .call(move |c| {
             Ok((
                 factors::totp(c, &id)?.secret.is_some(),
                 factors::recovery_codes_left(c, &id)?,
                 crate::accounts::profile::email(c, &id)?,
-                crate::accounts::profile::delete_at(c, &id)?,
                 factors::email_codes(c, &id)?.is_some(),
             ))
         })
@@ -155,7 +154,6 @@ pub async fn security(
         email,
         email_available: state.mailer.enabled(),
         email_codes,
-        delete_at,
     }))
 }
 

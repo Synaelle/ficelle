@@ -32,7 +32,7 @@ pub enum AccountKind {
     E2ee,
 }
 
-/// Which kinds new accounts can be, chosen by an admin.
+/// Which kinds new accounts could be, see `AuthOptions`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AccountKinds {
@@ -92,31 +92,6 @@ pub struct OpaqueRegistrationRequest {
 pub struct OpaqueRegistrationResponse {
     /// OPAQUE registration response.
     pub response: String,
-}
-
-/// `POST /api/v1/auth/e2ee/register`: creates an e2ee account.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct E2eeRegisterRequest {
-    /// Username, the one the registration was made for.
-    pub username: String,
-    /// OPAQUE registration upload.
-    pub upload: String,
-    /// The account keys, wrapped.
-    pub keys: KeyBundle,
-    /// Proof of the recovery code, the server keeps its hash.
-    pub recovery_verifier: String,
-    /// Name shown to others, the username when absent.
-    #[serde(default)]
-    pub display_name: Option<String>,
-    /// Invite token, needed unless registration is open.
-    #[serde(default)]
-    pub invite: Option<String>,
-    /// This device.
-    pub device: DeviceInfo,
-    /// How the upload's password was stretched.
-    #[serde(default = "ksf_before")]
-    pub ksf: u8,
 }
 
 /// `POST /api/v1/auth/opaque/login/start`, and `/api/v1/me/confirm/start`
@@ -242,14 +217,6 @@ pub struct RecoveryFinish {
     /// How the upload's password was stretched.
     #[serde(default = "ksf_before")]
     pub ksf: u8,
-}
-
-/// `PUT /api/v1/admin/account-kinds`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AccountKindsRequest {
-    /// New policy.
-    pub account_kinds: AccountKinds,
 }
 
 #[cfg(test)]

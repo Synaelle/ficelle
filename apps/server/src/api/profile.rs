@@ -4,12 +4,10 @@
 //! email, the export of their data, deleting their account. And the facts
 //! the privacy page shows.
 
-use app_protocol::account::Role;
 use app_protocol::e2ee::AccountKind;
 use app_protocol::error_code;
 use app_protocol::profile::{
-    Deletion, DeletionRequest, EmailRequest, EmailVerified, EmailVerifyRequest, PrivacyInfo,
-    ResetFinish, ResetRequest,
+    EmailRequest, EmailVerified, EmailVerifyRequest, PrivacyInfo, ResetFinish, ResetRequest,
 };
 use app_protocol::security::Confirm;
 use axum::Json;
@@ -23,8 +21,7 @@ use super::extract::{Body, ClientIp, CurrentUser, Language};
 use super::security::{confirm, log};
 use crate::accounts::factors::{self, ChallengeKind};
 use crate::accounts::store::{self, Event, UserRow};
-use crate::accounts::{e2ee, password, profile, token};
-use crate::admin as admin_store;
+use crate::accounts::{password, profile, token};
 use crate::clock::{DAY, MINUTE};
 use crate::error::Error;
 use crate::mail::{Lang, plausible, tr};
@@ -75,23 +72,6 @@ fn send(state: &AppState, lang: Lang, to: &str, user: &UserRow, subject: String,
     );
     let body = format!("{greeting}\n\n{text}\n\n-- \n{footer}\n");
     state.mailer.send(to, subject, body);
-}
-
-/// A day as people read it in a mail, in UTC: the exact hour is on the
-/// account page.
-fn day(ms: i64) -> String {
-    let days = ms.div_euclid(DAY);
-    // civil date from days since 1970-01-01 (Howard Hinnant's algorithm)
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = yoe + era * 400 + i64::from(m <= 2);
-    format!("{y:04}-{m:02}-{d:02}")
 }
 
 /// What an address link carries until it is opened.
@@ -397,146 +377,8 @@ pub async fn export(
     Ok(response)
 }
 
-fn last_admin() -> Error {
-    Error::new(
-        StatusCode::CONFLICT,
-        error_code::LAST_ADMIN,
-        "the server needs at least one active admin",
-    )
-}
-
-/// `POST /api/v1/me/deletion`: the account goes after the grace period,
-/// other devices are signed out now. Signing in and cancelling before the
-/// date keeps it. Without a grace period it goes at once.
-pub async fn request_deletion(
-    State(state): State<AppState>,
-    ip: ClientIp,
-    Language(lang): Language,
-    CurrentUser(me): CurrentUser,
-    Body(req): Body<DeletionRequest>,
-) -> Result<Response, Error> {
-    let given = Confirm {
-        password: req.password,
-        proof: req.proof,
-    };
-    confirm(&state, &me, given, ip).await?;
-    let now = state.clock.now();
-    let grace = i64::from(state.config.auth.deletion_grace_days) * DAY;
-    let delete_at = now + grace;
-    let id = me.user.id.clone();
-    let is_admin = me.user.role == Role::Admin;
-    let device = me.device_id.clone();
-    let ip_text = ip.0.to_string();
-    let username = me.user.username.clone();
-    let outcome = state
-        .db
-        .call(move |c| {
-            let tx = c.transaction()?;
-            if is_admin && admin_store::other_active_admins(&tx, &id)? == 0 {
-                return Ok(Err(last_admin()));
-            }
-            let email = profile::email(&tx, &id)?;
-            if grace == 0 {
-                admin_store::delete_user(&tx, &id)?;
-                store::audit(
-                    &tx,
-                    now,
-                    &Event {
-                        name: "user_deleted",
-                        ip: Some(&ip_text),
-                        detail: Some(&format!("{username}, by themselves")),
-                        ..Event::default()
-                    },
-                )?;
-                tx.commit()?;
-                return Ok(Ok(None));
-            }
-            profile::set_delete_at(&tx, &id, Some(delete_at))?;
-            store::revoke_other_devices(&tx, &id, Some(&device), now)?;
-            store::audit(
-                &tx,
-                now,
-                &Event {
-                    name: "deletion_requested",
-                    user_id: Some(&id),
-                    device_id: Some(&device),
-                    ip: Some(&ip_text),
-                    detail: Some(&format!("on {}", day(delete_at))),
-                },
-            )?;
-            tx.commit()?;
-            Ok(Ok(Some(email)))
-        })
-        .await??;
-    let Some(email) = outcome else {
-        return Ok(StatusCode::NO_CONTENT.into_response());
-    };
-    if let Some(email) = email {
-        let subject = tr(lang, "mail.deletion.subject", &[]);
-        let text = tr(
-            lang,
-            "mail.deletion.body",
-            &[("username", &me.user.username), ("date", &day(delete_at))],
-        );
-        send(&state, lang, &email, &me.user, subject, &text);
-    }
-    Ok((StatusCode::ACCEPTED, Json(Deletion { delete_at })).into_response())
-}
-
-/// `DELETE /api/v1/me/deletion`: keeps the account.
-pub async fn cancel_deletion(
-    State(state): State<AppState>,
-    ip: ClientIp,
-    CurrentUser(me): CurrentUser,
-) -> Result<StatusCode, Error> {
-    let id = me.user.id.clone();
-    state
-        .db
-        .call(move |c| profile::set_delete_at(c, &id, None))
-        .await?;
-    log(&state, &me, ip, "deletion_cancelled").await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-/// Deletes the accounts whose grace period is over. The last active admin
-/// stays, an admin has to hand over first: logged, tried again next time.
-pub async fn run_deletions(state: &AppState) -> Result<usize, Error> {
-    let now = state.clock.now();
-    let deleted = state
-        .db
-        .call(move |c| {
-            let mut deleted = 0;
-            for (id, username) in profile::due_deletions(c, now)? {
-                let tx = c.transaction()?;
-                let user = store::user_by_id(&tx, &id)?;
-                if user.is_some_and(|u| u.role == Role::Admin)
-                    && admin_store::other_active_admins(&tx, &id)? == 0
-                {
-                    tracing::warn!("{username} asked to be deleted but is the last admin, kept");
-                    continue;
-                }
-                admin_store::delete_user(&tx, &id)?;
-                store::audit(
-                    &tx,
-                    now,
-                    &Event {
-                        name: "user_deleted",
-                        detail: Some(&format!("{username}, after the grace period")),
-                        ..Event::default()
-                    },
-                )?;
-                tx.commit()?;
-                deleted += 1;
-            }
-            Ok(deleted)
-        })
-        .await?;
-    Ok(deleted)
-}
-
 /// `GET /api/v1/privacy`
 pub async fn privacy(State(state): State<AppState>) -> Result<Json<PrivacyInfo>, Error> {
-    let kinds = state.db.call(|c| e2ee::account_kinds(c)).await?;
     let config = &state.config;
     let feedback_config = config.feedback.clone();
     let feedback = state
@@ -555,26 +397,12 @@ pub async fn privacy(State(state): State<AppState>) -> Result<Json<PrivacyInfo>,
         operator: given(&config.privacy.operator),
         contact: given(&config.privacy.contact),
         notice: given(&config.privacy.notice),
-        account_kinds: kinds,
         email: state.mailer.enabled(),
         audit_days: config.auth.audit_days,
-        deletion_grace_days: config.auth.deletion_grace_days,
         session_days: config.auth.refresh_token_days,
         feedback_receive: feedback.receive,
         feedback_keep_days: config.feedback.keep_days,
         feedback_send_to: feedback.send_to,
         feedback_main: main_host,
     }))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::day;
-
-    #[test]
-    fn days_in_mails() {
-        assert_eq!(day(0), "1970-01-01");
-        assert_eq!(day(951_782_400_000), "2000-02-29");
-        assert_eq!(day(1_792_972_800_000), "2026-10-26");
-    }
 }

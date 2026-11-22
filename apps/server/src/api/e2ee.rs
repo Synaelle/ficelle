@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! End-to-end encrypted accounts: sign-up and sign-in over OPAQUE, proofs
+//! End-to-end encrypted accounts: sign-in over OPAQUE, proofs
 //! of the password for sensitive changes, the wrapped keys, a new password
 //! and recovery with the recovery code. The password never reaches the
 //! server, and the server cannot open the keys it keeps.
@@ -8,12 +8,12 @@
 use std::sync::Arc;
 
 use app_e2ee::server::Setup;
-use app_protocol::account::{Role, Session};
+use app_protocol::account::Session;
 use app_protocol::e2ee::{
-    AccountKeys, AccountKind, AccountKinds, ConfirmFinish, E2eePasswordRequest,
-    E2eeRegisterRequest, KeyBundle, KindAnswer, KindRequest, OpaqueLoginFinish, OpaqueLoginStart,
-    OpaqueLoginStarted, OpaqueRegistrationRequest, OpaqueRegistrationResponse, Proof,
-    RecoveryFinish, RecoveryStart, RecoveryStarted,
+    AccountKeys, AccountKind, ConfirmFinish, E2eePasswordRequest, KeyBundle, KindAnswer,
+    KindRequest, OpaqueLoginFinish, OpaqueLoginStart, OpaqueLoginStarted,
+    OpaqueRegistrationRequest, OpaqueRegistrationResponse, Proof, RecoveryFinish, RecoveryStart,
+    RecoveryStarted,
 };
 use app_protocol::error_code;
 use axum::Json;
@@ -25,14 +25,13 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
 use super::auth::{
-    admission, bad_credentials, failed_sign_in, finish_sign_in, not_disabled, not_locked,
-    rate_limit, session, taken,
+    bad_credentials, failed_sign_in, finish_sign_in, not_disabled, not_locked, rate_limit,
 };
 use super::extract::{Body, ClientIp, CurrentUser};
 use super::second_factor;
 use crate::accounts::factors::{self, ChallengeKind};
 use crate::accounts::store::{self, Event, UserRow};
-use crate::accounts::{device_info, display_name, e2ee, normal_username, token};
+use crate::accounts::{device_info, e2ee, token};
 use crate::clock::MINUTE;
 use crate::error::Error;
 use crate::routes::AppState;
@@ -63,9 +62,9 @@ fn username(raw: &str) -> String {
     raw.trim().to_ascii_lowercase()
 }
 
-/// `POST /api/v1/auth/kind`. An unknown username gets the kind sign-up
-/// creates, or under a choice a kind drawn from the username with a server
-/// secret: stable, and no different from a real account's answer.
+/// `POST /api/v1/auth/kind`. An unknown username gets a kind drawn from the
+/// username with a server secret: stable, and no different from a real
+/// account's answer.
 pub async fn kind(
     State(state): State<AppState>,
     ip: ClientIp,
@@ -74,25 +73,21 @@ pub async fn kind(
     rate_limit(&state, ip)?;
     let name = username(&req.username);
     let lookup = name.clone();
-    let (user, kinds) = state
+    let user = state
         .db
-        .call(move |c| Ok((store::user_by_name(c, &lookup)?, e2ee::account_kinds(c)?)))
+        .call(move |c| store::user_by_name(c, &lookup))
         .await?;
-    let kind = match (user, kinds) {
-        (Some(user), _) => user.kind,
-        (None, AccountKinds::Standard) => AccountKind::Standard,
-        (None, AccountKinds::E2ee) => AccountKind::E2ee,
-        (None, AccountKinds::Choice) => {
-            let secret = setup(&state).await?.to_bytes();
-            let mut mac =
-                Hmac::<Sha256>::new_from_slice(&secret).expect("hmac takes any key length");
-            mac.update(b"decoy account kind\0");
-            mac.update(name.as_bytes());
-            if mac.finalize().into_bytes()[0] & 1 == 0 {
-                AccountKind::Standard
-            } else {
-                AccountKind::E2ee
-            }
+    let kind = if let Some(user) = user {
+        user.kind
+    } else {
+        let secret = setup(&state).await?.to_bytes();
+        let mut mac = Hmac::<Sha256>::new_from_slice(&secret).expect("hmac takes any key length");
+        mac.update(b"decoy account kind\0");
+        mac.update(name.as_bytes());
+        if mac.finalize().into_bytes()[0] & 1 == 0 {
+            AccountKind::Standard
+        } else {
+            AccountKind::E2ee
         }
     };
     Ok(Json(KindAnswer { kind }))
@@ -129,79 +124,6 @@ fn check_bundle(keys: &KeyBundle) -> Result<(), Error> {
     } else {
         Err(Error::invalid("keys: unknown format"))
     }
-}
-
-/// `POST /api/v1/auth/e2ee/register`
-pub async fn register(
-    State(state): State<AppState>,
-    ip: ClientIp,
-    Body(req): Body<E2eeRegisterRequest>,
-) -> Result<(StatusCode, Json<Session>), Error> {
-    rate_limit(&state, ip)?;
-    let invite = admission(&state, req.invite.as_deref(), AccountKind::E2ee).await?;
-    let name = normal_username(&req.username).ok_or_else(|| {
-        Error::new(
-            StatusCode::BAD_REQUEST,
-            error_code::USERNAME_INVALID,
-            "use 3 to 32 of a-z, 0-9, dot, dash and underscore, starting with a letter or digit",
-        )
-    })?;
-    check_bundle(&req.keys)?;
-    let record = Setup::record(&req.upload).map_err(|e| malformed(&e))?;
-    let stretch = ksf(req.ksf)?;
-    let display = display_name(req.display_name.as_deref(), &name);
-    let device = device_info(&req.device);
-    let auth = state.config.auth.clone();
-    let now = state.clock.now();
-    let ip_text = ip.0.to_string();
-    let created = state
-        .db
-        .call(move |c| {
-            let tx = c.transaction()?;
-            let Some(user) = store::insert_user(&tx, &name, &display, "", Role::User, now)? else {
-                return Ok(Err(taken()));
-            };
-            e2ee::make_e2ee(
-                &tx,
-                &user.id,
-                &record,
-                stretch,
-                &req.keys,
-                &req.recovery_verifier,
-            )?;
-            if let Some(h) = invite
-                && !store::use_invite(&tx, &h, &user.id, now)?
-            {
-                return Ok(Err(Error::new(
-                    StatusCode::FORBIDDEN,
-                    error_code::INVITE_INVALID,
-                    "this invite is used, revoked or expired",
-                )));
-            }
-            let tokens = store::create_session(&tx, &user.id, &device, now, &auth)?;
-            let detail = if invite.is_some() {
-                "e2ee, invite"
-            } else {
-                "e2ee, open"
-            };
-            store::audit(
-                &tx,
-                now,
-                &Event {
-                    name: "registered",
-                    user_id: Some(&user.id),
-                    device_id: Some(&tokens.device_id),
-                    ip: Some(&ip_text),
-                    detail: Some(detail),
-                },
-            )?;
-            let user = store::user_by_id(&tx, &user.id)?.unwrap_or(user);
-            tx.commit()?;
-            Ok(Ok((user, tokens)))
-        })
-        .await??;
-    let (user, tokens) = created;
-    Ok((StatusCode::CREATED, Json(session(&user, tokens))))
 }
 
 /// What a sign-in keeps between its two requests.
@@ -729,13 +651,4 @@ pub async fn recovery_finish(
     )
     .await?;
     Ok(Json(session))
-}
-
-/// How the policy reads in the security log.
-pub(super) fn kinds_logged(kinds: AccountKinds) -> &'static str {
-    match kinds {
-        AccountKinds::Standard => "standard only",
-        AccountKinds::E2ee => "end-to-end encrypted only",
-        AccountKinds::Choice => "the person chooses",
-    }
 }

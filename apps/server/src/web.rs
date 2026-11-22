@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The admin page and its files, from `server.web_dir` (the web build of the
-//! client). `/admin` is the page, `/invite/<token>` the same page showing a
-//! sign-up form, `/assets/...` its scripts, styles and fonts.
+//! client). `/admin` is the page, `/assets/...` its scripts, styles and
+//! fonts.
 //! `/` leads to the admin page. The web version is apart, see
 //! [`crate::webapp`]. Without
 //! `web_dir` these paths answer 404 like any unknown path.
@@ -31,8 +31,6 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(to_admin))
         .route("/admin", get(admin_page))
-        // an invite link opens the same page, which shows a sign-up form
-        .route("/invite/{token}", get(admin_page))
         // links from mails and the public pages, all handled by the same page
         .route("/verify/{token}", get(admin_page))
         .route("/reset/{token}", get(admin_page))
@@ -256,13 +254,7 @@ mod tests {
             "the shared headers still apply"
         );
 
-        for page in [
-            "/invite/inv_x",
-            "/verify/ch_x",
-            "/reset/ch_x",
-            "/recover",
-            "/privacy",
-        ] {
+        for page in ["/verify/ch_x", "/reset/ch_x", "/recover", "/privacy"] {
             assert_eq!(get(&app, page).await.0, StatusCode::OK, "{page}");
         }
 
@@ -300,11 +292,7 @@ mod tests {
                 .unwrap()
                 .contains("base-uri 'self'")
         );
-        for path in [
-            "/notes/setup",
-            "/notes/invite/inv_x",
-            "/notes/assets/admin-abc123.js",
-        ] {
+        for path in ["/notes/setup", "/notes/assets/admin-abc123.js"] {
             assert_eq!(get(&app, path).await.0, StatusCode::OK, "{path}");
         }
         for root in ["/notes", "/notes/"] {
