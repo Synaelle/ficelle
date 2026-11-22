@@ -805,8 +805,10 @@
   .screen :global(.sync-form > .settings-help) {
     margin: 0 var(--space-4);
   }
+  /* a name with its help line fits the height of a row without one */
   .screen :global(.settings-row) {
     min-height: 52px;
+    padding-block: var(--space-1);
     font-size: 16px;
   }
   .screen :global(.settings-row .help) {
@@ -881,14 +883,15 @@
     color: inherit;
   }
   /* with a large text size the value gives way first, cut short, and the
-     label wraps if it still has no room: never drawn over each other */
+     label wraps if it still has no room: never drawn over each other. A
+     label with its value fits the height of a row without one */
   .text {
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: var(--space-2) 0;
+    gap: 1px;
+    padding: var(--space-1) 0;
   }
   .label {
     overflow-wrap: anywhere;
