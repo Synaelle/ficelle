@@ -498,6 +498,32 @@ class Workspace {
     return note
   }
 
+  /** A copy of a note, its tags and files too, opened in its place. */
+  async duplicate(id: Id) {
+    if (!(await this.leave())) return
+    try {
+      const source = await backend.getNote(id)
+      const copy = await backend.createNote({
+        title: t('note.copyTitle', { title: source.title.trim() || t('note.untitled') }),
+        body: source.body,
+        tags: source.tags,
+      })
+      // the same names, so the text's links and images find them
+      for (const file of await backend.attachmentFiles(id)) {
+        if (!file.here) await backend.fetchAttachment(file.sha256)
+        const bytes = await backend.readAttachment(file.sha256)
+        await backend.addAttachment(
+          copy.id,
+          new File([bytes], file.fileName, { type: file.mimeType }),
+        )
+      }
+      this.show(copy)
+    } catch (err) {
+      this.report(err)
+    }
+    await this.refreshNotes()
+  }
+
   /** Saves a note as a Markdown file where the person chooses, as the
    * export writes it. */
   async exportNote(id: Id) {
