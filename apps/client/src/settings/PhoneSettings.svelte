@@ -138,7 +138,6 @@
       icon: 'textStyle',
       label: t('settings.editor'),
       keywords: t('settings.editorKeywords'),
-      value: prefs.autoLists ? t('settings.phone.listsOn') : t('settings.phone.listsOff'),
       run: () => (page = 'editor'),
     },
     {
@@ -455,9 +454,7 @@
         </Group>
         {#if privacyRows.length}
           <Group
-            title={vault && !encrypted
-              ? t('settings.notEncryptedTitle')
-              : t('settings.phone.groupPrivacy')}
+            title={t('settings.phone.groupPrivacy')}
             note={vault && !encrypted ? t('settings.encryptNote') : undefined}
           >
             {#each privacyRows as r (r.label)}{@render row(r)}{/each}
@@ -785,7 +782,8 @@
   }
 
   /* the settings groups (settings/ui/), shared with the desktop, on a phone:
-     flat on the page, the captions small capitals, rows a finger's height */
+     flat on the page, the captions written as on the desktop, rows a
+     finger's height */
   .screen :global(section.group > .panel),
   .screen :global(.settings-panel) {
     border: 0;
@@ -796,9 +794,7 @@
     margin: 0 var(--space-4);
     color: var(--color-text-muted);
     font-size: 13px;
-    font-weight: 400;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-weight: 600;
   }
   .screen :global(section.group > .note) {
     margin: 0 var(--space-4);

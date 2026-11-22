@@ -245,10 +245,8 @@
     margin: 0;
     padding: 14px var(--space-3) 6px;
     color: var(--color-text-muted);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
   }
   .line {
     display: flex;
