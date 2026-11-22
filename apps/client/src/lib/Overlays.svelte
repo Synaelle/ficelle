@@ -219,6 +219,7 @@
     aria-label={overlay.menu.title}
     onkeydown={(e) => menuKeys(e, menuElement, false)}
   >
+    {#if overlay.menu.sheet}<div class="grab" aria-hidden="true"></div>{/if}
     {#if overlay.menu.sheet && overlay.menu.title && overlay.menu.parents.length === 0}
       <p class="sheet-title">{overlay.menu.title}</p>
       <hr />
@@ -373,7 +374,15 @@
     max-height: 70vh;
     padding: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom));
     border-width: 1px 0 0;
-    border-radius: var(--radius-popover) var(--radius-popover) 0 0;
+    border-radius: var(--radius-window) var(--radius-window) 0 0;
+  }
+  /* the handle of the app's other sheets, the tag sheet's */
+  .grab {
+    width: 36px;
+    height: 4px;
+    margin: 0 auto var(--space-1);
+    border-radius: 2px;
+    background: var(--color-border-strong);
   }
   .menu.sheet .item {
     min-height: 48px;
