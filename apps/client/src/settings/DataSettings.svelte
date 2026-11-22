@@ -261,7 +261,7 @@
     <Row label={t('backups.auto')}>
       <Switch
         label={t('backups.auto')}
-        checked={!!config || setup}
+        checked={!!config}
         disabled={busy}
         onchange={(on) => {
           if (on) openSetup(true)
