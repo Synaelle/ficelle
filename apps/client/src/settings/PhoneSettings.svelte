@@ -757,7 +757,8 @@
     border: 1px solid var(--color-border);
     background: transparent;
   }
-  :global(:root[data-black='true']) .tile {
+  :global(:root[data-black='true']) .tile,
+  :global(:root[data-black='true']) .screen :global(.settings-row > .tile) {
     background: transparent;
   }
   /* every page the same: groups one under the other, the same gap between */
@@ -883,6 +884,21 @@
   }
   .tile :global(.icon) {
     color: inherit;
+  }
+  /* a shared row with an icon (settings/ui/Row) gets the same tile, and its
+     hairline starts after it */
+  .screen :global(.settings-row > .tile) {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    place-items: center;
+    border-radius: var(--radius-control);
+    background: var(--color-surface-2);
+    color: var(--color-accent);
+  }
+  .screen :global(.settings-row:has(> .tile))::before {
+    left: calc(var(--space-3) * 2 + 30px);
   }
   /* with a large text size the value gives way first, cut short, and the
      label wraps if it still has no room: never drawn over each other. A

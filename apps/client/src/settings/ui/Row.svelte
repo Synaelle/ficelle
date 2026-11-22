@@ -1,16 +1,19 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- One setting in a Group: its name and an optional short help on the
-     left, its control on the right. When both do not fit, in a long
+     left, its control on the right. Its icon shows as a tile on the phone
+     only, like the phone's own rows. When both do not fit, in a long
      language or on a phone, the control moves under the name instead of
      squeezing it. A row with `onclick` is a button as a whole (a choice in
      a list, with `checked` showing the picked one). -->
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import Icon from '../../lib/icons/Icon.svelte'
+  import type { IconName } from '../../lib/icons/sets'
   import Switch from './Switch.svelte'
 
   let {
     label,
+    icon,
     help,
     checked,
     on,
@@ -20,6 +23,7 @@
     children,
   }: {
     label: string
+    icon?: IconName
     help?: string
     /** A row in a list of choices: true marks the picked one. */
     checked?: boolean
@@ -36,6 +40,7 @@
 </script>
 
 {#snippet body()}
+  {#if icon}<span class="tile" aria-hidden="true"><Icon name={icon} size={16} /></span>{/if}
   <span class="text">
     <span class="label">{label}</span>
     {#if help}<span class="help">{help}</span>{/if}
@@ -94,6 +99,9 @@
   .choice:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+  .tile {
+    display: none;
   }
   .opens {
     display: grid;

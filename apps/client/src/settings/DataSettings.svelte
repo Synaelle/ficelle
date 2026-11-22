@@ -267,12 +267,12 @@
   <!-- the browser keeps the notes and can lose them: copies are the
        person's to make, there is no folder to write to by itself -->
   <Group title={t('backups.title')} note={t('backups.webHelp')}>
-    <Row label={t('backups.download')} opens onclick={() => (making = true)} />
-    <Row label={t('backups.restoreFile')} opens onclick={onrestorefile} />
+    <Row label={t('backups.download')} icon="export" opens onclick={() => (making = true)} />
+    <Row label={t('backups.restoreFile')} icon="folderOpen" opens onclick={onrestorefile} />
   </Group>
 {:else}
   <Group title={t('backups.title')}>
-    <Row label={t('backups.auto')}>
+    <Row label={t('backups.auto')} icon="backup">
       <Switch
         label={t('backups.auto')}
         checked={!!config}
@@ -287,6 +287,7 @@
     {#if config}
       <Row
         label={health}
+        icon="info"
         help={view?.status.lastError && !view.running
           ? backupError(view.status.lastErrorKind, view.status.lastError)
           : view?.status.lastSuccessAt
@@ -297,8 +298,8 @@
           >{t('backups.now')}</button
         >
       </Row>
-      <Row label={t('backups.place')} help={shown(filesFolder(config.folder))} />
-      <Row label={t('backups.when')}>
+      <Row label={t('backups.place')} icon="folder" help={shown(filesFolder(config.folder))} />
+      <Row label={t('backups.when')} icon="timer">
         <select
           class="field compact same-width"
           aria-label={t('backups.when')}
@@ -311,7 +312,7 @@
           {/each}
         </select>
       </Row>
-      <Row label={t('backups.kept')}>
+      <Row label={t('backups.kept')} icon="allNotes">
         <input
           class="field compact number"
           type="number"
@@ -327,7 +328,7 @@
         />
       </Row>
     {/if}
-    <Row label={t('backup.makeTitle')} opens onclick={() => (making = true)} />
+    <Row label={t('backup.makeTitle')} icon="export" opens onclick={() => (making = true)} />
   </Group>
 
   {#if setup}
@@ -386,7 +387,7 @@
 
   <Group title={t('backups.restoreTitle')}>
     {#if config}
-      <Row label={t('backups.restoreFrom')} onclick={list}>
+      <Row label={t('backups.restoreFrom')} icon="restore" onclick={list}>
         {@render chevron(!!files)}
       </Row>
       {#if files}
@@ -428,6 +429,7 @@
     {/if}
     <Row
       label={t('backups.restoreFile')}
+      icon="folderOpen"
       opens
       disabled={!backend.native}
       onclick={onrestorefile}
@@ -437,7 +439,7 @@
   {#if view?.older}
     <!-- the snapshot backups of earlier versions: restored from, no more made -->
     <Group>
-      <Row label={t('backups.older')} onclick={listOlder}>
+      <Row label={t('backups.older')} icon="history" onclick={listOlder}>
         {@render chevron(!!older)}
       </Row>
       {#if older}
@@ -463,15 +465,17 @@
 {#if making}<BackupDialog mode="make" close={() => (making = false)} />{/if}
 
 <Group title={t('settings.importTitle')}>
-  <Row label={t('list.import')} opens onclick={() => markdownInput?.click()} />
+  <Row label={t('list.import')} icon="markdown" opens onclick={() => markdownInput?.click()} />
   <Row
     label={t('settings.importFicelle', { app: brand.displayName })}
+    icon="import"
     opens
     disabled={!backend.native && !WEB}
     onclick={() => onimport(true)}
   />
   <Row
     label={t('settings.import')}
+    icon="import"
     opens
     disabled={!backend.native && !WEB}
     onclick={() => onimport(false)}
@@ -489,6 +493,7 @@
 <Group title={t('settings.exportTitle')}>
   <Row
     label={t('settings.exportZip')}
+    icon="archive"
     opens
     disabled={!backend.native && !WEB}
     onclick={() => settings.exportZip()}
@@ -496,7 +501,7 @@
 </Group>
 
 <Group>
-  <Row label={t('reset.title')}>
+  <Row label={t('reset.title')} icon="trash">
     <button class="btn danger" onclick={onreset}>{t('reset.start')}</button>
   </Row>
 </Group>
