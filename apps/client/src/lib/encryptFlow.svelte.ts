@@ -6,15 +6,24 @@
 class EncryptFlow {
   open = $state(false)
   private after: ((done: boolean) => void) | null = null
+  /** The notes got encrypted, whatever step the person leaves from. */
+  private encrypted = false
 
   start(after: (done: boolean) => void) {
     this.after = after
+    this.encrypted = false
     this.open = true
+  }
+
+  /** The settings behind show it at once, before the way in is chosen. */
+  encryptedNow() {
+    this.encrypted = true
+    this.after?.(true)
   }
 
   finish(done: boolean) {
     this.open = false
-    this.after?.(done)
+    this.after?.(done || this.encrypted)
     this.after = null
   }
 }

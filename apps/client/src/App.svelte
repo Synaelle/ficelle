@@ -251,6 +251,10 @@
         void ready()
       }}
       cancel={() => encryptFlow.finish(false)}
+      onencrypted={() => {
+        encryptFlow.encryptedNow()
+        void ready()
+      }}
     />
   </div>
 {/if}

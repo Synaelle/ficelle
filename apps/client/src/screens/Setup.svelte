@@ -24,6 +24,7 @@
     done,
     encrypt,
     cancel,
+    onencrypted,
   }: {
     done: () => void
     /** Unencrypted notes being encrypted from the settings: they are
@@ -31,13 +32,16 @@
     encrypt?: boolean
     /** Leaves without changing anything, from the settings. */
     cancel?: () => void
+    /** The notes are encrypted now, before the way in and the recovery key:
+     * what shows behind can say so, even if the person leaves here. */
+    onencrypted?: () => void
   } = $props()
 
   type Step = 'password' | 'quick' | 'pin' | 'recovery'
   let step: Step = $state('password')
   $effect(() => {
     if (step === 'password' && cancel) return onBack(cancel)
-    if (step === 'quick') return onBack(() => (step = 'password'))
+    if (step === 'quick') return onBack(encrypted && cancel ? cancel : () => (step = 'password'))
     if (step === 'pin') return onBack(() => ((step = 'quick'), (firstPin = '')))
   })
 
@@ -117,7 +121,8 @@
     void finish(pin)
   }
 
-  let encrypted = false
+  /** Encrypted already, by an earlier try: the password step is behind. */
+  let encrypted = $state(false)
 
   async function finish(pin: string | null) {
     busy = true
@@ -126,8 +131,11 @@
       if (encrypt) {
         // the password first, which needs no system keychain, then the quick
         // way; a try after a failed quick way finds the notes encrypted
-        if (!encrypted) await backend.vaultEncrypt(password)
-        encrypted = true
+        if (!encrypted) {
+          await backend.vaultEncrypt(password)
+          encrypted = true
+          onencrypted?.()
+        }
         if (way !== 'password') await backend.vaultSetWay(way, password, null, pin)
       } else await backend.vaultSetWay(way, null, password, pin)
       if (wantRecovery) {
@@ -138,8 +146,16 @@
       }
     } catch (err) {
       firstPin = ''
-      // a cancelled Windows Hello prompt leaves the choice on screen
-      if (!isBackendError(err) || err.kind !== 'cancelled')
+      if (isBackendError(err) && err.kind === 'keyStore' && way !== 'password') {
+        // no system keychain (a Linux desktop without a secret service): the
+        // quick way cannot be kept here, the password each time still works
+        if (way === 'pin') deviceAvailable = false
+        else biometricAvailable = false
+        way = 'password'
+        step = 'quick'
+        error = t('setup.keyStoreFallback')
+      } else if (!isBackendError(err) || err.kind !== 'cancelled')
+        // a cancelled Windows Hello prompt leaves the choice on screen
         error = t(`errors.${isBackendError(err) ? err.kind : 'unknown'}`)
     } finally {
       busy = false
@@ -242,13 +258,15 @@
         </div>
         {#if error}<p class="error" role="alert">{error}</p>{/if}
         <div class="actions">
-          <button class="btn" type="button" onclick={() => (step = 'password')}
-            >{t('common.back')}</button
-          >
+          {#if !encrypted}
+            <button class="btn" type="button" onclick={() => (step = 'password')}
+              >{t('common.back')}</button
+            >
+          {/if}
           <button class="btn primary" type="submit" disabled={busy}
             >{busy
               ? t('setup.working')
-              : way === 'pin'
+              : way === 'pin' || encrypted
                 ? t('setup.next')
                 : encrypt
                   ? t('settings.encrypt')
