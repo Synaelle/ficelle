@@ -21,7 +21,9 @@
     if (event.button !== 0) return
     event.preventDefault()
     ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-    start = { x: event.clientX, width }
+    // a small window shows the pane narrower than its width: the drag starts
+    // from what is shown
+    start = { x: event.clientX, width: clamp(width) }
   }
 
   function move(event: PointerEvent) {
@@ -32,7 +34,7 @@
     const delta = { ArrowLeft: -STEP, ArrowRight: STEP }[event.key]
     if (delta === undefined) return
     event.preventDefault()
-    width = clamp(width + delta)
+    width = clamp(clamp(width) + delta)
   }
 </script>
 

@@ -5,7 +5,6 @@
   import type { Scope } from '../lib/backend'
   import { t } from '../lib/i18n.svelte'
   import { noteDropTarget, tagDropTarget } from '../lib/noteDrag'
-  import { prefs } from '../lib/prefs.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { moveTag, UNFILED, workspace } from '../lib/workspace.svelte'
@@ -13,10 +12,16 @@
   import TagsDialog from './TagsDialog.svelte'
 
   let {
+    width,
     onsettings,
     onlock,
     lockable,
-  }: { onsettings: (section?: 'sync') => void; onlock: () => void; lockable: boolean } = $props()
+  }: {
+    width: number
+    onsettings: (section?: 'sync') => void
+    onlock: () => void
+    lockable: boolean
+  } = $props()
 
   const same = (a: Scope, b: Scope) =>
     a.kind === b.kind && ('id' in a ? a.id : null) === ('id' in b ? b.id : null)
@@ -56,7 +61,7 @@
   </button>
 {/snippet}
 
-<nav class="sidebar" aria-label={t('sidebar.label')} style:width="{prefs.sidebarWidth}px">
+<nav class="sidebar" aria-label={t('sidebar.label')} style:width="{width}px">
   <div class="group">
     {@render item(UNFILED, 'inbox', t('sidebar.untagged'))}
     {@render item({ kind: 'all' }, 'allNotes', t('sidebar.allNotes'))}

@@ -23,9 +23,15 @@
 
   let {
     narrow,
+    width,
     searchFocus,
     onsettings,
-  }: { narrow: boolean; searchFocus: number; onsettings: (section?: 'sync') => void } = $props()
+  }: {
+    narrow: boolean
+    width: number
+    searchFocus: number
+    onsettings: (section?: 'sync') => void
+  } = $props()
 
   let searchInput: HTMLInputElement | undefined = $state()
   let fileInput: HTMLInputElement | undefined = $state()
@@ -199,7 +205,7 @@
   class="list"
   class:narrow
   aria-label={t('list.label')}
-  style:width={narrow ? undefined : `${prefs.listWidth}px`}
+  style:width={narrow ? undefined : `${width}px`}
 >
   <header>
     {#if narrow}

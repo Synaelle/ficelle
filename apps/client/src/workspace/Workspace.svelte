@@ -16,7 +16,8 @@
   import { workspace } from '../lib/workspace.svelte'
   import { backups } from '../lib/backups.svelte'
   import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
+  import { pageZoom } from '../lib/uiSize'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { listen } from '@tauri-apps/api/event'
   import { DESKTOP, HANDHELD, LINUX, WEB } from '../lib/platform'
@@ -43,15 +44,33 @@
   }
   let searchFocus = $state(0)
 
-  const NARROW = 720
+  const SIDEBAR_MIN = 170
+  const LIST_MIN = 240
+  // the note keeps at least this much room, below it the list and the note
+  // take turns: at 200 px its title and toolbar no longer fit
+  const NOTE_MIN = 360
   /** A phone, not a tablet: turned sideways it is wide enough for three
    * panes, but with the keyboard up the note would have no room left. */
   const PHONE = HANDHELD && Math.min(screen.width, screen.height) < 600
-  const narrow = $derived(width < NARROW || PHONE)
+  // the web version zooms the page itself, the panes are sized in its pixels
+  let zoom = $state(pageZoom())
+  $effect(() => {
+    void prefs.uiSize
+    void tick().then(() => (zoom = pageZoom()))
+  })
+  const room = $derived(width / zoom)
+  const narrow = $derived(room < SIDEBAR_MIN + LIST_MIN + NOTE_MIN || PHONE)
   const showSidebar = $derived(!narrow)
-  // the note keeps at least this much room when the list grows
-  const NOTE_MIN = 360
-  const listMax = $derived(Math.max(240, width - (showSidebar ? prefs.sidebarWidth : 0) - NOTE_MIN))
+  // A window made smaller narrows the list, then the sidebar, without
+  // changing the widths chosen, which come back when it grows again.
+  const listShown = $derived(
+    Math.min(prefs.listWidth, Math.max(LIST_MIN, room - prefs.sidebarWidth - NOTE_MIN)),
+  )
+  const sidebarShown = $derived(
+    Math.min(prefs.sidebarWidth, Math.max(SIDEBAR_MIN, room - listShown - NOTE_MIN)),
+  )
+  const listMax = $derived(Math.max(LIST_MIN, room - sidebarShown - NOTE_MIN))
+  const sidebarMax = $derived(Math.min(400, Math.max(SIDEBAR_MIN, room - LIST_MIN - NOTE_MIN)))
 
   void workspace.load().then(() => workspace.openLast())
   onMount(() => {
@@ -209,11 +228,11 @@
 
 <main class="workspace" class:narrow>
   {#if showSidebar}
-    <Sidebar onsettings={openSettings} {onlock} {lockable} />
+    <Sidebar width={sidebarShown} onsettings={openSettings} {onlock} {lockable} />
     <Splitter
       bind:width={prefs.sidebarWidth}
-      min={170}
-      max={400}
+      min={SIDEBAR_MIN}
+      max={sidebarMax}
       initial={220}
       label={t('workspace.resizeSidebar')}
     />
@@ -222,13 +241,13 @@
     {#if workspace.files}
       <AttachmentList {narrow} />
     {:else}
-      <NoteList {narrow} {searchFocus} onsettings={openSettings} />
+      <NoteList {narrow} width={listShown} {searchFocus} onsettings={openSettings} />
     {/if}
   {/if}
   {#if !narrow}
     <Splitter
       bind:width={prefs.listWidth}
-      min={240}
+      min={LIST_MIN}
       max={listMax}
       initial={320}
       label={t('workspace.resizeList')}
