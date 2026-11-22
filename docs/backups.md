@@ -10,7 +10,7 @@ Restore brings back what is missing and changes nothing still there.
 
 ## On a server
 
-Set up backups on the admin page. With its password, a backup opens your notes unless your account uses end-to-end encryption, so keep that password off the server. To restore a whole server, stop it and restore into an empty folder.
+Set up backups to a folder on the admin page. With its password, a backup opens your notes unless your account uses end-to-end encryption, so keep that password off the server. To restore a whole server, stop it and restore into an empty folder.
 
 ```bash
 FICELLE_BACKUP_PASSWORD='…' ficelle-server backup restore --target target.json --into /var/lib/ficelle
@@ -20,7 +20,7 @@ sudo chown -R ficelle: /var/lib/ficelle
 With Docker, restore into an empty volume.
 
 ```bash
-docker run --rm -e FICELLE_BACKUP_PASSWORD -v "$PWD/target.json:/target.json:ro" -v ficelle_data:/data ghcr.io/synaelle/ficelle-server:0.6 backup restore --target /target.json --into /data
+docker run --rm -e FICELLE_BACKUP_PASSWORD -v "$PWD/target.json:/target.json:ro" -v ficelle_backups:/backups:ro -v ficelle_data:/data ghcr.io/synaelle/ficelle-server:latest backup restore --target /target.json --into /data
 ```
 
 `target.json` is the backup place shown on the admin page under To restore the whole instance.
