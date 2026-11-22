@@ -180,7 +180,14 @@
     const id = note.id
     const items: MenuItem[] = [
       ...(noteWindowsSupported && windowKind().kind === 'main'
-        ? [{ label: t('menu.openInWindow'), run: () => void workspace.openInWindow(id) }, SEPARATOR]
+        ? [
+            {
+              label: t('menu.openInWindow'),
+              icon: 'window' as const,
+              run: () => void workspace.openInWindow(id),
+            },
+            SEPARATOR,
+          ]
         : []),
       { label: t('note.history'), icon: 'history', run: () => void showHistory() },
       {

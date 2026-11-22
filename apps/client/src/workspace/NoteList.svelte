@@ -177,7 +177,13 @@
       // a phone opens a note with a tap, the menu only repeats it
       ...(narrow ? [] : [{ label: t('menu.open'), run: () => void workspace.open(note.id) }]),
       ...(noteWindowsSupported
-        ? [{ label: t('menu.openInWindow'), run: () => void workspace.openInWindow(note.id) }]
+        ? [
+            {
+              label: t('menu.openInWindow'),
+              icon: 'window' as const,
+              run: () => void workspace.openInWindow(note.id),
+            },
+          ]
         : []),
       {
         label: note.pinned ? t('note.unpin') : t('note.pin'),
