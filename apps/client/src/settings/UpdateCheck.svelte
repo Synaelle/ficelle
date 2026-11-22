@@ -69,6 +69,13 @@
         onclick={() => void setNotifications(!prefs.updateNotifications)}
       />
     {/if}
+    {#if phone}
+      <Row
+        label={t('appUpdate.mobileData')}
+        on={prefs.updatesOnMobileData}
+        onclick={() => (prefs.updatesOnMobileData = !prefs.updatesOnMobileData)}
+      />
+    {/if}
     {#if channelChoice && !packaged}
       <Row
         label={t('appUpdate.nightlyVersions')}

@@ -228,6 +228,11 @@ class Installer(private val activity: Activity) {
     return installer in STORES
   }
 
+  /** The connection is metered (mobile data, a phone's hotspot): a download asks first. */
+  @JavascriptInterface
+  fun metered(): Boolean =
+    activity.getSystemService(android.net.ConnectivityManager::class.java)?.isActiveNetworkMetered ?: false
+
   @JavascriptInterface
   fun install(): Boolean {
     val apk = File(activity.cacheDir, "updates")

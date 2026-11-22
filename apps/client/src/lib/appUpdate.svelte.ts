@@ -20,6 +20,7 @@ import { currentLocale, t } from './i18n.svelte'
 import { ANDROID, LINUX, PLATFORM } from './platform'
 import { prefs } from './prefs.svelte'
 import { lastNotified, rememberNotified, worthNotifying } from './updateNotify'
+import { overlay } from './overlay.svelte'
 import { isBackendError } from './workspace.svelte'
 
 declare global {
@@ -35,6 +36,8 @@ declare global {
       backupsKept?(): boolean
       /** An app store installed this app, or last updated it. */
       fromStore?(): boolean
+      /** The connection is metered: mobile data, a phone's hotspot. */
+      metered?(): boolean
     }
   }
 }
@@ -129,6 +132,9 @@ export function isBigJump(next: string, current: string = thisVersion): boolean 
  * stable version is newer, never a step back. */
 export const waitingForStable = (current: string = thisVersion) =>
   channel() === 'stable' && (parts(current)?.[3] != null || NIGHTLY.test(current))
+
+/** The phone is on mobile data, as Android tells it (the web view cannot). */
+const onMobileData = () => ANDROID && (window.AppInstaller?.metered?.() ?? false)
 
 class AppUpdates {
   /** The newer version found, downloaded or not. */
@@ -252,6 +258,13 @@ class AppUpdates {
    * cut short goes on from where it stopped on the next try. */
   async download() {
     if (!this.ready || this.progress) return
+    // a phone on mobile data asks first, unless allowed in Settings
+    if (onMobileData() && !prefs.updatesOnMobileData) {
+      const yes = await overlay.ask(t('appUpdate.mobileDataAsk'), {
+        confirmLabel: t('appUpdate.download'),
+      })
+      if (!yes) return
+    }
     this.error = ''
     this.progress = { done: 0, total: null }
     const stop = await listen<{ done: number; total: number | null }>(

@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- whether the connection is mobile data, before an update downloads -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- the notification plugin asks for these for scheduled notifications, which
          the app does not use: it only tells of an update while it runs -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />

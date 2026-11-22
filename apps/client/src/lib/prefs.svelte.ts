@@ -60,6 +60,8 @@ export interface Prefs {
   securityChecks: boolean
   /** A system notification when an update is out. */
   updateNotifications: boolean
+  /** Android: an update downloads on mobile data without asking first. */
+  updatesOnMobileData: boolean
   /** Which update list the app follows. */
   channel: UpdateChannel
   /** The person chose a channel: a beta install no longer follows Beta by itself. */
@@ -115,6 +117,7 @@ export const DEFAULT_PREFS: Prefs = {
   lastScope: null,
   securityChecks: true,
   updateNotifications: false,
+  updatesOnMobileData: false,
   channel: 'stable',
   channelAsked: false,
   coediting: true,
