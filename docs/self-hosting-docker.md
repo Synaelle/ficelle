@@ -38,7 +38,7 @@ This installs a nightly timer that pulls newer images in the same series, checks
 
 ## Backups
 
-Set them up on the admin page. `master.key` in the volume decrypts standard accounts' notes, so guard any copy of the volume.
+Set them up on the admin page. `master.key` in the volume decrypts your notes unless your account uses end-to-end encryption, so guard any copy of the volume.
 
 ## Locked out
 

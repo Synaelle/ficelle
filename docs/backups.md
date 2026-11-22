@@ -10,7 +10,7 @@ Restore brings back what is missing and changes nothing still there.
 
 ## On a server
 
-Set up backups on the admin page. With its password, a backup opens every standard account, so keep that password off the server. To restore a whole server, stop it and restore into an empty folder.
+Set up backups on the admin page. With its password, a backup opens your notes unless your account uses end-to-end encryption, so keep that password off the server. To restore a whole server, stop it and restore into an empty folder.
 
 ```bash
 FICELLE_BACKUP_PASSWORD='…' ficelle-server backup restore --target target.json --into /var/lib/ficelle

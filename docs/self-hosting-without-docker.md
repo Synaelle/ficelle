@@ -62,7 +62,7 @@ Keep the copy until the new version works.
 
 ## Backups
 
-Set them up on the admin page. A folder outside `/var/lib/ficelle` needs a `ReadWritePaths=` line (`sudo systemctl edit ficelle-server`). `master.key` decrypts standard accounts' notes, so guard any copy of it.
+Set them up on the admin page. A folder outside `/var/lib/ficelle` needs a `ReadWritePaths=` line (`sudo systemctl edit ficelle-server`). `master.key` decrypts your notes unless your account uses end-to-end encryption, so guard any copy of it.
 
 ## Locked out
 
