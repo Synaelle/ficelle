@@ -14,10 +14,6 @@ on:
         type: boolean
         default: false
   workflow_dispatch:
-  # twice a week on main, so a release finds the build cache: only main saves
-  # one, and GitHub drops a cache unused for a week
-  schedule:
-    - cron: '0 2 * * 1,4'
 
 permissions:
   contents: read
@@ -55,6 +51,14 @@ jobs:
           # only main saves: caches made on tags and other branches are
           # unreadable from main and push its own out of the 10 GB limit
           save-if: ${{ github.ref == 'refs/heads/main' }}
+      # Strawberry Perl comes with the runner images today; a newer image
+      # without it gets it from Chocolatey instead of failing the build
+      - name: perl for OpenSSL
+        run: |
+          if [ ! -x "/c/Strawberry/perl/bin/perl.exe" ]; then
+            choco install strawberryperl -y --no-progress
+          fi
+          "$PERL" -v | head -2
       - run: pnpm install --frozen-lockfile
 
       # the NSIS installer only: the MSI one takes no beta version
