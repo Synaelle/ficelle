@@ -59,8 +59,10 @@ export function createExtensions(setup: EditorSetup = {}): AnyExtension[] {
       codeBlock: false,
       bulletList: false,
       orderedList: false,
-      // links are typed as markdown or pasted, auto linking would surprise
-      link: { openOnClick: false, autolink: false },
+      // a web address typed out becomes a link, as it is when the note is
+      // read again; bare words like example.com stay text, the note never
+      // links them
+      link: { openOnClick: false, shouldAutoLink: (url) => /^https?:\/\//i.test(url) },
     }),
     SafeParagraph,
     LanguageCodeBlock.configure(

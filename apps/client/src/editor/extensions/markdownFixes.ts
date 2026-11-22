@@ -162,6 +162,18 @@ export function linkDestination(href: string): string {
   return /[\s()<>]/.test(href) ? `<${href.replace(/[<>]/g, '\\$&')}>` : href
 }
 
+/**
+ * Whether a piece of text is a link showing its own web address and nothing
+ * else, as one typed out is: written `<address>`, which every Markdown reader
+ * takes for that same link whatever stands around it.
+ */
+export function showsItsAddress(node: JSONLike): boolean {
+  const [mark, ...others] = node.marks ?? []
+  if (typeof mark !== 'object' || mark.type !== 'link' || others.length > 0) return false
+  const href = mark.attrs?.href
+  return !mark.attrs?.title && node.text === href && /^https?:\/\/[^\s<>]+$/i.test(href ?? '')
+}
+
 /** Chunks a long note is read in, see markdownChunks. */
 const CHUNK = 4096
 
@@ -222,7 +234,8 @@ export function markdownChunks(markdown: string, size = CHUNK): string[] {
   return chunks
 }
 
-type JSONLike = { type?: string; marks?: (string | { type: string })[] }
+type MarkLike = { type: string; attrs?: { href?: string | null; title?: string | null } }
+type JSONLike = { type?: string; text?: string; marks?: (string | MarkLike)[] }
 type LinkNode = { attrs?: { href?: string | null; title?: string | null } }
 interface RenderSpec {
   renderMarkdown?: (node: LinkNode, helpers: { renderChildren(node: unknown): string }) => string
@@ -234,10 +247,11 @@ interface TextEncoding {
   nodeTypeRegistry: Map<string, RenderSpec[]>
   escapeMarkdownSyntax(text: string): string
   encodeTextForMarkdown(text: string, node: JSONLike, parent?: JSONLike): string
+  renderNodesWithMarkBoundaries(nodes: JSONLike[], ...rest: unknown[]): string
 }
 
 /** Markdown extension that writes text with escapeHtmlLookalikes, and link
- * addresses with linkDestination. */
+ * addresses with linkDestination, or as `<address>` (showsItsAddress). */
 export const ReadableMarkdown = Markdown.extend({
   onBeforeCreate(event) {
     // upstream reads the note's markdown while it sets itself up, before the
@@ -264,18 +278,34 @@ export const ReadableMarkdown = Markdown.extend({
       const json = manager.parse(options.content as string)
       if (json.content.length) options.content = json
     }
+    // a link is written knowing only its attributes: those of the links
+    // showing their own address are noted as their line is written
+    const ownAddress = new WeakSet<object>()
+    const renderInline = manager.renderNodesWithMarkBoundaries.bind(manager)
+    manager.renderNodesWithMarkBoundaries = (nodes, ...rest) => {
+      for (const node of nodes) {
+        const mark = node.marks?.[0]
+        if (showsItsAddress(node) && typeof mark === 'object' && mark.attrs)
+          ownAddress.add(mark.attrs)
+      }
+      return renderInline(nodes, ...rest)
+    }
     for (const spec of manager.nodeTypeRegistry.get('link') ?? []) {
       spec.renderMarkdown = (node, helpers) => {
+        const text = helpers.renderChildren(node)
+        if (node.attrs && ownAddress.has(node.attrs)) return `<${text}>`
         const href = linkDestination(node.attrs?.href ?? '')
         const title = node.attrs?.title?.replace(/"/g, '\\"')
-        const text = helpers.renderChildren(node)
         return title ? `[${text}](${href} "${title}")` : `[${text}](${href})`
       }
     }
     const inCode = (node: JSONLike, parent?: JSONLike) =>
       (parent?.type !== undefined && manager.codeTypes.has(parent.type)) ||
       (node.marks ?? []).some((m) => manager.codeTypes.has(typeof m === 'string' ? m : m.type))
+    // nothing is escaped between < and >, a backslash would be part of the address
     manager.encodeTextForMarkdown = (text, node, parent) =>
-      inCode(node, parent) ? text : escapeHtmlLookalikes(manager.escapeMarkdownSyntax(text))
+      inCode(node, parent) || showsItsAddress(node)
+        ? text
+        : escapeHtmlLookalikes(manager.escapeMarkdownSyntax(text))
   },
 })

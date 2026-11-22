@@ -236,6 +236,24 @@ describe('long notes read in parts', () => {
 })
 
 describe('link addresses', () => {
+  it('writes a link showing its own address as that address, any other as a link', () => {
+    expect(roundTrip('[https://example.org](https://example.org)').trimEnd()).toBe(
+      '<https://example.org>',
+    )
+    expect(roundTrip('a https://example.org/x, b').trimEnd()).toBe('a <https://example.org/x>, b')
+    expect(roundTrip('[the site](https://example.org)').trimEnd()).toBe(
+      '[the site](https://example.org)',
+    )
+    expect(roundTrip('[**https://example.org**](https://example.org)').trimEnd()).toBe(
+      '[**https://example.org**](https://example.org)',
+    )
+    expect(roundTrip('<https://example.org>').trimEnd()).toBe('<https://example.org>')
+    expect(roundTrip('<https://example.org/a_b*c>').trimEnd()).toBe('<https://example.org/a_b*c>')
+    expect(roundTrip('[https://**example**.org](https://example.org)').trimEnd()).toBe(
+      '[https://**example**.org](https://example.org)',
+    )
+  })
+
   it('keeps addresses with spaces, brackets and parentheses as links', () => {
     for (const href of ['My file.pdf', 'Note.md#Some Heading', 'https://x.y/a)b', 'a<b>.md']) {
       const editor = new Editor({
@@ -406,6 +424,15 @@ describe('typing GitHub extras', () => {
     editor.destroy()
     return out
   }
+
+  it('links a web address once typed out, as reading the note again does', () => {
+    expect(typedWith('See https://example.org/a?b=1 here', {})).toBe(
+      'See <https://example.org/a?b=1> here',
+    )
+    expect(typedWith('See example.org or mail@example.org here', {})).toBe(
+      'See example.org or mail@example.org here',
+    )
+  })
 
   it('makes a footnote mark and its note as they are typed', () => {
     expect(typedWith('Text[^1] more\n[^1]: The note', {})).toBe('Text[^1] more\n\n[^1]: The note')
