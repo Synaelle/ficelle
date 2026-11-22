@@ -18,6 +18,7 @@
   import { prefs } from '../lib/prefs.svelte'
   import { UNFILED, workspace } from '../lib/workspace.svelte'
   import { noteWindowsSupported } from '../lib/windows'
+  import { WEB } from '../lib/platform'
   import TagSheet from './TagSheet.svelte'
   import VirtualList from './VirtualList.svelte'
 
@@ -485,6 +486,11 @@
               : workspace.scope.kind === 'untagged'
                 ? t('list.untaggedEmpty')
                 : t('list.empty')}
+            <!-- no note and no tag yet: a first start, where the notes are and
+                 what else there is. The web version has its own welcome -->
+            {#if !WEB && workspace.scope.kind === 'untagged' && workspace.tags.length === 0}
+              <span class="first">{t('list.firstStart')}</span>
+            {/if}
           </li>
         {/snippet}
       </VirtualList>
@@ -805,6 +811,10 @@
     padding: var(--space-6) var(--space-3);
     text-align: center;
     color: var(--color-text-muted);
+  }
+  .first {
+    display: block;
+    margin-top: var(--space-3);
   }
   footer {
     padding: var(--space-2) var(--space-4);
