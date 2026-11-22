@@ -240,7 +240,7 @@
   }
   h2 {
     margin: 0;
-    font-size: 16px;
+    font-size: var(--title-dialog);
   }
   p {
     margin: 0;

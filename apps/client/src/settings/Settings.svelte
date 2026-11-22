@@ -637,7 +637,7 @@
   }
   h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: var(--title-dialog);
   }
   .failed {
     color: var(--color-danger);

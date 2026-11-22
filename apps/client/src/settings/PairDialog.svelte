@@ -314,7 +314,7 @@
   h2 {
     flex: 1;
     margin: 0;
-    font-size: 16px;
+    font-size: var(--title-dialog);
     overflow-wrap: anywhere;
   }
   h3.ask {

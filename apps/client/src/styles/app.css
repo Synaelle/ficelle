@@ -20,6 +20,9 @@
   /* a row under the pointer, in a list, the sidebar, a menu or the settings.
      Grey on any background, so it never reads as the selected row */
   --color-hover: color-mix(in srgb, var(--color-text) 6%, transparent);
+  /* one size per kind of title: a list or a screen, a dialog */
+  --title-screen: 20px;
+  --title-dialog: 18px;
   /* Lucide's chevron in --color-text-muted, which a data url cannot read */
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A918A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }

@@ -273,7 +273,7 @@
   }
   .failed h1 {
     margin: 0;
-    font-size: 22px;
+    font-size: var(--title-screen);
   }
   .failed p {
     margin: 0;

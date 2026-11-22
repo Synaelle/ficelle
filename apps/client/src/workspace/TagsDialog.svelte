@@ -208,7 +208,7 @@
   h2 {
     flex: 1;
     margin: 0;
-    font-size: 18px;
+    font-size: var(--title-dialog);
   }
   p {
     margin: 0;

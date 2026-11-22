@@ -124,7 +124,7 @@
   }
   h2 {
     margin: 0;
-    font-size: 22px;
+    font-size: var(--title-dialog);
     line-height: 1.25;
   }
   p {

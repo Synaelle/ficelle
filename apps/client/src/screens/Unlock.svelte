@@ -361,7 +361,7 @@
   }
   h1 {
     margin: 0;
-    font-size: 21px;
+    font-size: var(--title-screen);
     text-align: center;
   }
   .subtitle {

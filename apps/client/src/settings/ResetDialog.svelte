@@ -113,7 +113,7 @@
   h2 {
     flex: 1;
     margin: 0;
-    font-size: 16px;
+    font-size: var(--title-dialog);
   }
   #reset-body {
     display: grid;

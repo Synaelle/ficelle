@@ -304,7 +304,7 @@
     margin: 0;
   }
   h2 {
-    font-size: 18px;
+    font-size: var(--title-dialog);
   }
   textarea {
     resize: vertical;

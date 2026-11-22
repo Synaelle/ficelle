@@ -574,7 +574,7 @@
     flex: 1;
     min-width: 0;
     margin: 0;
-    font-size: 20px;
+    font-size: var(--title-screen);
     font-weight: 650;
     overflow: hidden;
     text-overflow: ellipsis;
