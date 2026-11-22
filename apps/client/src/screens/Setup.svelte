@@ -415,5 +415,15 @@
       background: none;
       border: 0;
     }
+    /* the keyboard shrinks the screen: Back and Next stay above it */
+    .actions,
+    .big {
+      position: sticky;
+      bottom: 0;
+    }
+    .actions {
+      padding-block: var(--space-2);
+      background: var(--color-bg);
+    }
   }
 </style>
