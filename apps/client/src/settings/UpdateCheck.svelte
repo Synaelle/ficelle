@@ -41,12 +41,12 @@
   <Group title={t('appUpdate.title')} note={packaged ? t('appUpdate.helpPackage') : undefined}>
     <!-- a package's updates are its package manager's: nothing to switch -->
     {#if !packaged}
-      <!-- off, an urgent update is only a card like the others -->
+      <!-- off, nothing is looked for until the check below is pressed -->
       <Row
-        label={t('appUpdate.securityChecks')}
-        help={prefs.securityChecks ? undefined : t('appUpdate.securityChecksOff')}
-        on={prefs.securityChecks}
-        onclick={() => (prefs.securityChecks = !prefs.securityChecks)}
+        label={t('appUpdate.checks')}
+        help={prefs.updateChecks ? undefined : t('appUpdate.checksOff')}
+        on={prefs.updateChecks}
+        onclick={() => (prefs.updateChecks = !prefs.updateChecks)}
       />
     {/if}
     {#if notificationsHere}

@@ -175,8 +175,8 @@ class AppUpdates {
   /** Reads the release list, downloading nothing. */
   async look() {
     this.lookedAt = Date.now()
-    // a pretend release looks for nothing on its own
-    if (pretendRelease) return
+    // a pretend release looks for nothing on its own, nor one told not to
+    if (pretendRelease || !prefs.updateChecks) return
     try {
       this.found(await backend.appUpdateLatest(channel()))
     } catch {
@@ -190,7 +190,7 @@ class AppUpdates {
     this.ready = update
     this.upToDate = !update
     if (!update) return
-    if (update.critical && prefs.securityChecks && !refused(update.version)) this.critical = update
+    if (update.critical && !refused(update.version)) this.critical = update
     void this.notify(update)
   }
 

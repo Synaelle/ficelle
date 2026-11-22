@@ -41,8 +41,8 @@ update = "The update could not be checked or installed."
 testBuild = "Test build pretending to be a beta, so nothing is checked, downloaded or installed."
 
 [appUpdate]
-securityChecks = "Look for urgent updates"
-securityChecksOff = "Updates, security fixes too, then have to be downloaded by hand."
+checks = "Automatic update checks"
+checksOff = "Updates, security fixes too, then have to be downloaded by hand."
 notify = "Notify me when an update is out"
 notifyDenied = "Notifications are turned off for this app. You can allow them in the system's settings."
 criticalTitle = "Critical security update"

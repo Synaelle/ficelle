@@ -54,8 +54,8 @@ export interface Prefs {
   lastNote: string | null
   /** The list it was opened from: a tag, all notes, those with no tag. */
   lastScope: Scope | null
-  /** A critical security fix is asked in the middle of the screen. */
-  securityChecks: boolean
+  /** Looks for new versions on its own. */
+  updateChecks: boolean
   /** A system notification when an update is out. */
   updateNotifications: boolean
   /** Android: an update downloads on mobile data without asking first. */
@@ -112,7 +112,7 @@ export const DEFAULT_PREFS: Prefs = {
   hiddenTools: [],
   lastNote: null,
   lastScope: null,
-  securityChecks: true,
+  updateChecks: true,
   updateNotifications: false,
   updatesOnMobileData: false,
   channel: 'stable',
