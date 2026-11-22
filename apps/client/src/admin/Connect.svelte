@@ -388,11 +388,11 @@
       </p>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
       <div class="row">
-        <button class="btn" type="button" disabled={busy} onclick={cancel}
-          >{t('admin.connect.cancel')}</button
-        >
         <button class="btn primary" type="button" disabled={busy} onclick={connect}
           >{t('admin.connect.connect')}</button
+        >
+        <button class="btn" type="button" disabled={busy} onclick={cancel}
+          >{t('admin.connect.cancel')}</button
         >
       </div>
     </div>

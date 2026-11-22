@@ -325,10 +325,10 @@
                 </label>
               {/if}
               <div class="actions">
+                <button class="btn primary" type="submit">{t('admin.account.turnOn')}</button>
                 <button class="btn" type="button" onclick={() => (setup = null)}
                   >{t('common.cancel')}</button
                 >
-                <button class="btn primary" type="submit">{t('admin.account.turnOn')}</button>
               </div>
             </div>
           </form>
