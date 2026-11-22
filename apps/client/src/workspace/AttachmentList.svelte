@@ -77,14 +77,12 @@
     <span class="muted">{t('files.allCount', { count: all.length, size: bytes(total) })}</span>
   </header>
   <div class="tools">
-    <input
-      class="field"
-      type="search"
-      placeholder={t('files.filter')}
-      aria-label={t('files.filter')}
-      bind:value={filter}
-    />
-    <select class="field" bind:value={sort} aria-label={t('files.sort')}>
+    <label class="search">
+      <Icon name="search" size={16} />
+      <span class="visually-hidden">{t('files.filter')}</span>
+      <input type="search" placeholder={t('files.filter')} bind:value={filter} />
+    </label>
+    <select class="sort" bind:value={sort} aria-label={t('files.sort')}>
       <option value="newest">{t('files.sort_newest')}</option>
       <option value="largest">{t('files.sort_largest')}</option>
       <option value="name">{t('files.sort_name')}</option>
@@ -146,19 +144,53 @@
     margin: 0;
     font-size: 18px;
   }
+  /* the same as the notes' search and sort */
   .tools {
     display: flex;
     gap: var(--space-2);
-    padding: 0 var(--space-4) var(--space-2);
+    padding: 0 var(--space-3) var(--space-2);
   }
-  .tools input {
+  .search {
     flex: 1;
     min-width: 0;
-    width: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: 32px;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
   }
-  .tools select {
+  .search:focus-within {
+    border-color: var(--color-accent);
+  }
+  .search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--color-text);
+  }
+  .sort {
     flex: none;
-    width: auto;
+    max-width: 120px;
+    padding: 0 var(--space-1);
+    font-size: 12px;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+  }
+  @media (pointer: coarse) {
+    .search {
+      height: 44px;
+    }
+    .sort {
+      font-size: 14px;
+    }
   }
   ul {
     flex: 1;
