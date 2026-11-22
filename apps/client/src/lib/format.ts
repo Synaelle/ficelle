@@ -39,10 +39,17 @@ export function relative(ms: number | null | undefined, now = Date.now()): strin
   return rtf.format(value, 'year')
 }
 
-/** "12 MB", "1.5 GB", in the page's language. */
+/** "33 bytes", "12 MB", "1.5 GB", in the page's language. */
 export function bytes(n: number): string {
+  // below a kilobyte, as many bytes: a fraction of one rounded to "0 kB",
+  // and the short unit reads "33 byte"
+  if (n < 1024)
+    return new Intl.NumberFormat(currentLocale(), {
+      style: 'unit',
+      unit: 'byte',
+      unitDisplay: 'long',
+    }).format(n)
   const units = ['byte', 'kilobyte', 'megabyte', 'gigabyte', 'terabyte'] as const
-  // below a kilobyte reads as a fraction of one: "0 kB" rather than "0 byte"
   let value = n / 1024
   let unit = 1
   while (value >= 1024 && unit < units.length - 1) {
