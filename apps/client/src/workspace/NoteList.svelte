@@ -95,8 +95,9 @@
     const now = new Date()
     const locale = currentLocale()
     if (date.toDateString() === now.toDateString())
+      // 13:42 and 09:05, but 1:42 PM: a 12-hour clock writes no leading zero
       return date.toLocaleTimeString(locale, {
-        hour: '2-digit',
+        hour: hour12() ? 'numeric' : '2-digit',
         minute: '2-digit',
         hour12: hour12(),
       })
