@@ -188,6 +188,15 @@
     background: var(--color-surface);
     border-bottom: 1px solid var(--color-border);
   }
+  /* stuck, the bar can sit a pixel or two under the pane's top edge
+     (WebKit rounds it): the text scrolling past is covered up to the edge */
+  .toolbar::before {
+    content: '';
+    position: absolute;
+    inset: auto 0 100%;
+    height: var(--space-2);
+    background: inherit;
+  }
   .toolbar :global(.icon-btn) {
     width: 30px;
     height: 30px;
@@ -206,6 +215,9 @@
       padding: var(--space-1) var(--space-2) calc(var(--space-1) + env(safe-area-inset-bottom));
       border-top: 1px solid var(--color-border);
       border-bottom: 0;
+    }
+    .toolbar::before {
+      content: none;
     }
     .toolbar :global(.icon-btn) {
       flex: 1 1 44px;
