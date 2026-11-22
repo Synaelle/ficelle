@@ -660,8 +660,10 @@
     color: var(--color-text-muted);
     font-size: 13px;
   }
+  /* wide enough for the longest default (Ctrl+Backspace), so the keys
+     share a left edge */
   .key {
-    min-width: 110px;
+    min-width: 130px;
     justify-content: center;
     font-family: var(--font-ui);
   }
