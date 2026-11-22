@@ -255,20 +255,20 @@
     <div class="actions">
       <span class="grow"></span>
       {#if mode === 'make' && !made}
-        <button class="btn" disabled={busy} onclick={close}>{t('common.cancel')}</button>
         <button class="btn primary" disabled={busy || !passwordOk} onclick={make}
           ><Icon name="export" size={16} />{busy ? t('backup.making') : t('backup.save')}</button
         >
+        <button class="btn" disabled={busy} onclick={close}>{t('common.cancel')}</button>
       {:else if mode === 'restore' && !restored && inspected && toRestore}
-        <button class="btn" disabled={busy} onclick={chooseBackup}>{t('backup.another')}</button>
         <button class="btn primary" disabled={busy} onclick={restore}
           >{t('backup.restore', { count: toRestore })}</button
         >
+        <button class="btn" disabled={busy} onclick={chooseBackup}>{t('backup.another')}</button>
       {:else if mode === 'restore' && !restored && !inspected && needsPassword}
-        <button class="btn" disabled={busy} onclick={close}>{t('common.cancel')}</button>
         <button class="btn primary" disabled={busy || !password} onclick={inspect}
           >{t('backup.open')}</button
         >
+        <button class="btn" disabled={busy} onclick={close}>{t('common.cancel')}</button>
       {:else}
         <button class="btn" disabled={busy} onclick={close}>{t('common.close')}</button>
       {/if}

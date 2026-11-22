@@ -330,11 +330,6 @@
     <div class="actions">
       <span class="grow"></span>
       {#if stage === 'preview' && prepared}
-        <button
-          class="btn"
-          onclick={() => ((stage = 'choose'), (prepared = null), void finishSource())}
-          >{t('common.back')}</button
-        >
         {#if prepared.counts.notes}
           <button class="btn primary" onclick={start}
             >{t('import.start', { count: prepared.counts.notes })}</button
@@ -342,6 +337,11 @@
         {:else}
           <button class="btn primary" onclick={close}>{t('common.close')}</button>
         {/if}
+        <button
+          class="btn"
+          onclick={() => ((stage = 'choose'), (prepared = null), void finishSource())}
+          >{t('common.back')}</button
+        >
       {:else if stage === 'writing'}
         <button class="btn" onclick={() => stop?.abort()}>{t('import.stop')}</button>
       {:else if !busy}

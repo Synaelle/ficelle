@@ -155,8 +155,8 @@
       <p class="muted">{t('local.permission.promise')}</p>
       {#if step === 'denied'}<p class="error" role="alert">{t('local.permission.denied')}</p>{/if}
       <div class="actions">
-        <button class="btn" onclick={close}>{t('local.permission.notNow')}</button>
         <button class="btn primary" onclick={allow}>{t('local.permission.continue')}</button>
+        <button class="btn" onclick={close}>{t('local.permission.notNow')}</button>
       </div>
     {:else if step === 'checking'}
       <p class="muted">{t('local.pairing.starting')}</p>
@@ -259,14 +259,14 @@
         </div>
         {#if error}<p class="error" role="alert">{error}</p>{/if}
         <div class="actions">
-          <button class="btn" type="button" disabled={busy} onclick={close}
-            >{t('common.cancel')}</button
-          >
           <button
             class="btn primary"
             type="submit"
             disabled={busy || digits.length !== 6 || (byAddress && !address.trim())}
             >{busy ? t('local.code.pairing') : t('local.code.pair')}</button
+          >
+          <button class="btn" type="button" disabled={busy} onclick={close}
+            >{t('common.cancel')}</button
           >
         </div>
       </form>

@@ -319,14 +319,14 @@
 
       {#if busy}<p role="status">{t('feedback.sending')}</p>{/if}
       <div class="settings-buttons">
-        <button class="btn" disabled={busy} onclick={togglePreview} data-feedback-preview-button
-          >{previewing ? t('feedback.hidePreview') : t('feedback.preview')}</button
-        >
         <button
           class="btn primary"
           disabled={busy || !ready}
           onclick={() => void send()}
           data-feedback-send>{t('feedback.send')}</button
+        >
+        <button class="btn" disabled={busy} onclick={togglePreview} data-feedback-preview-button
+          >{previewing ? t('feedback.hidePreview') : t('feedback.preview')}</button
         >
       </div>
     </div>

@@ -76,10 +76,10 @@
     </div>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="actions">
-      <button class="btn" disabled={busy} onclick={close}>{t('common.cancel')}</button>
       <button class="btn danger" disabled={left > 0 || busy} onclick={reset}>
         {left > 0 ? t('reset.wait', { count: left }) : t('reset.confirm')}
       </button>
+      <button class="btn" disabled={busy} onclick={close}>{t('common.cancel')}</button>
     </div>
   </div>
 </div>

@@ -343,18 +343,18 @@
             </label>
           {/if}
           <div class="settings-actions">
-            <button class="btn" type="button" onclick={() => openSetup(false)}
-              >{t('common.cancel')}</button
+            <button
+              class="btn primary"
+              disabled={busy || !folder.trim() || (!openDevice && !password)}
+              onclick={turnOn}>{t('backups.turnOn')}</button
             >
             {#if unreadable && MOBILE}
               <button class="btn" type="button" disabled={busy} onclick={allow}
                 >{t('backups.allowFolder')}</button
               >
             {/if}
-            <button
-              class="btn primary"
-              disabled={busy || !folder.trim() || (!openDevice && !password)}
-              onclick={turnOn}>{t('backups.turnOn')}</button
+            <button class="btn" type="button" onclick={() => openSetup(false)}
+              >{t('common.cancel')}</button
             >
           </div>
         </div>
@@ -392,13 +392,13 @@
                   />
                 </label>
                 <div class="settings-actions">
-                  <button class="btn" type="button" onclick={() => (askingFor = null)}
-                    >{t('common.cancel')}</button
-                  >
                   <button
                     class="btn primary"
                     disabled={busy || !filePassword}
                     onclick={restoreWithPassword}>{t('backups.restore')}</button
+                  >
+                  <button class="btn" type="button" onclick={() => (askingFor = null)}
+                    >{t('common.cancel')}</button
                   >
                 </div>
               </div>

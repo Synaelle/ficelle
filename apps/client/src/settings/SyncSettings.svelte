@@ -494,10 +494,10 @@
   <Group>
     <Row label={t('local.device.forget')}>
       {#if forgetting}
-        <button class="btn" onclick={() => (forgetting = false)}>{t('common.cancel')}</button>
         <button class="btn danger" onclick={() => viewing && forget(viewing)}
           >{t('local.device.forgetConfirm', { name: viewing.name })}</button
         >
+        <button class="btn" onclick={() => (forgetting = false)}>{t('common.cancel')}</button>
       {:else}
         <button class="btn danger" onclick={() => (forgetting = true)}
           >{t('local.device.forgetButton')}</button
@@ -576,11 +576,11 @@
               autofocus
               bind:value={renaming}
             />
-            <button class="btn" type="button" onclick={() => (renaming = null)}
-              >{t('common.cancel')}</button
-            >
             <button class="btn primary" type="submit" disabled={!renaming.trim()}
               >{t('local.save')}</button
+            >
+            <button class="btn" type="button" onclick={() => (renaming = null)}
+              >{t('common.cancel')}</button
             >
           </form>
         {:else}
@@ -711,8 +711,8 @@
         <!-- the two buttons beside the label leave it no room on a phone -->
         <p class="settings-help">{t('sync.disconnectHelp')}</p>
         <div class="settings-buttons">
-          <button class="btn" onclick={() => (confirming = false)}>{t('common.cancel')}</button>
           <button class="btn danger" onclick={disconnect}>{t('sync.disconnectConfirm')}</button>
+          <button class="btn" onclick={() => (confirming = false)}>{t('common.cancel')}</button>
         </div>
       {:else}
         <Group>
@@ -757,10 +757,10 @@
           </div>
         </Group>
         <div class="settings-buttons">
-          <button class="btn" type="button" onclick={reset}>{t('common.cancel')}</button>
           <button class="btn primary" type="submit" disabled={busy || !code.trim()}
             >{t('sync.signIn')}</button
           >
+          <button class="btn" type="button" onclick={reset}>{t('common.cancel')}</button>
         </div>
       </form>
     {:else if checked?.compatible || status.state === 'signedOut'}
@@ -862,15 +862,6 @@
           </label>
         {/if}
         <div class="settings-buttons">
-          {#if browserLink || linking}
-            <button class="btn" type="button" onclick={stopBrowser}>{t('common.cancel')}</button>
-          {:else if status.state === 'signedOut'}
-            <button class="btn" type="button" onclick={() => (confirming = true)}
-              >{t('sync.disconnect')}</button
-            >
-          {:else}
-            <button class="btn" type="button" onclick={reset}>{t('common.back')}</button>
-          {/if}
           {#if byBrowser && linking && !linkedHere && !ANDROID}
             <button class="btn" type="button" onclick={copyLink}
               ><Icon name={linkCopied ? 'check' : 'copy'} size={16} />{linkCopied
@@ -904,6 +895,15 @@
               >{busy ? t('sync.signingIn') : t('sync.signIn')}</button
             >
           {/if}
+          {#if browserLink || linking}
+            <button class="btn" type="button" onclick={stopBrowser}>{t('common.cancel')}</button>
+          {:else if status.state === 'signedOut'}
+            <button class="btn" type="button" onclick={() => (confirming = true)}
+              >{t('sync.disconnect')}</button
+            >
+          {:else}
+            <button class="btn" type="button" onclick={reset}>{t('common.back')}</button>
+          {/if}
         </div>
         {#if byBrowser && !linking && !qrOffer}
           <button
@@ -916,11 +916,11 @@
         {#if confirming}
           <p class="settings-help">{t('sync.disconnectHelp')}</p>
           <div class="settings-buttons">
-            <button class="btn" type="button" onclick={() => (confirming = false)}
-              >{t('common.cancel')}</button
-            >
             <button class="btn danger" type="button" onclick={disconnect}
               >{t('sync.disconnectConfirm')}</button
+            >
+            <button class="btn" type="button" onclick={() => (confirming = false)}
+              >{t('common.cancel')}</button
             >
           </div>
         {/if}
