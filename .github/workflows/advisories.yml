@@ -1,0 +1,23 @@
+name: advisories
+
+# Known security advisories against the dependencies (deny.toml), once a
+# month and by hand. Kept out of the push checks: an advisory published
+# upstream would otherwise fail every push and stop the nightly. A failed run
+# here is the signal to update or ignore the crate it names.
+
+on:
+  schedule:
+    - cron: '0 5 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  advisories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check advisories
