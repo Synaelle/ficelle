@@ -333,7 +333,7 @@
               {/if}
             </Group>
           {:else if section === 'language'}
-            <Group>
+            <Group note={currentLocale() !== 'en' ? t('settings.translatedWith') : undefined}>
               <Row label={t('settings.language')}>
                 <select
                   class="field compact same-width"
@@ -352,9 +352,6 @@
                   {/each}
                 </select>
               </Row>
-              {#if currentLocale() !== 'en'}
-                <p class="settings-help">{t('settings.translatedWith')}</p>
-              {/if}
               <Row label={t('settings.clock')}>
                 <select
                   class="field compact same-width"

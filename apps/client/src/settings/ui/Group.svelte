@@ -31,7 +31,7 @@
     max-width: 640px;
   }
   h3 {
-    margin: 0 var(--space-1);
+    margin: 0;
     font-size: 13px;
     font-weight: 600;
   }
@@ -41,10 +41,11 @@
     border-radius: var(--radius-window);
     background: var(--color-surface-2);
   }
+  /* flush with the panel, the same size as a page's help lines */
   .note {
-    margin: 0 var(--space-1);
+    margin: 0;
     color: var(--color-text-muted);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.45;
     overflow-wrap: anywhere;
   }
