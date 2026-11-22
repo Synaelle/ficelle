@@ -10,12 +10,18 @@
   import { bytes } from '../lib/format'
   import { currentLocale, t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
+  import { prefs } from '../lib/prefs.svelte'
   import { FILES_CHANGED } from '../lib/sync.svelte'
   import { isBackendError, workspace } from '../lib/workspace.svelte'
+
+  let { narrow }: { narrow: boolean } = $props()
 
   let all: NoteAttachment[] = $state([])
   let filter = $state('')
   let sort = $state<'newest' | 'largest' | 'name'>('newest')
+  /** The file whose note was opened from here: the others of that note stay
+   * unmarked. */
+  let chosen: string | null = $state(null)
 
   async function load() {
     try {
@@ -46,6 +52,11 @@
   const day = (ms: number) =>
     new Intl.DateTimeFormat(currentLocale(), { dateStyle: 'medium' }).format(ms)
 
+  function show(file: NoteAttachment) {
+    chosen = file.id
+    void workspace.open(file.noteId)
+  }
+
   async function open(file: NoteAttachment) {
     try {
       await openAttachment(file)
@@ -55,7 +66,12 @@
   }
 </script>
 
-<section class="list" aria-label={t('files.allTitle')}>
+<section
+  class="list"
+  class:narrow
+  aria-label={t('files.allTitle')}
+  style:width={narrow ? undefined : `${prefs.listWidth}px`}
+>
   <header>
     <h1>{t('files.allTitle')}</h1>
     <span class="muted">{t('files.allCount', { count: all.length, size: bytes(total) })}</span>
@@ -80,8 +96,8 @@
         <li>
           <button
             class="row"
-            class:active={workspace.current?.id === file.noteId}
-            onclick={() => workspace.open(file.noteId)}
+            class:active={chosen === file.id && workspace.current?.id === file.noteId}
+            onclick={() => show(file)}
           >
             <span class="top">
               <Icon name={file.mimeType.startsWith('image/') ? 'image' : 'attachment'} size={14} />
@@ -108,11 +124,18 @@
 
 <style>
   .list {
+    flex: none;
     display: flex;
     flex-direction: column;
     min-width: 0;
+    min-height: 0;
     height: 100%;
+    background: var(--color-bg);
     border-right: 1px solid var(--color-border);
+  }
+  .list.narrow {
+    width: 100%;
+    border-right: 0;
   }
   header {
     display: grid;

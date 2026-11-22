@@ -220,7 +220,7 @@
   {/if}
   {#if !narrow || !workspace.current}
     {#if workspace.files}
-      <AttachmentList />
+      <AttachmentList {narrow} />
     {:else}
       <NoteList {narrow} {searchFocus} onsettings={openSettings} />
     {/if}
