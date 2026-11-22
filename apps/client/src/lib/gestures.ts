@@ -46,8 +46,13 @@ export const swipeRow: Action<HTMLElement, SwipeOptions> = (node, initial) => {
   const place = (x: number, animate: boolean) => {
     const el = content()
     if (!el) return
-    el.style.transition = animate ? 'transform var(--dur-base) var(--ease-out)' : 'none'
-    el.style.transform = x ? `translateX(${x}px)` : ''
+    el.style.transition = animate
+      ? 'transform var(--dur-base) var(--ease-out), width var(--dur-base) var(--ease-out)'
+      : 'none'
+    // a swipe left narrows the row rather than sliding it, so its title stays
+    // in view beside the actions: a short title slid out whole
+    el.style.transform = x > 0 ? `translateX(${x}px)` : ''
+    el.style.width = x < 0 ? `calc(100% + ${x}px)` : ''
     // the layers behind only show while the row moves or stays open, at rest
     // their colour would tint the anti aliased rounded corners
     clearTimeout(hide)
