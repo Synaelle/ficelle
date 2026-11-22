@@ -314,8 +314,15 @@
         {/if}
       {:else}
         {#if !narrow}
-          <button class="icon-btn" aria-label={t('list.import')} onclick={() => fileInput?.click()}>
-            <Icon name="import" />
+          <!-- a Markdown file, not the tray of import and export: the other
+               importers are in Settings -->
+          <button
+            class="icon-btn"
+            aria-label={t('list.import')}
+            title={t('list.import')}
+            onclick={() => fileInput?.click()}
+          >
+            <Icon name="markdown" />
           </button>
           <input
             bind:this={fileInput}
