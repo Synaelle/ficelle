@@ -646,7 +646,7 @@
           {/if}
         </Group>
       {:else if page === 'sync'}
-        <SyncSettings />
+        <SyncSettings phone />
       {:else if page === 'notes'}
         <DataSettings {settings} {onimport} {onrestorefile} {onreset} />
       {:else if page === 'feedback'}

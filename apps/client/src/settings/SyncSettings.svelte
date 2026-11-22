@@ -33,6 +33,8 @@
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'
 
+  let { phone = false }: { phone?: boolean } = $props()
+
   /** Error codes with their own text, the others read "something went wrong". */
   const KNOWN = [
     'offline',
@@ -63,7 +65,7 @@
   const linked = $derived(status.state !== 'off')
   /** The server part, folded at first unless this device uses one, then as
    * the person chooses. */
-  /** The tab picked, else the way this device syncs, else this network. */
+  /** The way picked, else the way this device syncs, else this network. */
   let picked: 'local' | 'server' | null = $state(null)
 
   let address = $state('')
@@ -385,17 +387,42 @@
   </div>
 {/snippet}
 
-<!-- a device syncs on its network or with a server, never both: each has its
-     tab, the one not in use shows greyed with what to do to use it -->
+<!-- a device syncs on its network or with a server, never both: each is a
+     choice, the one not in use shows greyed with what to do to use it. The
+     phone lists them as rows with a check, like its other choices -->
 {#if !viewing}
-  <div class="tabs" role="tablist" aria-label={t('sync.tabs')}>
-    {#each [['local', t('sync.tabLocal'), devicesPaired && !linked], ['server', t('sync.tabServer'), linked]] as const as [id, name, inUse] (id)}
-      <button class="tab" role="tab" aria-selected={tab === id} onclick={() => (picked = id)}
-        >{name}{#if inUse}<span class="in-use"><span class="dot"></span>{t('sync.inUse')}</span
-          >{/if}</button
-      >
-    {/each}
-  </div>
+  {@const ways = [
+    ['local', t('sync.tabLocal'), devicesPaired && !linked],
+    ['server', t('sync.tabServer'), linked],
+  ] as const}
+  {#if phone}
+    <div role="radiogroup" aria-label={t('sync.tabs')}>
+      <Group>
+        {#each ways as [id, name, inUse] (id)}
+          <Row
+            label={name}
+            help={inUse ? t('sync.inUse') : undefined}
+            checked={tab === id}
+            onclick={() => (picked = id)}
+          />
+        {/each}
+      </Group>
+    </div>
+  {:else}
+    <div class="segmented" role="radiogroup" aria-label={t('sync.tabs')}>
+      {#each ways as [id, name, inUse] (id)}
+        <label class:checked={tab === id}>
+          <input
+            type="radio"
+            name="syncWay"
+            checked={tab === id}
+            onchange={() => (picked = id)}
+          />{name}
+          {#if inUse}<span class="in-use"><span class="dot"></span>{t('sync.inUse')}</span>{/if}
+        </label>
+      {/each}
+    </div>
+  {/if}
 {/if}
 
 {#if viewing}
@@ -486,7 +513,7 @@
     </p>{/if}
   <div
     class="tab-body"
-    role="tabpanel"
+    role="group"
     aria-label={t('sync.tabLocal')}
     class:greyed={linked}
     inert={linked}
@@ -586,7 +613,7 @@
     </p>{/if}
   <div
     class="tab-body"
-    role="tabpanel"
+    role="group"
     aria-label={t('sync.tabServer')}
     class:greyed={devicesPaired && !linked}
     inert={devicesPaired && !linked}
@@ -959,44 +986,12 @@
     text-decoration: underline;
     cursor: pointer;
   }
-  .tabs {
-    display: flex;
-    gap: var(--space-1);
-    width: fit-content;
-    max-width: 100%;
-    padding: var(--space-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-window);
-    background: var(--color-bg);
-  }
-  .tab {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
-    min-height: 36px;
-    padding: 0 var(--space-4);
-    border: 0;
-    border-radius: var(--radius-control);
-    background: none;
-    font-weight: 500;
-    color: var(--color-text-muted);
-  }
-  .tab[aria-selected='true'] {
-    background: var(--color-surface-2);
-    color: var(--color-text);
-  }
-  @media (hover: hover) {
-    .tab:hover {
-      color: var(--color-text);
-    }
-  }
   .in-use {
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    margin-left: var(--space-2);
     font-size: 12px;
-    font-weight: 400;
     color: var(--color-success);
   }
   .dot {
@@ -1004,22 +999,6 @@
     height: 6px;
     border-radius: 50%;
     background: currentColor;
-  }
-  /* one tab under the other on a phone would read as a list: two columns,
-     the in-use mark under the name */
-  @media (pointer: coarse), (max-width: 520px) {
-    .tabs {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      width: auto;
-    }
-    .tab {
-      flex-direction: column;
-      gap: 2px;
-      min-height: 48px;
-      padding: var(--space-1) var(--space-2);
-      text-align: center;
-    }
   }
   .tab-body {
     display: grid;
