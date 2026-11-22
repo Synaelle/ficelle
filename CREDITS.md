@@ -35,7 +35,7 @@ Ficelle stands on the work of the projects below, with thanks. Each is listed wi
 - [rusqlite](https://github.com/rusqlite/rusqlite), the database from Rust. MIT.
 - [SQLCipher](https://www.zetetic.net/sqlcipher/), the encrypted database. BSD-style.
 - [SQLite](https://sqlite.org/), the database engine. Public domain.
-- [ureq](https://github.com/algesten/ureq), talking to S3, WebDAV and updates. MIT or Apache-2.0.
+- [ureq](https://github.com/algesten/ureq), talking to the sync server, fetching fonts and checking for updates. MIT or Apache-2.0.
 - [tungstenite](https://github.com/snapview/tungstenite-rs), live sync connections. MIT or Apache-2.0.
 - [flate2](https://github.com/rust-lang/flate2-rs), compression. MIT or Apache-2.0.
 - [tar](https://github.com/composefs/tar-rs), backup archives. MIT or Apache-2.0.

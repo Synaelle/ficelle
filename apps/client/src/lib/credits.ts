@@ -129,7 +129,7 @@ export const CREDIT_GROUPS: CreditGroup[] = [
       {
         name: 'ureq',
         url: 'https://github.com/algesten/ureq',
-        use: 'talking to S3, WebDAV and updates',
+        use: 'talking to the sync server, fetching fonts and checking for updates',
         license: DUAL_MIT,
       },
       {

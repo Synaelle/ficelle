@@ -6,7 +6,7 @@ Turn on Back up automatically in Settings, Data and backups, and choose a folder
 
 Backups of encrypted notes need the notes password they were made with. Backups of unencrypted notes have no password.
 
-Restore brings back what is missing and changes nothing still there. Backups from earlier versions are under Older backups.
+Restore brings back what is missing and changes nothing still there.
 
 ## On a server
 
