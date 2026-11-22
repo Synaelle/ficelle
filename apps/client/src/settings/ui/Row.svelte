@@ -70,7 +70,8 @@
     align-items: center;
     gap: var(--space-1) var(--space-3);
     width: 100%;
-    min-height: 44px;
+    /* one height for a switch, a choice, a menu or a button beside the name */
+    min-height: 48px;
     padding: var(--space-2) var(--space-3);
     border: 0;
     background: none;
