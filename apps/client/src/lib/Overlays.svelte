@@ -73,6 +73,11 @@
       // opened by a finger, the first row would look already pressed: the
       // sheet holds the focus itself, keys still reach its rows with Tab
       void tick().then(() => {
+        // the formatting bar's More, while typing: taking the focus from the
+        // text would close the keyboard, and the page grows back only once
+        // it is down, so the sheet sat where its top had been for a second
+        // or more. It stays up and the sheet sits on it, as the bar does
+        if (overlay.byTouch && editable(document.activeElement)) return
         if (overlay.byTouch) menuElement?.focus()
         else menuElement?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
       })
@@ -267,6 +272,8 @@
         style:padding-inline-start={item.depth
           ? `calc(var(--space-2) + ${item.depth * 12}px)`
           : null}
+        onpointerdown={(e) =>
+          e.pointerType === 'touch' && editable(document.activeElement) && e.preventDefault()}
         onclick={(e) => choose(item, i, e.currentTarget, inFlyout)}
         onpointerenter={inFlyout ? undefined : (e) => hover(e, item, i)}
       >
