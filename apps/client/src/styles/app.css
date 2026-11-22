@@ -435,7 +435,7 @@ details.settings-group:not([open]) {
 }
 .segmented label {
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control);
   cursor: pointer;
 }

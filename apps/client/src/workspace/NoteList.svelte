@@ -637,7 +637,7 @@
     gap: var(--space-2);
     height: 32px;
     padding: 0 var(--space-2);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-control);
     background: var(--color-surface);
     color: var(--color-text-muted);
