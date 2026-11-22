@@ -6,7 +6,7 @@
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
   import { modal } from '../lib/modal'
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import { biometricMethod } from '../lib/biometric'
   import { currentLocale, LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
@@ -106,6 +106,15 @@
         t(`settings.${s}Keywords`).toLowerCase().includes(filter.toLowerCase()),
     ),
   )
+  function open(next: Section) {
+    section = next
+    settings.message = ''
+  }
+  // a search shows its first match, not the page that was open before it
+  $effect(() => {
+    const first = filter.trim() ? visible[0] : undefined
+    if (first) untrack(() => section !== first && open(first))
+  })
 
   const settings = new SettingsState()
   onMount(() => void settings.refresh())
@@ -185,11 +194,15 @@
       use:modal={{ onclose: close }}
     >
       <nav>
-        <input class="field" type="search" placeholder={t('settings.search')} bind:value={filter} />
+        <input
+          class="field"
+          type="search"
+          placeholder={t('settings.search')}
+          bind:value={filter}
+          onkeydown={(e) => e.key === 'Enter' && visible[0] && open(visible[0])}
+        />
         {#each visible as s (s)}
-          <button
-            class:active={section === s}
-            onclick={() => ((section = s), (settings.message = ''))}
+          <button class:active={section === s} onclick={() => open(s)}
             ><span class="tile"><Icon name={SECTION_ICONS[s]} size={14} /></span>{t(
               `settings.${s}`,
             )}</button
