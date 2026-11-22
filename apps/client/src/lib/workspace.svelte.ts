@@ -500,7 +500,8 @@ class Workspace {
    */
   async importFiles(files: File[]) {
     const markdown = files.filter(isMarkdownFile)
-    if (markdown.length < files.length) this.error = 'notMarkdown'
+    // nothing failed, a passing message is enough
+    if (markdown.length < files.length) toasts.push(t('list.import'), t('errors.notMarkdown'))
     // nothing to import: the open note stays open, so it must stay too
     if (markdown.length === 0 || !(await this.leave())) return
     const scopeTags = this.scope.kind === 'tag' ? [this.tagName(this.scope.id)] : []

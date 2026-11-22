@@ -56,8 +56,7 @@ describe('importing', () => {
   it('a file that is not markdown leaves the open blank note as it is', async () => {
     const blank = await create()
     await workspace.importFiles([new File(['%PDF'], 'scan.pdf', { type: 'application/pdf' })])
-    expect(workspace.error).toBe('notMarkdown')
-    workspace.error = null
+    expect(toasts.list.at(-1)?.text).toMatch(/^Only Markdown files/)
     expect(workspace.current?.id).toBe(blank.id)
     expect(await ids()).toContain(blank.id)
     workspace.edit({ title: 'Boiler repair' })
