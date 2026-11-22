@@ -44,7 +44,6 @@ export interface ServerCheck {
   name: string
   version: string
   compatible: boolean
-  options: { registration: string; accountKinds: string; sso: string | null } | null
   /** The sync protocol versions the server speaks. */
   minProtocol?: number
   maxProtocol?: number

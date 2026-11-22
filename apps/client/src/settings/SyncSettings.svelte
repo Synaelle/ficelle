@@ -769,7 +769,7 @@
           <p role="alert">{t('sync.signedOutHelp')}</p>
         {/if}
         {#if checked}
-          <!-- what the check found: it answers, its version, who may sign up -->
+          <!-- what the check found: it answers, and its version -->
           <Group
             title={t('sync.signInTo', { server: checked.address ?? status.server ?? '' })}
             note={versionNote(checked)}
@@ -777,17 +777,6 @@
             <Row label={t('sync.serverState')}>
               <span class="value">{t('sync.serverUp')}, {checked.version}</span>
             </Row>
-            {#if checked.options}
-              <Row label={t('sync.signUps')}>
-                <span class="value"
-                  >{checked.options.registration === 'open'
-                    ? t('sync.signUpsOpen')
-                    : checked.options.registration === 'invite'
-                      ? t('sync.signUpsInvite')
-                      : t('sync.signUpsClosed')}</span
-                >
-              </Row>
-            {/if}
           </Group>
         {:else}
           <h3 class="sign-in">{t('sync.signInTo', { server: status.server ?? '' })}</h3>

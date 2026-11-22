@@ -7,7 +7,6 @@ use std::sync::Mutex;
 
 use app_core::store::NewLink;
 use app_protocol::ServerInfo;
-use app_protocol::account::AuthOptions;
 use app_protocol::e2ee::AccountKind;
 use app_protocol::security::SecondFactor;
 use serde::Serialize;
@@ -32,7 +31,6 @@ pub struct ServerCheck {
     version: String,
     /// The server speaks this app's protocol.
     compatible: bool,
-    options: Option<AuthOptions>,
     /// The protocol versions it speaks, shown in About.
     min_protocol: u32,
     max_protocol: u32,
@@ -92,17 +90,11 @@ fn check(address: &str) -> Result<ServerCheck, SignInError> {
     let info: ServerInfo = api.info()?;
     let compatible =
         (info.min_protocol..=info.max_protocol).contains(&app_protocol::PROTOCOL_VERSION);
-    let options = if compatible {
-        Some(api.get("/auth/options", None)?.parse()?)
-    } else {
-        None
-    };
     Ok(ServerCheck {
         address: api.base().to_owned(),
         name: info.name,
         version: info.version,
         compatible,
-        options,
         min_protocol: info.min_protocol,
         max_protocol: info.max_protocol,
         sign_in_page: info.sign_in_page,
@@ -256,18 +248,6 @@ pub async fn sync_email_code(pending: State<'_, PendingSignIn>) -> Result<(), Si
 #[tauri::command]
 pub async fn sync_status(state: State<'_, AppState>) -> Result<SyncStatus, SignInError> {
     Ok(state.sync.status(&state))
-}
-
-/// The note open in the ui, with its shared space: the others in the
-/// space see who is in it. Nothing for a note of one's own.
-#[tauri::command]
-pub async fn sync_viewing(
-    state: State<'_, AppState>,
-    space: Option<String>,
-    note: Option<String>,
-) -> Result<(), SignInError> {
-    state.sync.set_viewing(space.zip(note));
-    Ok(())
 }
 
 #[tauri::command]
