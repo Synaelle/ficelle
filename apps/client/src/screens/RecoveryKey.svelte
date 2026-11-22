@@ -118,9 +118,9 @@
     border: 1px dashed var(--color-border-strong);
     border-radius: var(--radius-popover);
     background: var(--color-bg);
-    font-family: var(--font-ui);
+    /* copied by hand: a code font keeps 0 and 1 apart from letters */
+    font-family: var(--font-mono);
     font-size: 17px;
-    letter-spacing: 0.04em;
     text-align: center;
     overflow-wrap: anywhere;
     user-select: all;
