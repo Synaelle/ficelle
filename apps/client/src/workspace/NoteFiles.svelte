@@ -96,8 +96,11 @@
   <details class="files" data-note-files>
     <summary>
       <Icon name="attachment" size={14} />
-      {t('files.inNote', { count: files.length })}
-      <span class="muted">· {bytes(total)}</span>
+      <!-- in one piece: as two items, the gap would push the comma off the count -->
+      <span
+        >{t('files.inNote', { count: files.length })}<span class="muted">, {bytes(total)}</span
+        ></span
+      >
     </summary>
     <ul>
       {#each files as file (file.id)}
@@ -112,7 +115,7 @@
                 mentioned(file) ? '' : t('files.notMentioned'),
               ]
                 .filter(Boolean)
-                .join(' · ')}
+                .join(', ')}
             </span>
           </span>
           <span class="actions">
