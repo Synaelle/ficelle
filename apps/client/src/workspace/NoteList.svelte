@@ -3,6 +3,7 @@
      scope picker, since there is no sidebar. -->
 <script lang="ts">
   import { untrack } from 'svelte'
+  import type { Action } from 'svelte/action'
   import { hour12 } from '../lib/clock.svelte'
   import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
@@ -98,6 +99,50 @@
   })
   /** Some note listed has tags: every row gets their line. */
   const withTags = $derived(listed.some((note) => note.tags.length > 0))
+
+  /** A note's tags as its chips name them, in the order they read. */
+  function chipsOf(tags: string[]) {
+    return tags
+      .map((tag) => ({
+        tag,
+        label: tagShort(tag, tags),
+        color: workspace.tags.find((o) => o.name === tag)?.color,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, currentLocale(), { sensitivity: 'base' }))
+  }
+
+  /** Keeps the chips that fit on the row's line and counts the others in a
+   * last chip, "+2". The first chip, when alone and too long, ends in an
+   * ellipsis instead. Its value, the tags as shown, only says when to fit
+   * again. */
+  const fitChips: Action<HTMLElement, string> = (box) => {
+    const fit = () => {
+      const chips = [...box.querySelectorAll<HTMLElement>('.chip:not(.more)')]
+      const more = box.querySelector('.more') as HTMLElement
+      for (const chip of chips) chip.hidden = false
+      more.hidden = true
+      const gap = parseFloat(getComputedStyle(box).columnGap)
+      // as wide as their whole name, the first one may be shrunk already
+      const widths = chips.map((chip) => {
+        const label = chip.lastElementChild as HTMLElement
+        return chip.offsetWidth + label.scrollWidth - label.clientWidth
+      })
+      const span = (count: number) =>
+        widths.slice(0, count).reduce((sum, width) => sum + width + gap, -gap)
+      if (chips.length < 2 || span(chips.length) <= box.clientWidth) return
+      more.hidden = false
+      let shown = chips.length - 1
+      more.textContent = '+1'
+      while (shown > 1 && span(shown) + gap + more.offsetWidth > box.clientWidth) {
+        shown -= 1
+        more.textContent = `+${chips.length - shown}`
+      }
+      for (const chip of chips.slice(shown)) chip.hidden = true
+    }
+    const resized = new ResizeObserver(fit)
+    resized.observe(box)
+    return { update: fit, destroy: () => resized.disconnect() }
+  }
 
   async function changeSort(sort: NoteSort) {
     prefs.sort = sort
@@ -496,16 +541,16 @@
               <!-- the list measures one row for all: when any note has tags,
                    every row keeps the line for them -->
               {#if withTags}
-                <span class="chips">
-                  {#each note.tags as tag (tag)}
-                    {@const color = workspace.tags.find((o) => o.name === tag)?.color}
-                    <span class="chip" title={tagLabel(tag)}
-                      >{#if color}<span class="tag-mark" data-color={color}
-                        ></span>{/if}{prefs.tagMark === 'hash'
-                        ? `#${tagShort(tag, note.tags)}`
-                        : tagShort(tag, note.tags)}</span
+                <span class="chips" use:fitChips={`${prefs.tagMark}:${note.tags.join('\n')}`}>
+                  {#each chipsOf(note.tags) as chip (chip.tag)}
+                    <span class="chip" title={tagLabel(chip.tag)}
+                      >{#if chip.color}<span class="tag-mark" data-color={chip.color}
+                        ></span>{/if}<span class="label"
+                        >{prefs.tagMark === 'hash' ? `#${chip.label}` : chip.label}</span
+                      ></span
                     >
                   {/each}
+                  <span class="chip more" hidden></span>
                 </span>
               {/if}
               <span class="date">{when(note.updatedAt)}</span>
@@ -796,8 +841,6 @@
     min-height: 19px;
     margin-top: 2px;
     overflow: hidden;
-    /* chips cut at the edge fade out, so more tags read as more */
-    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
   }
   .chip {
     display: inline-flex;
@@ -811,6 +854,18 @@
     line-height: 17px;
     color: var(--color-text-muted);
     white-space: nowrap;
+  }
+  .chip[hidden] {
+    display: none;
+  }
+  /* a tag name longer than the row, see fitChips */
+  .chip:first-child {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+  .chip .label {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .inner {
     margin: 0;
