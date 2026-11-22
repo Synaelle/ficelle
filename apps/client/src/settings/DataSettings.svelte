@@ -9,7 +9,7 @@
   import BackupDialog from './BackupDialog.svelte'
   import { onMount } from 'svelte'
   import { backend } from '../lib/backend'
-  import type { BackupFile, BackupSchedule, OldBackup } from '../lib/backend/types'
+  import type { BackupFile, BackupSchedule } from '../lib/backend/types'
   import { backupError, backups } from '../lib/backups.svelte'
   import { bytes, dateTime, relative } from '../lib/format'
   import { t } from '../lib/i18n.svelte'
@@ -53,7 +53,6 @@
   let password = $state('')
 
   let files = $state<BackupFile[] | null>(null)
-  let older = $state<OldBackup[] | null>(null)
   /** A file made with another notes password than today's: its own asked. */
   let askingFor: string | null = $state(null)
   let filePassword = $state('')
@@ -150,13 +149,6 @@
     })
   }
 
-  function listOlder() {
-    if (older) return void (older = null)
-    void act(async () => {
-      older = await backend.oldBackupsList()
-    })
-  }
-
   /** When an automatic backup was made, from its name, in local time. */
   function madeAt(name: string): number | null {
     const m = /(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})(\d{2})\.\w+$/.exec(name)
@@ -201,18 +193,6 @@
       const report = await backend.backupsRestore(name, filePassword)
       askingFor = null
       filePassword = ''
-      await workspace.load()
-      restored(report)
-    })
-  }
-
-  async function restoreOlder(backup: OldBackup) {
-    const yes = await overlay.ask(t('backups.restoreConfirm', { when: dateTime(backup.time) }), {
-      confirmLabel: t('backups.restore'),
-    })
-    if (!yes) return
-    void act(async () => {
-      const report = await backend.oldBackupsRestore(backup.id)
       await workspace.load()
       restored(report)
     })
@@ -435,32 +415,6 @@
       onclick={onrestorefile}
     />
   </Group>
-
-  {#if view?.older}
-    <!-- the snapshot backups of earlier versions: restored from, no more made -->
-    <Group>
-      <Row label={t('backups.older')} icon="history" onclick={listOlder}>
-        {@render chevron(!!older)}
-      </Row>
-      {#if older}
-        <div class="fold-rows">
-          {#if older.length === 0}
-            <p class="settings-help inside">{t('backups.none')}</p>
-          {/if}
-          {#each older as backup (backup.id)}
-            <Row
-              label={dateTime(backup.time)}
-              help={t('backups.notes', { count: backup.counts.notes ?? 0 })}
-            >
-              <button class="btn" disabled={busy} onclick={() => void restoreOlder(backup)}
-                >{t('backups.restore')}</button
-              >
-            </Row>
-          {/each}
-        </div>
-      {/if}
-    </Group>
-  {/if}
 {/if}
 {#if making}<BackupDialog mode="make" close={() => (making = false)} />{/if}
 

@@ -19,7 +19,6 @@ testing = []
 app-brand = { workspace = true }
 app-e2ee = { path = "../e2ee" }
 app-protocol = { workspace = true }
-app-repo = { workspace = true }
 argon2 = { version = "0.6.0", default-features = false, features = ["alloc"] }
 base64 = "0.23.1"
 chacha20poly1305 = "0.11.0"
@@ -53,7 +52,6 @@ js-sys = "0.3.106"
 uuid = { version = "1.28.0", features = ["v7", "serde", "js"] }
 
 [dev-dependencies]
-app-repo = { workspace = true, features = ["testing"] }
 tempfile = "3.27.0"
 
 [lints]

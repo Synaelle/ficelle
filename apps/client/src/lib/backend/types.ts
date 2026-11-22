@@ -287,8 +287,6 @@ export interface BackupsView {
   } | null
   status: BackupStatus
   running: boolean
-  /** Snapshot backups of an earlier version can be restored from. */
-  older: boolean
 }
 
 /** A backup file in the backups folder. */
@@ -297,13 +295,6 @@ export interface BackupFile {
   size: number
   /** Made by the automatic backups, else put there by hand. */
   automatic: boolean
-}
-
-/** A snapshot backup of an earlier version. */
-export interface OldBackup {
-  id: string
-  time: number
-  counts: Record<string, number>
 }
 
 /** An export the app opened, see commands/import.rs. */

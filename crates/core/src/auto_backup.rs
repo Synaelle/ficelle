@@ -3,7 +3,7 @@
 //! Automatic backups: the vault's backup file (see [`crate::backup`]) made
 //! in a folder on a schedule, the newest few kept. Their settings are kept
 //! in the vault beside the old snapshot backups' (see [`crate::repo`]),
-//! which are now only read, to restore from.
+//! which are read only to move a folder's over.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -56,14 +56,12 @@ pub fn from_snapshot_folder(conn: &rusqlite::Connection) -> crate::error::Result
         })
         .optional()?
         .flatten();
-    // settings that do not read are left as they are, the page offers to
-    // set backups up again
+    // settings that do not read (S3 and WebDAV ones among them) are left as
+    // they are, the page offers to set backups up again
     let Some(old) = old.and_then(|text| serde_json::from_str::<BackupConfig>(&text).ok()) else {
         return Ok(());
     };
-    let TargetConfig::Folder { path } = old.target else {
-        return Ok(());
-    };
+    let TargetConfig::Folder { path } = old.target;
     let files = AutoBackups {
         folder: path,
         schedule: old.schedule,
@@ -236,5 +234,7 @@ mod tests {
         );
         // made without a password: none now either
         assert_eq!(files(old(NO_PASSWORD, "folder")).unwrap().password, None);
+        // other places are left as they are
+        assert_eq!(files(old("secret words", "webdav")), None);
     }
 }

@@ -31,7 +31,6 @@ const crates = [
             'crates/core',
             'crates/core-web',
             'crates/e2ee',
-            'crates/repo',
             'crates/protocol',
             'crates/brand',
             'Cargo.lock',

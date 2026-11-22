@@ -1,26 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Backup repositories (see `app_repo`), and what an app puts in them: its
-//! notes, restored through the backup archive's path. The settings of this
-//! device's scheduled backups.
-
-pub use app_repo::{
-    CheckReport, FolderTarget, Index, Item, KdfParams, Listed, Location, Lock, Policy, PruneReport,
-    Repo, Snapshot, Target, WriteStats, Writer, keep,
-};
-#[cfg(not(target_family = "wasm"))]
-pub use app_repo::{S3Config, WebdavConfig};
+//! The settings of this device's scheduled backups, and those the snapshot
+//! backups of earlier versions left in the vault.
 
 mod settings;
-mod vault;
 
-pub use settings::{
-    BackupConfig, BackupStatus, NO_PASSWORD, Schedule, TargetConfig, folder_name, readme,
-};
-pub use vault::{
-    RunReport, SnapshotContents, TestRestore, backup_data, backup_vault, fetch_files,
-    read_snapshot, restore_vault, test_restore,
-};
-
-#[cfg(test)]
-mod tests;
+pub(crate) use settings::{BackupConfig, NO_PASSWORD, TargetConfig};
+pub use settings::{BackupStatus, Schedule, folder_name};

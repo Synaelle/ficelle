@@ -52,10 +52,6 @@ pub enum Error {
     /// The system random generator or a cipher failed.
     #[error("cryptography error")]
     Crypto,
-
-    /// A backup target refused or could not be reached.
-    #[error("{0}")]
-    Target(String),
 }
 
 impl Error {
@@ -74,22 +70,6 @@ impl Error {
             Self::Cancelled => "cancelled",
             Self::TooLarge(_) => "tooLarge",
             Self::Crypto => "crypto",
-            Self::Target(_) => "target",
-        }
-    }
-}
-
-impl From<app_repo::Error> for Error {
-    fn from(e: app_repo::Error) -> Self {
-        use app_repo::Error as R;
-        match e {
-            R::Io(e) => Self::Io(e),
-            R::WrongPassword => Self::WrongPassword,
-            R::NotFound(what) => Self::NotFound(what),
-            R::Invalid(why) => Self::Invalid(why),
-            R::Corrupt(why) => Self::Corrupt(why),
-            R::Target(why) => Self::Target(why),
-            R::Crypto => Self::Crypto,
         }
     }
 }

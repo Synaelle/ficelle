@@ -120,8 +120,7 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
   }
 
   // backups: a folder whose path holds "unreachable" fails, as an unplugged
-  // drive; one holding "old-backups" has two snapshot backups of an earlier
-  // version to restore from
+  // drive
   const backups: import('./types').BackupsView = {
     config: null,
     status: {
@@ -133,7 +132,6 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       storedBytes: 0,
     },
     running: false,
-    older: false,
   }
   const backupFiles: import('./types').BackupFile[] = []
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -141,12 +139,6 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     const d = new Date(at)
     return `ficelle-dev-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.ficelle`
   }
-  const olderBackups = (): import('./types').OldBackup[] =>
-    [3, 30].map((days) => ({
-      id: id(),
-      time: now() - days * 86_400_000,
-      counts: { notes: notes.size + days, folders: folders.size, versions: 0, files: 2 },
-    }))
   const backend: MemoryBackend = {
     native: false,
     vaultStatus: async () => ({
@@ -700,7 +692,6 @@ ${input.key}`,
         schedule: backups.config?.schedule ?? 'daily',
         keep: backups.config?.keep ?? 10,
       }
-      backups.older = folder.includes('old-backups')
       return structuredClone(backups)
     },
     backupsSettings: async (schedule, keep) => {
@@ -735,15 +726,6 @@ ${input.key}`,
     },
     backupsList: async () => structuredClone(backupFiles),
     backupsRestore: async () => ({
-      notes: 0,
-      folders: 0,
-      versions: 0,
-      files: 0,
-      skipped: notes.size,
-      filesMissing: 0,
-    }),
-    oldBackupsList: async () => (backups.older ? olderBackups() : []),
-    oldBackupsRestore: async () => ({
       notes: 0,
       folders: 0,
       versions: 0,

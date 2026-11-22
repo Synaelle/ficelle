@@ -113,7 +113,7 @@ pub fn normalize(address: &str) -> Result<String, &'static str> {
         text.truncate(rest);
     }
     let (scheme, rest) = text.split_once("://").ok_or("invalid")?;
-    let host = app_repo::host_of(rest);
+    let host = host_of(rest);
     if host.is_empty() || rest.contains(char::is_whitespace) {
         return Err("invalid");
     }
@@ -123,6 +123,19 @@ pub fn normalize(address: &str) -> Result<String, &'static str> {
         "http" => Err("insecure"),
         _ => Err("invalid"),
     }
+}
+
+/// The host of an address after its `scheme://`, lowercase: what is
+/// before the path, query or fragment, without a `user@` and the port, and
+/// without the brackets of an IPv6 address.
+fn host_of(rest: &str) -> String {
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host_port = authority.rsplit('@').next().unwrap_or_default();
+    match host_port.strip_prefix('[') {
+        Some(v6) => v6.split(']').next().unwrap_or_default(),
+        None => host_port.split(':').next().unwrap_or_default(),
+    }
+    .to_ascii_lowercase()
 }
 
 fn is_private(host: &str) -> bool {

@@ -4,15 +4,13 @@
 //! install may not read, by path, the files an earlier install made in
 //! Documents: after a reinstall or a phone reset its old backups are out of
 //! reach until the person picks their folder once in the system's picker
-//! (BackupFolder.kt). The folder's address is then the backup target's path,
+//! (BackupFolder.kt). The folder's address is then the backups' folder,
 //! and backups restore from it and go on in it.
 
 use std::collections::HashMap;
-use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Mutex, OnceLock};
 
-use app_repo::target::safe_path;
-use app_repo::{Error, Listed, Result, Target};
+use app_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 use tauri::plugin::{PluginHandle, TauriPlugin};
 use tauri::{AppHandle, Wry};
@@ -93,19 +91,19 @@ struct Entry {
     size: u64,
 }
 
-/// A repository in a picked folder, or in its own folder inside it, as
-/// [`app_repo::FolderTarget::named`] does.
+/// The backups in a picked folder, or in their own folder inside it, as
+/// on a desktop.
 pub struct DocumentTarget {
     tree: String,
-    /// The repository's folder in the picked one, "" or ending in `/`.
+    /// The backups' folder in the picked one, "" or ending in `/`.
     base: String,
-    readme: String,
     /// Addresses found, by path: a provider is asked once per file.
     found: Mutex<HashMap<String, String>>,
 }
 
 impl DocumentTarget {
-    /// The repository in the folder picked at `tree`.
+    /// The backups in the folder picked at `tree`. One holding the snapshot
+    /// backups of an earlier version (their `config`) is their folder.
     ///
     /// # Errors
     ///
@@ -116,7 +114,6 @@ impl DocumentTarget {
         let mut target = Self {
             tree: tree.to_owned(),
             base: String::new(),
-            readme: app_core::repo::readme(),
             found: Mutex::new(HashMap::new()),
         };
         if chosen != name && target.find("config")?.is_none() {
@@ -125,11 +122,11 @@ impl DocumentTarget {
         Ok(target)
     }
 
-    fn at(&self, path: &str) -> Result<String> {
-        if !safe_path(path) {
-            return Err(Error::Invalid(format!("not a repository path: {path}")));
+    fn at(&self, name: &str) -> Result<String> {
+        if name.is_empty() || name.starts_with('.') || name.contains(['/', '\\']) {
+            return Err(Error::Invalid(format!("not a backup file: {name}")));
         }
-        Ok(format!("{}{path}", self.base))
+        Ok(format!("{}{name}", self.base))
     }
 
     fn args<'a>(&'a self, path: &'a str, name: &'a str) -> DocArgs<'a> {
@@ -159,13 +156,13 @@ impl DocumentTarget {
     }
 
     /// The file to read at `path`, or the one a replacement left at
-    /// `path.old` when it stopped halfway (see [`Target::put`]).
+    /// `path.old` when it stopped halfway (see [`Self::write_with`]).
     fn readable(&self, path: &str) -> Result<std::fs::File> {
         let uri = match self.find(path)? {
             Some(uri) => uri,
             None => self
                 .find(&format!("{path}.old"))?
-                .ok_or(Error::NotFound("repository file"))?,
+                .ok_or(Error::NotFound("backup file"))?,
         };
         Self::open(&uri, false)
     }
@@ -183,20 +180,13 @@ impl DocumentTarget {
         Ok(app.fs().open(FilePath::Url(url), options)?)
     }
 
-    /// Writes a new file at `path`, whole: beside it first, then renamed.
-    fn write(&self, path: &str, bytes: &[u8]) -> Result<()> {
-        self.write_with(path, |file| -> Result<()> {
-            file.write_all(bytes)?;
-            Ok(())
-        })
-    }
-
-    /// As [`Self::write`], the content given by `fill` as it goes.
-    fn write_with<T, E: From<Error>>(
+    /// Writes a new file at `path`, beside it first, then renamed, its
+    /// content given by `fill` as it goes.
+    fn write_with<T>(
         &self,
         path: &str,
-        fill: impl FnOnce(&mut std::fs::File) -> std::result::Result<T, E>,
-    ) -> std::result::Result<T, E> {
+        fill: impl FnOnce(&mut std::fs::File) -> Result<T>,
+    ) -> Result<T> {
         let name = path.rsplit('/').next().unwrap_or(path);
         let partial = format!("{path}.partial");
         let made = call::<Found>("create", self.args(&partial, ""))?;
@@ -206,7 +196,7 @@ impl DocumentTarget {
         let given = {
             let mut out = Self::open(&uri, true)?;
             let written = fill(&mut out).and_then(|given| {
-                out.sync_all().map_err(|e| E::from(Error::Io(e)))?;
+                out.sync_all()?;
                 Ok(given)
             });
             match written {
@@ -243,11 +233,11 @@ impl DocumentTarget {
     /// # Errors
     ///
     /// The folder refused, or `fill` failed (no file is left then).
-    pub fn put_with<T, E: From<Error>>(
+    pub fn put_with<T>(
         &self,
         name: &str,
-        fill: impl FnOnce(&mut std::fs::File) -> std::result::Result<T, E>,
-    ) -> std::result::Result<T, E> {
+        fill: impl FnOnce(&mut std::fs::File) -> Result<T>,
+    ) -> Result<T> {
         self.write_with(&self.at(name)?, fill)
     }
 
@@ -260,62 +250,33 @@ impl DocumentTarget {
         self.readable(&self.at(name)?)
     }
 
-    fn delete_file(&self, path: &str) -> Result<()> {
-        self.known().remove(path);
-        call::<serde_json::Value>("delete", self.args(path, "")).map(drop)
-    }
-}
-
-impl Target for DocumentTarget {
-    fn put(&self, path: &str, bytes: &[u8]) -> Result<()> {
-        let at = self.at(path)?;
-        self.write(&at, bytes)?;
-        // the repository is made: say what the folder holds
-        if path == "config" {
-            self.write(&format!("{}README.txt", self.base), self.readme.as_bytes())?;
-        }
-        Ok(())
-    }
-
-    fn get(&self, path: &str) -> Result<Vec<u8>> {
-        let mut bytes = Vec::new();
-        self.readable(&self.at(path)?)?.read_to_end(&mut bytes)?;
-        Ok(bytes)
-    }
-
-    fn get_range(&self, path: &str, offset: u64, len: u64) -> Result<Vec<u8>> {
-        let mut file = self.readable(&self.at(path)?)?;
-        file.seek(SeekFrom::Start(offset))?;
-        let mut bytes = Vec::new();
-        file.take(len).read_to_end(&mut bytes)?;
-        if bytes.len() as u64 != len {
-            return Err(Error::Corrupt(format!(
-                "{path} is shorter than its index says"
-            )));
-        }
-        Ok(bytes)
-    }
-
-    fn list(&self, prefix: &str) -> Result<Vec<Listed>> {
-        let folder = prefix.trim_end_matches('/');
-        let from = if folder.is_empty() {
-            self.base.clone()
-        } else {
-            self.at(folder)?
-        };
-        let files = call::<Files>("list", self.args(&from, ""))?.files;
-        let mut out: Vec<Listed> = files
+    /// The files in the backups' folder and below, by their path from it,
+    /// with their sizes.
+    ///
+    /// # Errors
+    ///
+    /// The folder could not be read.
+    pub fn list(&self) -> Result<Vec<(String, u64)>> {
+        let files = call::<Files>("list", self.args(&self.base, ""))?.files;
+        let mut out: Vec<(String, u64)> = files
             .into_iter()
-            .filter_map(|f| {
-                let path = f.path.strip_prefix(&self.base)?.to_owned();
-                Some(Listed { path, size: f.size })
-            })
+            .filter_map(|f| Some((f.path.strip_prefix(&self.base)?.to_owned(), f.size)))
             .collect();
-        out.sort_by(|a, b| a.path.cmp(&b.path));
+        out.sort();
         Ok(out)
     }
 
-    fn delete(&self, path: &str) -> Result<()> {
-        self.delete_file(&self.at(path)?)
+    /// Deletes the file `name` in the backups' folder.
+    ///
+    /// # Errors
+    ///
+    /// The folder refused.
+    pub fn delete(&self, name: &str) -> Result<()> {
+        self.delete_file(&self.at(name)?)
+    }
+
+    fn delete_file(&self, path: &str) -> Result<()> {
+        self.known().remove(path);
+        call::<serde_json::Value>("delete", self.args(path, "")).map(drop)
     }
 }

@@ -1935,12 +1935,6 @@ wrongPassword = "Wrong password for this backup."
 unprotected = "Your notes have a password now. Turn backups off and on again to give it to them."
 turnOn = "Turn on backups"
 kept = "Backups kept"
-older = "Older backups"
-
-[backups.notes]
-one = "{count} note"
-other = "{count} notes"
-
 
 [backups.checkOk]
 one = "Checked: {count} backup, {size}, nothing wrong."

@@ -260,8 +260,6 @@ pub fn run() {
             commands::backups::backups_run,
             commands::backups::backups_list,
             commands::backups::backups_restore,
-            commands::backups::old_backups_list,
-            commands::backups::old_backups_restore,
             commands::backup::backup_default_name,
             commands::backup::backup_write,
             commands::backup::backup_encrypted,

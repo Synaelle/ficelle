@@ -1,19 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Scheduled backups of this device: where, with which password, how
-//! often, what to keep, and how the runs went. Kept in the vault.
+//! Scheduled backups of this device: how often, and how the runs went.
+//! Kept in the vault, with the settings of earlier versions' snapshot
+//! backups.
 
-use app_repo::{FolderTarget, Policy, Target};
-#[cfg(not(target_family = "wasm"))]
-use app_repo::{S3Config, S3Target, WebdavConfig, WebdavTarget};
 use serde::{Deserialize, Serialize};
 
-use super::RunReport;
-use crate::error::Result;
-
-/// The password of backups made without one, on a device whose notes are
-/// not encrypted: they are as open as the notes they copy, and restoring
-/// them asks for nothing.
+/// The password of snapshot backups made without one, on a device whose
+/// notes are not encrypted.
 pub const NO_PASSWORD: &str = "ficelle-backup-without-password";
 
 /// The folder backups get inside the chosen one. A folder the app named
@@ -31,92 +25,16 @@ pub fn folder_name(chosen: &str) -> String {
     )
 }
 
-/// What the backups folder holds, for whoever opens it.
-#[must_use]
-pub fn readme() -> String {
-    let app = app_brand::DISPLAY_NAME;
-    format!(
-        "These are {app}'s backups of your notes, encrypted with the backup password.\n\n\
-         The files only work together, so do not rename, edit or remove any of them.\n\n\
-         To restore, open {app}, go to Settings, Data and backups, Backups, \
-         choose the folder that holds this one, then Restore.\n"
-    )
-}
-
-/// Where backups go.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Where the snapshot backups of earlier versions went. Only a folder is
+/// read now, the other places are left as they are.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
-pub enum TargetConfig {
+pub(crate) enum TargetConfig {
     /// A folder on this device, a drive, a share mounted as a folder.
     Folder {
         /// Its path.
         path: String,
     },
-    /// An S3 bucket. Not in the web version, a page cannot reach one.
-    #[cfg(not(target_family = "wasm"))]
-    S3(S3Config),
-    /// A `WebDAV` folder.
-    #[cfg(not(target_family = "wasm"))]
-    Webdav(WebdavConfig),
-}
-
-impl TargetConfig {
-    /// The target to use.
-    ///
-    /// # Errors
-    ///
-    /// An incomplete config.
-    pub fn open(&self) -> Result<std::sync::Arc<dyn Target>> {
-        Ok(match self {
-            Self::Folder { path } => {
-                if path.trim().is_empty() {
-                    return Err(crate::error::Error::Invalid("choose a folder".into()));
-                }
-                std::sync::Arc::new(FolderTarget::named(path, &folder_name(path), &readme()))
-            }
-            #[cfg(not(target_family = "wasm"))]
-            Self::S3(config) => std::sync::Arc::new(S3Target::new(config.clone())?),
-            #[cfg(not(target_family = "wasm"))]
-            Self::Webdav(config) => std::sync::Arc::new(WebdavTarget::new(config)?),
-        })
-    }
-
-    /// The same without its secrets, to show.
-    #[must_use]
-    pub fn without_secrets(&self) -> Self {
-        match self {
-            Self::Folder { path } => Self::Folder { path: path.clone() },
-            #[cfg(not(target_family = "wasm"))]
-            Self::S3(c) => Self::S3(S3Config {
-                secret_key: String::new(),
-                ..c.clone()
-            }),
-            #[cfg(not(target_family = "wasm"))]
-            Self::Webdav(c) => Self::Webdav(WebdavConfig {
-                password: String::new(),
-                ..c.clone()
-            }),
-        }
-    }
-
-    /// The same with the secrets of `old` where these are empty: a form
-    /// shows them blank and sends them back blank when unchanged.
-    #[must_use]
-    pub fn keeping_secrets_of(self, old: &Self) -> Self {
-        match (self, old) {
-            #[cfg(not(target_family = "wasm"))]
-            (Self::S3(mut new), Self::S3(old)) if new.secret_key.is_empty() => {
-                new.secret_key.clone_from(&old.secret_key);
-                Self::S3(new)
-            }
-            #[cfg(not(target_family = "wasm"))]
-            (Self::Webdav(mut new), Self::Webdav(old)) if new.password.is_empty() => {
-                new.password.clone_from(&old.password);
-                Self::Webdav(new)
-            }
-            (new, _) => new,
-        }
-    }
 }
 
 /// How often backups run.
@@ -146,20 +64,15 @@ impl Schedule {
     }
 }
 
-/// Everything about this device's backups.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BackupConfig {
+/// The snapshot backups' settings an earlier version kept.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub(crate) struct BackupConfig {
     /// Where.
     pub target: TargetConfig,
     /// The repository's password.
     pub password: String,
     /// When.
     pub schedule: Schedule,
-    /// What to keep.
-    pub policy: Policy,
-    /// This device's name in the repository's snapshots.
-    pub host: String,
 }
 
 /// How the runs went.
@@ -175,10 +88,6 @@ pub struct BackupStatus {
     /// Its kind (`notFound`, `wrongPassword`, `target`...), for the page
     /// to say it in the person's language.
     pub last_error_kind: Option<String>,
-    /// What the last good run did.
-    pub last_report: Option<RunReport>,
-    /// Snapshots in the repository after the last run.
-    pub snapshots: u64,
     /// Bytes at the target after the last run.
     pub stored_bytes: u64,
     /// The automatic backup files in the folder after the last run.

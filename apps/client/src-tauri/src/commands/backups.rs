@@ -5,9 +5,6 @@
 //! that folder. The page keeps the schedule (runs happen while the app is
 //! open), this side does the work, holding the vault only to read what to
 //! back up and to put back what a restore brings.
-//!
-//! The snapshot backups of earlier versions are only read now, to restore
-//! from them (`old_backups_*`), through their settings kept in the vault.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -16,9 +13,7 @@ use app_core::auto_backup::{AutoBackups, DEFAULT_KEEP, MAX_KEEP};
 use app_core::backup::Backup;
 use app_core::clock::{Clock, SystemClock};
 use app_core::crypto::KdfParams;
-#[cfg(target_os = "android")]
-use app_core::repo::TargetConfig;
-use app_core::repo::{BackupConfig, BackupStatus, Repo, Schedule, Target};
+use app_core::repo::{BackupStatus, Schedule};
 use app_core::store::RestoreReport;
 use app_core::vault::Vault;
 use serde::Serialize;
@@ -46,8 +41,6 @@ pub struct BackupsView {
     config: Option<ConfigView>,
     status: BackupStatus,
     running: bool,
-    /// Snapshot backups of an earlier version can be restored from.
-    older: bool,
 }
 
 /// A backup file in the folder.
@@ -60,27 +53,13 @@ pub struct FileView {
     automatic: bool,
 }
 
-/// An old snapshot, as listed.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SnapshotView {
-    id: String,
-    time: i64,
-    counts: std::collections::BTreeMap<String, u64>,
-}
-
 fn now() -> i64 {
     SystemClock.now()
 }
 
 fn view(state: &AppState) -> CommandResult<BackupsView> {
-    let (config, status, older) = state.quietly(|s| {
-        Ok((
-            s.store.auto_backups()?,
-            s.store.backup_status()?,
-            s.store.backup_config()?.is_some(),
-        ))
-    })?;
+    let (config, status) =
+        state.quietly(|s| Ok((s.store.auto_backups()?, s.store.backup_status()?)))?;
     Ok(BackupsView {
         config: config.map(|c| ConfigView {
             folder: c.folder,
@@ -89,7 +68,6 @@ fn view(state: &AppState) -> CommandResult<BackupsView> {
         }),
         status,
         running: RUNNING.load(Ordering::SeqCst),
-        older,
     })
 }
 
@@ -133,9 +111,9 @@ impl Place {
     fn of(folder: &str) -> CommandResult<Self> {
         #[cfg(target_os = "android")]
         if crate::picked::is_document(folder) {
-            return Ok(Self::Document(
-                crate::documents::DocumentTarget::named(folder).map_err(app_core::Error::from)?,
-            ));
+            return Ok(Self::Document(crate::documents::DocumentTarget::named(
+                folder,
+            )?));
         }
         if folder.trim().is_empty() {
             return Err(CommandError::new("invalid", "choose a folder"));
@@ -170,11 +148,10 @@ impl Place {
             }
             #[cfg(target_os = "android")]
             Self::Document(target) => Ok(target
-                .list("")
-                .map_err(|e| readable(e.into()))?
+                .list()
+                .map_err(readable)?
                 .into_iter()
-                .filter(|l| !l.path.contains('/') && ours(&l.path))
-                .map(|l| (l.path, l.size))
+                .filter(|(path, _)| !path.contains('/') && ours(path))
                 .collect()),
         }
     }
@@ -217,7 +194,7 @@ impl Place {
         Ok(match self {
             Self::Dir(dir) => std::fs::File::open(dir.join(name)).map_err(app_core::Error::from)?,
             #[cfg(target_os = "android")]
-            Self::Document(target) => target.open_named(name).map_err(app_core::Error::from)?,
+            Self::Document(target) => target.open_named(name)?,
         })
     }
 
@@ -231,7 +208,7 @@ impl Place {
                 _ => Ok(()),
             },
             #[cfg(target_os = "android")]
-            Self::Document(target) => Ok(target.delete(name).map_err(app_core::Error::from)?),
+            Self::Document(target) => Ok(target.delete(name)?),
         }
     }
 }
@@ -326,7 +303,7 @@ fn readable(err: app_core::Error) -> CommandError {
 pub async fn backups_pick_folder(app: AppHandle) -> CommandResult<Option<String>> {
     blocking(app, |_| {
         #[cfg(target_os = "android")]
-        return Ok(crate::documents::pick().map_err(app_core::Error::from)?);
+        return Ok(crate::documents::pick()?);
         #[cfg(not(target_os = "android"))]
         Err(CommandError::new(
             "unsupported",
@@ -501,72 +478,6 @@ pub async fn backups_restore(
         let password = password.filter(|p| !p.is_empty()).or(config.password);
         let mut backup = Backup::open_file(file, password.as_deref())?;
         state.with(|s| backup.restore(&mut s.store, &s.blobs))
-    })
-    .await
-}
-
-/// The snapshot backups of an earlier version.
-fn older(state: &AppState) -> CommandResult<Repo> {
-    let config: BackupConfig = state
-        .quietly(|s| s.store.backup_config())?
-        .ok_or_else(|| CommandError::new("notFound", "no older backups"))?;
-    let target: std::sync::Arc<dyn Target> = {
-        #[cfg(target_os = "android")]
-        {
-            match &config.target {
-                TargetConfig::Folder { path } if crate::picked::is_document(path) => {
-                    std::sync::Arc::new(
-                        crate::documents::DocumentTarget::named(path)
-                            .map_err(app_core::Error::from)?,
-                    )
-                }
-                other => other.open()?,
-            }
-        }
-        #[cfg(not(target_os = "android"))]
-        config.target.open()?
-    };
-    Ok(Repo::open(target, &config.password).map_err(app_core::Error::from)?)
-}
-
-/// The older snapshot backups, newest first.
-#[tauri::command]
-pub async fn old_backups_list(app: AppHandle) -> CommandResult<Vec<SnapshotView>> {
-    blocking(app, |state| {
-        let mut out: Vec<SnapshotView> = older(state)?
-            .snapshots()
-            .map_err(app_core::Error::from)?
-            .into_iter()
-            .filter(|s| s.kind == "vault")
-            .map(|s| SnapshotView {
-                id: s.id,
-                time: s.time,
-                counts: s.counts,
-            })
-            .collect();
-        out.reverse();
-        Ok(out)
-    })
-    .await
-}
-
-/// Puts an older snapshot back, as [`backups_restore`] does a file.
-#[tauri::command]
-pub async fn old_backups_restore(app: AppHandle, snapshot: String) -> CommandResult<RestoreReport> {
-    blocking(app, move |state| {
-        let repo = older(state)?;
-        let contents = app_core::repo::read_snapshot(&repo, &snapshot)?;
-        let (present, blobs) = state.quietly(|s| {
-            Ok((
-                s.store.notes_present(&contents.note_ids())?,
-                s.blobs.clone(),
-            ))
-        })?;
-        app_core::repo::fetch_files(&repo, &contents, &present, &blobs)?;
-        state.quietly(|s| {
-            let has = |sha: &str| s.blobs.has(sha).unwrap_or(false);
-            s.store.restore_backup(&contents.data, &has)
-        })
     })
     .await
 }

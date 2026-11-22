@@ -25,7 +25,6 @@ function view(
       ...status,
     },
     running,
-    older: false,
   }
 }
 

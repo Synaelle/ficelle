@@ -255,7 +255,4 @@ export interface Backend {
   /** Restores a file of the folder; `password` for one made with an earlier
    * notes password. */
   backupsRestore(name: string, password: string | null): Promise<import('./types').RestoreReport>
-  /** The snapshot backups of an earlier version, newest first. */
-  oldBackupsList(): Promise<import('./types').OldBackup[]>
-  oldBackupsRestore(id: string): Promise<import('./types').RestoreReport>
 }
