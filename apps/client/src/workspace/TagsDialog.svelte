@@ -139,7 +139,6 @@
       <ul class="rows">
         {#each shown as tag (tag.id)}
           <li class="row" style:padding-left="calc(var(--space-3) + {depth(tag) * 16}px)">
-            <span class="tag-mark" data-color={tag.color ?? 'none'}></span>
             {#if renaming === tag.id}
               <input
                 class="field name"
@@ -160,6 +159,7 @@
                 >{tree ? tagLeaf(tag.name) : tagLabel(tag.name)}</button
               >
             {/if}
+            {#if tag.color}<span class="tag-mark" data-color={tag.color}></span>{/if}
             <span class="count"
               >{tag.noteCount ? t('tags.notes', { count: tag.noteCount }) : t('tags.noNotes')}</span
             >
@@ -222,6 +222,10 @@
     flex: 1;
     min-width: 0;
   }
+  /* as tall as the field beside it */
+  .tools .btn {
+    height: auto;
+  }
   .error {
     color: var(--color-danger);
   }
@@ -242,9 +246,6 @@
   }
   .row + .row {
     border-top: 1px solid var(--color-border);
-  }
-  .tag-mark[data-color='none'] {
-    background: transparent;
   }
   .name {
     flex: 1;
