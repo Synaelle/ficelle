@@ -582,10 +582,16 @@
               : workspace.scope.kind === 'untagged'
                 ? t('list.untaggedEmpty')
                 : t('list.empty')}
+            {#if !trash}
+              <button class="btn" onclick={() => void workspace.create()}>
+                <Icon name="newNote" size={16} />
+                {t('list.newNote')}
+              </button>
+            {/if}
             <!-- no note and no tag yet: a first start, where the notes are and
                  what else there is. The web version has its own welcome -->
             {#if !WEB && workspace.scope.kind === 'untagged' && workspace.tags.length === 0}
-              <span class="first">{t('list.firstStart')}</span>
+              <span>{t('list.firstStart')}</span>
             {/if}
           </li>
         {/snippet}
@@ -922,13 +928,13 @@
     padding-right: 96px;
   }
   .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
     padding: var(--space-6) var(--space-3);
     text-align: center;
     color: var(--color-text-muted);
-  }
-  .first {
-    display: block;
-    margin-top: var(--space-3);
   }
   footer {
     padding: var(--space-2) var(--space-4);
