@@ -184,7 +184,7 @@
   .tools {
     display: flex;
     gap: var(--space-2);
-    padding: 0 var(--space-3) var(--space-2);
+    padding: 0 var(--space-4) var(--space-2);
   }
   .search {
     flex: 1;

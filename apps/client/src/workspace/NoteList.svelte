@@ -634,7 +634,7 @@
   .tools {
     display: flex;
     gap: var(--space-2);
-    padding: 0 var(--space-3) var(--space-2);
+    padding: 0 var(--space-4) var(--space-2);
   }
   .search {
     flex: 1;
@@ -680,7 +680,8 @@
     grid-template-columns: 1fr auto;
     gap: 2px var(--space-2);
     width: 100%;
-    padding: var(--space-2) var(--space-3);
+    /* with the list's own inset, the text lines up with the title and the search */
+    padding: var(--space-2);
     border: 0;
     border-radius: var(--radius-control);
     background: var(--color-bg);
