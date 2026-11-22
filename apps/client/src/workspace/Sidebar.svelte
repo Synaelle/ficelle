@@ -175,7 +175,7 @@
   @media (hover: hover) {
     .item:hover,
     .sidebar :global(.tree-item:hover) {
-      background: var(--color-surface-2);
+      background: var(--color-hover);
     }
   }
   .item.active,

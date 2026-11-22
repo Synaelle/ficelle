@@ -680,7 +680,7 @@
   }
   @media (hover: hover) {
     .row:hover {
-      background: var(--color-surface);
+      background: var(--color-hover);
     }
   }
   .swipe {

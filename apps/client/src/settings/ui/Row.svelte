@@ -101,7 +101,7 @@
   }
   @media (hover: hover) {
     .choice:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--color-text) 4%, transparent);
+      background: var(--color-hover);
     }
   }
   /* the name keeps room for a few words, else the control takes the next line */

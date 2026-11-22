@@ -419,7 +419,7 @@
   }
   @media (hover: hover) {
     .item:hover:not(:disabled) {
-      background: var(--color-selection);
+      background: var(--color-hover);
     }
   }
   @media (pointer: coarse) {
