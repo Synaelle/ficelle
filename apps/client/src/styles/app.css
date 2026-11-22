@@ -140,6 +140,12 @@ button {
   cursor: pointer;
 }
 
+/* the engine's grey was 2:1 on the light paper */
+::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;

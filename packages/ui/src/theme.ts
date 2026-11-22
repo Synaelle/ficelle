@@ -52,6 +52,9 @@ const READ_PAIRS: [PaletteKey, PaletteKey][] = [
   ['text', 'bg'],
   ['text', 'surface'],
   ['textMuted', 'bg'],
+  // placeholders in fields, muted text in raised panels
+  ['textMuted', 'surface'],
+  ['textMuted', 'surface2'],
   ['accentText', 'bg'],
   // links and accent words inside raised panels and code
   ['accentText', 'surface2'],
