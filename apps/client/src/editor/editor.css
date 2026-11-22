@@ -320,6 +320,34 @@
   display: block;
   width: 100%;
 }
+/* a picture from the web, never loaded: its text and why, in its place */
+.prose .image-view .web-image {
+  display: none;
+}
+.prose .image-view.web img,
+.prose .image-view.web .handle {
+  visibility: hidden;
+  position: absolute;
+}
+.prose .image-view.web .web-image {
+  display: inline-grid;
+  max-width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-control);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.prose .image-view.web .why {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.prose .image-view.web.selected .web-image {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
 .prose .image-view.selected img {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;

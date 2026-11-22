@@ -66,7 +66,13 @@ export function parseLayout(block = ''): {
 export interface LayoutImageOptions {
   /** Turns a stored src like attachments/vines.png into a url the webview can load. */
   resolveSrc: (src: string) => string
+  /** Said in place of a picture from the web, which is never loaded. */
+  webLabel: () => string
 }
+
+/** A picture from the web: never loaded, the site would learn each time the
+ * note is opened (the app's content policy refuses it anyway). */
+const fromWeb = (src: unknown) => typeof src === 'string' && /^https?:/i.test(src)
 
 const HANDLES = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'] as const
 
@@ -106,6 +112,8 @@ const busy = (on: boolean) => document.body.classList.toggle('image-busy', on)
 class ImageView {
   dom: HTMLElement
   private img: HTMLImageElement
+  /** What stands in for a picture from the web: its text and why. */
+  private web: HTMLElement
   private moving = false
 
   constructor(
@@ -113,13 +121,16 @@ class ImageView {
     private editor: Editor,
     private getPos: () => number | undefined,
     private resolve: (src: string) => string,
+    private webLabel: () => string,
   ) {
     this.dom = document.createElement('span')
     this.dom.className = 'image-view'
     this.img = document.createElement('img')
     this.img.draggable = false
     this.img.addEventListener('pointerdown', (event) => this.startMove(event))
-    this.dom.append(this.img)
+    this.web = document.createElement('span')
+    this.web.className = 'web-image'
+    this.dom.append(this.img, this.web)
     for (const dir of HANDLES) {
       const handle = document.createElement('span')
       handle.className = 'handle'
@@ -141,7 +152,8 @@ class ImageView {
 
   /** A file arrived or its preview changed: the url may be another now. */
   private refresh = () => {
-    this.img.src = this.resolve((this.node.attrs.src as string | null) ?? '')
+    const src = (this.node.attrs.src as string | null) ?? ''
+    if (!fromWeb(src)) this.img.src = this.resolve(src)
   }
 
   destroy() {
@@ -160,7 +172,18 @@ class ImageView {
   private render() {
     const { src, alt, title, wrap } = this.node.attrs
     this.dom.dataset.wrap = wrap
-    this.img.src = this.resolve(src ?? '')
+    const web = fromWeb(src)
+    this.dom.classList.toggle('web', web)
+    if (web) {
+      this.img.removeAttribute('src')
+      const text = document.createElement('span')
+      text.textContent = alt || src
+      const why = document.createElement('span')
+      why.className = 'why'
+      why.textContent = this.webLabel()
+      this.web.replaceChildren(text, why)
+      this.web.title = src
+    } else this.img.src = this.resolve(src ?? '')
     this.img.alt = alt ?? ''
     if (title) this.img.title = title
     else this.img.removeAttribute('title')
@@ -523,6 +546,7 @@ export const LayoutImage = Image.extend<LayoutImageOptions>({
       inline: true,
       allowBase64: false,
       resolveSrc: (src: string) => src,
+      webLabel: () => 'Picture from the web, not loaded',
     }
   },
 
@@ -538,7 +562,13 @@ export const LayoutImage = Image.extend<LayoutImageOptions>({
 
   addNodeView() {
     return ({ node, editor, getPos }) =>
-      new ImageView(node, editor, getPos as () => number | undefined, this.options.resolveSrc)
+      new ImageView(
+        node,
+        editor,
+        getPos as () => number | undefined,
+        this.options.resolveSrc,
+        this.options.webLabel,
+      )
   },
 
   markdownTokenizer: {

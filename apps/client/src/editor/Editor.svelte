@@ -669,6 +669,7 @@
       element,
       extensions: createExtensions({
         resolveSrc,
+        webImage: () => t('editor.webImage'),
         keys: keyBindings(),
         autoLists: prefs.autoLists,
         emojiShortcodes: prefs.emojiShortcodes,

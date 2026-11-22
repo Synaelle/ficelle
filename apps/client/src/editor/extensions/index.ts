@@ -29,6 +29,8 @@ import { TypedHere } from '../patch'
 
 export interface EditorSetup {
   resolveSrc?: (src: string) => string
+  /** Said in place of a picture from the web, English by default. */
+  webImage?: () => string
   wiki?: Partial<WikiLinkOptions>
   /** User key bindings in TipTap form ("Mod-b") for formatting commands. */
   keys?: Record<string, () => boolean>
@@ -80,7 +82,10 @@ export function createExtensions(setup: EditorSetup = {}): AnyExtension[] {
     TableCell.extend({ content: 'paragraph' }),
     withBoundedStart(TaskList, TASK_GUARD, taskListExtent),
     TaskItem.configure({ nested: true }),
-    LayoutImage.configure({ resolveSrc: setup.resolveSrc ?? ((src) => src) }),
+    LayoutImage.configure({
+      resolveSrc: setup.resolveSrc ?? ((src) => src),
+      ...(setup.webImage ? { webLabel: setup.webImage } : {}),
+    }),
     WikiLink.configure(setup.wiki ?? {}),
     withBoundedStart(Callout),
     CalloutKeys,

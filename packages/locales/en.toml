@@ -634,6 +634,7 @@ wrap_left = "Wrap left"
 wrap_right = "Wrap right"
 wrap_center = "Centered"
 wrap_full = "Full width"
+webImage = "Picture from the web, not loaded so the site never learns when this note is opened"
 
 [beta]
 nightlyWelcomeLabel = "Welcome to Nightly"
