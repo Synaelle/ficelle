@@ -480,5 +480,8 @@ async fn what_left_with_servers_for_several_people_is_not_found() {
     let (status, options) = call(&app, "GET", "/auth/options", None, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(options["registration"], "closed");
-    assert_eq!(options["accountKinds"], "choice");
+    assert_eq!(
+        options["accountKinds"], "standard",
+        "the kind of the one account"
+    );
 }

@@ -104,15 +104,34 @@ pub(super) fn new_credentials(username: &str, password: &str) -> Result<String, 
 
 /// `GET /api/v1/auth/options`
 pub async fn options(State(state): State<AppState>) -> Result<Json<AuthOptions>, Error> {
-    let locked = state.db.call(|c| crate::setup::is_locked(c)).await?;
+    let (locked, account_kinds) = state
+        .db
+        .call(|c| Ok((crate::setup::is_locked(c)?, kinds_here(c)?)))
+        .await?;
     Ok(Json(AuthOptions {
         registration: Registration::Closed,
         setup_needed: !locked,
-        account_kinds: AccountKinds::Choice,
+        account_kinds,
         email_reset: state.mailer.enabled(),
         passkeys: state.webauthn.is_some(),
         sso: None,
     }))
+}
+
+/// The kind every account here has, the choice when they differ or there
+/// are none: the sign-in pages offer a passkey to an app only where no
+/// account is encrypted, whose notes open with the password alone.
+fn kinds_here(conn: &rusqlite::Connection) -> Result<AccountKinds, crate::db::DbError> {
+    let (standard, e2ee): (i64, i64) = conn.query_row(
+        "SELECT COUNT(*) FILTER (WHERE kind = 'standard'), COUNT(*) FILTER (WHERE kind = 'e2ee') FROM users",
+        [],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    Ok(match (standard, e2ee) {
+        (s, 0) if s > 0 => AccountKinds::Standard,
+        (0, e) if e > 0 => AccountKinds::E2ee,
+        _ => AccountKinds::Choice,
+    })
 }
 
 /// `POST /api/v1/auth/login`: a session, or 202 and a challenge when the

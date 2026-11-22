@@ -30,7 +30,7 @@ pub struct AuthOptions {
     pub setup_needed: bool,
     /// Passkeys can sign in.
     pub passkeys: bool,
-    /// Which kinds of accounts sign-up created, always the choice: nothing
+    /// The kind of the accounts here, the choice when they differ. Nothing
     /// signs up any more.
     pub account_kinds: AccountKinds,
     /// A forgotten password can be reset by email.
