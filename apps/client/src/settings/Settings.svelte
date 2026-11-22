@@ -33,6 +33,8 @@
   import SyncSettings from './SyncSettings.svelte'
   import TestTools from '../devreport/TestTools.svelte'
   import AboutSettings from './AboutSettings.svelte'
+  import UpdateCheck from './UpdateCheck.svelte'
+  import { updatesHere } from '../lib/appUpdate.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
   import { LOCK_CHOICES, lockLabel, SettingsState, ways } from './settingsState.svelte'
   import Group from './ui/Group.svelte'
@@ -53,6 +55,7 @@
     | 'feedback'
     | 'testTools'
     | 'experimental'
+    | 'updates'
     | 'about'
   const SECTIONS = $derived([
     'appearance',
@@ -71,6 +74,8 @@
     // what is still being tried, only where it applies and for those who
     // follow the nightlies
     ...(LINUX && !WEB && prefs.channel === 'nightly' ? (['experimental'] as const) : []),
+    // release builds only, the web version is always the one served
+    ...(updatesHere ? (['updates'] as const) : []),
     'about',
   ] as Section[])
   const SECTION_ICONS: Record<Section, IconName> = {
@@ -85,6 +90,7 @@
     feedback: 'feedback',
     testTools: 'log',
     experimental: 'flask',
+    updates: 'export',
     about: 'info',
   }
   /** At phone width the settings fill the screen with their own layout. */
@@ -513,6 +519,8 @@
             </Group>
           {:else if section === 'feedback'}
             <FeedbackSettings />
+          {:else if section === 'updates'}
+            <UpdateCheck />
           {:else if section === 'about'}
             <AboutSettings />
           {/if}

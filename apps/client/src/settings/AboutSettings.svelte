@@ -1,9 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- About, the same on desktop and phone: which app and version, updates, how
-     to reach us. Build details and the credits stay folded. -->
+<!-- About, the same on desktop and phone: which app and version, how to reach
+     us. Build details and the credits stay folded. -->
 <script lang="ts">
   import { brand } from '@app/brand'
-  import { updatesHere } from '../lib/appUpdate.svelte'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import Knot from '@app/ui/Knot.svelte'
@@ -12,7 +11,6 @@
   import CreditsList from './CreditsList.svelte'
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
-  import UpdateCheck from './UpdateCheck.svelte'
 
   let { phone = false }: { phone?: boolean } = $props()
 
@@ -38,8 +36,6 @@
     </span>
   </div>
 </Group>
-
-{#if updatesHere}<UpdateCheck />{/if}
 
 <Group>
   <ContactLine />

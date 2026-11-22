@@ -26,6 +26,7 @@
   import FeedbackSettings from './FeedbackSettings.svelte'
   import TestTools from '../devreport/TestTools.svelte'
   import AboutSettings from './AboutSettings.svelte'
+  import UpdateCheck from './UpdateCheck.svelte'
   import { MODES } from '../lib/theme.svelte'
   import { LINUX, MOBILE, WEB } from '../lib/platform'
   import { UI_SIZES } from '../lib/uiSize'
@@ -68,6 +69,7 @@
     | 'feedback'
     | 'testTools'
     | 'experimental'
+    | 'updates'
     | 'about'
   // svelte-ignore state_referenced_locally
   let page: Page = $state(start ?? 'home')
@@ -282,6 +284,17 @@
           },
         ]
       : []),
+    // release builds only, the web version is always the one served
+    ...(updatesHere
+      ? [
+          {
+            icon: 'export' as const,
+            label: t('settings.updates'),
+            keywords: t('settings.updatesKeywords'),
+            run: () => (page = 'updates'),
+          },
+        ]
+      : []),
     {
       icon: 'info',
       label: t('settings.about'),
@@ -310,8 +323,8 @@
     ['timer', 'settings.clock', 'language'],
     ['info', 'settings.credits', 'about'],
   ]
-  if (updatesHere) inner.push(['info', 'appUpdate.check', 'about'])
-  if (updatesHere && channelChoice) inner.push(['info', 'appUpdate.nightlyVersions', 'about'])
+  if (updatesHere) inner.push(['search', 'appUpdate.check', 'updates'])
+  if (updatesHere && channelChoice) inner.push(['flask', 'appUpdate.nightlyVersions', 'updates'])
   const innerRows = $derived<SettingRow[]>(
     inner.map(([icon, label, to]) => ({
       icon,
@@ -356,6 +369,7 @@
     feedback: 'settings.feedback',
     testTools: 'settings.testTools',
     experimental: 'settings.experimental',
+    updates: 'settings.updates',
     about: 'settings.about',
   }
 
@@ -655,6 +669,8 @@
             run: () => (prefs.windowsText = !prefs.windowsText),
           })}
         </Group>
+      {:else if page === 'updates'}
+        <UpdateCheck />
       {:else if page === 'about'}
         <AboutSettings phone />
       {/if}
