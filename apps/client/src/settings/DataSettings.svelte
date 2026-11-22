@@ -497,7 +497,7 @@
 
 <Group>
   <Row label={t('reset.title')}>
-    <button class="btn danger" onclick={onreset}>{t('reset.open')}</button>
+    <button class="btn danger" onclick={onreset}>{t('reset.start')}</button>
   </Row>
 </Group>
 

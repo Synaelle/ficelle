@@ -475,11 +475,9 @@
                   </Row>
                 {/if}
                 {#if vault.hasPassword}
-                  <Row label={t('settings.changePassword')}>
+                  <Row label={t('settings.password')}>
                     <button class="btn" onclick={() => (changingPassword = !changingPassword)}
-                      >{changingPassword
-                        ? t('common.cancel')
-                        : t('settings.changePassword')}</button
+                      >{changingPassword ? t('common.cancel') : t('settings.change')}</button
                     >
                   </Row>
                   {#if changingPassword}

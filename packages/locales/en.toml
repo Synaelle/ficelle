@@ -345,6 +345,8 @@ pressKeys = "Press keys…"
 resetShortcuts = "Reset to defaults"
 quickNote = "Quick note from any app"
 quickNoteTaken = "Another app already uses that shortcut, try another."
+password = "Password"
+change = "Change"
 changePassword = "Change password"
 oldPassword = "Current password"
 newPassword = "New password"
@@ -1827,7 +1829,7 @@ body = "Your account {username} will be deleted on {date}, with everything the s
 
 [reset]
 title = "Reset everything"
-open = "Reset everything…"
+start = "Reset…"
 body = "This deletes from this device every note and tag, their files and history, its pairing with other devices and its sign-in to a server."
 server = "Notes already on a paired device or a sync server stay there, and come back when you pair this device again or sign in."
 final = "This cannot be undone."
