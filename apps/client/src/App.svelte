@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Root: applies display preferences, then shows unlock or the notes. A first
-     launch makes the notes, not encrypted, and goes straight to them. -->
+     launch makes the notes, not encrypted, and asks about backups and
+     encryption before them; the web version goes straight to them. -->
 <script lang="ts">
   import { brand } from '@app/brand'
   import { LINUX, WEB } from './lib/platform'
@@ -41,8 +42,9 @@
   } from './lib/windows'
   import Setup from './screens/Setup.svelte'
   import Unlock from './screens/Unlock.svelte'
+  import Welcome from './screens/Welcome.svelte'
 
-  type Stage = 'loading' | 'failed' | 'elsewhere' | 'unlock' | 'upgrade' | 'ready'
+  type Stage = 'loading' | 'failed' | 'elsewhere' | 'unlock' | 'upgrade' | 'welcome' | 'ready'
   /** Why the notes cannot be opened, when it is known, and their folder. */
   let cannotOpen = $state<{ kind: 'readOnly' | 'vaultDamaged'; folder: string } | null>(null)
   let stage = $state<Stage>('loading')
@@ -97,12 +99,14 @@
     }
   }
 
-  /** Encryption is a choice in Settings, Security, not a question on the way in. */
+  /** The notes are made unencrypted, the welcome then asks. The web version
+   * has no automatic backups and its own welcome over the notes. */
   async function firstLaunch() {
     stage = 'loading'
     try {
       await backend.vaultCreate('plain', '', null)
-      await ready()
+      if (WEB) await ready()
+      else stage = 'welcome'
     } catch {
       stage = 'failed'
     }
@@ -210,6 +214,8 @@
   <Setup done={ready} />
 {:else if stage === 'unlock' && status}
   <Unlock done={ready} {status} />
+{:else if stage === 'welcome'}
+  <Welcome done={ready} />
 {:else if stage === 'ready'}
   <div class="notes" class:closing>
     {#await workspaceScreen then { default: Workspace }}

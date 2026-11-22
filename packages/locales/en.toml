@@ -11,6 +11,8 @@ close = "Close"
 cancel = "Cancel"
 ok = "OK"
 optional = "(optional)"
+yes = "Yes"
+no = "No"
 
 [errors]
 wrongPassword = "Wrong password."
@@ -144,6 +146,12 @@ fileTooLarge = "too large"
 fileTypeRefused = "type not allowed"
 quotaFull = "storage full"
 fileInvalid = "could not be checked"
+
+[welcome]
+backupsTitle = "Automatic backups"
+backupsHelp = "A copy of your notes every day, in a folder on this device."
+encryptTitle = "Encrypted notes"
+encryptHelp = "Your notes then open only with a password."
 
 [setup]
 password = "Password"
