@@ -180,6 +180,12 @@
       )
   }
 
+  /** The More button stays marked while its menu is open. */
+  let menuOpen = $state(false)
+  $effect(() => {
+    if (!overlay.menu) menuOpen = false
+  })
+
   function noteMenu(button: HTMLElement) {
     if (!note) return
     const id = note.id
@@ -218,6 +224,7 @@
         SEPARATOR,
       )
     overlay.openMenuBelow(button, items)
+    menuOpen = true
   }
 
   async function restore(version: NoteVersion) {
@@ -299,6 +306,7 @@
         class="icon-btn"
         aria-label={t('note.more')}
         aria-haspopup="menu"
+        aria-expanded={menuOpen}
         onclick={(e) => noteMenu(e.currentTarget)}
       >
         <Icon name="more" />

@@ -67,6 +67,12 @@
     if (yes) await attempt(() => workspace.deleteTag(tag.id))
   }
 
+  /** The tag whose menu is open, its button marked meanwhile. */
+  let menuFor: string | null = $state(null)
+  $effect(() => {
+    if (!overlay.menu) menuFor = null
+  })
+
   function menu(button: HTMLElement, tag: Tag) {
     const others = workspace.tags.filter((o) => !tagWithin(o.name, tag.name))
     const items: MenuItem[] = [
@@ -105,6 +111,7 @@
       },
     ]
     overlay.openMenuBelow(button, items)
+    menuFor = tag.id
   }
 </script>
 
@@ -168,6 +175,7 @@
               class="icon-btn"
               aria-label={t('tags.options', { name: tag.name })}
               aria-haspopup="menu"
+              aria-expanded={menuFor === tag.id}
               onclick={(e) => menu(e.currentTarget, tag)}><Icon name="more" size={16} /></button
             >
           </li>
