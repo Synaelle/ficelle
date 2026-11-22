@@ -734,8 +734,19 @@
       font-size: 14px;
     }
     .tag button {
+      position: relative;
       min-width: 32px;
       min-height: 36px;
+    }
+    /* a finger gets 44 px, the chip keeps its size */
+    .tag button::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 44px;
+      height: 44px;
+      transform: translate(-50%, -50%);
     }
     .tag-input {
       min-height: 44px;
