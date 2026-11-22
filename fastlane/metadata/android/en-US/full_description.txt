@@ -2,4 +2,4 @@ Ficelle is a small notes app that opens in a moment and uses little memory. Note
 
 Your notes stay on your own devices. Your phone and your computer sync directly on the same Wi-Fi, with no account and no server. Notes can be encrypted with a password, and backups go to a folder you choose.
 
-Ficelle also runs on Linux, Windows and macOS, and its source is on GitHub under the AGPL.
+Ficelle also runs on Linux and Windows, and as a web version in any browser. Its source is on GitHub under the AGPL.

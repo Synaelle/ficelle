@@ -18,7 +18,7 @@ On Android, Ficelle is also in [my F-Droid repository](https://github.com/Synael
 
 - Notes are [Markdown](docs/markdown.md), with images that work like in a word processor.
 - Every note keeps its earlier versions.
-- Local sync between devices on the same network, in beta, with no account or server.
+- Local sync between devices on the same network, with no account or server.
 - Server sync from anywhere, through [your own server](docs/self-hosting-docker.md).
 
 # Building and contributing
