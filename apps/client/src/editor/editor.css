@@ -83,6 +83,11 @@
 .prose .code-block {
   position: relative;
 }
+/* a long line scrolls sideways: wrapped, its end would read as the next
+   statement (over ProseMirror's own style, which wraps it) */
+.prose .code-block pre {
+  white-space: pre;
+}
 .prose .code-language {
   position: absolute;
   top: 6px;
