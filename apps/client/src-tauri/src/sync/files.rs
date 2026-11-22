@@ -300,6 +300,19 @@ const OPENED_DIR: &str = "opened";
 /// then the app that showed it is done with it.
 const OPENED_KEEP: Duration = Duration::from_hours(1);
 
+/// File types the system runs rather than shows: opening one from a note
+/// would start a program someone attached, so it is only saved.
+fn runs_as_program(name: &std::ffi::OsStr) -> bool {
+    const PROGRAMS: [&str; 19] = [
+        "exe", "msi", "bat", "cmd", "com", "scr", "pif", "ps1", "vbs", "js", "jse", "wsf", "hta",
+        "lnk", "jar", "sh", "appimage", "desktop", "run",
+    ];
+    std::path::Path::new(name)
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| PROGRAMS.contains(&e.to_ascii_lowercase().as_str()))
+}
+
 /// Opens an attachment in the system's app for its type, from a copy named
 /// as in the note: the stored file has neither name nor type. A phone only
 /// writes the copy, the page then hands it over (`openFile` in `MainActivity`).
@@ -318,6 +331,12 @@ pub async fn open_attachment(
         .file_name()
         .map(ToOwned::to_owned)
         .ok_or_else(|| CommandError::new("invalid", "no file name"))?;
+    if runs_as_program(&name) {
+        return Err(CommandError::new(
+            "program",
+            "a program is not opened from a note, it can be saved",
+        ));
+    }
     // a folder per file: two files of the same name stay apart
     let folder = sha256
         .get(..16)
@@ -393,4 +412,19 @@ pub async fn files_refused(state: State<'_, AppState>) -> CommandResult<Vec<Refu
             .map(|(name, note, reason)| RefusedFile { name, note, reason })
             .collect())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsStr;
+
+    #[test]
+    fn programs_are_not_opened() {
+        for name in ["setup.EXE", "run.sh", "Ficelle.AppImage", "notes.lnk"] {
+            assert!(super::runs_as_program(OsStr::new(name)), "{name}");
+        }
+        for name in ["report.pdf", "photo.png", "notes.txt", "noextension"] {
+            assert!(!super::runs_as_program(OsStr::new(name)), "{name}");
+        }
+    }
 }
