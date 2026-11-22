@@ -108,8 +108,25 @@ fn entity(rest: &str) -> Option<(char, usize)> {
     Some((c, end + 1))
 }
 
+/// The address inside an autolink like `<https://example.org>` or
+/// `<me@example.org>`, and the autolink's length. Other angle brackets
+/// (`<c>`, `a < b > c`) are not one.
+fn autolink(rest: &str) -> Option<(&str, usize)> {
+    let inner = &rest[1..rest.find('>')?];
+    let scheme = inner.split_once(':').is_some_and(|(scheme, _)| {
+        (2..=32).contains(&scheme.len())
+            && scheme.starts_with(|c: char| c.is_ascii_alphabetic())
+            && scheme
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '.' | '-'))
+    });
+    let ok =
+        (scheme || inner.contains('@')) && !inner.contains(|c: char| c.is_whitespace() || c == '<');
+    ok.then_some((inner, inner.len() + 2))
+}
+
 /// Text of `[label](target)` or `[[target|label]]` links, images dropped,
-/// emoji shortcodes as their emoji.
+/// autolinks without their brackets, emoji shortcodes as their emoji.
 fn strip_inline(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
     let mut rest = line;
@@ -123,6 +140,10 @@ fn strip_inline(line: &str) -> String {
             // the summary's words stay, apart from what follows
             out.push(' ');
             rest = &rest[tag.len()..];
+        } else if let Some((address, len)) = rest.starts_with('<').then(|| autolink(rest)).flatten()
+        {
+            out.push_str(address);
+            rest = &rest[len..];
         } else if let Some((emoji, len)) = shortcode(rest) {
             out.push_str(emoji);
             rest = &rest[len..];
@@ -201,6 +222,10 @@ fn is_rule(line: &str) -> bool {
 /// nothing on their own in a summary), or a bare web address.
 fn is_link_only(line: &str) -> bool {
     let line = strip_line_start(line).trim();
+    let line = line
+        .strip_prefix('<')
+        .and_then(|l| l.strip_suffix('>'))
+        .unwrap_or(line);
     if line.starts_with("http://") || line.starts_with("https://") {
         return !line.contains(char::is_whitespace);
     }
@@ -367,6 +392,28 @@ Garden log"
             "See the site and Note today."
         );
         assert_eq!(preview("", "[a](x) and [b](y)", 100), "a and b");
+    }
+
+    #[test]
+    fn autolinks_lose_their_brackets() {
+        assert_eq!(
+            preview(
+                "",
+                "a link to <https://example.org/a?b=1> and <me@example.org>",
+                100
+            ),
+            "a link to https://example.org/a?b=1 and me@example.org"
+        );
+        // not autolinks
+        assert_eq!(
+            preview("", "a <b> c, 1 < 2 > 0, <x y:z>", 100),
+            "a <b> c, 1 < 2 > 0, <x y:z>"
+        );
+        // on its own line, like a bare address
+        assert_eq!(
+            preview("", "<https://example.org>\nThe real text.", 100),
+            "The real text."
+        );
     }
 
     #[test]
