@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- The instance's backups: where (a folder on the server, S3, WebDAV,
-     SFTP), the password, when, what to keep; how the runs went; the backups
-     to check and test restore. A whole instance
-     is restored from the command line, the server stopped: what to keep for
-     that is shown here. Setting up starts simple, a folder on the server
-     every day and a password; Advanced shows every place and choice. -->
+<!-- The instance's backups: the folder on the server, the password, when,
+     what to keep; how the runs went; the backups to check and test restore.
+     A whole instance is restored from the command line, the server stopped:
+     what to keep for that is shown here. Setting up starts simple, a new
+     backup in the suggested folder every day and a password; Advanced also
+     opens a backup already there. -->
 <script lang="ts">
   import PasswordField from '../lib/PasswordField.svelte'
   import Icon from '../lib/icons/Icon.svelte'
@@ -13,8 +13,7 @@
   import { api } from './api.svelte'
   import { bytes, dateTime, errorText, relative } from './format'
 
-  type Kind = 'folder' | 's3' | 'webdav' | 'sftp'
-  type Target = { kind: Kind } & Record<string, string | number | boolean>
+  type Target = { kind: 'folder'; path: string }
   type Policy = { last: number; daily: number; weekly: number; monthly: number; yearly: number }
   type Schedule = 'off' | 'hourly' | 'daily' | 'weekly'
   interface View {
@@ -45,44 +44,17 @@
     problems: string[]
   }
 
-  const KINDS: Kind[] = ['folder', 's3', 'webdav', 'sftp']
-  const FIELDS: Record<Kind, { key: string; secret?: boolean; area?: boolean; check?: boolean }[]> =
-    {
-      folder: [{ key: 'path' }],
-      s3: [
-        { key: 'endpoint' },
-        { key: 'region' },
-        { key: 'bucket' },
-        { key: 'prefix' },
-        { key: 'accessKey' },
-        { key: 'secretKey', secret: true },
-        { key: 'pathStyle', check: true },
-      ],
-      webdav: [{ key: 'url' }, { key: 'username' }, { key: 'password', secret: true }],
-      sftp: [
-        { key: 'host' },
-        { key: 'port' },
-        { key: 'username' },
-        { key: 'password', secret: true },
-        { key: 'privateKey', secret: true, area: true },
-        { key: 'passphrase', secret: true },
-        { key: 'path' },
-        { key: 'hostKey' },
-      ],
-    }
-
   /** `onconfigured` hears whether backups are set up, each time it is known. */
   let { onconfigured }: { onconfigured?: (on: boolean) => void } = $props()
 
   let view: View | null = $state(null)
-  /** Every place and choice, rather than a folder on the server. */
+  /** The choice of a backup already there, rather than a new one. */
   let advanced = $state(false)
   let problem = $state('')
   let saved = $state('')
   let busy = $state(false)
   let editing = $state(false)
-  let kind: Kind = $state('folder')
-  let fields: Record<string, string | number | boolean> = $state({})
+  let path: string | null = $state(null)
   let existing = $state(false)
   let password = $state('')
   let again = $state('')
@@ -121,8 +93,7 @@
 
   function edit() {
     const target = view?.config?.target
-    kind = target?.kind ?? 'folder'
-    fields = target ? { ...target } : {}
+    path = target?.path ?? ''
     existing = !!target
     password = ''
     again = ''
@@ -133,13 +104,12 @@
   /** The simple setup: a new repository in the suggested folder. */
   function simple() {
     advanced = false
-    kind = 'folder'
-    fields = { path: view?.suggestedFolder ?? '' }
+    path = view?.suggestedFolder ?? ''
     existing = false
   }
 
   $effect(() => {
-    if (view && !view.config && !advanced && fields.path === undefined) simple()
+    if (view && !view.config && !advanced && path === null) simple()
   })
 
   const passwordProblem = $derived.by(() => {
@@ -149,22 +119,11 @@
     return null
   })
 
-  function target(): Target {
-    const out: Target = { kind }
-    for (const f of FIELDS[kind]) {
-      const value = fields[f.key]
-      if (f.check) out[f.key] = value === true
-      else if (f.key === 'port') out[f.key] = Number(value) || 0
-      else out[f.key] = typeof value === 'string' ? value : ''
-    }
-    return out
-  }
-
   function connect() {
     void act(async () => {
       show(
         await api<View>('PUT', '/admin/backups', {
-          target: target(),
+          target: { kind: 'folder', path: path ?? '' },
           password,
           create: !existing,
           offsetSeconds: offsetSeconds(),
@@ -237,13 +196,7 @@
     const config = (view as View | null)?.config
     return config ? JSON.stringify(config.target, null, 2) : ''
   })
-  /** Where backups go, in a few words: the folder, bucket, address or host. */
-  const where = $derived.by(() => {
-    const target = (view as View | null)?.config?.target
-    if (!target) return ''
-    const field = { folder: 'path', s3: 'bucket', webdav: 'url', sftp: 'host' }[target.kind]
-    return String(target[field] ?? '')
-  })
+  const where = $derived((view as View | null)?.config?.target.path ?? '')
   const SCHEDULES: Schedule[] = ['off', 'hourly', 'daily', 'weekly']
   const KEEP = ['last', 'daily', 'weekly', 'monthly'] as const
 </script>
@@ -433,64 +386,21 @@
     }}
   >
     <h2>{view.config ? t('backups.change') : t('backups.setUp')}</h2>
+    <label class="field-label"
+      >{t('admin.backups.field_path')}<input
+        class="field wide"
+        value={path ?? ''}
+        oninput={(e) => (path = e.currentTarget.value)}
+        autocomplete="off"
+      /></label
+    >
     {#if !advanced}
-      <label class="field-label"
-        >{t('admin.backups.field_path')}<input
-          class="field wide"
-          value={String(fields.path ?? '')}
-          oninput={(e) => (fields.path = e.currentTarget.value)}
-          autocomplete="off"
-        /></label
-      >
       {#if view.suggestedApart}
         <p class="muted small">{t('admin.backups.simpleWhere')}</p>
       {:else}
         <p class="muted small">{t('admin.backups.simpleInData')}</p>
       {/if}
     {:else}
-      <fieldset>
-        <legend>{t('backups.placeKind')}</legend>
-        {#each KINDS as k (k)}
-          <label class="choice"
-            ><input type="radio" name="kind" value={k} bind:group={kind} />{t(
-              `admin.backups.kind_${k}`,
-            )}</label
-          >
-        {/each}
-      </fieldset>
-      {#each FIELDS[kind] as f (f.key)}
-        {#if f.check}
-          <label class="choice"
-            ><input
-              type="checkbox"
-              checked={fields[f.key] === true}
-              onchange={(e) => (fields[f.key] = e.currentTarget.checked)}
-            />{t(`admin.backups.field_${f.key}`)}</label
-          >
-        {:else}
-          <label class="field-label"
-            >{t(`admin.backups.field_${f.key}`)}
-            {#if f.area}
-              <textarea
-                class="field"
-                rows="4"
-                value={String(fields[f.key] ?? '')}
-                oninput={(e) => (fields[f.key] = e.currentTarget.value)}
-                placeholder={view.config ? t('backups.unchanged') : ''}></textarea>
-            {:else}
-              <input
-                class="field"
-                type={f.secret ? 'password' : 'text'}
-                value={String(fields[f.key] ?? '')}
-                oninput={(e) => (fields[f.key] = e.currentTarget.value)}
-                placeholder={f.secret && view.config ? t('backups.unchanged') : ''}
-                autocomplete="off"
-              />
-            {/if}
-          </label>
-        {/if}
-      {/each}
-      {#if kind === 'sftp'}<p class="muted small">{t('admin.backups.hostKeyHelp')}</p>{/if}
       <fieldset>
         <legend>{t('backups.repository')}</legend>
         <label class="choice"
@@ -618,10 +528,6 @@
   }
   .field-label .field {
     font-weight: 400;
-  }
-  textarea {
-    height: auto;
-    font-family: var(--font-mono);
   }
   .actions {
     display: flex;
