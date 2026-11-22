@@ -7,7 +7,7 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { modal } from '../lib/modal'
   import { overlay, SEPARATOR, type MenuItem } from '../lib/overlay.svelte'
-  import { tagLabel } from '../lib/tagMark.svelte'
+  import { tagLabel, tagLeaf } from '../lib/tagMark.svelte'
   import { isBackendError, tagKey, tagWithin, workspace } from '../lib/workspace.svelte'
 
   let { close }: { close: () => void } = $props()
@@ -20,7 +20,10 @@
   const shown = $derived(
     workspace.tags.filter((tag) => !find.trim() || tagKey(tag.name).includes(tagKey(find.trim()))),
   )
-  const depth = (tag: Tag) => tag.name.split('/').length - 1
+  // the whole list is a tree, indented and named by each tag's last level;
+  // the tags found are a flat list named by their path, their parents hidden
+  const tree = $derived(!find.trim())
+  const depth = (tag: Tag) => (tree ? tag.name.split('/').length - 1 : 0)
 
   /** Runs a change, its failure said in the window. */
   async function attempt(change: () => Promise<unknown>) {
@@ -153,7 +156,8 @@
               <button
                 class="name"
                 class:empty={tag.noteCount === 0}
-                ondblclick={() => startRename(tag)}>{tagLabel(tag.name)}</button
+                ondblclick={() => startRename(tag)}
+                >{tree ? tagLeaf(tag.name) : tagLabel(tag.name)}</button
               >
             {/if}
             <span class="count"

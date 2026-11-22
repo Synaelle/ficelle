@@ -14,7 +14,7 @@
   import { currentLocale, t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { tagItems } from '../lib/noteMenu'
-  import { tagLabel } from '../lib/tagMark.svelte'
+  import { tagLabel, tagShort } from '../lib/tagMark.svelte'
   import { overlay, SEPARATOR } from '../lib/overlay.svelte'
   import Knot from '@app/ui/Knot.svelte'
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
@@ -321,9 +321,10 @@
         <div class="tags">
           {#each note.tags as tag (tag)}
             {@const color = workspace.tags.find((o) => o.name === tag)?.color}
-            <span class="tag">
+            <!-- named as the list's chips are, the whole path on hover -->
+            <span class="tag" title={tagLabel(tag)}>
               {#if prefs.tagMark === 'folder'}<Icon name="folder" size={12} />{/if}
-              {tagLabel(tag)}
+              {prefs.tagMark === 'hash' ? `#${tagShort(tag, note.tags)}` : tagShort(tag, note.tags)}
               {#if color}<span class="tag-mark" data-color={color}></span>{/if}
               <button
                 aria-label={t('note.removeTag', { tag })}
