@@ -65,7 +65,6 @@ Ficelle stands on the work of the projects below, with thanks. Each is listed wi
 - [axum](https://github.com/tokio-rs/axum), the web server. MIT.
 - [tokio](https://tokio.rs/), running many things at once. MIT.
 - [tracing and tracing-subscriber](https://github.com/tokio-rs/tracing), logs. MIT.
-- [russh and russh-sftp](https://github.com/warp-tech/russh), SFTP backups. Apache-2.0.
 - [lettre](https://lettre.rs/), sending email. MIT.
 - [openidconnect](https://github.com/ramosbugs/openidconnect-rs), signing in with another service. MIT.
 - [webauthn-rs](https://github.com/kanidm/webauthn-rs), passkeys. MPL-2.0.

@@ -280,12 +280,6 @@ export const CREDIT_GROUPS: CreditGroup[] = [
         use: 'logs',
         license: 'MIT',
       },
-      {
-        name: 'russh and russh-sftp',
-        url: 'https://github.com/warp-tech/russh',
-        use: 'SFTP backups',
-        license: 'Apache-2.0',
-      },
       { name: 'lettre', url: 'https://lettre.rs/', use: 'sending email', license: 'MIT' },
       {
         name: 'openidconnect',
