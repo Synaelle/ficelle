@@ -7,16 +7,17 @@ yanked = "deny"
 # unmaintained crates count only when the project depends on them directly
 unmaintained = "workspace"
 ignore = [
-    # crypto-bigint 0.5 timing: reached through opaque-ke and openidconnect,
-    # never on secrets here (OPAQUE runs on Ristretto255, sign-on only checks
-    # public signatures). Goes when both move to elliptic-curve 0.14.
+    # crypto-bigint 0.5 timing: reached through opaque-ke, never on secrets
+    # here (OPAQUE runs on Ristretto255). Goes when it moves to
+    # elliptic-curve 0.14.
     { id = "RUSTSEC-2026-0387", reason = "no secret values reach crypto-bigint 0.5" },
-    # rsa Marvin attack: openidconnect only verifies RSA signatures, it never
-    # decrypts with a private key. No fixed rsa release yet.
+    # rsa Marvin attack: the passkey libraries only verify RSA signatures of
+    # authenticators, they never decrypt with a private key. No fixed rsa
+    # release yet.
     { id = "RUSTSEC-2023-0071", reason = "no RSA decryption anywhere" },
-    # chrono unmaintained: only the server's sign-on (openidconnect, oauth2)
-    # and SFTP backup (russh-sftp) libraries use it. Goes when they move to jiff.
-    { id = "RUSTSEC-2026-0543", reason = "reached only through server libraries, no known flaw" },
+    # chrono unmaintained: only the server's SFTP backup library (russh-sftp)
+    # uses it. Goes when it moves to jiff.
+    { id = "RUSTSEC-2026-0543", reason = "reached only through a server library, no known flaw" },
 ]
 
 [licenses]
