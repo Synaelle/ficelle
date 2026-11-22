@@ -51,9 +51,10 @@
     class="item"
     class:active={!workspace.files && same(workspace.scope, scope)}
     aria-current={!workspace.files && same(workspace.scope, scope) ? 'page' : undefined}
-    onclick={() =>
-      // a second click on the active filter goes back to the notes with no tag
-      workspace.setScope(same(workspace.scope, scope) ? UNFILED : scope)}
+    onclick={() => {
+      // a second click on the list already open leaves it as it is
+      if (!same(workspace.scope, scope)) void workspace.setScope(scope)
+    }}
   >
     <Icon name={icon} size={16} />
     <span class="label">{label}</span>
