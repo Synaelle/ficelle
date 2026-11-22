@@ -445,7 +445,7 @@
               >
             </li>
           {:else}
-            <li class="muted">{t('note.noHistory')}</li>
+            <li class="muted">{t('note.noVersions')}</li>
           {/each}
         </ul>
       </div>
