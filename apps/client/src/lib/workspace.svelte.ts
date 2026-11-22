@@ -63,6 +63,10 @@ const TYPING_MS = 10_000
 /** Wait before trying a save that failed again. */
 const RETRY_DELAY_MS = 5000
 
+/** Search results listed at most, each keystroke searches again. One more
+ * is asked for, to say when there are more. */
+export const SEARCH_LIMIT = 500
+
 export function isBackendError(err: unknown): err is BackendError {
   return typeof err === 'object' && err !== null && 'kind' in err
 }
@@ -75,6 +79,8 @@ class Workspace {
   files = $state(false)
   query = $state('')
   hits: SearchHit[] | null = $state(null)
+  /** The search found more notes than `hits` lists. */
+  moreHits = $state(false)
   current: Note | null = $state(null)
   /** A note just made here, its title takes the caret once shown. */
   fresh: Id | null = $state(null)
@@ -183,7 +189,9 @@ class Workspace {
 
   async search(query: string) {
     this.query = query
-    this.hits = query.trim() ? await backend.search(query, 50) : null
+    const found = query.trim() ? await backend.search(query, SEARCH_LIMIT + 1) : null
+    this.moreHits = (found?.length ?? 0) > SEARCH_LIMIT
+    this.hits = found?.slice(0, SEARCH_LIMIT) ?? null
   }
 
   /** A search result picked: the list moves to where the note lives, its most

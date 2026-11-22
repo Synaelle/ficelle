@@ -498,7 +498,9 @@
   </div>
 
   <footer class="muted">
-    {t('list.count', { count: workspace.hits?.length ?? workspace.notes.length })}
+    {workspace.hits && workspace.moreHits
+      ? t('list.countMore', { count: workspace.hits.length })
+      : t('list.count', { count: workspace.hits?.length ?? workspace.notes.length })}
   </footer>
   {#if picking}
     <TagSheet close={() => (picking = false)} />

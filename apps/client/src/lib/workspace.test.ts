@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { backend, type NoteChange } from './backend'
 import { prefs } from './prefs.svelte'
 import { toasts } from './toast.svelte'
-import { workspace } from './workspace.svelte'
+import { SEARCH_LIMIT, workspace } from './workspace.svelte'
 
 /** A note made and opened, as the New note button does. */
 async function create(initial: { title?: string; body?: string } = {}) {
@@ -653,5 +653,19 @@ describe('a search result picked', () => {
     await workspace.openFound(note.id)
     expect(workspace.scope).toEqual({ kind: 'untagged' })
     expect(workspace.current?.id).toBe(note.id)
+  })
+})
+
+describe('searching', () => {
+  it('lists more than fifty notes, and says when there are more than it lists', async () => {
+    for (let i = 0; i < SEARCH_LIMIT + 2; i++)
+      await backend.createNote({ title: `Quarry stone ${i}` })
+    await workspace.search('quarry')
+    expect(workspace.hits).toHaveLength(SEARCH_LIMIT)
+    expect(workspace.moreHits).toBe(true)
+    await workspace.search('quarry stone 7')
+    expect(workspace.moreHits).toBe(false)
+    await workspace.search('')
+    expect(workspace.hits).toBeNull()
   })
 })

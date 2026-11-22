@@ -243,6 +243,10 @@ other = "{count} notes"
 one = "{count} note, counting the tags inside"
 other = "{count} notes, counting the tags inside"
 
+[list.countMore]
+one = "{count} note shown, more were found"
+other = "{count} notes shown, more were found"
+
 [note]
 bodyPlaceholder = "Start writing…"
 label = "Note"
