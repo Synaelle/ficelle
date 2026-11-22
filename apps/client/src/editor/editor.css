@@ -12,7 +12,15 @@
   /* the whole note is one editable area, a frame around it only distracts */
   outline: none;
 }
-.prose > * + * {
+/* no margins of their own: the space between blocks below is the only one,
+   and a paragraph in a list item or a cell sits tight */
+.prose :where(p) {
+  margin: 0;
+}
+/* blocks a blank line apart in the Markdown, paragraphs too, so prose does
+   not run together */
+.prose > * + *,
+.prose blockquote > * + * {
   margin-top: 0.75em;
 }
 /* an empty note says where to write (the placeholder extension) */
@@ -22,9 +30,6 @@
   height: 0;
   color: var(--color-text-muted);
   pointer-events: none;
-}
-.prose p {
-  margin: 0;
 }
 .prose h1,
 .prose h2,
