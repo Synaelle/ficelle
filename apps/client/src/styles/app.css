@@ -50,6 +50,14 @@ body {
   /* checkboxes, radios and ranges follow the theme instead of system blue */
   accent-color: var(--color-accent);
 }
+/* on a phone the caret takes the accent, as the selection handles do (the
+   Android theme's colour) */
+@media (pointer: coarse) {
+  html,
+  body {
+    caret-color: var(--color-accent);
+  }
+}
 
 #app {
   height: var(--visible-height, 100%);

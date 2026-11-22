@@ -1,6 +1,9 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.client" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
+        <!-- the text caret's handles in the webview, the app's accent
+             instead of Material's lavender -->
+        <item name="colorControlActivated">#E44C3E</item>
+        <item name="android:colorControlActivated">#E44C3E</item>
     </style>
 </resources>
