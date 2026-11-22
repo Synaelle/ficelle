@@ -1,8 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Every attachment, in place of the note list when Attachments is chosen
-     in the sidebar: name, type, size, its note and when it was added, newest
-     first, with a filter by name and a sort. A file opens its note, its
-     button opens the file itself. Notes in the trash are left out. -->
+     in the sidebar or, on a phone, in the sheet under the title: name, type,
+     size, its note and when it was added, newest first, with a filter by
+     name and a sort. A file opens its note, its button opens the file
+     itself. Notes in the trash are left out. -->
 <script lang="ts">
   import { onDestroy } from 'svelte'
   import { openAttachment } from '../lib/attachments'
@@ -13,6 +14,7 @@
   import { prefs } from '../lib/prefs.svelte'
   import { FILES_CHANGED } from '../lib/sync.svelte'
   import { isBackendError, workspace } from '../lib/workspace.svelte'
+  import TagSheet from './TagSheet.svelte'
 
   let { narrow }: { narrow: boolean } = $props()
 
@@ -22,6 +24,7 @@
   /** The file whose note was opened from here: the others of that note stay
    * unmarked. */
   let chosen: string | null = $state(null)
+  let picking = $state(false)
 
   async function load() {
     try {
@@ -73,7 +76,18 @@
   style:width={narrow ? undefined : `${prefs.listWidth}px`}
 >
   <header>
-    <h1>{t('files.allTitle')}</h1>
+    {#if narrow}
+      <h1 class="visually-hidden">{t('files.allTitle')}</h1>
+      <button
+        class="scope"
+        aria-haspopup="dialog"
+        aria-expanded={picking}
+        onclick={() => (picking = true)}
+        ><span class="leaf">{t('files.allTitle')}</span><Icon name="down" size={18} /></button
+      >
+    {:else}
+      <h1>{t('files.allTitle')}</h1>
+    {/if}
     {#if all.length}
       <span class="muted">{t('files.allCount', { count: all.length, size: bytes(total) })}</span>
     {/if}
@@ -120,6 +134,9 @@
   {:else}
     <p class="muted empty">{all.length ? t('files.noMatch') : t('files.none')}</p>
   {/if}
+  {#if picking}
+    <TagSheet close={() => (picking = false)} />
+  {/if}
 </section>
 
 <style>
@@ -145,6 +162,23 @@
   h1 {
     margin: 0;
     font-size: 18px;
+  }
+  .scope {
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    font-size: 18px;
+    font-weight: 650;
+  }
+  .scope :global(svg) {
+    flex: none;
+    color: var(--color-text-muted);
   }
   /* the same as the notes' search and sort */
   .tools {

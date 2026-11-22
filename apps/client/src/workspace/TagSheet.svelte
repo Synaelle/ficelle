@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- On a phone, where the list's title leads: a sheet from the bottom with
-     the notes with no tag, all notes, the tags as a tree that folds, and the
-     trash. Typing finds a tag at any level and says where it lives. -->
+     the notes with no tag, all notes, the tags as a tree that folds, the
+     attachments and the trash. Typing finds a tag at any level and says
+     where it lives. -->
 <script lang="ts">
   import { onBack } from '../lib/back'
   import type { Scope, Tag } from '../lib/backend'
@@ -58,6 +59,7 @@
     close()
   }
   const here = (scope: Scope) =>
+    !workspace.files &&
     current.kind === scope.kind &&
     ('id' in current ? current.id : null) === ('id' in scope ? scope.id : null)
 </script>
@@ -165,6 +167,14 @@
           {@render tree('', 0)}
         {/if}
         <hr />
+        <button
+          class="row"
+          class:here={workspace.files}
+          aria-current={workspace.files ? 'true' : undefined}
+          onclick={() => ((workspace.files = true), close())}
+        >
+          <Icon name="attachment" size={20} /><span class="name">{t('sidebar.files')}</span>
+        </button>
         {@render place({ kind: 'trash' }, 'trash', t('sidebar.trash'))}
       {/if}
     </div>
