@@ -7,7 +7,6 @@
   import { backend } from '../lib/backend'
   import { ANDROID, LINUX } from '../lib/platform'
   import { channelSwitch } from '../lib/channelChange.svelte'
-  import { overlay } from '../lib/overlay.svelte'
   import {
     appUpdates,
     channelChoice,
@@ -22,16 +21,6 @@
   import Row from './ui/Row.svelte'
 
   const phone = ANDROID
-
-  /** Turning the security checks off waits a few seconds on a warning. */
-  async function securityOff() {
-    const yes = await overlay.ask(t('appUpdate.securityOffWarning'), {
-      confirmLabel: t('appUpdate.securityOff'),
-      danger: true,
-      wait: 5,
-    })
-    if (yes) prefs.securityChecks = false
-  }
 
   /** Installed as a Linux package, which the system updates. */
   let packaged = $state(false)
@@ -52,13 +41,12 @@
   <Group title={t('appUpdate.title')} note={packaged ? t('appUpdate.helpPackage') : undefined}>
     <!-- a package's updates are its package manager's: nothing to switch -->
     {#if !packaged}
+      <!-- off, an urgent update is only a card like the others -->
       <Row
         label={t('appUpdate.securityChecks')}
+        help={prefs.securityChecks ? undefined : t('appUpdate.securityChecksOff')}
         on={prefs.securityChecks}
-        onclick={() => {
-          if (prefs.securityChecks) void securityOff()
-          else prefs.securityChecks = true
-        }}
+        onclick={() => (prefs.securityChecks = !prefs.securityChecks)}
       />
     {/if}
     {#if notificationsHere}
