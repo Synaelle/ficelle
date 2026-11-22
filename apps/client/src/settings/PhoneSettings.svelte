@@ -301,7 +301,7 @@
     ['export', 'settings.exportTitle', 'notes'],
     ['palette', 'settings.pureBlack', 'appearance'],
     ['textSize', 'settings.uiSize', 'accessibility'],
-    ['textStyle', 'settings.dyslexicFont', 'accessibility'],
+    ['font', 'settings.dyslexicFont', 'accessibility'],
     ['list', 'settings.autoLists', 'editor'],
     ['emoji', 'settings.emojiShortcodes', 'editor'],
     ['allNotes', 'settings.openLastNote', 'editor'],
@@ -533,7 +533,7 @@
         {#if MOBILE}
           <Group>
             {@render row({
-              icon: 'pin',
+              icon: 'vibrate',
               label: t('settings.haptics'),
               on: prefs.haptics,
               run: () => (prefs.haptics = !prefs.haptics),
@@ -542,7 +542,7 @@
         {/if}
         <Group>
           {@render row({
-            icon: 'textStyle',
+            icon: 'font',
             label: t('settings.dyslexicFont'),
             on: prefs.dyslexicFont,
             run: () => (prefs.dyslexicFont = !prefs.dyslexicFont),

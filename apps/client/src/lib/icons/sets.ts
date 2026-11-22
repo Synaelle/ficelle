@@ -96,6 +96,8 @@ export const ICON_NAMES = [
   'window',
   'undo',
   'redo',
+  'vibrate',
+  'font',
 ] as const
 
 export type IconName = (typeof ICON_NAMES)[number]
@@ -194,6 +196,8 @@ export const LUCIDE: Record<IconName, string> = {
   window: 'app-window',
   undo: 'undo-2',
   redo: 'redo-2',
+  vibrate: 'vibrate',
+  font: 'baseline',
 }
 
 /** Phosphor regular file names (@phosphor-icons/core/assets/regular/<name>.svg). */
@@ -290,4 +294,6 @@ export const PHOSPHOR: Record<IconName, string> = {
   window: 'app-window',
   undo: 'arrow-u-up-left',
   redo: 'arrow-u-up-right',
+  vibrate: 'vibrate',
+  font: 'text-a-underline',
 }
