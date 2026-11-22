@@ -241,4 +241,11 @@
   .danger:hover {
     color: var(--color-danger);
   }
+  @media (pointer: coarse) {
+    summary,
+    .attach,
+    .small {
+      min-height: 44px;
+    }
+  }
 </style>

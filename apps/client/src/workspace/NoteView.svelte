@@ -598,6 +598,11 @@
         var(--space-2) + 44px + 2 * var(--space-1) + env(safe-area-inset-bottom)
       );
     }
+    /* while typing, the keyboard and the editor's bar take the room: the
+       files come back once the text is left */
+    .view:has(.scroll :global(:is(input, textarea, [contenteditable='true']):focus)) .files-bar {
+      display: none;
+    }
   }
   article {
     /* the note takes the whole pane, as wide as the window makes it, and at
