@@ -129,12 +129,6 @@
         {/if}
         {#if problem}<p class="error" role="alert">{problem}</p>{/if}
         <div class="actions">
-          <button class="btn" disabled={busy} onclick={cancel}>{t('common.cancel')}</button>
-          {#if safety === 'synced'}
-            <button class="btn" disabled={busy} onclick={() => void channelSwitch.proceed(false)}
-              >{jump ? t('bigJump.skip') : t('betaSwitch.skip')}</button
-            >
-          {/if}
           <button class="btn primary" disabled={busy} onclick={() => void backUp()}
             >{busy
               ? t('betaSwitch.backingUp')
@@ -142,25 +136,32 @@
                 ? t('bigJump.backUp')
                 : t('betaSwitch.backUp')}</button
           >
+          {#if safety === 'synced'}
+            <button class="btn" disabled={busy} onclick={() => void channelSwitch.proceed(false)}
+              >{jump ? t('bigJump.skip') : t('betaSwitch.skip')}</button
+            >
+          {/if}
+          <button class="btn" disabled={busy} onclick={cancel}>{t('common.cancel')}</button>
         </div>
       {:else if step === 'warn'}
         <p id="channel-switch-text">{t('backToStable.warning')}</p>
         <div class="actions">
-          <button class="btn" onclick={cancel}>{t('common.cancel')}</button>
-          <button class="btn" onclick={() => channelSwitch.waitForStable()}
-            >{t('backToStable.wait')}</button
-          >
           <button class="btn danger" disabled={left > 0} onclick={() => channelSwitch.confirmBack()}
             >{t('backToStable.switch')}{left > 0 ? ` (${left})` : ''}</button
           >
+          <button class="btn" onclick={() => channelSwitch.waitForStable()}
+            >{t('backToStable.wait')}</button
+          >
+          <!-- the switch installs an older version, so focus starts away from it -->
+          <button class="btn" data-autofocus="" onclick={cancel}>{t('common.cancel')}</button>
         </div>
       {:else if step === 'schema'}
         <p id="channel-switch-text">{t('backToStable.schema')}</p>
         <div class="actions">
-          <button class="btn" onclick={cancel}>{t('common.cancel')}</button>
           <button class="btn primary" onclick={() => channelSwitch.waitForStable()}
             >{t('backToStable.wait')}</button
           >
+          <button class="btn" onclick={cancel}>{t('common.cancel')}</button>
         </div>
       {:else if step === 'going'}
         <p id="channel-switch-text" role="status">
@@ -270,7 +271,7 @@
   /* a finger's reach: one button per line, the main one first */
   @media (pointer: coarse) {
     .actions {
-      flex-direction: column-reverse;
+      flex-direction: column;
     }
     .actions .btn,
     li .btn {

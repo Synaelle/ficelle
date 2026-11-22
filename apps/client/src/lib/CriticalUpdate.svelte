@@ -46,9 +46,6 @@
       </p>
       {#if appUpdates.error}<p class="error" role="alert">{t(`errors.${appUpdates.error}`)}</p>{/if}
       <div class="actions">
-        <button class="btn" type="button" disabled={busy} onclick={() => void skip()}
-          >{t('appUpdate.criticalSkip')}</button
-        >
         <button
           class="btn primary"
           type="button"
@@ -60,6 +57,9 @@
               ? t('appUpdate.checking')
               : t('appUpdate.restarting')
             : t('appUpdate.criticalUpdate')}</button
+        >
+        <button class="btn" type="button" disabled={busy} onclick={() => void skip()}
+          >{t('appUpdate.criticalSkip')}</button
         >
       </div>
     </div>

@@ -92,11 +92,6 @@
     {#if appUpdates.error}<p class="error">{t(`errors.${appUpdates.error}`)}</p>{/if}
     <div class="actions">
       <button
-        class="btn later"
-        aria-haspopup={appUpdates.ready.critical ? undefined : 'menu'}
-        onclick={later}>{t('appUpdate.later')}</button
-      >
-      <button
         class="btn primary"
         disabled={appUpdates.installing || !!appUpdates.progress}
         onclick={() => void channelSwitch.update()}
@@ -107,6 +102,11 @@
             : phone
               ? t('appUpdate.install')
               : t('appUpdate.restart')}</button
+      >
+      <button
+        class="btn later"
+        aria-haspopup={appUpdates.ready.critical ? undefined : 'menu'}
+        onclick={later}>{t('appUpdate.later')}</button
       >
     </div>
   </section>
