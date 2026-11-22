@@ -254,6 +254,16 @@ pub async fn export_markdown(
     })
 }
 
+/// One note as the export writes it, for the page to save where the person
+/// chose.
+#[tauri::command]
+pub async fn note_markdown(
+    state: State<'_, AppState>,
+    id: NoteId,
+) -> CommandResult<app_core::export::NoteFile> {
+    state.with(|s| Ok(app_core::export::note_file(&s.store.note(id)?)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::percent_decode;

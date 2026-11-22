@@ -225,6 +225,12 @@ export interface AppUpdate {
   goBack?: boolean
 }
 
+/** One note as the export writes it, see crates/core/src/export.rs. */
+export interface NoteFile {
+  name: string
+  text: string
+}
+
 export interface ExportSummary {
   notes: number
   folders: number

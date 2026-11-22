@@ -5,6 +5,7 @@
 import type {
   Attachment,
   ExportSummary,
+  NoteFile,
   Folder,
   Id,
   LinkSuggestion,
@@ -195,6 +196,8 @@ export interface Backend {
   exportMarkdown(dir: string): Promise<ExportSummary>
   /** The same export as one zip file. */
   exportMarkdownZip(path: string): Promise<ExportSummary>
+  /** One note as the export writes it, its attached files left out. */
+  noteMarkdown(id: Id): Promise<NoteFile>
 
   /** The name offered for a new backup. */
   backupDefaultName(): Promise<string>

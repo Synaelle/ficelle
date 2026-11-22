@@ -587,6 +587,11 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     exportMarkdownZip: async () => {
       throw { kind: 'unsupported', message: 'export needs the desktop app' }
     },
+    // the core adds front matter, this test backend has no core
+    noteMarkdown: async (noteId) => {
+      const { title, body } = note(noteId)
+      return { name: `${title.trim() || 'Untitled'}.md`, text: body }
+    },
     backupDefaultName: async () => 'backup',
     backupWrite: async () => {
       throw { kind: 'unsupported', message: 'backups need the app' }

@@ -144,6 +144,7 @@ export function createTauriBackend(call: typeof invoke = invoke): Backend {
     filesInfo: () => call('files_info'),
     exportMarkdown: (dir) => call('export_markdown', { dir }),
     exportMarkdownZip: (path) => call('export_markdown_zip', { path }),
+    noteMarkdown: (id) => call('note_markdown', { id }),
 
     backupDefaultName: () => call('backup_default_name'),
     backupWrite: (path, password) => call('backup_write', { path, password }),

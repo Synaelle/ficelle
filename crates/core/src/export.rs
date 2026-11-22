@@ -72,6 +72,25 @@ pub fn export_markdown(
     export_into(store, out, &mut FolderOut, files)
 }
 
+/// One note as the export writes it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct NoteFile {
+    /// The file's name, from the title.
+    pub name: String,
+    /// Front matter then body.
+    pub text: String,
+}
+
+/// One note as [`export_markdown`] writes it. Its attached files stay out,
+/// one file has no folder beside it for them.
+#[must_use]
+pub fn note_file(note: &Note) -> NoteFile {
+    NoteFile {
+        name: format!("{}.md", safe_name(&note.title)),
+        text: render_note(note, &note.body),
+    }
+}
+
 /// Where an export writes: a folder, or straight into a zip.
 trait Out {
     /// A directory, the ones above it made already.
@@ -502,6 +521,31 @@ mod tests {
         fn read(&self, sha256: &str) -> Result<Option<Vec<u8>>> {
             Ok(Some(sha256.as_bytes().to_vec()))
         }
+    }
+
+    #[test]
+    fn one_note_is_written_as_in_the_export() {
+        let (mut store, _) = store();
+        let note = store
+            .create_note(&NewNote {
+                title: "Plan: week 2?".into(),
+                body: "Some *text*".into(),
+                tags: vec!["Home".into()],
+                ..NewNote::default()
+            })
+            .unwrap();
+        let file = note_file(&note);
+        assert_eq!(file.name, "Plan week 2.md");
+        assert!(file.text.starts_with("---\nid: "));
+        assert!(
+            file.text
+                .contains("title: \"Plan: week 2?\"\ntags: [\"Home\"]\n")
+        );
+        assert!(file.text.ends_with("---\n\nSome *text*\n"));
+        let dir = tempfile::tempdir().unwrap();
+        export_markdown(&store, dir.path(), &NoAttachments).unwrap();
+        let exported = std::fs::read_to_string(dir.path().join("Home").join(&file.name)).unwrap();
+        assert_eq!(exported, file.text);
     }
 
     #[test]

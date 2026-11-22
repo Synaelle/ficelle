@@ -322,6 +322,9 @@ fn note_command(name: &str, a: &Args) -> Option<CommandResult<Value>> {
             with(|s| s.store.list_notes(scope.into(), sort))
         })(),
         "get_note" => id().and_then(|id| with(|s| s.store.note(id))),
+        "note_markdown" => {
+            id().and_then(|id| with(|s| Ok(app_core::export::note_file(&s.store.note(id)?))))
+        }
         "create_note" => a
             .get::<NewNote>("note")
             .and_then(|note| with(|s| s.store.create_note(&note))),

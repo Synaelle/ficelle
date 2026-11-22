@@ -195,6 +195,7 @@
           ]
         : []),
       { label: t('note.history'), icon: 'history', run: () => void showHistory() },
+      { label: t('note.exportMarkdown'), icon: 'export', run: () => void workspace.exportNote(id) },
       {
         label: t('note.tags'),
         icon: 'tag',

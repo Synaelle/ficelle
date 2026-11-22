@@ -17,8 +17,12 @@ import {
   type Tag,
   type TagColor,
 } from './backend'
+import { writeTextFile } from '@tauri-apps/plugin-fs'
+import { download } from './download'
 import { t } from './i18n.svelte'
 import { isMarkdownFile, parseMarkdownFile } from './importing'
+import { pickToSave } from './pick'
+import { WEB } from './platform'
 import { prefs } from './prefs.svelte'
 import { toasts } from './toast.svelte'
 import { focusNoteWindow, openNoteWindow, showingNote } from './windows'
@@ -492,6 +496,24 @@ class Workspace {
     }
     await this.refreshNotes()
     return note
+  }
+
+  /** Saves a note as a Markdown file where the person chooses, as the
+   * export writes it. */
+  async exportNote(id: Id) {
+    await this.flush()
+    try {
+      const file = await backend.noteMarkdown(id)
+      const path = await pickToSave({
+        defaultPath: file.name,
+        filters: [{ name: 'Markdown', extensions: ['md'] }],
+      })
+      if (!path) return
+      if (WEB) download(file.text, path, 'text/markdown')
+      else await writeTextFile(path, file.text)
+    } catch (err) {
+      this.report(err)
+    }
   }
 
   /**

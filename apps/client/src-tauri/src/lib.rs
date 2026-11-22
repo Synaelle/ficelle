@@ -251,6 +251,7 @@ pub fn run() {
             commands::files::remove_attachment,
             commands::files::set_attachment_thumb,
             commands::files::export_markdown,
+            commands::files::note_markdown,
             commands::backups::backups_get,
             commands::backups::backups_turn_on,
             commands::backups::backups_settings,
