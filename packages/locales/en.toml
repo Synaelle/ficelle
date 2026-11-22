@@ -523,13 +523,13 @@ bear = "In Bear: File, Backup notes, then choose the .bear2bk file. Notes export
 simplenote = "In Simplenote: Settings, Tools, Export notes, then choose the notes.zip file."
 "standard-notes" = "In Standard Notes: Preferences, Backups, download a decrypted backup, then choose that file or its zip. Files attached in Standard Notes are not in it."
 zettlr = "Your Zettlr workspace folder. Ids, keywords, tags and links come along."
-evernote = "In Evernote: select a notebook (or notes), File, Export, ENEX format. Choose the .enex file, or a folder of them: each notebook becomes a folder. Links between notes are found by title."
+evernote = "In Evernote: select a notebook (or notes), File, Export, ENEX format. Choose the .enex file, or a folder of them. Each notebook becomes a tag. Links between notes are found by title."
 joplin = "In Joplin: File, Export all, JEX (or RAW to a folder). Then choose the .jex file or that folder. Notebooks, tags, to-dos, files and links come along."
 keep = "At takeout.google.com: select only Keep, export, download. Choose the zip or tgz as it is. Labels, checklists, pictures, pins, archive and trash come along."
 "day-one" = "In Day One: Settings, Import/Export, Export, JSON. Choose the zip you get. Entries, tags, stars and photos come along."
 roam = "In Roam: the menu at the top right, Export All, JSON. Choose the json file (or its zip). Pages, block references and tasks come along."
 opml = "Export as OPML from Workflowy, Dynalist or another outliner. Each .opml file becomes a note with its outline."
-tomboy = "Tomboy and Gnote keep each note as a .note file in their data folder (~/.local/share/tomboy or gnote). Choose that folder: notebooks become folders."
+tomboy = "Tomboy and Gnote keep each note as a .note file in their data folder (~/.local/share/tomboy or gnote). Choose that folder. Notebooks become tags."
 html = "Any folder of HTML pages, or a zip of one (Zoho Notebook, Nimbus, Trilium, saved pages). Links between pages, pictures and files beside them are kept."
 
 [file]

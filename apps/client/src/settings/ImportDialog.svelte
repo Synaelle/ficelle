@@ -235,8 +235,11 @@
       <dl class="counts">
         <dt>{t('import.notes')}</dt>
         <dd>{prepared.counts.notes}</dd>
-        <dt>{t('import.folders')}</dt>
-        <dd>{prepared.counts.folders}</dd>
+        <!-- most apps have no folders: a 0 there only puzzled -->
+        {#if prepared.counts.folders}
+          <dt>{t('import.folders')}</dt>
+          <dd>{prepared.counts.folders}</dd>
+        {/if}
         <dt>{t('import.files')}</dt>
         <dd>{prepared.counts.files}</dd>
         <dt>{t('import.tags')}</dt>
