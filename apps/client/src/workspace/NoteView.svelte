@@ -746,6 +746,17 @@
     color: inherit;
     padding: 0;
   }
+  .tag-input {
+    width: auto;
+    min-width: 120px;
+    max-width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    /* the chips' size */
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
   @media (pointer: coarse) {
     .tag {
       min-height: 36px;
@@ -768,17 +779,8 @@
     }
     .tag-input {
       min-height: 44px;
+      font-size: 14px;
     }
-  }
-  .tag-input {
-    width: auto;
-    min-width: 120px;
-    max-width: 100%;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    font-size: 13px;
-    color: var(--color-text-muted);
   }
   /* no box around it: a line under it while the keyboard is in it */
   .tag-input:focus-visible {
