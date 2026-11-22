@@ -860,6 +860,8 @@
   footer {
     padding: var(--space-2) var(--space-4);
     font-size: 12px;
+    /* at this size the UI font's space nearly vanishes after digits */
+    word-spacing: 0.15em;
     border-top: 1px solid var(--color-border);
   }
 </style>
