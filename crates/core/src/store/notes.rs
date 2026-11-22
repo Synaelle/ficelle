@@ -191,7 +191,8 @@ impl Store {
         load_note(&self.conn, id)
     }
 
-    /// Pins or unpins a note.
+    /// Pins or unpins a note. Its time stays: a pin is no edit, and "Last
+    /// changed" would move the note up for it.
     ///
     /// # Errors
     ///
@@ -200,8 +201,8 @@ impl Store {
         let now = self.now();
         let tx = self.conn.transaction()?;
         let changed = tx.execute(
-            "UPDATE notes SET pinned = ?2, updated_at = ?3 WHERE id = ?1",
-            params![id, pinned, now],
+            "UPDATE notes SET pinned = ?2 WHERE id = ?1",
+            params![id, pinned],
         )?;
         if changed == 0 {
             return Err(Error::NotFound("note"));
@@ -458,6 +459,17 @@ mod tests {
         assert_eq!(updated.title, "a");
         assert_eq!(updated.body, "new body");
         assert_eq!(updated.updated_at, note.updated_at + MINUTE);
+    }
+
+    #[test]
+    fn pinning_keeps_the_time() {
+        let (mut store, clock) = store();
+        let note = store.create_note(&titled("a")).unwrap();
+        clock.advance(MINUTE);
+        store.set_pinned(note.id, true).unwrap();
+        let pinned = store.note(note.id).unwrap();
+        assert!(pinned.pinned);
+        assert_eq!(pinned.updated_at, note.updated_at);
     }
 
     #[test]
