@@ -94,6 +94,8 @@ export const ICON_NAMES = [
   'configFile',
   'openFile',
   'window',
+  'undo',
+  'redo',
 ] as const
 
 export type IconName = (typeof ICON_NAMES)[number]
@@ -190,6 +192,8 @@ export const LUCIDE: Record<IconName, string> = {
   configFile: 'file-cog',
   openFile: 'external-link',
   window: 'app-window',
+  undo: 'undo-2',
+  redo: 'redo-2',
 }
 
 /** Phosphor regular file names (@phosphor-icons/core/assets/regular/<name>.svg). */
@@ -284,4 +288,6 @@ export const PHOSPHOR: Record<IconName, string> = {
   configFile: 'file-text',
   openFile: 'arrow-square-out',
   window: 'app-window',
+  undo: 'arrow-u-up-left',
+  redo: 'arrow-u-up-right',
 }

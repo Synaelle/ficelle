@@ -1,8 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Formatting buttons. Sticks to the top of the note while scrolling. On
      touch screens it sits at the bottom instead, which is just above the
-     keyboard since the page shrinks when the keyboard opens, and shows the
-     five most used: the rest are in a sheet behind More, with their names. -->
+     keyboard since the page shrinks when the keyboard opens, and shows Undo
+     and the five most used: Redo and the rest are in a sheet behind More,
+     with their names. -->
 <script lang="ts">
   import type { Editor } from '@tiptap/core'
   import { t } from '../lib/i18n.svelte'
@@ -127,18 +128,29 @@
       (tool) => !prefs.hiddenTools.includes(tool.icon) && (tool.icon !== 'image' || onimage),
     ),
   )
-  const shown = $derived(TOUCH ? kept.filter((tool) => tool.quick) : kept)
+  // a phone keyboard has no undo key: Undo on the bar, Redo first behind More
+  const undo: Tool = {
+    icon: 'undo',
+    label: () => t('editor.undo'),
+    run: () => chain().undo().run(),
+    disabled: () => !editor.can().undo(),
+  }
+  const redo: Tool = {
+    icon: 'redo',
+    label: () => t('editor.redo'),
+    run: () => chain().redo().run(),
+    disabled: () => !editor.can().redo(),
+  }
+  const shown = $derived(TOUCH ? [undo, ...kept.filter((tool) => tool.quick)] : kept)
 
   function more() {
     overlay.openSheet(
-      kept
-        .filter((tool) => !tool.quick)
-        .map((tool) => ({
-          label: tool.label(),
-          icon: tool.icon,
-          disabled: tool.disabled?.(),
-          run: tool.run,
-        })),
+      [redo, ...kept.filter((tool) => !tool.quick)].map((tool) => ({
+        label: tool.label(),
+        icon: tool.icon,
+        disabled: tool.disabled?.(),
+        run: tool.run,
+      })),
     )
   }
 
@@ -163,7 +175,7 @@
       <Icon name={tool.icon} size={17} />
     </button>
   {/each}
-  {#if TOUCH && kept.some((tool) => !tool.quick)}
+  {#if TOUCH}
     <span class="divider" aria-hidden="true"></span>
     <button
       class="more"
