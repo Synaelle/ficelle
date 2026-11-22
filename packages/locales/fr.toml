@@ -747,10 +747,6 @@ thisApp = "Cette app"
 versionLine = "{version}, protocole {protocol}"
 version_serverOlder = "Le serveur utilise une version plus ancienne que cette app. La synchronisation fonctionne toujours, mais mieux vaut garder les deux à la même version."
 version_serverNewer = "Le serveur utilise une version plus récente que cette app. La synchronisation fonctionne toujours, mais mieux vaut garder les deux à la même version."
-signUps = "Inscriptions"
-signUpsOpen = "Ouvertes à tous"
-signUpsInvite = "Sur invitation"
-signUpsClosed = "Fermées, l’admin ajoute les personnes"
 plainWarning = "Ce serveur n’utilise pas https : votre mot de passe et vos notes traverseraient le réseau sans chiffrement, et n’importe qui sur ce réseau pourrait les lire."
 plainConfirm = "L’utiliser quand même, je fais confiance à ce réseau"
 username = "Nom d’utilisateur"
@@ -1074,7 +1070,6 @@ setupHelp = "Il n’a pas encore d’admin. La personne qui le gère ouvre le li
 again = "Mot de passe à nouveau"
 mismatch = "Les deux mots de passe sont différents."
 submit = "Se connecter"
-or = "ou"
 orPassword = "ou avec un mot de passe"
 withPasskey = "Se connecter avec une clé d’accès"
 passkeyCancelled = "La clé d’accès n’a pas été utilisée. Réessayez, ou utilisez un autre moyen."
@@ -1117,21 +1112,6 @@ qrExpired = "Ce code QR a expiré."
 qrAgain = "En afficher un nouveau"
 qrAlt = "Code QR à scanner avec {app}"
 askOnlyQr = "Continuez seulement si vous venez de scanner ce code avec votre téléphone."
-
-[admin.register]
-title = "Créer votre compte sur {app}"
-help = "Cette invitation vous permet de créer un compte. Choisissez un nom d’utilisateur et un mot de passe."
-submit = "Créer mon compte"
-ready = "Votre compte {name} est prêt"
-readyHelp = "Utilisez-le pour vous connecter depuis l’app {app}. Vous pouvez fermer cette page."
-kind = "Type de compte"
-e2eeWarning = "Personne ne peut réinitialiser le mot de passe de ce compte, pas même un admin. Si vous l’oubliez, seul le code de récupération affiché ensuite ouvre le compte. Pour la meilleure protection, utilisez l’app : cette page vient du serveur."
-codeTitle = "Votre code de récupération"
-codeHelp = "Notez-le ou enregistrez-le en lieu sûr, loin de cet appareil. Si vous oubliez votre mot de passe, c’est le seul moyen de retrouver votre compte et vos notes. Il n’est affiché que maintenant."
-typeBack = "Saisissez les quatre derniers caractères, pour montrer que vous l’avez gardé"
-typeBackWrong = "Ce n’est pas la fin du code. Regardez-le à nouveau."
-keptIt = "Je l’ai gardé, continuer"
-codeFile = "Code de récupération {app} pour {name} sur {host}. Gardez-le secret. Il ouvre le compte si le mot de passe est oublié."
 
 [admin.overview]
 title = "Vue d’ensemble"
@@ -1227,9 +1207,6 @@ one = "{count} jour"
 other = "{count} jours"
 
 [admin.policy.from]
-user = "Défini pour ce membre"
-group = "D’un groupe"
-instance = "Des règles pour tous"
 config = "Du fichier de configuration du serveur"
 
 [admin.policy.help]
@@ -1374,11 +1351,6 @@ codesReady = "Nouveaux codes de récupération. Les anciens ne fonctionnent plus
 codesSaved = "Je les ai enregistrés"
 saveTxt = "Enregistrer en .txt"
 codesFile = "Codes de récupération {app} pour {host}. Chacun fonctionne une fois."
-ssoTitle = "Authentification unique"
-ssoHelp = "Liez votre compte {provider} pour qu’il vous connecte ici."
-linkSso = "Lier {provider}"
-ssoLinked = "Lié. Il vous connecte désormais."
-ssoUnlinkConfirm = "Délier {name} ? Il ne vous connectera plus."
 emailTitle = "E-mail"
 emailOff = "Ce serveur n’envoie pas d’e-mails."
 addEmail = "Ajouter une adresse"
@@ -1388,21 +1360,10 @@ emailSent = "Un lien est parti vers {email}. Ouvrez-le pour confirmer l’adress
 dataTitle = "Vos données"
 export = "Télécharger mes données"
 exported = "Vos données ont été téléchargées."
-delete = "Supprimer mon compte"
-deleteConfirm = "Supprimer votre compte ? Il disparaît dans {days} jours avec tout ce que le serveur garde pour lui. D’ici là, vous pouvez vous connecter et le garder. Vos autres appareils sont déconnectés maintenant."
-deleteNowConfirm = "Supprimer votre compte maintenant, avec tout ce que le serveur garde pour lui ? C’est irréversible."
-deletionPlanned = "Votre compte va être supprimé. Vous pouvez encore le garder jusqu’à la date indiquée."
-deletionPending = "Votre compte sera supprimé le {date}."
-keepAccount = "Garder mon compte"
-deletionCancelled = "Votre compte est gardé."
 
 [admin.account.passkeyCount]
 one = "{count} clé d’accès"
 other = "{count} clés d’accès"
-
-[admin.account.linkedCount]
-one = "{count} lié"
-other = "{count} liés"
 
 [admin.account.codesLeftShort]
 one = "{count} restant"
@@ -1411,12 +1372,6 @@ other = "{count} restants"
 [admin.account.codesLeft]
 one = "{count} code restant."
 other = "{count} codes restants."
-
-[admin.kinds]
-standard = "Standard"
-standardHelp = "Le serveur garde vos notes chiffrées avec sa propre clé et peut y faire des recherches. Un admin peut définir un nouveau mot de passe si vous oubliez le vôtre."
-e2ee = "Chiffré de bout en bout"
-e2eeHelp = "Seuls vos appareils peuvent lire vos notes. Votre mot de passe n’atteint jamais le serveur et personne ne peut le réinitialiser."
 
 [admin.forgot]
 link = "Mot de passe oublié ?"
@@ -1467,11 +1422,8 @@ notTitle = "Ce qu’il ne fait pas"
 notKept = "Pas de cookies, pas de traceurs, pas de mesure d’audience, pas de publicité. Rien n’est vendu ni partagé. La page d’administration garde votre connexion dans l’onglet du navigateur seulement, elle prend fin quand l’onglet se ferme."
 othersTitle = "Autres services impliqués"
 email = "E-mail : seulement pour confirmer une adresse, réinitialiser un mot de passe et prévenir avant la suppression d’un compte, par le serveur de messagerie configuré par les personnes qui gèrent ce serveur."
-sso = "Authentification unique : quand vous vous connectez avec {provider}, ce service apprend que vous vous êtes connecté ici."
 rightsTitle = "Vos choix"
 export = "Téléchargez tout ce qui est gardé pour votre compte depuis Votre compte, sous forme de fichier."
-deletion = "Supprimez votre compte depuis Votre compte. Il disparaît {days} jours plus tard avec tout ce qui est gardé pour lui, et vous pouvez changer d’avis d’ici là."
-deletionNow = "Supprimez votre compte depuis Votre compte. Il disparaît aussitôt avec tout ce qui est gardé pour lui."
 correct = "Changez vous-même votre nom affiché, votre e-mail et votre mot de passe, ou demandez aux personnes qui gèrent le serveur."
 noticeTitle = "De la part des personnes qui gèrent ce serveur"
 feedbackTitle = "Retours et rapports de bug"
@@ -1481,19 +1433,11 @@ feedbackHere = "Les retours envoyés depuis les apps des personnes de ce serveur
 
 [admin.checklist]
 title = "Liste de sécurité"
-factorsOk = "Chaque admin a une seconde étape : une clé d’accès, une application d’authentification ou des codes par e-mail."
-factorsMissing = "Admins avec un simple mot de passe : {names}. Un mot de passe divulgué livrerait le serveur."
 factorsOkPersonal = "Vous avez une seconde étape après votre mot de passe."
 factorsMissingPersonal = "Vous vous connectez avec un simple mot de passe. Quiconque l’apprend contrôle ce serveur et vos notes."
-registrationClosedPersonal = "Personne d’autre ne peut s’inscrire."
 storageLimitPersonal = "Vos notes et fichiers peuvent utiliser jusqu’à {mb} Mo."
 storageUnlimitedPersonal = "Votre stockage n’a pas de limite, sauf le disque du serveur."
 tlsLocalPersonal = "Cette page vient du serveur lui-même. Vos appareils doivent passer par https."
-registrationClosed = "L’inscription est fermée : seuls les admins ajoutent des membres."
-registrationInvite = "Les membres peuvent inviter d’autres personnes."
-registrationOpen = "Quiconque atteint ce serveur peut créer un compte."
-storageLimit = "Chaque membre peut stocker jusqu’à {mb} Mo, notes et fichiers compris."
-storageUnlimited = "Le stockage par membre n’a pas de limite : un seul compte pourrait remplir le disque du serveur. Définissez-en une dans Stockage."
 backupsNone = "Aucune sauvegarde n’est configurée."
 backupsFailing = "La dernière sauvegarde a échoué : {error}"
 backupsNever = "Les sauvegardes sont configurées mais aucune n’a encore abouti."
@@ -1506,12 +1450,10 @@ updatesNewer = "Ce serveur utilise {current}, et {latest} est sortie."
 updatesWaiting = "Ce serveur utilise {current}, la liste des versions n’a pas encore été lue."
 updatesCurrent = "La version {current} est à jour."
 tlsOk = "Cette page a atteint le serveur par https."
-tlsLocal = "Cette page vient du serveur lui-même. Les gens doivent passer par https."
 tlsPlain = "Cette page a atteint le serveur en http simple : les mots de passe traversent le réseau en clair. Placez un proxy inverse https devant."
 addressOk = "Les gens atteignent le serveur à {url}."
 addressUnset = "server.public_url n’est pas défini : les liens des e-mails, les clés d’accès et l’authentification unique en ont besoin."
 addressHttp = "server.public_url vaut {url}, sans https."
-secrets = "Gardez master.key et les bases de données à l’écart de ce serveur, dans des sauvegardes ou une copie du dossier de données : sans master.key, les notes des comptes standard ne peuvent pas être ouvertes."
 secretsPersonal = "Gardez master.key et les bases de données à l’écart de ce serveur, dans des sauvegardes ou une copie du dossier de données : sans master.key, vos notes ne peuvent pas être ouvertes, sauf si elles sont chiffrées de bout en bout."
 secretsApart = "master.key est gardé à part du dossier de données (storage.master_key_file). Gardez-en aussi une copie loin de ce serveur."
 secretsDone = "C’est fait, masquer"
@@ -1655,11 +1597,6 @@ masterKeyApart = "La clé maîtresse est lue depuis son propre fichier (storage.
 connected = "Les sauvegardes sont configurées, la première est faite."
 counts = "Membres : {users}, fichiers : {files}"
 testOk = "Cette sauvegarde se restaure en entier (membres : {users}, fichiers : {files}), essayé dans un dossier temporaire supprimé depuis."
-person = "Faire revenir quelqu’un"
-from = "Depuis la sauvegarde du"
-personConfirm = "Faire revenir ce qui manque de {name} depuis la sauvegarde du {when} ?"
-personBack = "Le compte est revenu. Espaces revenus : {spaces}, fichiers : {files}."
-personSpaces = "Espaces revenus : {spaces}, fichiers : {files}."
 recovery = "Pour restaurer toute l’instance"
 recoveryHelp = "Gardez ceci, avec ses secrets remplis, et le mot de passe des sauvegardes, ailleurs que sur ce serveur. Serveur arrêté : ficelle-server backup restore --target <ce fichier> --into <un dossier vide>, puis faites pointer storage.data_dir vers ce dossier."
 stopConfirm = "Arrêter les sauvegardes de cette instance ? Les sauvegardes faites restent où elles sont."
@@ -1686,30 +1623,6 @@ hostKeyHelp = "Laissez l’empreinte vide la première fois : la réponse donne
 
 [admin.invites]
 copyFailed = "La copie a échoué, sélectionnez le texte et copiez-le."
-
-[admin.onePerson]
-title = "Passer à une seule personne"
-pointer = "Ce serveur a plusieurs comptes. Les serveurs pour plusieurs personnes ne sont plus pris en charge, ils continuent de fonctionner mais ne reçoivent que des correctifs de sécurité."
-help = "Choisissez le compte à garder. Il devient l’admin de ce serveur et les autres sont retirés du serveur, avec tout ce qu’il garde pour eux."
-choose = "Compte à garder"
-seen = "vu pour la dernière fois le {date}"
-typeName = "Saisissez {name} pour confirmer"
-
-[admin.onePerson.notes]
-one = "environ {count} note"
-other = "environ {count} notes"
-
-[admin.onePerson.devices]
-one = "{count} appareil"
-other = "{count} appareils"
-
-[admin.onePerson.warning]
-one = "{count} autre compte sera retiré et {name} gardé. C’est irréversible. Leurs notes ne restent sur leurs appareils qu’une fois leurs apps mises à jour vers cette version : demandez-leur donc de mettre à jour d’abord, et d’exporter tout ce dont ils veulent être sûrs."
-other = "{count} autres comptes seront retirés et {name} gardé. C’est irréversible. Leurs notes ne restent sur leurs appareils qu’une fois leurs apps mises à jour vers cette version : demandez-leur donc de mettre à jour d’abord, et d’exporter tout ce dont ils veulent être sûrs."
-
-[admin.onePerson.submit]
-one = "Retirer {count} autre compte"
-other = "Retirer {count} autres comptes"
 
 [admin.feedback]
 saveZip = "Enregistrer en zip"
@@ -1781,10 +1694,6 @@ sendTo = "Où les membres de ce serveur envoient leurs rapports"
 sendTo_main = "Au serveur principal du projet (aide à corriger l’app)"
 sendTo_here = "À la boîte de réception de ce serveur"
 sendTo_off = "Nulle part, Envoyer un retour est masqué dans les apps"
-readers = "Qui lit la boîte de réception"
-noReaders = "Seulement les admins."
-addReader = "Ajouter"
-remove = "Retirer"
 token = "Jeton de récupération des rapports"
 tokenOnce = "Copiez-le maintenant, il n’est affiché qu’une fois :"
 tokenMade = "Un jeton a été créé le {when}."
@@ -1847,10 +1756,6 @@ body = "Le mot de passe de votre compte {username} vient d’être changé grâc
 [mail.code]
 subject = "Votre code de connexion"
 body = "Votre code pour vous connecter en tant que {username} est\n\n{code}\n\nIl est valable 10 minutes. Si vous n’êtes pas en train de vous connecter, quelqu’un a votre mot de passe : changez-le maintenant."
-
-[mail.deletion]
-subject = "Votre compte va être supprimé"
-body = "Votre compte {username} sera supprimé le {date}, avec tout ce que le serveur garde pour lui. Pour le garder, connectez-vous avant cette date et annulez la suppression."
 
 [reset]
 title = "Tout réinitialiser"
