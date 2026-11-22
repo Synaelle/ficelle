@@ -54,7 +54,7 @@
     | 'testTools'
     | 'experimental'
     | 'about'
-  const SECTIONS: Section[] = [
+  const SECTIONS = $derived([
     'appearance',
     'accessibility',
     'editor',
@@ -68,10 +68,11 @@
     ...(WEB ? [] : (['feedback'] as const)),
     // dev and preview builds only
     ...(__APP_DEV_TOOLS__ ? (['testTools'] as const) : []),
-    // what is still being tried, only where it applies
-    ...(LINUX && !WEB ? (['experimental'] as const) : []),
+    // what is still being tried, only where it applies and for those who
+    // follow the nightlies
+    ...(LINUX && !WEB && prefs.channel === 'nightly' ? (['experimental'] as const) : []),
     'about',
-  ] as Section[]
+  ] as Section[])
   const SECTION_ICONS: Record<Section, IconName> = {
     appearance: 'palette',
     accessibility: 'textSize',

@@ -270,8 +270,9 @@
           },
         ]
       : []),
-    // what is still being tried, only where it applies
-    ...(LINUX && !WEB
+    // what is still being tried, only where it applies and for those who
+    // follow the nightlies
+    ...(LINUX && !WEB && prefs.channel === 'nightly'
       ? [
           {
             icon: 'flask' as const,
