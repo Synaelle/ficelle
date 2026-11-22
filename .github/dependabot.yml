@@ -1,14 +1,14 @@
-# Dependency updates as pull requests, each Monday. Minor and patch updates
-# come grouped, one pull request per ecosystem, so they read in one go. A new
-# version waits 14 days before it is offered, time for a broken release to be
-# found by others. Security fixes come on their own as soon as they are out.
+# Dependency updates as pull requests, at the start of each month. Minor and
+# patch updates come grouped, one pull request per ecosystem, so they read in
+# one go. A new version waits 14 days before it is offered, time for a broken
+# release to be found by others. Security fixes come on their own as soon as
+# they are out.
 version: 2
 updates:
   - package-ecosystem: cargo
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: '06:00'
       timezone: Europe/Paris
     cooldown:
@@ -25,8 +25,7 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: '06:00'
       timezone: Europe/Paris
     cooldown:
@@ -43,8 +42,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: '06:00'
       timezone: Europe/Paris
     cooldown:
@@ -57,8 +55,7 @@ updates:
   - package-ecosystem: docker
     directory: /deploy
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: '06:00'
       timezone: Europe/Paris
     cooldown:
