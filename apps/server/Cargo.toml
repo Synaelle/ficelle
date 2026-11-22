@@ -16,10 +16,8 @@ path = "src/main.rs"
 app-brand.workspace = true
 app-e2ee = { path = "../../crates/e2ee" }
 app-protocol.workspace = true
-# backups of the instance, and SFTP as a place for them (the apps leave it out)
+# backups of the instance
 app-repo.workspace = true
-russh = { version = "0.65.0", default-features = false, features = ["ring"] }
-russh-sftp = "3.0.1"
 argon2 = "0.6.0"
 axum = { workspace = true, features = ["ws"] }
 base64 = "0.23.1"
@@ -55,7 +53,6 @@ rpassword = "7.5.4"
 rusqlite = { version = "0.42.0", features = ["bundled"] }
 
 [dev-dependencies]
-app-repo = { workspace = true, features = ["testing"] }
 app-core = { workspace = true, features = ["testing"] }
 futures-util = "0.3"
 tempfile = "3.27.0"

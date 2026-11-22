@@ -27,7 +27,7 @@ fn failed(why: impl Into<String>) -> Error {
     )
 }
 
-/// The settings as the page sees them: no secrets.
+/// The settings as the page sees them: no password.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigView {
@@ -76,7 +76,7 @@ async fn view(state: &AppState) -> Result<BackupsView, Error> {
     let (suggested, suggested_apart) = suggested_folder(&state.config.storage);
     Ok(BackupsView {
         config: config.map(|c| ConfigView {
-            target: c.target.without_secrets(),
+            target: c.target,
             schedule: c.schedule,
             policy: c.policy,
         }),
@@ -127,12 +127,8 @@ pub async fn connect(
         Err(DbError::Data(_)) => None,
         Err(e) => return Err(e.into()),
     };
-    let target = match &old {
-        Some(old) => connect.target.keeping_secrets_of(&old.target),
-        None => connect.target,
-    };
     let config = BackupConfig {
-        target,
+        target: connect.target,
         password: connect.password,
         schedule: old.as_ref().map_or(Schedule::Daily, |o| o.schedule),
         policy: old.as_ref().map_or_else(Policy::default, |o| o.policy),

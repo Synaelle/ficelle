@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Backup repositories: encrypted, incremental, deduplicated snapshots kept
-//! on a [`Target`] (a folder, S3, `WebDAV`...). Not the backup archive of
+//! on a [`Target`], a folder. Not the backup archive of
 //! the core, one file made by hand: a repository is filled by scheduled
 //! runs and keeps many snapshots, each stored once whatever it shares with
 //! the others. What goes in a snapshot is the caller's, the server's
@@ -25,14 +25,9 @@
 
 pub mod chunk;
 mod error;
-mod http;
 mod maintain;
-mod s3;
 mod snapshot;
 pub mod target;
-#[cfg(feature = "testing")]
-pub mod testing;
-mod webdav;
 mod writer;
 
 use std::collections::{HashMap, HashSet};
@@ -48,10 +43,8 @@ use zeroize::Zeroizing;
 
 pub use error::{Error, Result};
 pub use maintain::{CheckReport, Lock, PruneReport};
-pub use s3::{S3Config, S3Target};
 pub use snapshot::{Item, Policy, Snapshot, keep};
 pub use target::{FolderTarget, Listed, Target};
-pub use webdav::{WebdavConfig, WebdavTarget};
 pub use writer::{WriteStats, Writer};
 
 /// The format this version writes, and the newest it reads.

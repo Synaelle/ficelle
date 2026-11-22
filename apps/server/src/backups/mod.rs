@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The instance's backups, set up by an admin: where (a folder on the
-//! server, S3, `WebDAV`, SFTP), the password, when, what to keep. Runs on a
+//! The instance's backups, set up by an admin: the folder on the server,
+//! the password, when, what to keep. Runs on a
 //! schedule in the background, the admin page shows how they went, a
 //! failure is logged and mailed to the admins. People back up their own
 //! notes from their apps.
@@ -12,9 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use app_repo::{
-    FolderTarget, KdfParams, Policy, Repo, S3Config, S3Target, Target, WebdavConfig, WebdavTarget,
-};
+use app_repo::{FolderTarget, KdfParams, Policy, Repo, Target};
 use base64::Engine;
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -22,7 +20,6 @@ use serde::{Deserialize, Serialize};
 use crate::db::DbError;
 use crate::keys::MasterKey;
 use crate::routes::AppState;
-use crate::sftp::{SftpConfig, SftpTarget};
 use instance::RunReport;
 
 /// The folder backups get inside the chosen one.
@@ -53,13 +50,14 @@ pub enum ServerTarget {
         /// Its path on the server.
         path: String,
     },
-    /// An S3 bucket.
-    S3(S3Config),
-    /// A `WebDAV` folder.
-    Webdav(WebdavConfig),
-    /// An SFTP folder.
-    Sftp(SftpConfig),
 }
+
+/// Places earlier versions also backed up to. Settings naming one are
+/// kept but read as no backups, so the admin page asks for a folder.
+const DROPPED_KINDS: [&str; 3] = ["s3", "webdav", "sftp"];
+
+/// The dropped place is logged once, not at every look of the schedule.
+static DROPPED_WARNED: AtomicBool = AtomicBool::new(false);
 
 /// A folder the admin page may back up to: an absolute path that is not
 /// there yet, empty, or holding a repository already (its `config` file,
@@ -94,110 +92,16 @@ impl ServerTarget {
     ///
     /// An incomplete config, in words.
     pub fn open(&self) -> Result<Arc<dyn Target>, String> {
-        Ok(match self {
-            Self::Folder { path } => {
-                if path.trim().is_empty() {
-                    return Err("a folder is needed".into());
-                }
-                folder_allowed(Path::new(path.trim()))?;
-                Arc::new(FolderTarget::named(path.trim(), &folder_name(), &readme()))
-            }
-            Self::S3(c) => Arc::new(S3Target::new(c.clone()).map_err(|e| e.to_string())?),
-            Self::Webdav(c) => Arc::new(WebdavTarget::new(c).map_err(|e| e.to_string())?),
-            Self::Sftp(c) => Arc::new(SftpTarget::new(c.clone()).map_err(|e| e.to_string())?),
-        })
-    }
-
-    /// The same without its secrets, to show.
-    #[must_use]
-    pub fn without_secrets(&self) -> Self {
-        match self {
-            Self::Folder { path } => Self::Folder { path: path.clone() },
-            Self::S3(c) => Self::S3(S3Config {
-                secret_key: String::new(),
-                ..c.clone()
-            }),
-            Self::Webdav(c) => Self::Webdav(WebdavConfig {
-                password: String::new(),
-                ..c.clone()
-            }),
-            Self::Sftp(c) => Self::Sftp(SftpConfig {
-                password: String::new(),
-                private_key: String::new(),
-                passphrase: String::new(),
-                ..c.clone()
-            }),
+        let Self::Folder { path } = self;
+        if path.trim().is_empty() {
+            return Err("a folder is needed".into());
         }
-    }
-
-    /// The secrets of `old` where these are blank: the page sends them
-    /// back blank when unchanged. Only for the same place (server, account,
-    /// bucket): someone pointing the backups elsewhere types them again,
-    /// else a stolen admin session could have the server hand its stored
-    /// password or key to a server of theirs.
-    #[must_use]
-    pub fn keeping_secrets_of(self, old: &Self) -> Self {
-        let keep = |new: &mut String, old: &String| {
-            if new.is_empty() {
-                new.clone_from(old);
-            }
-        };
-        if !self.same_place(old) {
-            return self;
-        }
-        match (self, old) {
-            (Self::S3(mut new), Self::S3(old)) => {
-                keep(&mut new.secret_key, &old.secret_key);
-                Self::S3(new)
-            }
-            (Self::Webdav(mut new), Self::Webdav(old)) => {
-                keep(&mut new.password, &old.password);
-                Self::Webdav(new)
-            }
-            (Self::Sftp(mut new), Self::Sftp(old)) => {
-                keep(&mut new.password, &old.password);
-                keep(&mut new.private_key, &old.private_key);
-                keep(&mut new.passphrase, &old.passphrase);
-                Self::Sftp(new)
-            }
-            (new, _) => new,
-        }
-    }
-
-    /// The same server and account: a different folder is still the same
-    /// place, a different host or user is not.
-    fn same_place(&self, old: &Self) -> bool {
-        let origin = |address: &str| {
-            url::Url::parse(address).ok().map(|u| {
-                (
-                    u.scheme().to_owned(),
-                    u.host_str().map(str::to_ascii_lowercase),
-                    u.port_or_known_default(),
-                )
-            })
-        };
-        match (self, old) {
-            (Self::S3(new), Self::S3(old)) => {
-                new.endpoint == old.endpoint
-                    && new.region == old.region
-                    && new.bucket == old.bucket
-                    && new.access_key == old.access_key
-            }
-            (Self::Webdav(new), Self::Webdav(old)) => {
-                origin(&new.url).is_some()
-                    && origin(&new.url) == origin(&old.url)
-                    && new.username == old.username
-            }
-            (Self::Sftp(new), Self::Sftp(old)) => {
-                // another host key may be another machine at that name:
-                // the stored password or key is not sent to it
-                new.host.eq_ignore_ascii_case(&old.host)
-                    && new.port == old.port
-                    && new.username == old.username
-                    && new.host_key.trim() == old.host_key.trim()
-            }
-            _ => false,
-        }
+        folder_allowed(Path::new(path.trim()))?;
+        Ok(Arc::new(FolderTarget::named(
+            path.trim(),
+            &folder_name(),
+            &readme(),
+        )))
     }
 }
 
@@ -309,20 +213,36 @@ pub fn config(conn: &Connection, master: &MasterKey) -> Result<Option<BackupConf
         return Ok(None);
     };
     let unreadable = || DbError::Data("the backup settings cannot be read, set them again".into());
-    if let Some(sealed) = stored.get("sealed").and_then(|s| s.as_str()) {
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(sealed)
-            .map_err(|_| unreadable())?;
-        let text = master
-            .open_setting("backups", &bytes)
-            .ok_or_else(unreadable)?;
-        return serde_json::from_slice(&text)
-            .map(Some)
-            .map_err(|_| unreadable());
+    let plain = stored.get("sealed").is_none();
+    let value: serde_json::Value = match stored.get("sealed").and_then(|s| s.as_str()) {
+        Some(sealed) => {
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(sealed)
+                .map_err(|_| unreadable())?;
+            let text = master
+                .open_setting("backups", &bytes)
+                .ok_or_else(unreadable)?;
+            serde_json::from_slice(&text).map_err(|_| unreadable())?
+        }
+        None => stored,
+    };
+    if let Some(kind) = value["target"]["kind"]
+        .as_str()
+        .filter(|k| DROPPED_KINDS.contains(k))
+    {
+        if !DROPPED_WARNED.swap(true, Ordering::SeqCst) {
+            tracing::warn!(
+                "backups went to {kind}, which this version no longer backs up to. \
+                 They are off until a folder is set on the admin page"
+            );
+        }
+        return Ok(None);
     }
-    let plain: BackupConfig = serde_json::from_value(stored).map_err(|_| unreadable())?;
-    set_config(conn, master, Some(&plain))?;
-    Ok(Some(plain))
+    let config: BackupConfig = serde_json::from_value(value).map_err(|_| unreadable())?;
+    if plain {
+        set_config(conn, master, Some(&config))?;
+    }
+    Ok(Some(config))
 }
 
 /// Sets or clears the settings, sealed.
@@ -636,86 +556,6 @@ pub fn spawn_schedule(state: AppState) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    fn target(value: serde_json::Value) -> ServerTarget {
-        serde_json::from_value(value).unwrap()
-    }
-
-    #[test]
-    fn stored_secrets_stay_only_with_the_same_place() {
-        let sftp = |host: &str, user: &str, path: &str, password: &str| {
-            target(
-                json!({ "kind": "sftp", "host": host, "port": 22, "username": user,
-                "path": path, "password": password }),
-            )
-        };
-        let old = sftp("nas.home", "backup", "/srv/a", "secret");
-        let kept = |new: ServerTarget| match new.keeping_secrets_of(&old) {
-            ServerTarget::Sftp(c) => c.password,
-            _ => unreachable!(),
-        };
-        assert_eq!(
-            kept(sftp("NAS.home", "backup", "/srv/b", "")),
-            "secret",
-            "another folder"
-        );
-        assert_eq!(
-            kept(sftp("evil.example", "backup", "/srv/a", "")),
-            "",
-            "another host"
-        );
-        assert_eq!(
-            kept(sftp("nas.home", "root", "/srv/a", "")),
-            "",
-            "another user"
-        );
-        assert_eq!(
-            kept(sftp("nas.home", "backup", "/srv/a", "new")),
-            "new",
-            "typed again"
-        );
-
-        let dav = |url: &str| {
-            target(json!({ "kind": "webdav", "url": url, "username": "me", "password": "" }))
-        };
-        let old = target(
-            json!({ "kind": "webdav", "url": "https://cloud.home/dav/a", "username": "me", "password": "pw" }),
-        );
-        let kept = |new: ServerTarget| match new.keeping_secrets_of(&old) {
-            ServerTarget::Webdav(c) => c.password,
-            _ => unreachable!(),
-        };
-        assert_eq!(kept(dav("https://cloud.home/dav/b")), "pw");
-        assert_eq!(kept(dav("https://cloud.evil/dav/a")), "");
-        assert_eq!(
-            kept(dav("http://cloud.home/dav/a")),
-            "",
-            "not over plain http"
-        );
-
-        let s3 = |bucket: &str| {
-            target(
-                json!({ "kind": "s3", "endpoint": "https://s3.example", "bucket": bucket,
-                "accessKey": "AK", "secretKey": "" }),
-            )
-        };
-        let old = target(
-            json!({ "kind": "s3", "endpoint": "https://s3.example", "bucket": "a",
-            "accessKey": "AK", "secretKey": "SK" }),
-        );
-        let kept = |new: ServerTarget| match new.keeping_secrets_of(&old) {
-            ServerTarget::S3(c) => c.secret_key,
-            _ => unreachable!(),
-        };
-        assert_eq!(kept(s3("a")), "SK");
-        assert_eq!(kept(s3("b")), "", "another bucket");
-    }
-}
-
-#[cfg(test)]
 mod folder_tests {
     use super::folder_allowed;
 
@@ -783,5 +623,45 @@ mod sealed_tests {
             matches!(opened, Err(DbError::Data(_))),
             "another key reads nothing, and says so: {opened:?}"
         );
+    }
+
+    /// Settings for a place this version dropped read as no backups, and
+    /// stay in the database until the admin sets a folder.
+    #[tokio::test]
+    async fn a_dropped_place_reads_as_backups_off() {
+        let db = Db::in_memory().unwrap();
+        let master = std::sync::Arc::new(MasterKey::generate());
+        let m = master.clone();
+        let (sealed, plain, kept) = db
+            .call(move |c| {
+                let old = serde_json::json!({
+                    "target": { "kind": "sftp", "host": "nas.home", "port": 22,
+                        "username": "backup", "path": "/srv", "password": "pw" },
+                    "password": "the repository password",
+                    "schedule": "daily",
+                    "policy": Policy::default(),
+                    "offsetSeconds": 0,
+                });
+                let text = serde_json::to_vec(&old).unwrap();
+                let stored = serde_json::json!({
+                    "sealed": base64::engine::general_purpose::STANDARD
+                        .encode(m.seal_setting("backups", &text)),
+                });
+                write_setting(c, "backups", Some(&stored))?;
+                let sealed = config(c, &m)?;
+                // as 0.2 kept them, plain
+                write_setting(c, "backups", Some(&old))?;
+                let plain = config(c, &m)?;
+                Ok((
+                    sealed,
+                    plain,
+                    read_setting::<serde_json::Value>(c, "backups")?,
+                ))
+            })
+            .await
+            .unwrap();
+        assert!(sealed.is_none());
+        assert!(plain.is_none());
+        assert_eq!(kept.unwrap()["target"]["kind"], "sftp", "left as it was");
     }
 }

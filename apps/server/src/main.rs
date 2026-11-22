@@ -23,7 +23,6 @@ mod passkeys;
 mod routes;
 mod secrets;
 mod setup;
-mod sftp;
 mod sync;
 mod updates;
 mod web;
@@ -71,8 +70,8 @@ const USAGE: &str = "usage: ficelle-server [--config <file>] [--check] [--versio
 
   backup list --target <file>
                    the instance's backups at the place <file> describes (the
-                   json the admin page shows under Backups, its secrets
-                   filled in). The password comes from {ENV}_BACKUP_PASSWORD,
+                   json the admin page shows under Backups). The password
+                   comes from {ENV}_BACKUP_PASSWORD,
                    else from the first line of the input.
   backup check --target <file> [--full]
                    checks the backups, reading every file with --full

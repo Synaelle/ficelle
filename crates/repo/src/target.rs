@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Where a repository lives: a few calls any storage can answer, so the
-//! repository never knows whether it writes to a folder, S3 or `WebDAV`.
-//! Paths are relative, with `/`, and made only by the repository.
+//! Where a repository lives: a few calls a folder answers, and a memory
+//! target for the tests. Paths are relative, with `/`, and made only by
+//! the repository.
 
 use std::path::{Path, PathBuf};
 
@@ -234,9 +234,8 @@ impl Target for FolderTarget {
     }
 }
 
-/// A target in memory, for tests (feature `testing`): it can be told to
-/// fail.
-#[cfg(any(test, feature = "testing"))]
+/// A target in memory, for tests: it can be told to fail.
+#[cfg(test)]
 #[derive(Default)]
 pub struct MemoryTarget {
     files: std::sync::Mutex<std::collections::BTreeMap<String, Vec<u8>>>,
@@ -244,7 +243,7 @@ pub struct MemoryTarget {
     pub fail_after: std::sync::Mutex<Option<usize>>,
 }
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 impl MemoryTarget {
     fn tick(&self) -> Result<()> {
         let mut left = self.fail_after.lock().unwrap();
@@ -268,7 +267,7 @@ impl MemoryTarget {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 impl Target for MemoryTarget {
     fn put(&self, path: &str, bytes: &[u8]) -> Result<()> {
         self.tick()?;
