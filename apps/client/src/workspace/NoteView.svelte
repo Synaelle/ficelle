@@ -275,6 +275,7 @@
         class="saved muted"
         class:bad={workspace.unsaved}
         class:quiet={!workspace.unsaved && !saving && !justSaved}
+        title={workspace.unsaved ? undefined : saving ? t('note.saving') : t('note.saved')}
       >
         {#if workspace.unsaved}
           <span role="alert">{t('note.notSaved')}</span>
