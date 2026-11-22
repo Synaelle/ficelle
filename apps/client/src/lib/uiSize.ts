@@ -38,6 +38,8 @@ declare global {
       setBars?(color: string, light: boolean): void
       /** Opens a web page in the phone's browser. */
       openBrowser?(url: string): boolean
+      /** Opens the attachment copy the native side just wrote. */
+      openFile?(): boolean
     }
   }
 }

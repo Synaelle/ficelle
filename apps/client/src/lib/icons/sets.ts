@@ -92,6 +92,7 @@ export const ICON_NAMES = [
   'warning',
   'globe',
   'configFile',
+  'openFile',
 ] as const
 
 export type IconName = (typeof ICON_NAMES)[number]
@@ -186,6 +187,7 @@ export const LUCIDE: Record<IconName, string> = {
   warning: 'triangle-alert',
   globe: 'globe',
   configFile: 'file-cog',
+  openFile: 'external-link',
 }
 
 /** Phosphor regular file names (@phosphor-icons/core/assets/regular/<name>.svg). */
@@ -278,4 +280,5 @@ export const PHOSPHOR: Record<IconName, string> = {
   warning: 'warning',
   globe: 'globe',
   configFile: 'file-text',
+  openFile: 'arrow-square-out',
 }

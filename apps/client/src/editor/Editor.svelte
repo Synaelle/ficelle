@@ -13,7 +13,7 @@
   import { NodeSelection, TextSelection, type Selection } from '@tiptap/pm/state'
   import { onDestroy, onMount } from 'svelte'
   import { pickToSave } from '../lib/pick'
-  import { ATTACHMENT_PREFIX } from '../lib/attachments'
+  import { ATTACHMENT_PREFIX, openAttachment } from '../lib/attachments'
   import { backend, type AttachmentFile } from '../lib/backend'
   import { shrinkImage, thumbnailOf } from '../lib/images'
   import { FILES_CHANGED } from '../lib/sync.svelte'
@@ -142,9 +142,10 @@
     window.dispatchEvent(new Event(ATTACHMENTS_CHANGED))
   }
 
-  /** What can be done with a file of the note: save a copy, remove it. */
+  /** What can be done with a file of the note: open it, save a copy, remove it. */
   function fileItems(file: AttachmentFile): MenuItem[] {
     return [
+      { label: t('files.open'), icon: 'openFile', run: () => void openFile(file) },
       { label: t('files.saveCopy'), icon: 'export', run: () => void saveCopy(file) },
       { label: t('files.remove'), icon: 'trash', danger: true, run: () => void removeFile(file) },
     ]
@@ -264,6 +265,14 @@
       await backend.removeAttachment(file.id)
       files.delete(file.fileName)
       save()
+    } catch (err) {
+      workspace.error = isBackendError(err) ? err.kind : 'unknown'
+    }
+  }
+
+  async function openFile(file: AttachmentFile) {
+    try {
+      await openAttachment(file)
     } catch (err) {
       workspace.error = isBackendError(err) ? err.kind : 'unknown'
     }

@@ -142,6 +142,33 @@ class SystemInfo(private val activity: Activity) {
     }
   }
 
+  /**
+   * Opens an attachment in the phone's app for its type. The Rust side
+   * writes a copy into cache/opened just before (sync/files.rs), so the
+   * page passes no path: the newest copy there is the one. With no app for
+   * the type, the system's chooser says so.
+   */
+  @JavascriptInterface
+  fun openFile(): Boolean {
+    val file = File(activity.cacheDir, "opened")
+      .listFiles()
+      ?.flatMap { it.listFiles()?.toList() ?: emptyList() }
+      ?.maxByOrNull { it.lastModified() }
+      ?: return false
+    val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
+    val intent = Intent(Intent.ACTION_VIEW)
+      .setDataAndType(uri, activity.contentResolver.getType(uri))
+      .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    activity.runOnUiThread {
+      try {
+        activity.startActivity(intent)
+      } catch (e: android.content.ActivityNotFoundException) {
+        activity.startActivity(Intent.createChooser(intent, null))
+      }
+    }
+    return true
+  }
+
   /** Whether the phone shows a 24-hour clock, for times in the app to match. */
   @JavascriptInterface
   fun clock24h(): Boolean = android.text.format.DateFormat.is24HourFormat(activity)

@@ -293,6 +293,80 @@ pub async fn save_attachment(
     .map_err(|e| CommandError::new("file", e.to_string()))
 }
 
+/// Copies of attachments opened in other apps, in the app's cache. Android's
+/// `FileProvider` hands this folder out (`res/xml/file_paths.xml`).
+const OPENED_DIR: &str = "opened";
+/// Copies older than this are cleaned away when another file is opened: by
+/// then the app that showed it is done with it.
+const OPENED_KEEP: Duration = Duration::from_hours(1);
+
+/// Opens an attachment in the system's app for its type, from a copy named
+/// as in the note: the stored file has neither name nor type. A phone only
+/// writes the copy, the page then hands it over (`openFile` in `MainActivity`).
+#[tauri::command]
+pub async fn open_attachment(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    sha256: String,
+    name: String,
+) -> CommandResult<()> {
+    let reader = state.quietly(|s| s.blobs.open(&sha256))?;
+    let mut reader = reader
+        .ok_or_else(|| CommandError::new("notFound", "the file is not on this device yet"))?;
+    // the name comes from the note: only its last part, kept inside the folder
+    let name = std::path::Path::new(&name)
+        .file_name()
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| CommandError::new("invalid", "no file name"))?;
+    // a folder per file: two files of the same name stay apart
+    let folder = sha256
+        .get(..16)
+        .filter(|part| part.bytes().all(|b| b.is_ascii_hexdigit()))
+        .ok_or_else(|| CommandError::new("invalid", "not a file hash"))?
+        .to_owned();
+    let opened = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| CommandError::new("file", e.to_string()))?
+        .join(OPENED_DIR);
+    let path = tauri::async_runtime::spawn_blocking(move || {
+        clean_opened(&opened);
+        let dir = opened.join(folder);
+        std::fs::create_dir_all(&dir)?;
+        let path = dir.join(name);
+        let mut out = std::fs::File::create(&path)?;
+        std::io::copy(&mut reader, &mut out)?;
+        out.sync_all()?;
+        Ok::<_, std::io::Error>(path)
+    })
+    .await
+    .map_err(|e| CommandError::new("internal", e.to_string()))?
+    .map_err(|e| CommandError::new("file", e.to_string()))?;
+    #[cfg(desktop)]
+    super::browser::open_in_browser(&path)
+        .map_err(|e| CommandError::new("unknown", e.to_string()))?;
+    #[cfg(mobile)]
+    let _ = path;
+    Ok(())
+}
+
+/// Takes away the copies opened a while ago. Best effort: a copy another
+/// app still holds stays for the next time.
+fn clean_opened(opened: &std::path::Path) {
+    let Ok(entries) = std::fs::read_dir(opened) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let old = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .is_ok_and(|at| at.elapsed().is_ok_and(|age| age > OPENED_KEEP));
+        if old {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
 /// What the server allows this account and what it uses, as the last round
 /// heard. `None` without a server that keeps files.
 #[tauri::command]

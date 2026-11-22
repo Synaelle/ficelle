@@ -4,6 +4,7 @@
 // rules and their tests live in crates/core.
 
 import { brand } from '@app/brand'
+import { showOrDownload } from '../download'
 import type { Backend } from './backend'
 import { sampleData } from './sample'
 import {
@@ -569,6 +570,11 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
         .map((a) => ({ ...a, here: true, refused: null })),
     fetchAttachment: async () => {},
     saveAttachment: async () => {},
+    openAttachment: async (sha256, name, mime) => {
+      const url = [...attachments.values()].find((a) => a.sha256 === sha256)?.url
+      if (!url) throw { kind: 'notFound', message: 'no such file' }
+      showOrDownload(await (await fetch(url)).arrayBuffer(), name, mime)
+    },
     readAttachment: async () => {
       throw { kind: 'notFound', message: 'no files in the browser test backend' }
     },

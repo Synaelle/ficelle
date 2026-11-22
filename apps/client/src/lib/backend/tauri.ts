@@ -129,6 +129,12 @@ export function createTauriBackend(call: typeof invoke = invoke): Backend {
     attachmentFiles: (note) => call('attachment_files', { note }),
     fetchAttachment: (sha256) => call('fetch_attachment', { sha256 }),
     saveAttachment: (sha256, path) => call('save_attachment', { sha256, path }),
+    // a phone hands the copy to an app itself
+    openAttachment: async (sha256, name) => {
+      await call('open_attachment', { sha256, name })
+      if (ANDROID && !window.AppSystem?.openFile?.())
+        throw { kind: 'notFound', message: 'the copy to open is missing' }
+    },
     readAttachment: (sha256) => call('read_attachment', { sha256 }),
     // raw body as for add_attachment
     setAttachmentThumb: async (id, thumb) =>

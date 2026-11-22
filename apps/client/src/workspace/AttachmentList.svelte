@@ -1,16 +1,17 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Every attachment, in place of the note list when Attachments is chosen
      in the sidebar: name, type, size, its note and when it was added, newest
-     first, with a filter by name and a sort. A file opens its note. Notes in
-     the trash are left out. -->
+     first, with a filter by name and a sort. A file opens its note, its
+     button opens the file itself. Notes in the trash are left out. -->
 <script lang="ts">
   import { onDestroy } from 'svelte'
+  import { openAttachment } from '../lib/attachments'
   import { backend, type NoteAttachment } from '../lib/backend'
   import { bytes } from '../lib/format'
   import { currentLocale, t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { FILES_CHANGED } from '../lib/sync.svelte'
-  import { workspace } from '../lib/workspace.svelte'
+  import { isBackendError, workspace } from '../lib/workspace.svelte'
 
   let all: NoteAttachment[] = $state([])
   let filter = $state('')
@@ -44,6 +45,14 @@
     file.fileName.includes('.') ? file.fileName.split('.').pop()?.toUpperCase() : file.mimeType
   const day = (ms: number) =>
     new Intl.DateTimeFormat(currentLocale(), { dateStyle: 'medium' }).format(ms)
+
+  async function open(file: NoteAttachment) {
+    try {
+      await openAttachment(file)
+    } catch (err) {
+      workspace.error = isBackendError(err) ? err.kind : 'unknown'
+    }
+  }
 </script>
 
 <section class="list" aria-label={t('files.allTitle')}>
@@ -70,6 +79,7 @@
       {#each shown as file (file.id)}
         <li>
           <button
+            class="row"
             class:active={workspace.current?.id === file.noteId}
             onclick={() => workspace.open(file.noteId)}
           >
@@ -82,6 +92,12 @@
               >{kind(file)} · {file.noteTitle || t('note.untitled')} · {day(file.createdAt)}</span
             >
           </button>
+          <button
+            class="icon-btn"
+            aria-label={t('files.openNamed', { name: file.fileName })}
+            title={t('files.open')}
+            onclick={() => open(file)}><Icon name="openFile" size={16} /></button
+          >
         </li>
       {/each}
     </ul>
@@ -128,20 +144,28 @@
     padding: 0 var(--space-2);
     list-style: none;
   }
-  li button {
+  li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  .row {
+    flex: 1;
+    min-width: 0;
     display: grid;
     gap: 2px;
-    width: 100%;
     padding: var(--space-2);
     border: 0;
     border-radius: var(--radius-control);
     background: none;
     text-align: left;
   }
-  li button:hover {
-    background: var(--color-surface);
+  @media (hover: hover) {
+    .row:hover {
+      background: var(--color-surface);
+    }
   }
-  li button.active {
+  .row.active {
     background: var(--color-selection);
   }
   .top {

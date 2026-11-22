@@ -1,12 +1,12 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The open note's attachments, folded at the very bottom of the note:
-     each file's name, type and size, whether it is on this device, a copy to
-     save, a mention to put in the text when it has none, and removal. Files
-     added here stay out of the text until mentioned. Read again when the
-     note or its files change. -->
+     each file's name, type and size, whether it is on this device, opening
+     it, a copy to save, a mention to put in the text when it has none, and
+     removal. Files added here stay out of the text until mentioned. Read
+     again when the note or its files change. -->
 <script lang="ts">
   import { onDestroy } from 'svelte'
-  import { ATTACHMENT_PREFIX } from '../lib/attachments'
+  import { ATTACHMENT_PREFIX, openAttachment } from '../lib/attachments'
   import { backend, type AttachmentFile } from '../lib/backend'
   import { bytes } from '../lib/format'
   import { t } from '../lib/i18n.svelte'
@@ -121,6 +121,9 @@
                 >{t('files.mention')}</button
               >
             {/if}
+            <button class="btn small" onclick={() => act(() => openAttachment(file))}
+              >{t('files.open')}</button
+            >
             <button
               class="btn small"
               disabled={!backend.native && !WEB}

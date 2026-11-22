@@ -327,9 +327,10 @@ fn escape(value: &str) -> String {
         .collect()
 }
 
-/// Opens an address in the system's browser.
+/// Opens an address in the system's browser, or a file in the system's
+/// app for its type.
 #[cfg(desktop)]
-pub fn open_in_browser(url: &str) -> std::io::Result<()> {
+pub fn open_in_browser(url: impl AsRef<std::ffi::OsStr>) -> std::io::Result<()> {
     let opener = if cfg!(windows) {
         "explorer"
     } else {

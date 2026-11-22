@@ -8,7 +8,7 @@ import type { invoke } from '@tauri-apps/api/core'
 import type { Backend } from './backend'
 import type { CoreAnswer, CoreRequest } from './core.worker'
 import { pageScope } from '../webScope'
-import { download } from '../download'
+import { download, showOrDownload } from '../download'
 import { pickedFile } from '../pick'
 import { backupMade, notesMade } from '../webBackups'
 import { createTauriBackend } from './tauri'
@@ -255,6 +255,9 @@ export function createWebBackend(): Backend {
     // a copy of a file goes where the browser puts downloads
     saveAttachment: async (sha256, path) => {
       download(await send('read_attachment', { sha256 }, { binary: true }), path)
+    },
+    openAttachment: async (sha256, name, mime) => {
+      showOrDownload(await send('read_attachment', { sha256 }, { binary: true }), name, mime)
     },
     // every file is here: nothing to fetch from a server
     fetchAttachment: async () => {},

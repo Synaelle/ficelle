@@ -183,6 +183,9 @@ export interface Backend {
   fetchAttachment(sha256: string): Promise<void>
   /** Writes a copy of a file where the person chose. */
   saveAttachment(sha256: string, path: string): Promise<void>
+  /** Opens a file kept on this device in the system's app for it, or in a
+   * browser tab. */
+  openAttachment(sha256: string, name: string, mime: string): Promise<void>
   /** A file kept on this device, as bytes: an image to copy. */
   readAttachment(sha256: string): Promise<ArrayBuffer>
   /** Gives an image attachment its small preview. */

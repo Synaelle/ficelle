@@ -2,7 +2,7 @@
 // How notes point at their attachments: a relative link the editor resolves
 // to the stored file, so exported markdown keeps working next to its files.
 
-import type { Attachment } from './backend'
+import { backend, type Attachment } from './backend'
 
 export const ATTACHMENT_PREFIX = 'attachments/'
 
@@ -12,4 +12,11 @@ export function attachmentMarkdown(attachment: Attachment, mime: string): string
   return mime.startsWith('image/')
     ? `![${attachment.fileName.replace(/\.[^.]+$/, '')}](${src})`
     : `[${attachment.fileName}](${src})`
+}
+
+/** Opens a file of a note in the system's app for it, fetched first when
+ * it may not be here yet. */
+export async function openAttachment(file: Attachment & { here?: boolean }) {
+  if (!file.here) await backend.fetchAttachment(file.sha256)
+  await backend.openAttachment(file.sha256, file.fileName, file.mimeType)
 }

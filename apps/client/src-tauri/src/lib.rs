@@ -277,6 +277,7 @@ pub fn run() {
             sync::files::attachment_files,
             sync::files::fetch_attachment,
             sync::files::save_attachment,
+            sync::files::open_attachment,
             sync::files::read_attachment,
             sync::files::files_info,
             sync::files::files_refused,
