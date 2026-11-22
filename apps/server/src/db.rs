@@ -45,6 +45,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/024_link_offers.sql"),
     include_str!("../migrations/025_sign_in_locks.sql"),
     include_str!("../migrations/026_link_networks.sql"),
+    include_str!("../migrations/027_one_person.sql"),
 ];
 
 /// The feedback database's migrations.
@@ -297,5 +298,88 @@ mod tests {
             .map(Result::unwrap)
             .collect();
         assert_eq!(kinds, ["theme"]);
+    }
+
+    #[test]
+    fn what_only_several_people_used_goes_and_the_owner_s_notes_stay() {
+        let dir = tempfile::tempdir().unwrap();
+        // main before servers were for one person in code too
+        let old = Db::open_file(dir.path(), DB_FILE, &MIGRATIONS[..MIGRATIONS.len() - 1]).unwrap();
+        old.conn
+            .lock()
+            .unwrap()
+            .execute_batch(
+                "INSERT INTO users (id, username, display_name, password_hash, role, created_at)
+                     VALUES ('o', 'owner', 'Owner', 'h', 'admin', 1), ('f', 'friend', 'Friend', 'h', 'user', 1);
+                 INSERT INTO sync_spaces (id, owner_id, created_at) VALUES ('o', 'o', 1), ('f', 'f', 1);
+                 INSERT INTO sync_spaces (id, owner_id, created_at, shared) VALUES ('s', 'o', 2, 1);
+                 INSERT INTO sync_changes (space_id, doc_id, change_id, bytes, size, created_at)
+                     VALUES ('o', 'space', 'c1', x'01', 1, 1), ('s', 'space', 'c2', x'02', 1, 2),
+                            ('f', 'space', 'c3', x'03', 1, 3);
+                 INSERT INTO files (object, size, stored, created_at) VALUES ('obj', 1, 1, 1);
+                 INSERT INTO file_refs (space_id, address, object, size, added_at) VALUES ('o', 'a', 'obj', 1, 1);
+                 INSERT INTO groups (id, name, created_at) VALUES ('g', 'Family', 1);
+                 INSERT INTO group_members (group_id, user_id, added_at) VALUES ('g', 'f', 1);
+                 INSERT INTO sync_members (space_id, user_id, role, added_at) VALUES ('s', 'f', 'edit', 1);
+                 INSERT INTO sync_members (space_id, group_id, role, added_at) VALUES ('s', 'g', 'read', 1);
+                 INSERT INTO sync_left (space_id, user_id) VALUES ('s', 'f');
+                 INSERT INTO sync_grants (space_id, user_id, epoch, grant_data) VALUES ('s', 'f', 0, 'k');
+                 INSERT INTO invites (id, hash, created_by, created_at, expires_at) VALUES ('i', x'00', 'o', 1, 2);
+                 INSERT INTO sso_identities (id, user_id, issuer, subject, name, created_at)
+                     VALUES ('x', 'f', 'https://id', 'sub', 'friend', 1);
+                 INSERT INTO feedback_readers (user_id, added_at) VALUES ('f', 1);
+                 INSERT INTO policies (scope, target, settings, updated_at)
+                     VALUES ('instance', '', '{}', 1), ('group', 'g', '{}', 1), ('user', 'f', '{}', 1);
+                 UPDATE settings SET value = 'open' WHERE key = 'registration';
+                 INSERT OR REPLACE INTO settings (key, value) VALUES ('server_use', 'personal'), ('account_kinds', 'e2ee');",
+            )
+            .unwrap();
+        drop(old);
+        let db = Db::open(dir.path()).unwrap();
+        let conn = db.conn.lock().unwrap();
+        let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        assert_eq!(count("SELECT count(*) FROM users"), 2, "no account goes");
+        assert_eq!(count("SELECT count(*) FROM sync_spaces"), 3);
+        assert_eq!(
+            count("SELECT count(*) FROM sync_changes"),
+            3,
+            "every note change stays"
+        );
+        assert_eq!(count("SELECT count(*) FROM file_refs"), 1);
+        assert_eq!(count("SELECT count(*) FROM files"), 1);
+        assert_eq!(
+            count("SELECT count(*) FROM policies"),
+            1,
+            "the instance's stays"
+        );
+        assert_eq!(
+            count(
+                "SELECT count(*) FROM settings WHERE key IN ('registration', 'server_use', 'account_kinds')"
+            ),
+            0
+        );
+        for table in [
+            "groups",
+            "group_members",
+            "invites",
+            "sso_identities",
+            "sync_members",
+            "sync_left",
+            "sync_grants",
+            "feedback_readers",
+        ] {
+            let found = count(&format!(
+                "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = '{table}'"
+            ));
+            assert_eq!(found, 0, "{table}");
+        }
+        let problems: Vec<String> = conn
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert!(problems.is_empty(), "{problems:?}");
     }
 }
