@@ -15,7 +15,7 @@ export const base = new URL('.', document.baseURI).pathname
 export const webPath =
   document.querySelector<HTMLMetaElement>('meta[name=web-path]')?.content ?? '/app/'
 
-/** The page's own path below `base`, `/admin` or `/invite/<token>`. */
+/** The page's own path below `base`, `/admin` or `/connect`. */
 export function route(): string {
   const path = location.pathname
   return path.startsWith(base) ? `/${path.slice(base.length)}` : path
@@ -31,9 +31,8 @@ export function sectionHref(name: string): string {
 export const PROTOCOL_VERSION = 2
 
 export type Role = 'admin' | 'user'
-export type Registration = 'closed' | 'invite' | 'open'
 export type AccountKind = 'standard' | 'e2ee'
-/** What sign-up creates. */
+/** The kinds of the accounts on a server. */
 export type AccountKinds = AccountKind | 'choice'
 
 /** The account master key wrapped twice, opaque to the server. */
@@ -51,14 +50,12 @@ export interface ServerInfo {
 }
 
 export interface AuthOptions {
-  registration: Registration
   setupNeeded: boolean
   passkeys: boolean
+  /** The kind of the accounts here, the choice when they differ. */
   accountKinds: AccountKinds
   /** A forgotten password can be reset by email. */
   emailReset: boolean
-  /** Label of the single sign-on button, absent without it. */
-  sso?: string
 }
 
 export interface User {
@@ -85,19 +82,10 @@ export interface Session {
 export interface Overview {
   version: string
   createdAt: string
-  users: number
-  admins: number
-  disabled: number
-  groups: number
   devices: number
-  registration: Registration
-  accountKinds: AccountKinds
-  e2ee: number
   coediting: boolean
   /** Admins act as admin only once they have a second step. */
   adminsNeedSecondStep: boolean
-  /** The server is for its admin alone ("Sync for myself"). */
-  personal: boolean
 }
 
 /** Who may open the web version, `off` until an admin turns it on. */
@@ -123,13 +111,6 @@ export interface WebView {
   /** Sign-ins and refused ones in the last day. */
   signIns: number
   refused: number
-}
-
-export interface Group {
-  id: string
-  name: string
-  createdAt: number
-  members: number
 }
 
 export interface AuditEntry {
@@ -161,25 +142,16 @@ export interface Passkey {
   lastUsedAt: number | null
 }
 
-export interface SsoIdentity {
-  id: string
-  name: string
-  createdAt: number
-}
-
 export interface Security {
   hasPassword: boolean
   totp: boolean
   recoveryCodesLeft: number
   passkeys: Passkey[]
-  sso: SsoIdentity[]
   /** The confirmed email. */
   email?: string
   emailAvailable: boolean
   /** Codes by email are the account's second step. */
   emailCodes: boolean
-  /** Set while the account waits for its deletion. */
-  deleteAt?: number
 }
 
 /** Facts for the privacy page, from the server's settings. */
@@ -187,11 +159,8 @@ export interface PrivacyInfo {
   operator?: string
   contact?: string
   notice?: string
-  accountKinds: AccountKinds
   email: boolean
-  sso?: string
   auditDays: number
-  deletionGraceDays: number
   sessionDays: number
   /** Feedback: taken here, kept so long, where this server's people send theirs. */
   feedbackReceive: boolean
@@ -389,8 +358,7 @@ export interface FilesPolicy {
 }
 
 export interface PolicySource {
-  level: 'user' | 'group' | 'instance' | 'config'
-  groups?: string[]
+  level: 'instance' | 'config'
 }
 
 export interface PolicyView {
@@ -399,22 +367,10 @@ export interface PolicyView {
   sources: Record<string, PolicySource>
 }
 
-export interface PersonStorage {
-  userId: string
-  username: string
-  displayName: string
-  usedBytes: number
-  fileBytes: number
-  files: number
-  largestBytes: number
-  quotaBytes: number
-}
-
 export interface StorageOverview {
   storedBytes: number
   files: number
   referencedBytes: number
   uniqueBytes: number
   noteBytes: number
-  people: { total: number; items: PersonStorage[] }
 }

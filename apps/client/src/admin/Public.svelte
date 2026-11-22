@@ -108,8 +108,8 @@
           <li>{t('admin.privacy.keptAccount')}</li>
           <li>{t('admin.privacy.keptDevices', { days: privacy.sessionDays })}</li>
           <li>{t('admin.privacy.keptLog', { days: privacy.auditDays })}</li>
-          {#if privacy.accountKinds !== 'e2ee'}<li>{t('admin.privacy.keptStandard')}</li>{/if}
-          {#if privacy.accountKinds !== 'standard'}<li>{t('admin.privacy.keptE2ee')}</li>{/if}
+          <li>{t('admin.privacy.keptStandard')}</li>
+          <li>{t('admin.privacy.keptE2ee')}</li>
         </ul>
 
         <h2>{t('admin.privacy.notTitle')}</h2>
@@ -129,22 +129,16 @@
           </ul>
         {/if}
 
-        {#if privacy.email || privacy.sso}
+        {#if privacy.email}
           <h2>{t('admin.privacy.othersTitle')}</h2>
           <ul>
-            {#if privacy.email}<li>{t('admin.privacy.email')}</li>{/if}
-            {#if privacy.sso}<li>{t('admin.privacy.sso', { provider: privacy.sso })}</li>{/if}
+            <li>{t('admin.privacy.email')}</li>
           </ul>
         {/if}
 
         <h2>{t('admin.privacy.rightsTitle')}</h2>
         <ul>
           <li>{t('admin.privacy.export')}</li>
-          <li>
-            {privacy.deletionGraceDays > 0
-              ? t('admin.privacy.deletion', { days: privacy.deletionGraceDays })
-              : t('admin.privacy.deletionNow')}
-          </li>
           <li>{t('admin.privacy.correct')}</li>
         </ul>
 

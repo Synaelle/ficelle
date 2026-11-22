@@ -14,29 +14,17 @@
 <script lang="ts">
   import { brand } from '@app/brand'
   import { t } from '../lib/i18n.svelte'
-  import {
-    api,
-    ApiError,
-    auth,
-    base,
-    signOut,
-    type AuthOptions,
-    type SecondFactorNeeded,
-  } from './api.svelte'
+  import { api, ApiError, auth, signOut, type AuthOptions } from './api.svelte'
   import { errorText } from './format'
   import SignIn from './SignIn.svelte'
 
   let {
     options,
     byCode = false,
-    initialProblem = '',
-    initialSecond = null,
   }: {
     options: AuthOptions
     /** At /link: the app waits for a typed code. */
     byCode?: boolean
-    initialProblem?: string
-    initialSecond?: SecondFactorNeeded | null
   } = $props()
 
   interface Request {
@@ -117,8 +105,7 @@
   /** The export key sealed at sign-in, for an encrypted account. */
   let sealed: string | undefined = $state()
   let busy = $state(false)
-  // svelte-ignore state_referenced_locally
-  let problem = $state(initialProblem)
+  let problem = $state('')
   /** Signing in again from the start, with this message. */
   let again = $state(0)
   /** What the page starts on, read once. */
@@ -251,8 +238,8 @@
 
   async function signedIn(key?: string) {
     sealed = key
-    // a passkey or single sign-on has no password: an encrypted account's
-    // notes cannot be opened without it
+    // a passkey has no password: an encrypted account's notes cannot be
+    // opened without it
     if (auth.session?.user.kind === 'e2ee' && !sealed) {
       await signOut()
       problem = t('admin.connect.needPassword', { app: brand.displayName })
@@ -379,9 +366,7 @@
       {options}
       heading={t('admin.connect.title', { app: brand.displayName })}
       forApp={{ key: request.key, challenge: request.challenge }}
-      returnTo={`${base}${byCode ? 'link' : 'connect'}`}
       initialProblem={problem}
-      initialSecond={again ? null : initialSecond}
       done={signedIn}
     />
   {/key}

@@ -104,37 +104,6 @@ export async function proofOf(username: string, password: string): Promise<strin
   return answer.proof
 }
 
-/** Creates an e2ee account. The recovery code in the answer is shown once,
- * it is the only way back in if the password is forgotten. */
-export async function signUp(
-  username: string,
-  password: string,
-  rest: { displayName?: string; invite?: string | null; device: unknown },
-): Promise<{ session: Session; recoveryCode: string }> {
-  const wasm = await client()
-  const first = JSON.parse(wasm.signUpStart(password)) as { state: string; request: string }
-  const { response } = await api<{ response: string }>('POST', '/auth/opaque/registration', {
-    username,
-    request: first.request,
-  })
-  const made = JSON.parse(wasm.signUpFinish(first.state, password, response, username)) as {
-    upload: string
-    ksf: number
-    keys: KeyBundle
-    recoveryVerifier: string
-    recoveryCode: string
-  }
-  const session = await api<Session>('POST', '/auth/e2ee/register', {
-    username,
-    upload: made.upload,
-    ksf: made.ksf,
-    keys: made.keys,
-    recoveryVerifier: made.recoveryVerifier,
-    ...rest,
-  })
-  return { session, recoveryCode: made.recoveryCode }
-}
-
 /** Sets a new password for an e2ee account with its recovery code. The
  * code opens the keys inside the WebAssembly module, the password and the
  * keys never reach the server in the clear. Every device is signed out,

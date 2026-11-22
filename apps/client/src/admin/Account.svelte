@@ -11,12 +11,9 @@
   import { overlay } from '../lib/overlay.svelte'
   import {
     api,
-    base,
     auth,
     flash,
     keep,
-    signOut,
-    type PrivacyInfo,
     type AuthOptions,
     type PasskeyCeremony,
     type Security,
@@ -24,7 +21,7 @@
     type User,
   } from './api.svelte'
   import { proofOf } from './e2ee'
-  import { date, dateTime, errorText, relative } from './format'
+  import { date, errorText, relative } from './format'
   import { createPasskey, passkeysSupported } from './webauthn'
 
   let security: Security | null = $state(null)
@@ -56,10 +53,9 @@
 
   async function load() {
     await run(async () => {
-      ;[security, options, privacy] = await Promise.all([
+      ;[security, options] = await Promise.all([
         api<Security>('GET', '/me/security'),
         api<AuthOptions>('GET', '/auth/options'),
-        api<PrivacyInfo>('GET', '/privacy'),
       ])
       // a second factor just added lifts the wait of a command line admin,
       // the panel opens once the session knows
@@ -69,8 +65,6 @@
       }
     })
   }
-
-  let privacy: PrivacyInfo | null = $state(null)
 
   async function setEmail() {
     const email = await overlay.askText(t('admin.account.emailPrompt'), security?.email ?? '')
@@ -101,27 +95,6 @@
       link.click()
       URL.revokeObjectURL(link.href)
     }, t('admin.account.exported'))
-  }
-
-  async function requestDeletion() {
-    const days = privacy?.deletionGraceDays ?? 0
-    const yes = await overlay.ask(
-      days > 0 ? t('admin.account.deleteConfirm', { days }) : t('admin.account.deleteNowConfirm'),
-      { confirmLabel: t('admin.account.delete'), danger: true },
-    )
-    if (!yes) return
-    const confirm = await proof()
-    if (!confirm) return
-    await run(async () => {
-      await api('POST', '/me/deletion', confirm)
-      if (days === 0) await signOut()
-      else await load()
-    }, t('admin.account.deletionPlanned'))
-  }
-
-  async function cancelDeletion() {
-    if (await run(() => api('DELETE', '/me/deletion'), t('admin.account.deletionCancelled')))
-      await load()
   }
 
   const e2ee = $derived(auth.session?.user.kind === 'e2ee')
@@ -266,42 +239,11 @@
       await load()
   }
 
-  async function linkSso() {
-    const confirm = await proof()
-    if (!confirm) return
-    await run(async () => {
-      const { url } = await api<{ url: string }>('POST', '/me/sso/link', {
-        returnTo: `${base}admin`,
-        ...confirm,
-      })
-      location.assign(url)
-    })
-  }
-
-  async function unlinkSso(id: string, name: string) {
-    const yes = await overlay.ask(t('admin.account.ssoUnlinkConfirm', { name }), {
-      confirmLabel: t('admin.account.remove'),
-      danger: true,
-    })
-    if (!yes) return
-    const confirm = await proof()
-    if (!confirm) return
-    if (await run(() => api('DELETE', `/me/sso/${id}`, confirm), t('admin.account.removed')))
-      await load()
-  }
-
   void load()
 </script>
 
 {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 {#if notice}<p class="notice" role="status">{notice}</p>{/if}
-{#if security?.deleteAt}
-  <div class="pending" role="status">
-    <p>{t('admin.account.deletionPending', { date: dateTime(security.deleteAt) })}</p>
-    <button class="btn primary" onclick={cancelDeletion}>{t('admin.account.keepAccount')}</button>
-  </div>
-{/if}
-
 {#if codes.length}
   <section class="fresh" aria-labelledby="codes-title">
     <h2 id="codes-title">{t('admin.account.codesTitle')}</h2>
@@ -476,43 +418,6 @@
         </div>
       </details>
     {/if}
-
-    {#if options?.sso}
-      <details class="item">
-        {@render head(
-          'link',
-          t('admin.account.ssoTitle'),
-          security.sso.length
-            ? t('admin.account.linkedCount', { count: security.sso.length })
-            : t('admin.account.off'),
-          security.sso.length > 0,
-        )}
-        <div class="body">
-          <p class="muted">{t('admin.account.ssoHelp', { provider: options.sso })}</p>
-          {#if security.sso.length}
-            <ul class="items">
-              {#each security.sso as identity (identity.id)}
-                <li>
-                  <span
-                    ><b>{identity.name}</b><span class="muted"
-                      >{t('admin.account.addedOn', { date: date(identity.createdAt) })}</span
-                    ></span
-                  >
-                  <button class="btn" onclick={() => unlinkSso(identity.id, identity.name)}
-                    >{t('admin.account.remove')}</button
-                  >
-                </li>
-              {/each}
-            </ul>
-          {/if}
-          <button class="btn" onclick={linkSso}
-            ><Icon name="plus" size={16} />{t('admin.account.linkSso', {
-              provider: options.sso,
-            })}</button
-          >
-        </div>
-      </details>
-    {/if}
   </div>
 
   <h2 class="group">{t('admin.account.accountGroup')}</h2>
@@ -551,10 +456,6 @@
           <button class="btn" onclick={exportData}
             ><Icon name="export" size={16} />{t('admin.account.export')}</button
           >
-          {#if !security.deleteAt}
-            <button class="btn danger" onclick={requestDeletion}>{t('admin.account.delete')}</button
-            >
-          {/if}
           <a class="privacy-link" href="privacy">{t('admin.privacy.link')}</a>
         </div>
       </div>
@@ -706,17 +607,6 @@
   }
   .problem {
     color: var(--color-danger);
-  }
-  .pending {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-3);
-    max-width: 680px;
-    margin-bottom: var(--space-4);
-    padding: var(--space-3) var(--space-4);
-    border: 1px solid var(--color-danger);
-    border-radius: var(--radius-popover);
   }
   .privacy-link {
     color: var(--color-accent-text);
