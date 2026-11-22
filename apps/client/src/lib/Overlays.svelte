@@ -263,6 +263,9 @@
         aria-haspopup={item.items ? 'menu' : undefined}
         aria-expanded={item.items && !overlay.menu?.sheet ? open : undefined}
         disabled={item.disabled}
+        style:padding-inline-start={item.depth
+          ? `calc(var(--space-2) + ${item.depth * 12}px)`
+          : null}
         onclick={(e) => choose(item, i, e.currentTarget, inFlyout)}
         onpointerenter={inFlyout ? undefined : (e) => hover(e, item, i)}
       >

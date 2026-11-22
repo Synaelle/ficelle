@@ -17,6 +17,8 @@ export interface MenuItem {
   separator?: boolean
   /** Shows a check mark, for the current choice in a list. */
   checked?: boolean
+  /** Levels in from the left, for a tree: the tags. */
+  depth?: number
   run?: () => void
   /** A submenu, for "Tags" and the like: beside the menu, or in its place
    * for a finger. */
