@@ -47,6 +47,9 @@
   })
 
   const trash = $derived(workspace.scope.kind === 'trash')
+  /** A search looks through every note, whatever the list showed: the tag
+   * and its sort make way for it. */
+  const searching = $derived(workspace.hits !== null)
 
   /** The tag shown, with the tags it holds. */
   const shownTag = $derived.by(() => {
@@ -247,6 +250,8 @@
           size={18}
         /></button
       >
+    {:else if searching}
+      <h1>{t('list.found')}</h1>
     {:else}
       <h1><span class="dim">{titleParent}</span>{title}</h1>
       {#if workspace.scope.kind === 'tag'}
@@ -321,7 +326,7 @@
       {/if}
     </div>
   </header>
-  {#if holdsTags && !narrow}
+  {#if holdsTags && !narrow && !searching}
     <p class="inner">{t('list.withInside', { count: workspace.notes.length })}</p>
   {/if}
 
@@ -337,17 +342,19 @@
         oninput={(e) => workspace.search(e.currentTarget.value)}
       />
     </label>
-    <select
-      class="sort"
-      aria-label={t('list.sort')}
-      value={prefs.sort}
-      onchange={(e) => changeSort(e.currentTarget.value as NoteSort)}
-    >
-      <option value="folderAsc">{t('list.sortFolder')}</option>
-      <option value="updatedDesc">{t('list.sortUpdated')}</option>
-      <option value="createdDesc">{t('list.sortCreated')}</option>
-      <option value="titleAsc">{t('list.sortTitle')}</option>
-    </select>
+    {#if !searching}
+      <select
+        class="sort"
+        aria-label={t('list.sort')}
+        value={prefs.sort}
+        onchange={(e) => changeSort(e.currentTarget.value as NoteSort)}
+      >
+        <option value="folderAsc">{t('list.sortFolder')}</option>
+        <option value="updatedDesc">{t('list.sortUpdated')}</option>
+        <option value="createdDesc">{t('list.sortCreated')}</option>
+        <option value="titleAsc">{t('list.sortTitle')}</option>
+      </select>
+    {/if}
   </div>
 
   <div class="pull" use:pullDown={{ scroller: '.rows', onPull: () => searchInput?.focus() }}>
