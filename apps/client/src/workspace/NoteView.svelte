@@ -134,6 +134,8 @@
   let titleInput: HTMLInputElement | undefined = $state()
   /** Phones: no spelling popup on the title either, see the editor. */
   const PHONE = /android|iphone|ipad/i.test(navigator.userAgent)
+  // a phone has no room for the tabs, a narrow window on a computer has
+  const viewTabs = $derived(!narrow || !PHONE)
 
   // a title from another device: the caret stays on the same words
   $effect.pre(() => {
@@ -196,7 +198,7 @@
       },
     ]
     // a phone has no room for the tabs: Raw is a choice in this menu
-    if (narrow)
+    if (!viewTabs)
       items.unshift(
         { label: t('note.raw'), icon: 'code', checked: source, run: () => (source = !source) },
         SEPARATOR,
@@ -341,7 +343,7 @@
 
         <!-- the formatted note, or its Markdown to edit as text (on a phone,
              Raw in the note's menu) -->
-        {#if !narrow}<div class="views" role="tablist" aria-label={t('note.view')}>
+        {#if viewTabs}<div class="views" role="tablist" aria-label={t('note.view')}>
             {#each [false, true] as raw (raw)}
               <button
                 class="view-tab"
