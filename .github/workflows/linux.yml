@@ -1,8 +1,9 @@
 name: linux
 
 # The Linux AppImage, for x86_64 and for aarch64 (each on its own kind of
-# runner), built on the oldest supported Ubuntu (its glibc is the oldest the
-# AppImage runs on). release.yml calls it for each release, signed
+# runner), built inside an Ubuntu 22.04 container: its glibc is the oldest
+# the AppImage runs on, and the build no longer depends on GitHub keeping
+# runners of that Ubuntu. release.yml calls it for each release, signed
 # for the app updater with the TAURI_SIGNING_PRIVATE_KEY secret, and attaches
 # it. nightly.yml calls it with a nightly's name and build number. A manual
 # run builds an unsigned AppImage of the chosen branch, kept as an artifact
@@ -31,27 +32,39 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: ubuntu-22.04
+          - runner: ubuntu-24.04
             arch: amd64
-          - runner: ubuntu-22.04-arm
+          - runner: ubuntu-24.04-arm
             arch: aarch64
     runs-on: ${{ matrix.runner }}
+    container: ubuntu:22.04@sha256:f64b2ffc2f10ab8f8505aa56b2664bd846cbb9df87c7e2532e30f7667021c0e6
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      # no FUSE in a container: the bundler's tools and our AppImage unpack themselves
+      APPIMAGE_EXTRACT_AND_RUN: '1'
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: tauri linux deps
         # a stuck package mirror fails the step instead of holding the run for an hour
         timeout-minutes: 10
         run: |
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y libwebkit2gtk-4.1-dev \
-            librsvg2-dev file
+          apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
+            ca-certificates curl git jq zstd file build-essential pkg-config perl \
+            libwebkit2gtk-4.1-dev librsvg2-dev
+      # git first, so checkout makes a real clone the version script can read
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: rustup
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
       # rust-toolchain.toml selects the version and components
-      - run: rustup show
+      - run: rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           # only main saves: caches made on tags and other branches are
