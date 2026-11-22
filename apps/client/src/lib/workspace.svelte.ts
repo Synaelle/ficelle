@@ -78,7 +78,8 @@ export function isBackendError(err: unknown): err is BackendError {
 class Workspace {
   tags: Tag[] = $state([])
   notes: NoteSummary[] = $state([])
-  scope: Scope = $state(UNFILED)
+  // every note at first, the list last used when it is remembered
+  scope: Scope = $state({ kind: 'all' })
   /** Every attachment shows in place of the note list. */
   files = $state(false)
   query = $state('')
