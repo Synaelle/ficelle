@@ -15,9 +15,6 @@ ignore = [
     # authenticators, they never decrypt with a private key. No fixed rsa
     # release yet.
     { id = "RUSTSEC-2023-0071", reason = "no RSA decryption anywhere" },
-    # chrono unmaintained: only the server's SFTP backup library (russh-sftp)
-    # uses it. Goes when it moves to jiff.
-    { id = "RUSTSEC-2026-0543", reason = "reached only through a server library, no known flaw" },
 ]
 
 [licenses]
