@@ -1,16 +1,13 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The server at a glance: a strip of its state (devices, storage, the
      last backup, the web version, new feedback), what needs a look, and its
-     on or off settings. It is for one person; one with several accounts is
-     pointed to going to one. -->
+     on or off settings. -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte'
   import { overlay } from '../lib/overlay.svelte'
   import { api, sectionHref, type Overview, type StorageOverview, type WebView } from './api.svelte'
   import Checklist from './Checklist.svelte'
   import { bytes, errorText, relative } from './format'
-
-  let { several = false, ongo }: { several?: boolean; ongo?: () => void } = $props()
 
   interface Updates {
     enabled: boolean
@@ -63,14 +60,11 @@
     }
   }
 
-  /** Texts for a server of one person, who is its only admin. */
-  const ownWords = 'Personal'
-
   async function setSecondStep(required: boolean, box: HTMLInputElement) {
     // a password alone for every admin: said before it happens
     if (
       !required &&
-      !(await overlay.ask(t(`admin.overview.secondStepOffConfirm${ownWords}`), {
+      !(await overlay.ask(t('admin.overview.secondStepOffConfirmPersonal'), {
         confirmLabel: t('admin.overview.secondStepOffYes'),
         danger: true,
       }))
@@ -98,12 +92,6 @@
 
 {#if problem}<p class="dash-problem" role="alert">{problem}</p>{/if}
 {#if !overview && !problem}<p class="muted" aria-busy="true">{t('admin.loading')}</p>{/if}
-{#if several}
-  <p class="dash-problem" role="alert">
-    {t('admin.onePerson.pointer')}
-    <button class="btn" onclick={ongo}>{t('admin.onePerson.title')}</button>
-  </p>
-{/if}
 
 {#if overview}
   <div class="dash-strip">
@@ -142,7 +130,7 @@
   </div>
 {/if}
 
-<Checklist personal />
+<Checklist />
 
 {#if overview}
   <section class="dash-group" aria-labelledby="server-settings">
@@ -208,12 +196,10 @@
       {/if}
       <li class="dash-row">
         <span class="dash-words">
-          <span class="dash-label">{t(`admin.overview.secondStep${ownWords}`)}</span>
-          <span class="dash-help">{t(`admin.overview.secondStepHelp${ownWords}`)}</span>
+          <span class="dash-label">{t('admin.overview.secondStepPersonal')}</span>
+          <span class="dash-help">{t('admin.overview.secondStepHelpPersonal')}</span>
           {#if !overview.adminsNeedSecondStep}
-            <span class="dash-help dash-bad"
-              >{t(`admin.overview.secondStepOffRisks${ownWords}`)}</span
-            >
+            <span class="dash-help dash-bad">{t('admin.overview.secondStepOffRisksPersonal')}</span>
           {/if}
         </span>
         <span class="dash-ctl">
@@ -221,7 +207,7 @@
             class="dash-switch"
             type="checkbox"
             role="switch"
-            aria-label={t(`admin.overview.secondStepOn${ownWords}`)}
+            aria-label={t('admin.overview.secondStepOnPersonal')}
             checked={overview.adminsNeedSecondStep}
             disabled={busy}
             onchange={(e) => setSecondStep(e.currentTarget.checked, e.currentTarget)}
@@ -231,7 +217,7 @@
       <li class="dash-row">
         <span class="dash-words">
           <span class="dash-label">{t('admin.overview.coediting')}</span>
-          <span class="dash-help">{t(`admin.overview.coeditingHelp${ownWords}`)}</span>
+          <span class="dash-help">{t('admin.overview.coeditingHelpPersonal')}</span>
         </span>
         <span class="dash-ctl">
           <input

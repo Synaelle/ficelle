@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The instance's backups: where (a folder on the server, S3, WebDAV,
      SFTP), the password, when, what to keep; how the runs went; the backups
-     to check, test restore, or bring one person back from. A whole instance
+     to check and test restore. A whole instance
      is restored from the command line, the server stopped: what to keep for
      that is shown here. Setting up starts simple, a folder on the server
      every day and a password; Advanced shows every place and choice. -->
@@ -90,8 +90,6 @@
   let policy: Policy = $state({ last: 10, daily: 7, weekly: 4, monthly: 12, yearly: 0 })
   let snapshots: Snapshot[] | null = $state(null)
   let check: Check | null = $state(null)
-  let person = $state('')
-  let personSnapshot = $state('')
 
   const offsetSeconds = () => -new Date().getTimezoneOffset() * 60
 
@@ -205,7 +203,6 @@
   function list() {
     void act(async () => {
       snapshots = await api<Snapshot[]>('GET', '/admin/backups/snapshots')
-      personSnapshot = snapshots[0]?.id ?? ''
     })
   }
 
@@ -225,28 +222,6 @@
       )
       if (result.problems.length > 0) throw new Error(result.problems.join(', '))
       saved = t('admin.backups.testOk', { users: result.users, files: result.files })
-    })
-  }
-
-  async function restorePerson() {
-    const when = dateTime(snapshots?.find((s) => s.id === personSnapshot)?.time)
-    const yes = await overlay.ask(t('admin.backups.personConfirm', { name: person, when }), {
-      confirmLabel: t('backups.restore'),
-    })
-    if (!yes) return
-    void act(async () => {
-      const report = await api<{
-        account: boolean
-        spaces: number
-        changes: number
-        files: number
-      }>('POST', '/admin/backups/restore-person', {
-        snapshot: personSnapshot,
-        username: person.trim(),
-      })
-      saved = report.account
-        ? t('admin.backups.personBack', { spaces: report.spaces, files: report.files })
-        : t('admin.backups.personSpaces', { spaces: report.spaces, files: report.files })
     })
   }
 
@@ -391,32 +366,6 @@
               </span>
             </li>
           {/each}
-        </ul>
-        <h2>{t('admin.backups.person')}</h2>
-        <ul class="dash-rows">
-          <li class="dash-row">
-            <span class="dash-words"><span class="dash-label">{t('admin.username')}</span></span>
-            <span class="dash-ctl">
-              <input
-                class="field person"
-                aria-label={t('admin.username')}
-                placeholder={t('admin.username')}
-                bind:value={person}
-              />
-              <select
-                class="field dash-select"
-                aria-label={t('admin.backups.from')}
-                bind:value={personSnapshot}
-              >
-                {#each snapshots as s (s.id)}<option value={s.id}>{dateTime(s.time)}</option>{/each}
-              </select>
-              <button
-                class="btn"
-                disabled={busy || !person.trim() || !personSnapshot}
-                onclick={() => void restorePerson()}>{t('backups.restore')}</button
-              >
-            </span>
-          </li>
         </ul>
       {/if}
     </section>
@@ -615,10 +564,6 @@
     display: grid;
     gap: var(--space-3);
     justify-items: start;
-  }
-  .person {
-    width: 160px;
-    height: 30px;
   }
   .keep {
     display: inline-flex;

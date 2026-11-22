@@ -282,7 +282,6 @@
           displayName: display,
           password,
           factor: proof,
-          personal: true,
           device: thisDevice(),
         },
       )

@@ -5,8 +5,6 @@
      is fine once read, one that is not when the admin finds it fine as it
      is; it shows again once it says something else. -->
 <script lang="ts">
-  /** The server is for its admin alone: lines speak to that one person. */
-  let { personal = false }: { personal?: boolean } = $props()
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { api, sectionHref } from './api.svelte'
@@ -34,7 +32,7 @@
       case 'storage':
         return 'storage'
       case 'secondFactors':
-        return personal ? 'security' : 'people'
+        return 'security'
       default:
         return null
     }
@@ -73,29 +71,13 @@
     const v = item.values ?? {}
     switch (item.key) {
       case 'secondFactors':
-        if (personal)
-          return item.state === 'ok'
-            ? t('admin.checklist.factorsOkPersonal')
-            : t('admin.checklist.factorsMissingPersonal')
         return item.state === 'ok'
-          ? t('admin.checklist.factorsOk')
-          : t('admin.checklist.factorsMissing', { names: v.names ?? '' })
-      case 'registration':
-        return v.mode === 'open'
-          ? t('admin.checklist.registrationOpen')
-          : v.mode === 'invite'
-            ? t('admin.checklist.registrationInvite')
-            : personal
-              ? t('admin.checklist.registrationClosedPersonal')
-              : t('admin.checklist.registrationClosed')
+          ? t('admin.checklist.factorsOkPersonal')
+          : t('admin.checklist.factorsMissingPersonal')
       case 'storage':
-        if (personal)
-          return v.state === 'unlimited'
-            ? t('admin.checklist.storageUnlimitedPersonal')
-            : t('admin.checklist.storageLimitPersonal', { mb: v.mb ?? '' })
         return v.state === 'unlimited'
-          ? t('admin.checklist.storageUnlimited')
-          : t('admin.checklist.storageLimit', { mb: v.mb ?? '' })
+          ? t('admin.checklist.storageUnlimitedPersonal')
+          : t('admin.checklist.storageLimitPersonal', { mb: v.mb ?? '' })
       case 'backups':
         switch (v.state) {
           case 'none':
@@ -134,9 +116,7 @@
         return item.state === 'ok'
           ? t('admin.checklist.tlsOk')
           : v.state === 'local'
-            ? personal
-              ? t('admin.checklist.tlsLocalPersonal')
-              : t('admin.checklist.tlsLocal')
+            ? t('admin.checklist.tlsLocalPersonal')
             : t('admin.checklist.tlsPlain')
       case 'address':
         return v.state === 'unset'
@@ -147,9 +127,7 @@
       default:
         return v.apart === 'true'
           ? t('admin.checklist.secretsApart')
-          : personal
-            ? t('admin.checklist.secretsPersonal')
-            : t('admin.checklist.secrets')
+          : t('admin.checklist.secretsPersonal')
     }
   }
 

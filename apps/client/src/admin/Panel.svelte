@@ -12,7 +12,6 @@
   import Account from './Account.svelte'
   import AuditLog from './AuditLog.svelte'
   import Overview from './Overview.svelte'
-  import OnePerson from './OnePerson.svelte'
   import Policy from './Policy.svelte'
   import Backups from './Backups.svelte'
   import Feedback from './Feedback.svelte'
@@ -22,10 +21,9 @@
 
   let { info, admin }: { info: ServerInfo; admin: boolean } = $props()
 
-  type Section = 'overview' | 'onePerson' | 'web' | 'backups' | 'advanced' | 'feedback' | 'security'
+  type Section = 'overview' | 'web' | 'backups' | 'advanced' | 'feedback' | 'security'
   const SERVER: [Section, IconName][] = [
     ['overview', 'dashboard'],
-    ['onePerson', 'user'],
     ['web', 'globe'],
     ['backups', 'backup'],
     ['advanced', 'settings'],
@@ -34,19 +32,13 @@
     ['feedback', 'feedback'],
     ['security', 'shield'],
   ]
-  /** Members the admins named read the feedback inbox too. */
-  let reader = $state(false)
-  /** More than one account here: going to one has its own section. */
-  let several = $state(false)
   /** Why the sections that depend on the server could not be shown. */
   let problem = $state('')
   /** The web version's state and the new reports, beside their sections. */
   let web: WebView | null = $state(null)
   let newReports = $state(0)
-  const server = $derived(admin ? SERVER.filter(([s]) => s !== 'onePerson' || several) : [])
-  const people = $derived(
-    admin ? PEOPLE : PEOPLE.filter(([s]) => s === 'security' || (reader && s === 'feedback')),
-  )
+  const server = $derived(admin ? SERVER : [])
+  const people = $derived(admin ? PEOPLE : PEOPLE.filter(([s]) => s === 'security'))
   const shown = $derived([...server, ...people])
   // the log and the account had sections of their own before
   const OLD: Record<string, Section> = {
@@ -61,15 +53,6 @@
     'security'
   let section: Section = $state(fromHash())
 
-  function countAccounts() {
-    void api<{ users: number }>('GET', '/admin/overview')
-      .then((overview) => {
-        several = overview.users > 1
-        section = fromHash()
-      })
-      .catch((err: unknown) => (problem = errorText(err)))
-  }
-
   function loadTags() {
     void api<WebView>('GET', '/admin/web')
       .then((view) => (web = view))
@@ -79,19 +62,7 @@
       .catch((err: unknown) => (problem = errorText(err)))
   }
   // svelte-ignore state_referenced_locally
-  if (admin) {
-    countAccounts()
-    loadTags()
-  }
-  // svelte-ignore state_referenced_locally
-  if (!admin) {
-    void api<{ inbox: boolean }>('GET', '/admin/feedback/access')
-      .then((access) => {
-        reader = access.inbox
-        section = fromHash()
-      })
-      .catch((err: unknown) => (problem = errorText(err)))
-  }
+  if (admin) loadTags()
 
   function go(next: Section) {
     section = next
@@ -144,14 +115,7 @@
     <div class="dash-page">
       <div class="dash-head"><h1>{t(`admin.${section}.title`)}</h1></div>
       {#if section === 'overview'}
-        <Overview {several} ongo={() => go('onePerson')} />
-      {:else if section === 'onePerson'}
-        <OnePerson
-          ondone={() => {
-            several = false
-            go('overview')
-          }}
-        />
+        <Overview />
       {:else if section === 'web'}
         <WebVersion onchange={(view) => (web = view)} />
       {:else if section === 'advanced'}
@@ -159,7 +123,7 @@
       {:else if section === 'backups'}
         <Backups />
       {:else if section === 'feedback'}
-        <Feedback {admin} />
+        <Feedback />
       {:else}
         <Account />
         {#if admin}<AuditLog />{/if}

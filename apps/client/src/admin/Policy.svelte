@@ -113,18 +113,14 @@
   }
 
   function source(current: PolicyView, eff: keyof FilesPolicy): string {
-    const from = current.sources[eff]
-    if (!from || from.level === 'instance') return t('admin.policy.setHere')
-    return t(`admin.policy.from.${from.level}`)
+    return current.sources[eff]?.level === 'config'
+      ? t('admin.policy.from.config')
+      : t('admin.policy.setHere')
   }
 
   /** Where a value comes from, as an icon: the words go to its title. */
   function sourceIcon(current: PolicyView, eff: keyof FilesPolicy): IconName {
-    const from = current.sources[eff]
-    if (!from || from.level === 'instance') return 'restore'
-    return { config: 'configFile', instance: 'settings', group: 'groups', user: 'user' }[
-      from.level
-    ] as IconName
+    return current.sources[eff]?.level === 'config' ? 'configFile' : 'restore'
   }
 
   async function save(event: SubmitEvent) {

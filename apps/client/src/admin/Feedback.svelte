@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The feedback inbox: reports from anyone's apps, by status, with
      filters; one report whole with its images and logs, to mark, note,
-     block its sender, save as a zip or delete. Admins also set whether this server takes
-     reports, where its people send theirs, who reads the inbox, the token
-     for `reports pull` and the block lists. -->
+     block its sender, save as a zip or delete. Also whether this server
+     takes reports, where its apps send theirs, the token for `reports pull`
+     and the block lists. -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte'
   import { overlay } from '../lib/overlay.svelte'
@@ -13,8 +13,6 @@
   import { downloadAll, reportFiles, saveBlob } from './feedbackZip'
   import Icon from '../lib/icons/Icon.svelte'
   import ServerReport from './ServerReport.svelte'
-
-  let { admin }: { admin: boolean } = $props()
 
   type Status = 'new' | 'open' | 'done' | 'spam'
   type SendTo = 'main' | 'here' | 'off'
@@ -75,7 +73,6 @@
   interface Settings {
     receive: boolean
     sendTo: SendTo
-    readers: { id: string; username: string; addedAt: number }[]
     tokenCreatedAt: number | null
     /** Set on this page, null for the config's. */
     caps: Caps
@@ -109,14 +106,10 @@
   let settings: Settings | null = $state(null)
   /** The inbox first; settings and the form for server issues apart. */
   let view: 'inbox' | 'settings' | 'send' = $state('inbox')
-  // reporting a server issue is the admins' alone
-  const views = $derived(
-    admin ? (['inbox', 'settings', 'send'] as const) : (['inbox', 'settings'] as const),
-  )
+  const views = ['inbox', 'settings', 'send'] as const
   /** Reports zipped so far while every report is downloaded. */
   let zipping: { done: number; total: number } | null = $state(null)
   let blocks: Block[] = $state([])
-  let reader = $state('')
   let token = $state('')
   let blockKind: BlockKind = $state('word')
   let blockValue = $state('')
@@ -254,7 +247,7 @@
     await act(async () => {
       show(await api<Full>('POST', `/admin/feedback/reports/${id}/block`, { kind, days }))
       saved = t('admin.feedback.blocked')
-      if (blocks.length || admin) await loadBlocks()
+      await loadBlocks()
     })
   }
 
@@ -277,7 +270,6 @@
   }
 
   async function loadSettings() {
-    if (!admin) return
     settings = await api<Settings>('GET', '/admin/feedback/settings')
   }
 
@@ -312,22 +304,6 @@
         perDay: cap(capsDraft.perDay),
       })
       saved = t('admin.feedback.saved')
-    })
-  }
-
-  async function addReader(event: SubmitEvent) {
-    event.preventDefault()
-    const name = reader.trim()
-    if (!name) return
-    await act(async () => {
-      settings = await api<Settings>('PUT', `/admin/feedback/readers/${encodeURIComponent(name)}`)
-      reader = ''
-    })
-  }
-
-  async function removeReader(id: string) {
-    await act(async () => {
-      settings = await api<Settings>('DELETE', `/admin/feedback/readers/${id}`)
     })
   }
 
@@ -527,11 +503,9 @@
           {#each page?.versions ?? [] as v (v)}<option value={v}>{v}</option>{/each}
         </select>
       </label>
-      {#if admin}
-        <button class="btn zip-all" disabled={busy || !!zipping} onclick={zipAll}
-          >{zipping ? t('admin.feedback.zipping', zipping) : t('admin.feedback.zipAll')}</button
-        >
-      {/if}
+      <button class="btn zip-all" disabled={busy || !!zipping} onclick={zipAll}
+        >{zipping ? t('admin.feedback.zipping', zipping) : t('admin.feedback.zipAll')}</button
+      >
     </div>
     {#if reports.length}
       <div class="picking">
@@ -652,31 +626,6 @@
           </label>
         {/each}
       </fieldset>
-    </section>
-
-    <section>
-      <h2>{t('admin.feedback.readers')}</h2>
-      <ul class="plain">
-        {#each settings.readers as person (person.id)}
-          <li>
-            {person.username}
-            <button class="btn" disabled={busy} onclick={() => removeReader(person.id)}
-              >{t('admin.feedback.remove')}</button
-            >
-          </li>
-        {:else}
-          <li class="muted">{t('admin.feedback.noReaders')}</li>
-        {/each}
-      </ul>
-      <form class="actions" onsubmit={addReader}>
-        <label class="field-label small-field">
-          {t('admin.username')}
-          <input class="field" bind:value={reader} autocomplete="off" />
-        </label>
-        <button class="btn" disabled={busy || !reader.trim()}
-          >{t('admin.feedback.addReader')}</button
-        >
-      </form>
     </section>
 
     <section>
