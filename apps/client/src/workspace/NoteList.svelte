@@ -399,6 +399,9 @@
   {#if holdsTags && !narrow && !searching}
     <p class="inner">{t('list.withInside', { count: workspace.notes.length })}</p>
   {/if}
+  {#if trash && !searching}
+    <p class="inner">{t('list.trashKept')}</p>
+  {/if}
 
   <div class="tools">
     <label class="search">
