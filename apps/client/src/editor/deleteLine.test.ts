@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Ctrl+K through the real schema: one line goes, never more, and no empty
+// Ctrl+Shift+K through the real schema: one line goes, never more, and no empty
 // quote, bullet or list stays behind.
 
 import { Editor } from '@tiptap/core'
@@ -47,7 +47,7 @@ describe('deleteLine', () => {
     expect(text(editor)).toBe('Before\n\nAfter')
   })
 
-  it('takes a one-line quote whole, and the next Ctrl+K the next line only', () => {
+  it('takes a one-line quote whole, and the next Ctrl+Shift+K the next line only', () => {
     const editor = editorWith('Before\n\n> Remember the umbrella\n\nLast line')
     caretAt(editor, 'Remember')
     deleteLine(editor)

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Ctrl+K: the line the caret is on goes, and nothing more. One line of a code
+// Ctrl+Shift+K: the line the caret is on goes, and nothing more. One line of a code
 // block, else its paragraph or heading with the quote, item or list it leaves
 // empty, which would otherwise stay behind as an empty shell.
 

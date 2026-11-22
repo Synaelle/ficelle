@@ -41,9 +41,9 @@ export const DEFAULT_SHORTCUTS: Record<ActionId, string> = {
   italic: 'Mod+I',
   strike: 'Mod+Shift+X',
   code: 'Mod+E',
-  link: 'Mod+L',
+  link: 'Mod+K',
   checklist: 'Mod+Shift+9',
-  deleteLine: 'Mod+K',
+  deleteLine: 'Mod+Shift+K',
 }
 
 /** The binding of a key event, in the same format as the settings. */
