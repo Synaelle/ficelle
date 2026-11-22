@@ -184,10 +184,6 @@
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-popover);
   }
-  .bar :global(.icon-btn) {
-    width: 30px;
-    height: 30px;
-  }
   .sep {
     width: 1px;
     height: 18px;

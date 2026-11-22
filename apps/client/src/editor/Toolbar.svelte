@@ -194,7 +194,9 @@
     z-index: 4;
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
+    /* the header's 32 px buttons, side by side so the row stays one line
+       as long as it did with smaller ones */
+    gap: 0;
     margin-bottom: var(--space-3);
     padding: var(--space-1) 0;
     background: var(--color-surface);
@@ -208,10 +210,6 @@
     inset: auto 0 100%;
     height: var(--space-2);
     background: inherit;
-  }
-  .toolbar :global(.icon-btn) {
-    width: 30px;
-    height: 30px;
   }
   @media (pointer: coarse) {
     .toolbar {
