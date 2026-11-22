@@ -207,7 +207,15 @@
       event,
       [
         // a phone opens a note with a tap, the menu only repeats it
-        ...(narrow ? [] : [{ label: t('menu.open'), run: () => void workspace.open(note.id) }]),
+        ...(narrow
+          ? []
+          : [
+              {
+                label: t('menu.open'),
+                icon: 'markdown' as const,
+                run: () => void workspace.open(note.id),
+              },
+            ]),
         ...(noteWindowsSupported
           ? [
               {

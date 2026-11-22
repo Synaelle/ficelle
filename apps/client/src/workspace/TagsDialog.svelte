@@ -70,9 +70,10 @@
   function menu(button: HTMLElement, tag: Tag) {
     const others = workspace.tags.filter((o) => !tagWithin(o.name, tag.name))
     const items: MenuItem[] = [
-      { label: t('tags.rename'), run: () => startRename(tag) },
+      { label: t('tags.rename'), icon: 'pencil', run: () => startRename(tag) },
       {
         label: t('tags.merge'),
+        icon: 'move',
         disabled: others.length === 0,
         items: others.map((other) => ({
           label: tagLabel(other.name),

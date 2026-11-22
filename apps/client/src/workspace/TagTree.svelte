@@ -61,6 +61,7 @@
       { label: t('tags.newInsideMenu'), icon: 'plus', run: () => void newInside(tag) },
       {
         label: t('tags.rename'),
+        icon: 'pencil',
         run: () => {
           renaming = tag.id
           draft = tagLeaf(tag.name)
