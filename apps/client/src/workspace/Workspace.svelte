@@ -114,11 +114,16 @@
     back: () => void workspace.back(),
     settings: () => (settingsOpen = true),
     // the note is saved first, then sent to the server and the paired
-    // devices now rather than at the next round
+    // devices now rather than at the next round; a word says it happened
     syncNow: () =>
       void workspace.flush().then(() => {
-        if (sync.status.state !== 'off') void sync.now()
-        if (localSync.status.devices.length > 0) void localSync.now()
+        const server = sync.status.state !== 'off'
+        const paired = localSync.status.devices.length > 0
+        if (server) void sync.now()
+        if (paired) void localSync.now()
+        const from = t('note.label')
+        for (const old of toasts.list.filter((toast) => toast.from === from)) toasts.dismiss(old.id)
+        toasts.push(from, server || paired ? t('note.savedSyncing') : t('note.saved'))
       }),
   }
 
