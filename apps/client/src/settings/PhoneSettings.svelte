@@ -502,15 +502,17 @@
             />
           {/each}
         </Group>
-        <Group>
-          {@render row({
-            icon: 'palette',
-            label: t('settings.pureBlack'),
-            on: prefs.pureBlack,
-            disabled: prefs.mode === 'light',
-            run: () => (prefs.pureBlack = !prefs.pureBlack),
-          })}
-        </Group>
+        <!-- only dark has a black to make deeper -->
+        {#if prefs.mode !== 'light'}
+          <Group>
+            {@render row({
+              icon: 'palette',
+              label: t('settings.pureBlack'),
+              on: prefs.pureBlack,
+              run: () => (prefs.pureBlack = !prefs.pureBlack),
+            })}
+          </Group>
+        {/if}
         <Group title={t('settings.tagMark')}>
           {#each TAG_MARKS as mark (mark)}
             <Row

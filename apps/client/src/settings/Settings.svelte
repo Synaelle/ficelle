@@ -232,13 +232,12 @@
                   {/each}
                 </div>
               </Row>
-              <Row label={t('settings.pureBlack')}>
-                <Switch
-                  label={t('settings.pureBlack')}
-                  disabled={prefs.mode === 'light'}
-                  bind:checked={prefs.pureBlack}
-                />
-              </Row>
+              <!-- only dark has a black to make deeper -->
+              {#if prefs.mode !== 'light'}
+                <Row label={t('settings.pureBlack')}>
+                  <Switch label={t('settings.pureBlack')} bind:checked={prefs.pureBlack} />
+                </Row>
+              {/if}
             </Group>
             <Group title={t('settings.tags')}>
               <Row label={t('settings.tagMark')}>
