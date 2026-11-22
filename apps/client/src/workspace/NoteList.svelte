@@ -321,7 +321,7 @@
     </div>
   </header>
   {#if holdsTags && !narrow}
-    <p class="inner">{t('list.withInner', { count: workspace.notes.length })}</p>
+    <p class="inner">{t('list.withInside', { count: workspace.notes.length })}</p>
   {/if}
 
   <div class="tools">

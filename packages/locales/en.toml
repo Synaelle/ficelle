@@ -238,9 +238,9 @@ swipeTrash = "Trash"
 one = "{count} note"
 other = "{count} notes"
 
-[list.withInner]
-one = "With the tags inside it, {count} note"
-other = "With the tags inside it, {count} notes"
+[list.withInside]
+one = "{count} note, counting the tags inside"
+other = "{count} notes, counting the tags inside"
 
 [note]
 bodyPlaceholder = "Start writing…"
