@@ -1,5 +1,5 @@
 pnpm-lock.yaml
 **/LICENSE
-apps/client/src-tauri/
+**/apps/client/src-tauri/
 **/fixtures/
-apps/client/src/generated/
+**/apps/client/src/generated/
