@@ -108,6 +108,8 @@
     const first = prefs.openNoteFirst ? workspace.notes.find((n) => n.id === open) : undefined
     return first ? [first, ...workspace.notes.filter((n) => n !== first)] : workspace.notes
   })
+  /** The open note, or the one just moved to its own window. */
+  const selected = $derived(workspace.current?.id ?? workspace.inWindow)
   /** Some note listed has tags: every row gets their line. */
   const withTags = $derived(listed.some((note) => note.tags.length > 0))
 
@@ -480,13 +482,13 @@
         items={workspace.hits}
         key={(hit) => hit.noteId}
         label={t('list.label')}
-        active={workspace.current?.id}
+        active={selected ?? undefined}
       >
         {#snippet row(hit, tabbable)}
           <button
             class="row"
             tabindex={tabbable ? 0 : -1}
-            class:selected={workspace.current?.id === hit.noteId}
+            class:selected={selected === hit.noteId}
             onclick={() => workspace.openFound(hit.noteId)}
           >
             <span class="title">{hit.title || t('note.untitled')}</span>
@@ -507,7 +509,7 @@
         items={listed}
         key={(note) => note.id}
         label={t('list.label')}
-        active={workspace.current?.id}
+        active={selected ?? undefined}
       >
         {#snippet row(note, tabbable)}
           <div
@@ -556,9 +558,9 @@
               class="row swipe-content"
               tabindex={tabbable ? 0 : -1}
               data-note={note.id}
-              class:selected={workspace.current?.id === note.id}
+              class:selected={selected === note.id}
               class:pressed={menuFor === note.id}
-              aria-current={workspace.current?.id === note.id ? 'true' : undefined}
+              aria-current={selected === note.id ? 'true' : undefined}
               onclick={(e) => {
                 if (closingTap) closingTap = false
                 else if (swiped) swiped = null

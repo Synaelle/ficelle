@@ -86,6 +86,9 @@ class Workspace {
    * the note's menu or row had. */
   trashed = $state(0)
   current: Note | null = $state(null)
+  /** The note just moved to a window of its own: its row stays selected
+   * here until another note is shown. */
+  inWindow: Id | null = $state(null)
   /** A note just made here, its title takes the caret once shown. */
   fresh: Id | null = $state(null)
   /** What the open note waits for after a sync. */
@@ -261,6 +264,7 @@ class Workspace {
     if (this.current?.id === id) {
       if (!(await this.leave())) return
       this.show(null)
+      this.inWindow = id
     }
     const note = await backend.getNote(id)
     await openNoteWindow(id, note.title.trim() || t('note.untitled'))
@@ -268,6 +272,7 @@ class Workspace {
 
   private show(note: Note | null) {
     showingNote(note?.id ?? null)
+    this.inWindow = null
     prefs.lastNote = note?.id ?? null
     if (this.conflict?.noteId !== note?.id) this.conflict = null
     if (this.current?.id !== note?.id) this.editedAt = 0
