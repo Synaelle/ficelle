@@ -408,7 +408,7 @@
       {/if}
     </div>
   </header>
-  {#if holdsTags && !narrow && !searching}
+  {#if holdsTags && !searching}
     <p class="inner">{t('list.withInside', { count: workspace.notes.length })}</p>
   {/if}
   {#if trash && !searching}
