@@ -26,7 +26,7 @@
   import { toasts } from '../lib/toast.svelte'
   import Toasts from '../lib/Toasts.svelte'
   import { applyUiSize } from '../lib/uiSize'
-  import { announceUnlocked, windowReady } from '../lib/windows'
+  import { announceUnlocked, onUnlockedElsewhere, windowReady } from '../lib/windows'
   import {
     mainWindowOpen,
     readOpenedFile,
@@ -89,6 +89,9 @@
   /** This window opened the notes for an import. */
   let unlockedHere = false
   let importing = $state(false)
+  /** A new install has no notes yet: the main window's first start makes
+   * them, and the import follows once they are open. */
+  let afterFirstStart = false
 
   function show(read: OpenedFile) {
     let content = read.text
@@ -175,11 +178,16 @@
     await load()
   }
 
-  async function importFile() {
+  async function importFile(startedFirst = false) {
     if (!file || importing) return
     importing = true
     try {
       const status = await backend.vaultStatus()
+      if (!status.exists && DESKTOP) {
+        afterFirstStart = true
+        await showInMain(null)
+        return
+      }
       if (!status.unlocked) {
         unlocking = status
         return
@@ -190,6 +198,7 @@
       const note = await backend.createNote(parsed)
       imported = note.id
       toasts.push(file.name, t('file.imported', { title: note.title || t('note.untitled') }))
+      if (startedFirst) await showInMain(note.id)
     } catch (err) {
       toasts.push(file.name, shownError(err, 'IMPORT'))
     } finally {
@@ -232,7 +241,15 @@
       })
     : null
   if (DESKTOP) window.addEventListener('focus', lookAgain)
+  const stopFirstStart = DESKTOP
+    ? onUnlockedElsewhere(() => {
+        if (!afterFirstStart) return
+        afterFirstStart = false
+        void importFile(true)
+      })
+    : null
   onDestroy(() => {
+    void stopFirstStart?.then((stop) => stop())
     clearTimeout(timer)
     void stopClose?.then((stop) => stop())
     window.removeEventListener('focus', lookAgain)

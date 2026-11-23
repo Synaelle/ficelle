@@ -345,15 +345,18 @@ pub async fn opened_file_take<R: Runtime>(
 
 /// Brings the main window forward on a note imported from a file: it takes
 /// the note with [`main_window_take_note`] once ready, when it was closed,
-/// or on the `note-to-open` event.
+/// or on the `note-to-open` event. Without a note, for the first start of
+/// a new install, before an import.
 #[cfg(desktop)]
 #[tauri::command]
 pub async fn main_window_show<R: Runtime>(
     app: AppHandle<R>,
     opened: State<'_, OpenedFiles>,
-    id: String,
+    id: Option<String>,
 ) -> CommandResult<()> {
-    opened.lock().to_open = Some(id);
+    if id.is_some() {
+        opened.lock().to_open = id;
+    }
     crate::windows::show_main(&app).map_err(|e| CommandError::new("unknown", e.to_string()))?;
     let _ = tauri::Emitter::emit_to(&app, "main", "note-to-open", ());
     Ok(())
@@ -362,8 +365,13 @@ pub async fn main_window_show<R: Runtime>(
 /// The phone's viewer covers the app's own screen, which stays as it was.
 #[cfg(mobile)]
 #[tauri::command]
-pub async fn main_window_show(opened: State<'_, OpenedFiles>, id: String) -> CommandResult<()> {
-    opened.lock().to_open = Some(id);
+pub async fn main_window_show(
+    opened: State<'_, OpenedFiles>,
+    id: Option<String>,
+) -> CommandResult<()> {
+    if id.is_some() {
+        opened.lock().to_open = id;
+    }
     Ok(())
 }
 

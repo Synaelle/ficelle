@@ -31,8 +31,9 @@ export const mainWindowOpen = () => invoke<boolean>('main_window_open')
 /** Android: a file another app handed over becomes this window's file. */
 export const takeOpenedFile = (address: string) => invoke('opened_file_take', { address })
 
-/** From a file window: the main window comes forward on the imported note. */
-export const showInMain = (id: string) => invoke('main_window_show', { id })
+/** From a file window: the main window comes forward on the imported note,
+ * or as it is with none. */
+export const showInMain = (id: string | null) => invoke('main_window_show', { id })
 
 /** In the main window: the note a file became, to open once ready. */
 export const takeNoteToOpen = () => invoke<string | null>('main_window_take_note')
