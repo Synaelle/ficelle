@@ -15,7 +15,7 @@
   import { pickToSave } from '../lib/pick'
   import { ATTACHMENT_PREFIX, openAttachment } from '../lib/attachments'
   import { backend, type AttachmentFile } from '../lib/backend'
-  import { errorCode, shownError, type ShownError } from '../lib/errors'
+  import { errorCode, namedError, shownError, type ShownError } from '../lib/errors'
   import { shrinkImage, thumbnailOf } from '../lib/images'
   import { FILES_CHANGED } from '../lib/sync.svelte'
   import { t } from '../lib/i18n.svelte'
@@ -29,6 +29,7 @@
   import { createExtensions } from './extensions'
   import { aroundEdit, asWritten } from './asWritten'
   import { deleteLine } from './deleteLine'
+  import { savedMarkdown } from './savedMarkdown'
   import { linkAddress } from './linkAddress'
   import { patchMarkdown, REMOTE } from './patch'
   import { looksLikeMarkdown } from './pasteMarkdown'
@@ -355,13 +356,12 @@
    * the same note.
    */
   function written(current: Editor, now: string) {
-    if (!opened) return now
-    openedText ??= current.markdown?.serialize(opened.toJSON()) ?? now
+    const manager = current.markdown
+    if (!opened || !manager) return now
+    openedText ??= savedMarkdown(manager, opened.toJSON()).markdown
     if (openedText === markdown) return now
-    const reads = (text: string) => {
-      const parsed = current.markdown?.parse(text)
-      return parsed && current.markdown?.serialize(parsed).trimEnd() === now.trimEnd()
-    }
+    const reads = (text: string) =>
+      savedMarkdown(manager, manager.parse(text)).markdown.trimEnd() === now.trimEnd()
     const kept = asWritten(markdown, openedText, now)
     if (kept === now || reads(kept)) return kept
     // the lines around the change, at least, stay as written
@@ -374,7 +374,12 @@
     typingSince = null
     if (!editor) return
     if (opened && editor.state.doc.eq(opened)) return void onpending?.(false)
-    const now = editor.getMarkdown()
+    if (!editor.markdown) return
+    const { markdown: now, error } = savedMarkdown(editor.markdown, editor.getJSON())
+    if (error) {
+      workspace.error = namedError('markdown', 'SAVE')
+      console.error(error)
+    }
     const next = written(editor, now)
     shown = next
     if (next !== markdown) onchange(next)
