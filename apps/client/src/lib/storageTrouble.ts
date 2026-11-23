@@ -3,8 +3,9 @@
 // the browser's private file storage (OPFS), which the notes live in, is
 // missing, refused in a private window, full, or blocked for this site. A
 // browser asking for permission to store keeps it blocked until it is given.
+// Or busy: the page before a reload still has the notes open for a moment.
 
-export type StorageTrouble = 'missing' | 'private' | 'full' | 'blocked'
+export type StorageTrouble = 'busy' | 'missing' | 'private' | 'full' | 'blocked'
 
 /** Less room than this left for the site counts as full. */
 const ROOM = 1024 * 1024
@@ -17,6 +18,8 @@ export async function storageTrouble(
 ): Promise<StorageTrouble | null> {
   const { kind = '', message = '' } = (err ?? {}) as { kind?: string; message?: string }
   if (/quota/i.test(message)) return 'full'
+  // the browser lets one page at a time open a file of the notes
+  if (/NoModificationAllowedError/.test(message)) return 'busy'
   if (typeof storage?.getDirectory !== 'function') return 'missing'
   try {
     await storage.getDirectory()

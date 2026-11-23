@@ -37,6 +37,15 @@ describe('storageTrouble', () => {
     expect(await storageTrouble(failed, nearly)).toBe('full')
   })
 
+  it('tells the notes still open from before a reload', async () => {
+    const held = {
+      kind: 'storage',
+      message:
+        "acquire sync access handle: NoModificationAllowedError: Failed to execute 'createSyncAccessHandle' on 'FileSystemFileHandle': Access Handles cannot be created if there is another open Access Handle",
+    }
+    expect(await storageTrouble(held, reached)).toBe('busy')
+  })
+
   it('blames the storage only for its own errors', async () => {
     expect(await storageTrouble(failed, reached)).toBe('blocked')
     expect(await storageTrouble({ kind: 'database', message: 'malformed' }, reached)).toBeNull()

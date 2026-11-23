@@ -52,6 +52,8 @@
   let stage = $state<Stage>('loading')
   /** In the web version, what kept the browser's storage from the notes. */
   let trouble = $state<StorageTrouble | null>(null)
+  /** What failed, short, for the person to send back with a report. */
+  let failCode = $state('')
   let status = $state<VaultStatus | null>(null)
   /** An old vault the app opened without asking: it gets a password before
    * the notes show. The browser's test vault stays as it is. A vault left
@@ -74,7 +76,11 @@
   })
   $effect(() => void applyQuickShortcut(prefs.quickNoteShortcut))
 
-  async function start() {
+  /** Waits before each new try while the page before a reload still has
+   * the notes: a big note it was saving can take a few seconds. */
+  const BUSY_WAITS = [250, 500, 1000, 2000, 3000]
+
+  async function start(tries = 0) {
     try {
       status = await backend.vaultStatus()
     } catch (err) {
@@ -88,7 +94,14 @@
       }
       // the browser's storage would not open: said why, with a way to retry
       if (WEB && kind === 'storage') {
-        trouble = await storageTrouble(err)
+        const found = await storageTrouble(err)
+        if (found === 'busy' && tries < BUSY_WAITS.length) {
+          await reopenNotes()
+          await new Promise((resolve) => setTimeout(resolve, BUSY_WAITS[tries]))
+          return start(tries + 1)
+        }
+        trouble = found
+        failCode = `STORAGE-${(found ?? kind).toUpperCase()}`
         return (stage = 'failed')
       }
       throw err
@@ -118,6 +131,8 @@
       else stage = 'welcome'
     } catch (err) {
       if (WEB) trouble = await storageTrouble(err)
+      const { kind = 'unknown' } = err as { kind?: string }
+      failCode = trouble ? `STORAGE-${trouble.toUpperCase()}` : `CREATE-${kind.toUpperCase()}`
       stage = 'failed'
     }
   }
@@ -128,6 +143,7 @@
   async function retry() {
     if (!WEB) return void firstLaunch()
     trouble = null
+    failCode = ''
     stage = 'loading'
     await reopenNotes()
     await start()
@@ -215,6 +231,7 @@
   <main class="failed">
     <h1>{t('unlock.failedTitle')}</h1>
     <p role="alert">{trouble ? t(`web.storage_${trouble}`) : t('unlock.failedHelp')}</p>
+    {#if failCode}<p class="code">{t('common.errorCode', { code: failCode })}</p>{/if}
     <button class="btn primary" onclick={retry}>{t('unlock.retry')}</button>
   </main>
 {:else if stage === 'elsewhere'}
@@ -306,6 +323,10 @@
     margin: 0;
     max-width: 52ch;
     color: var(--color-text-muted);
+  }
+  .failed .code {
+    font-size: 13px;
+    user-select: text;
   }
   .failed .folder {
     font-family: var(--font-ui);
