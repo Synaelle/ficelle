@@ -25,6 +25,10 @@ use crate::state::AppState;
 /// One run at a time on this device.
 static RUNNING: AtomicBool = AtomicBool::new(false);
 
+/// How long a partial backup file may go unwritten before a run takes it
+/// for one a crash left.
+const PARTIAL_KEPT: std::time::Duration = std::time::Duration::from_hours(1);
+
 /// The settings as the page sees them: no password.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -190,6 +194,19 @@ impl Place {
         }
     }
 
+    /// Removes the partial files of runs a crash or a kill cut short: each
+    /// was a whole backup's size, and no later run took them away. One
+    /// written to in the last hour stays, another device may be writing it
+    /// into a shared folder.
+    fn clean_partial(&self) -> CommandResult<()> {
+        match self {
+            Self::Dir(dir) => clean_partial_in(dir),
+            // the system writes those files whole
+            #[cfg(target_os = "android")]
+            Self::Document(_) => Ok(()),
+        }
+    }
+
     fn open(&self, name: &str) -> CommandResult<std::fs::File> {
         let name = backup_name(name)?;
         Ok(match self {
@@ -212,6 +229,34 @@ impl Place {
             Self::Document(target) => Ok(target.delete(name)?),
         }
     }
+}
+
+/// See [`Place::clean_partial`].
+fn clean_partial_in(dir: &std::path::Path) -> CommandResult<()> {
+    let left = format!(".{}.partial", app_brand::BACKUP_EXTENSION);
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(readable(e.into())),
+    };
+    for entry in entries {
+        let entry = entry.map_err(|e| readable(e.into()))?;
+        let stale = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .is_some_and(|age| age >= PARTIAL_KEPT);
+        if stale && entry.file_name().to_string_lossy().ends_with(&left) {
+            match std::fs::remove_file(entry.path()) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                    return Err(app_core::Error::from(e).into());
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(())
 }
 
 /// This device's backups.
@@ -370,6 +415,7 @@ fn run(state: &AppState, offset_seconds: i64) -> CommandResult<()> {
     present.sort();
     let digest = app_core::auto_backup::digest(&data, &present)?;
     let place = Place::of(&config.folder)?;
+    place.clean_partial()?;
     let mut files = place.list()?;
     let newest = files
         .iter()
@@ -517,6 +563,24 @@ mod tests {
         }
         assert_eq!(place.list().unwrap(), vec![(name.clone(), 6)]);
         assert!(place.open("../secrets.ficelle").is_err());
+
+        // a run killed long ago left its partial file, one under way stays
+        let dir = chosen.join(app_core::repo::folder_name(&chosen.to_string_lossy()));
+        let killed = dir.join(format!("{name}.partial"));
+        let writing = dir.join("other.ficelle.partial");
+        for path in [&killed, &writing] {
+            std::fs::write(path, b"half a backup").unwrap();
+        }
+        let long_ago = std::time::SystemTime::now() - PARTIAL_KEPT * 2;
+        std::fs::File::options()
+            .write(true)
+            .open(&killed)
+            .unwrap()
+            .set_modified(long_ago)
+            .unwrap();
+        place.clean_partial().unwrap();
+        assert!(!killed.exists() && writing.exists());
+        std::fs::remove_file(&writing).unwrap();
         place.delete(&name).unwrap();
         assert!(place.list().unwrap().is_empty());
         std::fs::remove_dir_all(chosen).unwrap();
