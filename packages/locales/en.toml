@@ -1966,6 +1966,8 @@ welcomeHomeScreen = "Add it to your Home Screen, or Safari may delete your notes
 welcomeApps = "If you like it, the apps keep your notes for good."
 welcomeStart = "Start writing"
 welcomeGetApps = "Get the apps"
+appFor = "{app} for {system}"
+download = "Download"
 
 # The web version's wording where the apps say "this device", see
 # lib/i18n.svelte.ts: the same keys under inBrowser

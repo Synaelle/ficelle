@@ -3,9 +3,11 @@
      us. Build details and the credits stay folded. -->
 <script lang="ts">
   import { brand } from '@app/brand'
+  import { downloadPage, SYSTEM_NAMES, thisAppSystem } from '../lib/appSystem'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import Knot from '@app/ui/Knot.svelte'
+  import { WEB } from '../lib/platform'
   import { serverProtocol } from '../lib/sync.svelte'
   import ContactLine from './ContactLine.svelte'
   import CreditsList from './CreditsList.svelte'
@@ -13,6 +15,10 @@
   import Row from './ui/Row.svelte'
 
   let { phone = false }: { phone?: boolean } = $props()
+
+  /** The web version points to the app for the visitor's system, when
+   * there is one. */
+  const system = WEB ? thisAppSystem() : null
 
   let details = $state(false)
   let credits = $state(false)
@@ -36,6 +42,19 @@
     </span>
   </div>
 </Group>
+
+{#if system}
+  <Group>
+    <Row
+      label={t('web.appFor', { app: brand.displayName, system: SYSTEM_NAMES[system] })}
+      icon="export"
+    >
+      <a class="btn get" href={downloadPage(system)} target="_blank" rel="noopener"
+        >{t('web.download')}<Icon name="openFile" size={14} /></a
+      >
+    </Row>
+  </Group>
+{/if}
 
 <Group>
   <ContactLine />
@@ -99,6 +118,16 @@
   }
   .inside {
     padding: var(--space-2) var(--space-3) var(--space-3);
+  }
+  .get {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-text);
+    text-decoration: none;
+  }
+  .get :global(svg) {
+    color: var(--color-text-muted);
   }
   .mono {
     color: var(--color-text-muted);
