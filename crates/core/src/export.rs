@@ -335,8 +335,12 @@ fn yaml_string(text: &str) -> String {
             '\\' => out.push_str("\\\\"),
             '\n' => out.push_str("\\n"),
             '\t' => out.push_str("\\t"),
-            // YAML allows neither control characters nor these two
-            c if c.is_control() || c == '\u{fffe}' || c == '\u{ffff}' => {
+            // YAML allows neither control characters nor the last two, and
+            // its readers take the line and paragraph separators for line
+            // breaks, dropping a space before them
+            c if c.is_control()
+                || matches!(c, '\u{2028}' | '\u{2029}' | '\u{fffe}' | '\u{ffff}') =>
+            {
                 let _ = write!(out, "\\u{:04x}", u32::from(c));
             }
             c => out.push(c),
@@ -503,6 +507,14 @@ mod tests {
     fn yaml_strings_are_escaped() {
         assert_eq!(yaml_string("say \"no\"\n\\"), r#""say \"no\"\n\\""#);
         assert_eq!(yaml_string("no"), "\"no\"");
+    }
+
+    #[test]
+    fn yaml_strings_escape_line_separators() {
+        assert_eq!(
+            yaml_string("Seeds \u{2028}\u{2029}"),
+            r#""Seeds \u2028\u2029""#
+        );
     }
 
     #[test]
