@@ -20,7 +20,9 @@ import java.io.File
 class MainActivity : TauriActivity() {
   // The page has no browser history to go back through. It closes its own
   // layers (a note, settings, a dialog) and says whether it did, and only
-  // when nothing was open does back leave the app.
+  // when nothing was open does back leave the app. It leaves as the home
+  // button does, the app kept in memory: finishing it ended the process,
+  // and every return was a cold start.
   override val handleBackNavigation = false
 
   private val inbox by lazy { Inbox(this) }
@@ -53,11 +55,7 @@ class MainActivity : TauriActivity() {
     onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
       override fun handleOnBackPressed() {
         webView.evaluateJavascript("window.__appBack?.() ?? false") { handled ->
-          if (handled != "true") {
-            isEnabled = false
-            onBackPressedDispatcher.onBackPressed()
-            isEnabled = true
-          }
+          if (handled != "true") moveTaskToBack(true)
         }
       }
     })
