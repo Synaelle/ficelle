@@ -25,10 +25,13 @@ invalidDetail = "L’app a refusé cette demande. Sa raison est « {detail} »
 locked = "Les notes sont verrouillées."
 keyStore = "Le trousseau du système n’a pas pu être utilisé."
 corrupt = "Certaines données semblent abîmées."
+notesDamaged = "Le fichier de vos notes (notes.db) est endommagé, il ne peut donc pas être ouvert. Rien n’a été modifié. Recommencez sur cet appareil sous Autres moyens d’entrer, ce qui met le fichier endommagé de côté, puis restaurez votre dernière sauvegarde dans Réglages."
+notesMissing = "Le fichier de vos notes (notes.db) est absent ou vide. Rien n’a été modifié. Remettez la copie d’une sauvegarde du dossier de vos notes, puis réessayez."
 notBackup = "Ce fichier n’est pas une sauvegarde."
 crypto = "Une erreur de chiffrement s’est produite."
 database = "La base de données a refusé la modification."
 file = "Un fichier n’a pas pu être lu ou écrit."
+diskFull = "Le disque de cet appareil est plein, la modification n’a donc pas pu être enregistrée. Libérez de la place dessus, puis réessayez."
 storageFull = "Le stockage du navigateur pour ce site est plein. Téléchargez une sauvegarde, puis retirez des fichiers de vos notes pour libérer de la place."
 storageCleared = "Le navigateur a vidé le stockage où étaient gardées vos notes, et les modifications ne sont plus enregistrées. Essayez de télécharger une sauvegarde, ou copiez la note ouverte, avant de recharger la page."
 storage = "Le stockage du navigateur pour ce site n’a pas pu être ouvert."
@@ -39,6 +42,7 @@ tooManyFiles = "Cette note a autant de pièces jointes que votre serveur le perm
 unsupported = "Cela nécessite l’app de bureau."
 notMarkdown = "Seuls les fichiers Markdown (.md) peuvent être importés, les autres ont été ignorés."
 target = "L’emplacement de sauvegarde n’a pas pu être atteint ou a refusé."
+markdown = "Une partie de cette note n’a pas pu être enregistrée en Markdown. Son texte est enregistré, mais une partie de sa mise en forme peut manquer."
 unknown = "Une erreur inattendue s’est produite."
 unknownDetail = "Une erreur inattendue s’est produite. Son message est « {detail} »."
 cancelled = "La vérification a été annulée."
@@ -212,6 +216,8 @@ failedTitle = "Vos notes n’ont pas pu être ouvertes"
 failedHelp = "Réessayez, ou mettez à jour l’app si une version plus récente est sortie."
 readOnlyHelp = "{app} ne peut pas écrire dans le dossier de vos notes, il ne peut donc pas les ouvrir. Vérifiez que le disque a de la place et n’est pas en lecture seule, et que vous pouvez modifier ce dossier, puis réessayez."
 damagedHelp = "Le fichier vault.json du dossier de vos notes est endommagé. Remettez-en la copie d’une sauvegarde de ce dossier, puis réessayez. Les notes elles-mêmes ne sont pas touchées."
+vaultMissingHelp = "Le fichier vault.json est absent du dossier de vos notes, et c’est lui qui permet de les ouvrir. Remettez-en la copie d’une sauvegarde de ce dossier, puis réessayez. Les notes elles-mêmes ne sont pas touchées."
+notesMissingHelp = "Le fichier notes.db du dossier de vos notes est absent ou vide, vos notes ne peuvent donc pas être ouvertes. Remettez-en la copie d’une sauvegarde de ce dossier, puis réessayez. Rien dans le dossier n’a été modifié."
 retry = "Réessayer"
 guardedHelp = "Utilisez {method} pour ouvrir vos notes."
 passwordHelp = "Saisissez votre mot de passe pour ouvrir vos notes."
@@ -419,6 +425,7 @@ encryptNote = "Vos notes sont gardées sur cet appareil sans mot de passe. Chiff
 details = "Détails techniques"
 lockNow = "Verrouiller maintenant"
 encrypted = "Vos notes sont chiffrées."
+encryptionUndone = "Le chiffrement de vos notes a été interrompu, elles sont donc toujours non chiffrées. Chiffrez-les à nouveau dans Réglages, sous Sécurité."
 
 [settings.exported]
 one = "{count} note exportée."
@@ -488,6 +495,10 @@ other = "{count} fichiers n’ont jamais été téléchargés sur cet appareil e
 one = "{count} fichier ne figurait pas dans la sauvegarde : sa note est revenue sans lui."
 other = "{count} fichiers ne figuraient pas dans la sauvegarde : leurs notes sont revenues sans eux."
 
+[backup.damaged]
+one = "{count} pièce jointe est endommagée sur cet appareil et a été laissée de côté dans la sauvegarde ({files})."
+other = "{count} pièces jointes sont endommagées sur cet appareil et ont été laissées de côté dans la sauvegarde ({files})."
+
 [backup.present]
 one = "{count} de ses notes est déjà là et restera telle quelle."
 other = "{count} de ses notes sont déjà là et resteront telles quelles."
@@ -556,6 +567,7 @@ dropped = "Contenu sans équivalent, laissé de côté"
 encrypted = "Contenu chiffré"
 simplified = "Gardé sous une forme plus simple"
 unreadable = "Éléments illisibles"
+damaged = "Caractères endommagés, affichés sous la forme �"
 
 [import.alreadyHere]
 one = "{count} note était déjà là, elle a été laissée telle quelle."
@@ -1770,6 +1782,10 @@ server = "Les notes déjà présentes sur un appareil associé ou un serveur de 
 final = "C’est irréversible."
 wait = "Tout réinitialiser ({count})"
 confirm = "Tout réinitialiser"
+asideBody = "Cela déplace les fichiers de vos notes sur cet appareil dans un nouveau dossier à côté, puis repart sans aucune note. Rien n’est supprimé."
+asideWait = "Recommencer ({count})"
+asideConfirm = "Recommencer"
+asideDone = "Vos anciens fichiers se trouvent maintenant dans ce dossier."
 
 [backups]
 schedule_off = "Seulement sur demande"
