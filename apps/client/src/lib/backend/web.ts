@@ -149,10 +149,12 @@ export function createWebBackend(): Backend {
   /** A write the core could not make, told as a full or cleared storage
    * when it is: SQLite and the browser only say a write failed. */
   async function failed(error: { kind: string; message: string }, size: number) {
-    const write = ['database', 'file'].includes(error.kind)
+    const write = ['database', 'file', 'diskFull'].includes(error.kind)
     // Firefox refuses writes once the site's data is cleared, Chromium takes them
     if (write && (await storageCleared())) return { kind: 'storageCleared', message: error.message }
-    if (write && (/quota|disk is full/i.test(error.message) || (await storageFull(size))))
+    // the core's disk is the browser's storage for this site here
+    const full = error.kind === 'diskFull' || /quota|disk is full/i.test(error.message)
+    if (write && (full || (await storageFull(size))))
       return { kind: 'storageFull', message: error.message }
     return error
   }

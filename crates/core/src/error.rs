@@ -72,6 +72,19 @@ impl Error {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Db(err) if damaged(err) => "notesDamaged",
+            Self::Db(err) if err.sqlite_error_code() == Some(rusqlite::ErrorCode::DiskFull) => {
+                "diskFull"
+            }
+            // ENOSPC and EDQUOT here and on Android, ERROR_DISK_FULL and
+            // ERROR_HANDLE_DISK_FULL on Windows
+            Self::Io(err)
+                if matches!(
+                    err.kind(),
+                    std::io::ErrorKind::StorageFull | std::io::ErrorKind::QuotaExceeded
+                ) =>
+            {
+                "diskFull"
+            }
             Self::NotesDamaged => "notesDamaged",
             Self::Db(_) => "database",
             Self::Io(_) => "file",
@@ -101,3 +114,29 @@ fn damaged(err: &rusqlite::Error) -> bool {
 
 /// Result alias used across the crate.
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_full_disk_is_said_as_such_from_sqlite_and_from_files() {
+        let sqlite = rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_FULL),
+            Some("database or disk is full".into()),
+        );
+        assert_eq!(Error::Db(sqlite).kind(), "diskFull");
+        let written = std::io::Error::from(std::io::ErrorKind::StorageFull);
+        assert_eq!(Error::Io(written).kind(), "diskFull");
+        #[cfg(unix)]
+        assert_eq!(
+            Error::Io(std::io::Error::from_raw_os_error(28)).kind(),
+            "diskFull"
+        );
+        let refused = rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CONSTRAINT),
+            None,
+        );
+        assert_eq!(Error::Db(refused).kind(), "database");
+    }
+}
