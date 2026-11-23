@@ -336,6 +336,7 @@
     ['list', 'settings.autoLists', 'editor'],
     ['emoji', 'settings.emojiShortcodes', 'editor'],
     ['allNotes', 'settings.openLastNote', 'editor'],
+    ['search', 'settings.scopedSearch', 'editor'],
     ['attachment', 'settings.nameFromAttachment', 'editor'],
     ['right', 'settings.arrow', 'editor'],
     ['timer', 'settings.clock', 'language'],
@@ -612,6 +613,12 @@
             label: t('settings.openLastNote'),
             on: prefs.openLastNote,
             run: () => (prefs.openLastNote = !prefs.openLastNote),
+          })}
+          {@render row({
+            icon: 'search',
+            label: t('settings.scopedSearch'),
+            on: prefs.scopedSearch,
+            run: () => (prefs.scopedSearch = !prefs.scopedSearch),
           })}
           {@render row({
             icon: 'attachment',

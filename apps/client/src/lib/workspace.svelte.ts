@@ -198,9 +198,24 @@ class Workspace {
     await this.refreshNotes()
   }
 
+  /** The search looks only through the list open, when the setting asks for
+   * it and the list is a tag or the notes with no tag. */
+  get searchScoped(): boolean {
+    return prefs.scopedSearch && (this.scope.kind === 'tag' || this.scope.kind === 'untagged')
+  }
+
   async search(query: string) {
     this.query = query
-    const found = query.trim() ? await backend.search(query, SEARCH_LIMIT + 1) : null
+    const scoped = this.searchScoped
+    // the store searches every note: the list's own hits are picked from far
+    // more, so a tag's few are not crowded out by the rest
+    let found = query.trim()
+      ? await backend.search(query, scoped ? SEARCH_LIMIT * 20 : SEARCH_LIMIT + 1)
+      : null
+    if (found && scoped) {
+      const listed = new Set(this.notes.map((note) => note.id))
+      found = found.filter((hit) => listed.has(hit.noteId))
+    }
     this.moreHits = (found?.length ?? 0) > SEARCH_LIMIT
     this.hits = found?.slice(0, SEARCH_LIMIT) ?? null
   }

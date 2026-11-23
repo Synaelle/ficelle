@@ -59,8 +59,8 @@
   })
 
   const trash = $derived(workspace.scope.kind === 'trash')
-  /** A search looks through every note, whatever the list showed: the tag
-   * and its sort make way for it. */
+  /** A search looks through every note, or only the list's with the
+   * setting: the tag and its sort make way for it. */
   const searching = $derived(workspace.hits !== null)
 
   /** The tag shown, with the tags it holds. */
@@ -86,6 +86,13 @@
     if (scope.kind === 'untagged') return t('sidebar.untagged')
     if (scope.kind === 'trash') return t('sidebar.trash')
     return t('sidebar.allNotes')
+  })
+
+  const searchLabel = $derived.by(() => {
+    if (!workspace.searchScoped) return t('list.search')
+    return shownTag
+      ? t('list.searchIn', { name: tagLeaf(shownTag.name) })
+      : t('list.searchUntagged')
   })
 
   /** On a phone the title opens the tags, in place of the sidebar. */
@@ -313,7 +320,7 @@
           size={18}
         /></button
       >
-    {:else if searching}
+    {:else if searching && !workspace.searchScoped}
       <h1>{t('list.found')}</h1>
     {:else}
       <h1><span class="dim">{titleParent}</span>{title}</h1>
@@ -409,11 +416,11 @@
   <div class="tools">
     <label class="search">
       <Icon name="search" size={16} />
-      <span class="visually-hidden">{t('list.search')}</span>
+      <span class="visually-hidden">{searchLabel}</span>
       <input
         bind:this={searchInput}
         type="search"
-        placeholder={t('list.search')}
+        placeholder={searchLabel}
         value={workspace.query}
         oninput={(e) => workspace.search(e.currentTarget.value)}
       />

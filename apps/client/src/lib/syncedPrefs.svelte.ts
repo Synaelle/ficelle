@@ -11,6 +11,7 @@ export const SYNCED = [
   'mode',
   'sort',
   'openNoteFirst',
+  'scopedSearch',
   'nameFromAttachment',
   'hiddenTools',
   'autoLists',

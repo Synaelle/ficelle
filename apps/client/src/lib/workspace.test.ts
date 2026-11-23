@@ -677,6 +677,27 @@ describe('searching', () => {
     await workspace.search('')
     expect(workspace.hits).toBeNull()
   })
+
+  it('looks only in the tag open when the setting asks for it', async () => {
+    const inside = await backend.createNote({ title: 'Lantern wick', tags: ['camping'] })
+    const outside = await backend.createNote({ title: 'Lantern glass' })
+    await workspace.load()
+    const tag = workspace.tags.find((each) => each.name === 'camping')
+    if (!tag) throw new Error('no tag')
+    await workspace.setScope({ kind: 'tag', id: tag.id })
+    await workspace.search('lantern')
+    expect(workspace.hits?.map((hit) => hit.noteId)).toEqual(
+      expect.arrayContaining([inside.id, outside.id]),
+    )
+    prefs.scopedSearch = true
+    await workspace.search('lantern')
+    expect(workspace.hits?.map((hit) => hit.noteId)).toEqual([inside.id])
+    // every note still, from all notes
+    await workspace.setScope({ kind: 'all' })
+    await workspace.search('lantern')
+    expect(workspace.hits).toHaveLength(2)
+    prefs.scopedSearch = false
+  })
 })
 
 describe('the trash', () => {

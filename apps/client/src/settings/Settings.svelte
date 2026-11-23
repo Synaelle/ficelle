@@ -313,6 +313,9 @@
               <Row label={t('settings.openNoteFirst')}>
                 <Switch label={t('settings.openNoteFirst')} bind:checked={prefs.openNoteFirst} />
               </Row>
+              <Row label={t('settings.scopedSearch')}>
+                <Switch label={t('settings.scopedSearch')} bind:checked={prefs.scopedSearch} />
+              </Row>
               <Row label={t('settings.openLastNote')}>
                 <Switch label={t('settings.openLastNote')} bind:checked={prefs.openLastNote} />
               </Row>

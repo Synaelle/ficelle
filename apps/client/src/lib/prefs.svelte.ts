@@ -51,6 +51,9 @@ export interface Prefs {
   clock: 'system' | '24' | '12'
   /** The open note stays first in the note list, whatever the sort. */
   openNoteFirst: boolean
+  /** The note list's search looks only through the tag open, or the notes
+   * with no tag, instead of every note. */
+  scopedSearch: boolean
   /** A note left without a title takes its first attachment's name. */
   nameFromAttachment: boolean
   /** The app opens on the note that was open when it closed. */
@@ -116,6 +119,7 @@ export const DEFAULT_PREFS: Prefs = {
   lineSpacing: 'normal',
   clock: 'system',
   openNoteFirst: false,
+  scopedSearch: false,
   nameFromAttachment: true,
   openLastNote: false,
   hiddenTools: [],
