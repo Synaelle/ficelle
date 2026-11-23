@@ -31,9 +31,15 @@
   import { HANDHELD, LINUX, MOBILE, WEB } from '../lib/platform'
   import { UI_SIZES } from '../lib/uiSize'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
-  import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
+  import { updatesHere } from '../lib/appUpdate.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
-  import { LOCK_CHOICES, lockLabel, ways, type SettingsState } from './settingsState.svelte'
+  import {
+    LOCK_CHOICES,
+    lockLabel,
+    SETTINGS_INSIDE,
+    ways,
+    type SettingsState,
+  } from './settingsState.svelte'
 
   let {
     settings,
@@ -323,36 +329,8 @@
 
   /** Settings inside the pages, found by their own name: the page they sit
    * on shows as the value, a tap opens it. */
-  const inner: [IconName, string, Exclude<Page, 'home'>][] = [
-    ['eye', 'settings.theme', 'appearance'],
-    ['backup', 'backups.title', 'notes'],
-    ['restore', 'backups.restoreFrom', 'notes'],
-    ['import', 'settings.importTitle', 'notes'],
-    ['export', 'settings.exportTitle', 'notes'],
-    ['palette', 'settings.pureBlack', 'appearance'],
-    ['textSize', 'settings.uiSize', 'accessibility'],
-    ['font', 'settings.dyslexicFont', 'accessibility'],
-    ['textStyle', 'settings.lineSpacing', 'editor'],
-    ['list', 'settings.autoLists', 'editor'],
-    ['emoji', 'settings.emojiShortcodes', 'editor'],
-    ['allNotes', 'settings.openLastNote', 'editor'],
-    ['search', 'settings.scopedSearch', 'editor'],
-    ['attachment', 'settings.nameFromAttachment', 'editor'],
-    ['right', 'settings.arrow', 'editor'],
-    ['timer', 'settings.clock', 'language'],
-    ['info', 'settings.credits', 'about'],
-  ]
-  // a narrow window on a computer: its own spelling, and a list beside the
-  // note once it is wider
-  if (!HANDHELD)
-    inner.push(
-      ['pencil', 'settings.spellcheck', 'editor'],
-      ['pin', 'settings.openNoteFirst', 'editor'],
-    )
-  if (updatesHere) inner.push(['search', 'appUpdate.check', 'updates'])
-  if (updatesHere && channelChoice) inner.push(['flask', 'appUpdate.nightlyVersions', 'updates'])
   const innerRows = $derived<SettingRow[]>(
-    inner.map(([icon, label, to]) => ({
+    SETTINGS_INSIDE.map(([icon, label, to]) => ({
       icon,
       label: t(label),
       value: t(titles[to]),

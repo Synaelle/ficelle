@@ -36,7 +36,13 @@
   import UpdateCheck from './UpdateCheck.svelte'
   import { updatesHere } from '../lib/appUpdate.svelte'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
-  import { LOCK_CHOICES, lockLabel, SettingsState, ways } from './settingsState.svelte'
+  import {
+    LOCK_CHOICES,
+    lockLabel,
+    SETTINGS_INSIDE,
+    SettingsState,
+    ways,
+  } from './settingsState.svelte'
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'
@@ -108,14 +114,20 @@
   let resetting = $state(false)
   let restoringFile = $state(false)
   let filter = $state('')
-  const visible = $derived(
-    SECTIONS.filter(
+  const visible = $derived.by(() => {
+    const words = filter.trim().toLowerCase()
+    // a setting found by its own name, as on the phone, shows its section
+    const inside = SETTINGS_INSIDE.filter(([, label]) => t(label).toLowerCase().includes(words))
+    const holds = (s: Section) =>
+      inside.some(([, , page]) => (page === 'notes' ? 'data' : page) === s)
+    return SECTIONS.filter(
       (s) =>
-        !filter.trim() ||
-        t(`settings.${s}`).toLowerCase().includes(filter.toLowerCase()) ||
-        t(`settings.${s}Keywords`).toLowerCase().includes(filter.toLowerCase()),
-    ),
-  )
+        !words ||
+        t(`settings.${s}`).toLowerCase().includes(words) ||
+        t(`settings.${s}Keywords`).toLowerCase().includes(words) ||
+        holds(s),
+    )
+  })
   function open(next: Section) {
     section = next
     settings.message = ''
