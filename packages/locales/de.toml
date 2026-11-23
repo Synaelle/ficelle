@@ -22,10 +22,13 @@ invalidDetail = "Die App hat diese Anfrage abgelehnt. Als Grund wird „{detail}
 locked = "Die Notizen sind gesperrt."
 keyStore = "Der System-Schlüsselbund konnte nicht verwendet werden."
 corrupt = "Einige Daten scheinen beschädigt zu sein."
+notesDamaged = "Die Datei mit Ihren Notizen (notes.db) ist beschädigt und kann daher nicht geöffnet werden. Es wurden keine Änderungen vorgenommen. Starten Sie auf diesem Gerät erneut unter „Weitere Möglichkeiten“, wodurch die beschädigte Datei beiseite gelegt wird, und stellen Sie anschließend in den Einstellungen Ihre letzte Sicherung wieder her."
+notesMissing = "Die Datei mit Ihren Notizen (notes.db) fehlt oder ist leer. Es wurden keine Änderungen vorgenommen. Stellen Sie die Kopie aus einem Backup des Ordners mit Ihren Notizen wieder her und versuchen Sie es dann erneut."
 notBackup = "Diese Datei ist keine Sicherungskopie."
 crypto = "Es ist ein Verschlüsselungsfehler aufgetreten."
 database = "Die Datenbank hat die Änderung abgelehnt."
 file = "Eine Datei konnte nicht gelesen oder geschrieben werden."
+diskFull = "Der Speicher dieses Geräts ist voll, daher konnte die Änderung nicht gespeichert werden. Schaffen Sie etwas Speicherplatz auf dem Gerät und versuchen Sie es dann erneut."
 storageFull = "Der Speicherplatz des Browsers für diese Website ist voll. Laden Sie ein Backup herunter und löschen Sie anschließend Dateien aus Ihren Notizen, um Speicherplatz freizugeben."
 storageCleared = "Der Browser hat den Speicher, in dem Ihre Notizen gespeichert waren, geleert, sodass Änderungen nicht mehr gespeichert werden. Versuchen Sie, ein Backup herunterzuladen oder die geöffnete Notiz zu kopieren, bevor Sie die Seite neu laden."
 storage = "Der Browser-Speicher für diese Website konnte nicht geöffnet werden."
@@ -36,6 +39,7 @@ tooManyFiles = "Diese Notiz enthält so viele Anhänge, wie Ihr Server zulässt.
 unsupported = "Hierfür ist die Desktop-App erforderlich."
 notMarkdown = "Es können nur Markdown-Dateien (.md) importiert werden, die übrigen wurden übersprungen."
 target = "Der Speicherort für das Backup konnte nicht erreicht werden oder wurde abgelehnt."
+markdown = "Ein Teil dieser Notiz konnte nicht als Markdown gespeichert werden. Der Text wurde zwar gespeichert, jedoch fehlen möglicherweise einige Formatierungen."
 unknown = "Es ist ein unerwarteter Fehler aufgetreten."
 unknownDetail = "Es ist ein unerwarteter Fehler aufgetreten. Die Fehlermeldung lautet „{detail}“."
 cancelled = "Die Überprüfung wurde abgebrochen."
@@ -205,6 +209,8 @@ failedTitle = "Ihre Notizen konnten nicht geöffnet werden"
 failedHelp = "Versuchen Sie es erneut oder aktualisieren Sie die App, falls eine neuere Version verfügbar ist."
 readOnlyHelp = "{app} kann nicht in den Ordner Ihrer Notizen schreiben und diese daher nicht öffnen. Bitte überprüfen Sie, ob auf dem Datenträger ausreichend Speicherplatz vorhanden ist und dieser nicht schreibgeschützt ist, und ob Sie diesen Ordner ändern dürfen. Versuchen Sie es anschließend erneut."
 damagedHelp = "Die Datei „vault.json“ im Ordner Ihrer Notizen ist beschädigt. Setzen Sie die Kopie aus einem Backup dieses Ordners wieder ein und versuchen Sie es dann erneut. Die Notizen selbst sind davon nicht betroffen."
+vaultMissingHelp = "Die Datei „vault.json“ fehlt im Ordner Ihrer Notizen; sie enthält die Informationen, die zum Öffnen der Notizen erforderlich sind. Setzen Sie die Kopie aus einem Backup dieses Ordners wieder ein und versuchen Sie es dann erneut. Die Notizen selbst sind davon nicht betroffen."
+notesMissingHelp = "Die Datei „notes.db“ im Ordner Ihrer Notizen fehlt oder ist leer, sodass Ihre Notizen nicht geöffnet werden können. Setzen Sie die Kopie aus einem Backup dieses Ordners wieder ein und versuchen Sie es dann erneut. Im Ordner wurden keine Änderungen vorgenommen."
 retry = "Erneut versuchen"
 guardedHelp = "Verwenden Sie {method}, um Ihre Notizen zu öffnen."
 passwordHelp = "Geben Sie Ihr Passwort ein, um Ihre Notizen zu öffnen."
@@ -411,6 +417,7 @@ encryptNote = "Ihre Notizen werden auf diesem Gerät ohne Passwort gespeichert. 
 details = "Technische Details"
 lockNow = "Jetzt sperren"
 encrypted = "Ihre Notizen sind verschlüsselt."
+encryptionUndone = "Die Verschlüsselung Ihrer Notizen wurde unterbrochen, sodass diese weiterhin unverschlüsselt sind. Verschlüsseln Sie sie erneut in den Einstellungen unter „Sicherheit“."
 
 [settings.exported]
 one = "{count} Notiz exportiert."
@@ -477,6 +484,10 @@ other = "{count} Dateien wurden nie auf dieses Gerät heruntergeladen und befind
 [backup.filesMissingRestore]
 one = "{count} Datei war nicht im Backup enthalten: Die entsprechende Notiz wurde ohne diese Datei wiederhergestellt."
 other = "{count} Dateien waren nicht im Backup enthalten: Die entsprechenden Notizen wurden ohne diese wiederhergestellt."
+
+[backup.damaged]
+one = "{count} Anhang ist auf diesem Gerät beschädigt und wurde bei der Sicherung ({files}) nicht berücksichtigt."
+other = "{count} Anhänge sind auf diesem Gerät beschädigt und wurden bei der Sicherung nicht berücksichtigt ({files})."
 
 [backup.present]
 one = "{count} Notiz davon ist bereits vorhanden und bleibt unverändert."
@@ -546,6 +557,7 @@ dropped = "Inhalte ohne Entsprechung wurden weggelassen"
 encrypted = "Verschlüsselte Inhalte"
 simplified = "In vereinfachter Form wiedergegeben"
 unreadable = "Elemente, die nicht gelesen werden konnten"
+damaged = "Beschädigte Zeichen, dargestellt als �"
 
 [import.alreadyHere]
 one = "{count} Notiz war bereits vorhanden und wurde unverändert belassen."
@@ -1754,6 +1766,10 @@ server = "Notizen, die sich bereits auf einem gekoppelten Gerät oder einem Sync
 final = "Dieser Vorgang kann nicht rückgängig gemacht werden."
 wait = "Alles zurücksetzen ({count})"
 confirm = "Alles zurücksetzen"
+asideBody = "Dadurch werden die Dateien Ihrer Notizen auf diesem Gerät in einen neuen Ordner neben den bestehenden verschoben, und anschließend geht es ohne Notizen neu los. Es wird nichts gelöscht."
+asideWait = "Neu starten ({count})"
+asideConfirm = "Von vorne beginnen"
+asideDone = "Ihre alten Dateien befinden sich nun in diesem Ordner."
 
 [backups]
 schedule_off = "Nur auf Anfrage"

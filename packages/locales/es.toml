@@ -22,10 +22,13 @@ invalidDetail = "La aplicación rechazó esta solicitud. El motivo indicado es �
 locked = "Las notas están bloqueadas."
 keyStore = "No se ha podido utilizar el llavero del sistema."
 corrupt = "Algunos datos parecen estar dañados."
+notesDamaged = "El archivo de sus notas (notes.db) está dañado, por lo que no se puede abrir. No se ha modificado nada. Vuelva a iniciar la aplicación en este dispositivo seleccionando «Otras formas de acceder», lo que deja el archivo dañado a un lado, y, a continuación, restaure su última copia de seguridad en «Ajustes»."
+notesMissing = "Falta el archivo de sus notas (notes.db) o está vacío. No se ha modificado nada. Vuelva a colocar la copia de seguridad de la carpeta de sus notas y, a continuación, inténtelo de nuevo."
 notBackup = "Este archivo no es una copia de seguridad."
 crypto = "Se ha producido un error de cifrado."
 database = "La base de datos rechazó el cambio."
 file = "No se ha podido leer ni escribir un archivo."
+diskFull = "El disco de este dispositivo está lleno, por lo que no se ha podido guardar el cambio. Libere algo de espacio en él y vuelva a intentarlo."
 storageFull = "El almacenamiento del navegador para este sitio está lleno. Descargue una copia de seguridad y, a continuación, elimine archivos de sus notas para liberar espacio."
 storageCleared = "El navegador ha borrado el almacenamiento en el que se guardaban sus notas y los cambios ya no se guardan. Intente descargar una copia de seguridad o copiar la nota abierta antes de volver a cargar la página."
 storage = "No se ha podido abrir el almacenamiento del navegador correspondiente a este sitio web."
@@ -36,6 +39,7 @@ tooManyFiles = "Esta nota tiene tantos archivos adjuntos como permita su servido
 unsupported = "Para ello es necesaria la aplicación de escritorio."
 notMarkdown = "Solo se pueden importar archivos Markdown (.md); el resto se han omitido."
 target = "No se ha podido acceder a la ubicación de copia de seguridad o esta ha sido rechazada."
+markdown = "No se ha podido guardar parte de esta nota en formato Markdown. El texto se ha guardado, pero es posible que falte parte del formato."
 unknown = "Se ha producido un error inesperado."
 unknownDetail = "Se ha producido un error inesperado. El mensaje indica «{detail}»."
 cancelled = "Se ha cancelado la verificación."
@@ -205,6 +209,8 @@ failedTitle = "No se han podido abrir sus notas"
 failedHelp = "Inténtelo de nuevo o actualice la aplicación si hay una versión más reciente disponible."
 readOnlyHelp = "{app} no puede escribir en la carpeta de sus notas, por lo que no puede abrirlas. Compruebe que el disco tenga espacio libre y no esté configurado como de solo lectura, y que pueda modificar esta carpeta; a continuación, inténtelo de nuevo."
 damagedHelp = "El archivo vault.json de la carpeta de sus notas está dañado. Vuelva a colocar la copia de seguridad de esta carpeta y, a continuación, inténtelo de nuevo. Las notas en sí no se ven afectadas."
+vaultMissingHelp = "Falta el archivo vault.json en la carpeta de sus notas, y es este el que permite abrirlas. Vuelva a colocar la copia de una copia de seguridad de esta carpeta y, a continuación, inténtelo de nuevo. Las notas en sí no se ven afectadas."
+notesMissingHelp = "El archivo notes.db de la carpeta de sus notas no existe o está vacío, por lo que no es posible abrir sus notas. Vuelva a colocar la copia de seguridad de esta carpeta y vuelva a intentarlo. No se ha modificado nada en la carpeta."
 retry = "Inténtelo de nuevo"
 guardedHelp = "Utilice {method} para abrir sus notas."
 passwordHelp = "Introduzca su contraseña para abrir sus notas."
@@ -411,6 +417,7 @@ encryptNote = "Sus notas se guardan en este dispositivo sin contraseña. Cifre l
 details = "Detalles técnicos"
 lockNow = "Bloquear ahora"
 encrypted = "Sus notas están cifradas."
+encryptionUndone = "El proceso de cifrado de sus notas se interrumpió, por lo que aún no están cifradas. Vuelva a cifrarlas en «Configuración», en la sección «Seguridad»."
 
 [settings.exported]
 one = "Se ha exportado {count} nota."
@@ -477,6 +484,10 @@ other = "{count} archivos nunca se han descargado en este dispositivo y no está
 [backup.filesMissingRestore]
 one = "{count} archivo no estaba en la copia de seguridad: su nota se recuperó sin él."
 other = "{count} archivos no se incluían en la copia de seguridad: sus notas se recuperaron sin ellos."
+
+[backup.damaged]
+one = "El archivo adjunto {count} está dañado en este dispositivo y no se ha incluido en la copia de seguridad ({files})."
+other = "{count} archivos adjuntos están dañados en este dispositivo y no se han incluido en la copia de seguridad ({files})."
 
 [backup.present]
 one = "{count} nota de la copia ya se encuentra aquí y se mantendrá tal y como está."
@@ -546,6 +557,7 @@ dropped = "Contenido sin equivalente, omitido"
 encrypted = "Contenido cifrado"
 simplified = "Se ha mantenido en una forma más sencilla"
 unreadable = "Elementos que no se han podido leer"
+damaged = "Caracteres dañados, que se muestran como �"
 
 [import.alreadyHere]
 one = "{count} nota ya se encontraba aquí, por lo que se ha dejado tal cual."
@@ -1754,6 +1766,10 @@ server = "Las notas que ya se encuentren en un dispositivo emparejado o en un se
 final = "Esta acción no se puede deshacer."
 wait = "Restablecer todo ({count})"
 confirm = "Restablecer todo"
+asideBody = "Esta acción traslada los archivos de sus notas en este dispositivo a una nueva carpeta situada junto a ellos y, a continuación, vuelve a empezar sin ninguna nota. No se elimina nada."
+asideWait = "Empezar de nuevo ({count})"
+asideConfirm = "Empezar de nuevo"
+asideDone = "Sus archivos antiguos se encuentran ahora en esta carpeta."
 
 [backups]
 schedule_off = "Solo cuando lo pida"

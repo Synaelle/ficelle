@@ -22,10 +22,13 @@ invalidDetail = "O aplicativo recusou essa solicitação. O motivo indicado é �
 locked = "As notas estão bloqueadas."
 keyStore = "Não foi possível utilizar o Keychain do sistema."
 corrupt = "Alguns dados parecem estar corrompidos."
+notesDamaged = "O arquivo das suas anotações (notes.db) está corrompido e, por isso, não pode ser aberto. Nada foi alterado. Comece novamente neste dispositivo pela opção “Outras formas de entrar”, que deixa o arquivo corrompido de lado, e, em seguida, restaure seu backup mais recente em “Configurações”."
+notesMissing = "O arquivo das suas anotações (notes.db) está faltando ou vazio. Nada foi alterado. Recupere a cópia de um backup da pasta das suas anotações e tente novamente."
 notBackup = "Este arquivo não é um backup."
 crypto = "Ocorreu um erro de criptografia."
 database = "O banco de dados recusou a alteração."
 file = "Não foi possível ler ou gravar um arquivo."
+diskFull = "O disco deste dispositivo está cheio, portanto a alteração não pôde ser salva. Libere algum espaço nele e tente novamente."
 storageFull = "O espaço de armazenamento do navegador para este site está cheio. Baixe um backup e, em seguida, remova arquivos de suas anotações para liberar espaço."
 storageCleared = "O navegador limpou o armazenamento onde suas anotações estavam guardadas, e as alterações não são mais salvas. Tente baixar um backup ou copiar a anotação aberta antes de recarregar a página."
 storage = "Não foi possível abrir o armazenamento do navegador para este site."
@@ -36,6 +39,7 @@ tooManyFiles = "Esta nota possui tantos anexos quantos o seu servidor permitir."
 unsupported = "Para isso, é necessário o aplicativo para desktop."
 notMarkdown = "Apenas arquivos Markdown (.md) podem ser importados; os demais foram ignorados."
 target = "Não foi possível acessar o local de backup ou o acesso foi recusado."
+markdown = "Parte desta nota não pôde ser salva no formato Markdown. O texto foi salvo, mas parte da formatação pode estar ausente."
 unknown = "Ocorreu um erro inesperado."
 unknownDetail = "Ocorreu um erro inesperado. A mensagem exibida é “{detail}”."
 cancelled = "A verificação foi cancelada."
@@ -205,6 +209,8 @@ failedTitle = "Não foi possível abrir suas notas"
 failedHelp = "Tente novamente ou atualize o aplicativo caso haja uma versão mais recente disponível."
 readOnlyHelp = "O {app} não consegue gravar na pasta das suas notas e, portanto, não consegue abri-las. Verifique se o disco possui espaço livre e não está configurado como somente leitura, e se você tem permissão para alterar essa pasta; em seguida, tente novamente."
 damagedHelp = "O arquivo vault.json na pasta das suas notas está corrompido. Recupere a cópia de um backup dessa pasta e tente novamente. As próprias notas não foram afetadas."
+vaultMissingHelp = "O arquivo vault.json está faltando na pasta das suas anotações, e ele contém o que é necessário para abri-las. Recupere a cópia de um backup dessa pasta e tente novamente. As próprias anotações não foram afetadas."
+notesMissingHelp = "O arquivo notes.db na pasta das suas anotações está faltando ou vazio; por isso, suas anotações não podem ser abertas. Recupere a cópia de um backup dessa pasta e tente novamente. Nada na pasta foi alterado."
 retry = "Tente novamente"
 guardedHelp = "Utilize {method} para abrir suas notas."
 passwordHelp = "Digite sua senha para abrir suas notas."
@@ -411,6 +417,7 @@ encryptNote = "Suas notas são armazenadas neste dispositivo sem senha. Criptogr
 details = "Detalhes técnicos"
 lockNow = "Bloquear agora"
 encrypted = "Suas notas estão criptografadas."
+encryptionUndone = "A criptografia de suas anotações foi interrompida, portanto elas ainda estão sem criptografia. Criptografe-as novamente em Configurações, na seção Segurança."
 
 [settings.exported]
 one = "{count} nota exportada."
@@ -477,6 +484,10 @@ other = "{count} arquivos nunca foram baixados para este dispositivo e não est�
 [backup.filesMissingRestore]
 one = "{count} arquivo não estava no backup: a nota foi recuperada sem ele."
 other = "{count} arquivos não estavam no backup: suas notas foram recuperadas sem esses arquivos."
+
+[backup.damaged]
+one = "O anexo {count} está corrompido neste dispositivo e foi excluído do backup ({files})."
+other = "{count} anexos estão corrompidos neste dispositivo e não foram incluídos no backup ({files})."
 
 [backup.present]
 one = "{count} nota já está aqui e permanecerá como está."
@@ -546,6 +557,7 @@ dropped = "Conteúdo sem equivalente, omitido"
 encrypted = "Conteúdo criptografado"
 simplified = "Mantidos em um formato mais simples"
 unreadable = "Itens que não puderam ser lidos"
+damaged = "Caracteres corrompidos, exibidos como �"
 
 [import.alreadyHere]
 one = "{count} nota já estava aqui e foi mantida como estava."
@@ -1754,6 +1766,10 @@ server = "As notas que já estiverem em um dispositivo emparelhado ou em um serv
 final = "Esta ação não pode ser desfeita."
 wait = "Redefinir tudo ({count})"
 confirm = "Redefinir tudo"
+asideBody = "Isso move os arquivos das suas anotações neste dispositivo para uma nova pasta ao lado deles e, em seguida, reinicia o aplicativo sem nenhuma anotação. Nada é excluído."
+asideWait = "Recomeçar ({count})"
+asideConfirm = "Recomeçar"
+asideDone = "Seus arquivos antigos estão agora nesta pasta."
 
 [backups]
 schedule_off = "Somente quando solicitado"

@@ -22,10 +22,13 @@ invalidDetail = "De app heeft dit verzoek afgewezen. Als reden wordt „{detail}
 locked = "Notities zijn vergrendeld."
 keyStore = "De systeem-sleutelhanger kon niet worden gebruikt."
 corrupt = "Sommige gegevens lijken beschadigd te zijn."
+notesDamaged = "Het bestand met uw notities (notes.db) is beschadigd en kan daarom niet worden geopend. Er is niets gewijzigd. Begin opnieuw op dit apparaat via „Andere manieren om binnen te komen“, waarbij het beschadigde bestand buiten beschouwing wordt gelaten, en herstel vervolgens uw meest recente back-up via „Instellingen“."
+notesMissing = "Het bestand met uw notities (notes.db) ontbreekt of is leeg. Er is niets gewijzigd. Plaats de kopie uit een back-up van de map met uw notities terug en probeer het vervolgens opnieuw."
 notBackup = "Dit bestand is geen back-up."
 crypto = "Er is een versleutelingsfout opgetreden."
 database = "De database heeft de wijziging geweigerd."
 file = "Een bestand kon niet worden gelezen of geschreven."
+diskFull = "De schijf van dit apparaat is vol, waardoor de wijziging niet kon worden opgeslagen. Maak wat ruimte vrij op de schijf en probeer het vervolgens opnieuw."
 storageFull = "De opslagruimte van de browser voor deze site is vol. Download een back-up en verwijder vervolgens bestanden uit uw notities om ruimte vrij te maken."
 storageCleared = "De browser heeft de opslagruimte waarin uw notities waren opgeslagen gewist, en wijzigingen worden niet langer opgeslagen. Probeer een back-up te downloaden of de geopende notitie te kopiëren voordat u de pagina opnieuw laadt."
 storage = "De opslagruimte van de browser voor deze website kon niet worden geopend."
@@ -36,6 +39,7 @@ tooManyFiles = "Deze notitie bevat zoveel bijlagen als uw server toestaat."
 unsupported = "Hiervoor is de desktop-app vereist."
 notMarkdown = "Alleen Markdown-bestanden (.md) kunnen worden geïmporteerd; de overige bestanden werden overgeslagen."
 target = "De back-uplocatie kon niet worden bereikt of werd geweigerd."
+markdown = "Een deel van deze notitie kon niet als Markdown worden opgeslagen. De tekst is opgeslagen, maar mogelijk ontbreekt een deel van de opmaak."
 unknown = "Er is een onverwachte fout opgetreden."
 unknownDetail = "Er is een onverwachte fout opgetreden. Het foutbericht luidt: „{detail}“."
 cancelled = "De verificatie is geannuleerd."
@@ -205,6 +209,8 @@ failedTitle = "Uw notities konden niet worden geopend"
 failedHelp = "Probeer het nogmaals, of werk de app bij als er een nieuwere versie beschikbaar is."
 readOnlyHelp = "{app} kan niet schrijven in de map met uw notities en kan deze daarom niet openen. Controleer of er voldoende ruimte op de schijf is, of de schijf niet alleen-lezen is en of u deze map mag wijzigen. Probeer het vervolgens opnieuw."
 damagedHelp = "Het bestand vault.json in de map met uw notities is beschadigd. Plaats de kopie uit een back-up van deze map terug en probeer het vervolgens opnieuw. De notities zelf zijn niet aangetast."
+vaultMissingHelp = "Het bestand vault.json ontbreekt in de map met uw notities, en dit bestand bevat de gegevens die nodig zijn om de notities te openen. Plaats de kopie uit een back-up van deze map terug en probeer het vervolgens opnieuw. De notities zelf zijn niet aangetast."
+notesMissingHelp = "Het bestand notes.db in de map met uw notities ontbreekt of is leeg, waardoor uw notities niet kunnen worden geopend. Plaats de kopie uit een back-up van deze map terug en probeer het vervolgens opnieuw. Er is niets in de map gewijzigd."
 retry = "Probeer het nog eens"
 guardedHelp = "Gebruik {method} om uw notities te openen."
 passwordHelp = "Voer uw wachtwoord in om uw notities te openen."
@@ -411,6 +417,7 @@ encryptNote = "Uw notities worden zonder wachtwoord op dit apparaat bewaard. Ver
 details = "Technische details"
 lockNow = "Nu vergrendelen"
 encrypted = "Uw notities zijn versleuteld."
+encryptionUndone = "Het versleutelen van uw notities is afgebroken, waardoor deze nog steeds onversleuteld zijn. Versleutel ze opnieuw in Instellingen, onder Beveiliging."
 
 [settings.exported]
 one = "{count} notitie geëxporteerd."
@@ -477,6 +484,10 @@ other = "{count} bestanden zijn nooit naar dit apparaat gedownload en zitten er 
 [backup.filesMissingRestore]
 one = "{count} bestand stond niet in de back-up: de bijbehorende notitie is zonder dit bestand hersteld."
 other = "{count} bestanden stonden niet in de back-up: de bijbehorende notities zijn zonder deze bestanden hersteld."
+
+[backup.damaged]
+one = "{count} bijlage is beschadigd op dit apparaat en is niet opgenomen in de back-up ({files})."
+other = "{count} bijlagen zijn op dit apparaat beschadigd en zijn niet opgenomen in de back-up ({files})."
 
 [backup.present]
 one = "{count} notitie daarvan is al aanwezig en blijft ongewijzigd."
@@ -546,6 +557,7 @@ dropped = "Inhoud zonder equivalent is weggelaten"
 encrypted = "Versleutelde inhoud"
 simplified = "In een eenvoudigere vorm weergegeven"
 unreadable = "Items die niet konden worden gelezen"
+damaged = "Beschadigde tekens, weergegeven als �"
 
 [import.alreadyHere]
 one = "{count} notitie stond hier al; deze is ongewijzigd gelaten."
@@ -1754,6 +1766,10 @@ server = "Notities die al op een gekoppeld apparaat of een synchronisatieserver 
 final = "Dit kan niet ongedaan worden gemaakt."
 wait = "Alles resetten ({count})"
 confirm = "Alles resetten"
+asideBody = "Hiermee worden de bestanden van uw notities op dit apparaat naar een nieuwe map naast de bestaande verplaatst, waarna de app opnieuw start zonder notities. Er wordt niets verwijderd."
+asideWait = "Opnieuw beginnen ({count})"
+asideConfirm = "Opnieuw beginnen"
+asideDone = "Uw oude bestanden bevinden zich nu in deze map."
 
 [backups]
 schedule_off = "Alleen op verzoek"
