@@ -25,6 +25,7 @@
   import { LEADING, prefs, shortcutFor } from '../lib/prefs.svelte'
   import type { ActionId } from '../lib/shortcuts'
   import { workspace } from '../lib/workspace.svelte'
+  import { isMarkdownFile } from '../lib/importing'
   import { createExtensions } from './extensions'
   import { aroundEdit, asWritten } from './asWritten'
   import { deleteLine } from './deleteLine'
@@ -502,21 +503,44 @@
   /**
    * Files dropped from a file manager. On Linux the window takes them itself
    * (WebKitGTK gives the page only their paths): the app keeps the dropped
-   * images and the page asks for them by number. Elsewhere this never fires
-   * and the page's own drop (handleDrop) gets the files.
+   * files and the page asks for them by number. Markdown files become notes,
+   * as a drop on the page makes them. Elsewhere this never fires and the
+   * page's own drop (handleDrop, dropFiles) gets the files.
    */
   async function dropFromSystem(x: number, y: number) {
     if (!editor) return
-    const found = await backend.droppedImages().catch(() => [])
-    const files: File[] = []
-    for (const [index, image] of found.entries()) {
-      const bytes = await backend.droppedImage(index).catch(() => null)
-      if (bytes) files.push(new File([bytes], image.name, { type: image.mime }))
+    let found: { name: string; mime: string }[] = []
+    try {
+      found = await backend.droppedFiles()
+    } catch (err) {
+      workspace.report(err, 'ATTACH')
     }
-    if (files.length === 0) return
-    // where the pointer let go, in the note; the end of the cursor otherwise
-    const at = editor.view.posAtCoords({ left: x, top: y })?.pos
-    await insertFiles(files, at)
+    const files: File[] = []
+    for (const [index, dropped] of found.entries()) {
+      try {
+        const bytes = await backend.droppedFile(index)
+        files.push(new File([bytes], dropped.name, { type: dropped.mime }))
+      } catch (err) {
+        workspace.report(err, 'ATTACH')
+      }
+    }
+    // attached before the import, which opens the new notes in this one's place
+    const attached = files.filter((file) => !isMarkdownFile(file))
+    if (attached.length > 0) {
+      // where the pointer let go, in the note; the end of the cursor otherwise
+      const at = editor.view.posAtCoords({ left: x, top: y })?.pos
+      await insertFiles(attached, at)
+    }
+    const notes = files.filter(isMarkdownFile)
+    if (notes.length > 0) await workspace.importFiles(notes)
+  }
+
+  /** Files the page got dropped beside or under the text, where the editor
+   * takes no drop: they go at the end. */
+  export async function dropFiles(chosen: File[]) {
+    if (loose) return
+    writeAtEnd()
+    await insertFiles(chosen)
   }
 
   /** The clipboard's images read by the app; its text when it holds none. */

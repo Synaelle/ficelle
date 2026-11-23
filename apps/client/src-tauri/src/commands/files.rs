@@ -16,7 +16,7 @@ use crate::state::AppState;
 /// Largest file the page can hand over: it arrives whole in memory. Larger
 /// ones come from other apps' share sheets (read from disk a piece at a
 /// time) or not at all.
-const MAX_ATTACHMENT_BYTES: usize = 1024 * 1024 * 1024;
+pub(crate) const MAX_ATTACHMENT_BYTES: usize = 1024 * 1024 * 1024;
 
 /// Whether a file may be attached to a note: the server's rules for this
 /// account when it keeps files (size, type, attachments per note), and the

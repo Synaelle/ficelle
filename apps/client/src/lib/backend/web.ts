@@ -270,8 +270,8 @@ export function createWebBackend(): Backend {
     // the page's own paste and drop events are all the browser has
     clipboardImages: async () => [],
     clipboardImage: async () => new ArrayBuffer(0),
-    droppedImages: async () => [],
-    droppedImage: async () => new ArrayBuffer(0),
+    droppedFiles: async () => [],
+    droppedFile: async () => new ArrayBuffer(0),
 
     addAttachment: async (note, file) => {
       const attachment = await send<Attachment>(

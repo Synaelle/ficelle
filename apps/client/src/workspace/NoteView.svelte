@@ -309,7 +309,20 @@
       </button>
     </header>
 
-    <div class="scroll" bind:this={scroller} style:overflow-anchor={hold ? 'none' : null}>
+    <!-- files dropped beside or under the text, which the editor leaves:
+         the page gets them where the window does not take drops (Windows) -->
+    <div
+      class="scroll"
+      bind:this={scroller}
+      style:overflow-anchor={hold ? 'none' : null}
+      role="presentation"
+      ondrop={(e) => {
+        const files = [...(e.dataTransfer?.files ?? [])]
+        if (e.defaultPrevented || source || files.length === 0) return
+        e.preventDefault()
+        void editorRef?.dropFiles(files)
+      }}
+    >
       <!-- a tap anywhere blank under the last line writes at the note's end;
            the keyboard gets there with the arrows -->
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->

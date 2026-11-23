@@ -101,10 +101,11 @@ export interface Backend {
   clipboardImages(): Promise<{ name: string; mime: string }[]>
   /** One of `clipboardImages`, read again from the clipboard. */
   clipboardImage(index: number): Promise<ArrayBuffer>
-  /** The image files of the last drop on the window, which the system named. */
-  droppedImages(): Promise<{ name: string; mime: string }[]>
-  /** One of `droppedImages`. */
-  droppedImage(index: number): Promise<ArrayBuffer>
+  /** The files of the last drop on the window, which the system named. The
+   * type is empty for a file other than an image. */
+  droppedFiles(): Promise<{ name: string; mime: string }[]>
+  /** One of `droppedFiles`. */
+  droppedFile(index: number): Promise<ArrayBuffer>
   /** Returns the new key to show once, any earlier key stops working. */
   /** Whether `password` opens these notes, nothing else done. */
   vaultCheckPassword(password: string): Promise<boolean>

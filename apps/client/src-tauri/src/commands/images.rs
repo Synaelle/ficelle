@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Images pasted or dropped into a note, read here rather than from the
-//! page's events. `WebKitGTK` gives the page only a path when an image file was
+//! Images pasted and files dropped into a note, read here rather than from
+//! the page's events. `WebKitGTK` gives the page only a path when a file was
 //! copied or dragged from a file manager, and the page may not read paths
 //! (`picked.rs`). Here the system's clipboard, or the window's drop, says which
-//! files they were, and only images among them are read, so a script in the
-//! page reaches nothing the person did not copy or drop.
+//! files they were, and only images among the copied ones are read, so a
+//! script in the page reaches nothing the person did not copy or drop.
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -16,10 +16,10 @@ use tauri::{AppHandle, DragDropEvent, Manager, Runtime, State, Url, Window, Wind
 
 use crate::error::{CommandError, CommandResult};
 
-/// An image a note can take, in the order pasted or dropped.
+/// A file a note can take, by name and type, in the order pasted or dropped.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ImageFile {
+pub struct NoteFile {
     name: String,
     mime: String,
 }
@@ -87,10 +87,10 @@ fn image_files(text: &str) -> Vec<PathBuf> {
         .collect()
 }
 
-fn described(paths: &[PathBuf]) -> Vec<ImageFile> {
+fn described(paths: &[PathBuf]) -> Vec<NoteFile> {
     paths
         .iter()
-        .map(|path| ImageFile {
+        .map(|path| NoteFile {
             name: path
                 .file_name()
                 .map_or_default(|n| n.to_string_lossy().into_owned()),
@@ -131,7 +131,7 @@ fn copied_picture<R: Runtime>(app: &AppHandle<R>) -> Option<Vec<u8>> {
 
 /// The images on the clipboard: the copied image files, or a copied picture.
 #[tauri::command]
-pub async fn clipboard_images<R: Runtime>(app: AppHandle<R>) -> CommandResult<Vec<ImageFile>> {
+pub async fn clipboard_images<R: Runtime>(app: AppHandle<R>) -> CommandResult<Vec<NoteFile>> {
     #[cfg(desktop)]
     {
         let files = copied_files(&app);
@@ -139,7 +139,7 @@ pub async fn clipboard_images<R: Runtime>(app: AppHandle<R>) -> CommandResult<Ve
             return Ok(described(&files));
         }
         if copied_picture(&app).is_some() {
-            return Ok(vec![ImageFile {
+            return Ok(vec![NoteFile {
                 name: "pasted.png".to_owned(),
                 mime: "image/png".to_owned(),
             }]);
@@ -172,12 +172,13 @@ pub async fn clipboard_image<R: Runtime>(
     Err(CommandError::new("notFound", "the clipboard changed"))
 }
 
-/// The image files of the last drop on a window, which the system named.
+/// The files of the last drop on a window, which the system named.
 #[derive(Default)]
 pub struct Dropped(Mutex<Vec<PathBuf>>);
 
-/// Keeps the image files of a drop, before the page hears of it. Drops reach
-/// here only where the window takes them itself (Linux, see the window config).
+/// Keeps the files of a drop, before the page hears of it: files only, a
+/// folder is not taken. Drops reach here only where the window takes them
+/// itself (Linux, see the window config).
 #[cfg_attr(
     mobile,
     expect(dead_code, reason = "a phone has no copied file lists or drops")
@@ -189,26 +190,36 @@ pub fn remember_drop<R: Runtime>(window: &Window<R>, event: &WindowEvent) {
     {
         *kept = paths
             .iter()
-            .filter(|p| usable(p))
+            .filter(|p| p.is_file())
             .take(MOST_FILES)
             .cloned()
             .collect();
     }
 }
 
-/// The image files of the last drop.
+/// The files of the last drop, with an image's type; other files have
+/// none here, the note takes them as they are.
 #[tauri::command]
-pub async fn dropped_images(dropped: State<'_, Dropped>) -> CommandResult<Vec<ImageFile>> {
+pub async fn dropped_files(dropped: State<'_, Dropped>) -> CommandResult<Vec<NoteFile>> {
     let kept = dropped
         .0
         .lock()
         .map_err(|_| CommandError::new("unknown", "drop lock"))?;
-    Ok(described(&kept))
+    Ok(kept
+        .iter()
+        .map(|path| NoteFile {
+            name: path
+                .file_name()
+                .map_or_default(|n| n.to_string_lossy().into_owned()),
+            mime: mime_of(path).unwrap_or_default().to_owned(),
+        })
+        .collect())
 }
 
-/// One of [`dropped_images`], as bytes.
+/// One of [`dropped_files`], as bytes. A file larger than a note takes is
+/// refused before it is read.
 #[tauri::command]
-pub async fn dropped_image(dropped: State<'_, Dropped>, index: usize) -> CommandResult<Response> {
+pub async fn dropped_file(dropped: State<'_, Dropped>, index: usize) -> CommandResult<Response> {
     let path = dropped
         .0
         .lock()
@@ -216,6 +227,13 @@ pub async fn dropped_image(dropped: State<'_, Dropped>, index: usize) -> Command
         .get(index)
         .cloned()
         .ok_or_else(|| CommandError::new("notFound", "no such dropped file"))?;
+    let size = path
+        .metadata()
+        .map_err(|e| CommandError::new("notFound", e.to_string()))?
+        .len();
+    if size > super::files::MAX_ATTACHMENT_BYTES as u64 {
+        return Err(CommandError::new("tooLarge", "this file is too large"));
+    }
     read(&path)
 }
 

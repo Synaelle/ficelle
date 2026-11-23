@@ -192,8 +192,8 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     // the page's own paste event is all the browser has
     clipboardImages: async () => [],
     clipboardImage: async () => new ArrayBuffer(0),
-    droppedImages: async () => [],
-    droppedImage: async () => new ArrayBuffer(0),
+    droppedFiles: async () => [],
+    droppedFile: async () => new ArrayBuffer(0),
     appUpdatePageOnly: async () => false,
     appUpdateInstall: async () => {
       throw { kind: 'unsupported', message: 'updates need the app' }

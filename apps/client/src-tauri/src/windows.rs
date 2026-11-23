@@ -47,7 +47,9 @@ impl Windows {
     }
 }
 
-/// A window's builder with what every window of the app shares.
+/// A window's builder with what every window of the app shares. Dropped
+/// files go where the main window's config sends them: to the page on
+/// Windows, to the window on Linux (see `commands::images`).
 #[cfg(desktop)]
 pub(crate) fn window<'a, R: Runtime>(
     app: &'a AppHandle<R>,
@@ -61,6 +63,15 @@ pub(crate) fn window<'a, R: Runtime>(
             .inner_size(860.0, 720.0)
             .min_inner_size(400.0, 480.0)
             .visible(false);
+    let page_takes_drops = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .any(|w| w.label == "main" && !w.drag_drop_enabled);
+    if page_takes_drops {
+        builder = builder.disable_drag_drop_handler();
+    }
     if let Some(dir) = crate::portable::webview_dir(app) {
         builder = builder.data_directory(dir);
     }
