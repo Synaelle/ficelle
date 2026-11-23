@@ -248,7 +248,6 @@ confirmEmptyTrash = "Delete everything in the trash for good? This cannot be und
 clearFilter = "Back to notes with no tag"
 clearSearch = "Clear search"
 pullToSearch = "Release to search"
-swipeTrash = "Trash"
 
 [list.count]
 one = "{count} note"

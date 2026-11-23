@@ -527,8 +527,8 @@
                 <button
                   class="trash"
                   tabindex={swiped === note.id ? 0 : -1}
-                  aria-label={t('list.swipeTrash')}
-                  title={t('list.swipeTrash')}
+                  aria-label={t('note.trash')}
+                  title={t('note.trash')}
                   onclick={() => swipedAction(() => void workspace.trash(note.id))}
                 >
                   <Icon name="trash" />
