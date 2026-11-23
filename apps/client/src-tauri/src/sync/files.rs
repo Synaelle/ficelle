@@ -363,7 +363,7 @@ pub async fn open_attachment(
     .map_err(|e| CommandError::new("file", e.to_string()))?;
     #[cfg(desktop)]
     super::browser::open_in_browser(&path)
-        .map_err(|e| CommandError::new("unknown", e.to_string()))?;
+        .map_err(|e| CommandError::new("browser", e.to_string()))?;
     #[cfg(mobile)]
     let _ = path;
     Ok(())

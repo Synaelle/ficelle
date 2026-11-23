@@ -42,6 +42,7 @@ cancelled = "Verification was cancelled."
 notAnExport = "This does not look like an export any importer can read."
 offline = "Not reachable, try again when online."
 update = "The update could not be checked or installed."
+browser = "The web browser could not be opened."
 testBuild = "Test build pretending to be a beta, so nothing is checked, downloaded or installed."
 
 [appUpdate]

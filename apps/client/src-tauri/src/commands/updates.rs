@@ -780,7 +780,7 @@ mod page {
             || releases_in(app_brand::APP_UPDATES_URL).to_owned(),
             |version| release_page(&version),
         );
-        crate::sync::browser::open_in_browser(&page).map_err(|e| failed("unknown", e))
+        crate::sync::browser::open_in_browser(&page).map_err(|e| failed("browser", e))
     }
 }
 

@@ -56,7 +56,7 @@ pub async fn link_open(url: String) -> CommandResult<()> {
     }
     #[cfg(desktop)]
     return crate::sync::browser::open_in_browser(&url)
-        .map_err(|e| CommandError::new("unknown", e.to_string()));
+        .map_err(|e| CommandError::new("browser", e.to_string()));
     #[cfg(mobile)]
     Err(CommandError::new(
         "unsupported",
