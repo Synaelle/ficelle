@@ -19,7 +19,7 @@
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +40,42 @@ const FORMAT: u32 = 1;
 /// Written by [`Vault::encrypt`] beside the plain ones, then swapped in.
 const ENC_DB: &str = "notes.db.encrypting";
 const ENC_BLOBS: &str = "blobs.encrypting";
+
+/// Folders whose vault this process is encrypting: their `.encrypting`
+/// files are being written, not left by a crash. Another window's status
+/// check settled them as left over and deleted the database being written.
+static ENCRYPTING: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+/// A folder in [`ENCRYPTING`] while it lives.
+struct Encrypting(PathBuf);
+
+impl Encrypting {
+    fn start(dir: &Path) -> Self {
+        // a panic elsewhere leaves the list as it was, still sound
+        ENCRYPTING
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(dir.to_owned());
+        Self(dir.to_owned())
+    }
+
+    fn busy(dir: &Path) -> bool {
+        ENCRYPTING
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter()
+            .any(|d| d == dir)
+    }
+}
+
+impl Drop for Encrypting {
+    fn drop(&mut self) {
+        let mut list = ENCRYPTING.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(at) = list.iter().position(|d| *d == self.0) {
+            list.remove(at);
+        }
+    }
+}
 
 /// Choice made at first launch.
 #[derive(Clone, Copy)]
@@ -468,6 +504,7 @@ impl Vault {
         if self.is_encrypted() {
             return Err(Error::Invalid("this vault is encrypted already".into()));
         }
+        let _busy = Encrypting::start(&self.dir);
         let key = DatabaseKey::generate()?;
         let enc = self.dir.join(ENC_DB);
         let enc_blobs = self.dir.join(ENC_BLOBS);
@@ -497,12 +534,22 @@ impl Vault {
         // kept before vault.json says encrypted: from then on it is needed
         keep(self, &key)?;
         self.write_meta()?;
-        self.settle_encrypting()?;
+        self.finish_encrypting()?;
         self.unlock_with_key(&key)
     }
 
-    /// Finishes or undoes an [`Vault::encrypt`] a crash cut short.
+    /// Finishes or undoes an [`Vault::encrypt`] a crash cut short, never one
+    /// under way in this process.
     fn settle_encrypting(&self) -> Result<()> {
+        if Encrypting::busy(&self.dir) {
+            return Ok(());
+        }
+        self.finish_encrypting()
+    }
+
+    /// Puts the encrypted copy in place once `vault.json` says encrypted,
+    /// else removes it.
+    fn finish_encrypting(&self) -> Result<()> {
         let enc = self.dir.join(ENC_DB);
         let enc_blobs = self.dir.join(ENC_BLOBS);
         let disk = &self.disk;
@@ -1476,6 +1523,23 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn opening_meanwhile_leaves_an_encryption_under_way_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let (_, mut store) = Vault::create(dir.path(), Encryption::Off).unwrap();
+        note(&mut store, "Order more cedar posts");
+        drop(store);
+        std::fs::write(dir.path().join(ENC_DB), b"being written").unwrap();
+        {
+            let _busy = Encrypting::start(dir.path());
+            Vault::open(dir.path()).unwrap();
+            assert!(dir.path().join(ENC_DB).exists());
+        }
+        // once it is no longer under way, the copy is a crash's
+        Vault::open(dir.path()).unwrap();
+        assert!(!dir.path().join(ENC_DB).exists());
     }
 
     #[test]
