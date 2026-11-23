@@ -46,6 +46,8 @@
   import Group from './ui/Group.svelte'
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'
+  import type ImportScreen from './ImportDialog.svelte'
+  import { loadPart } from '../lib/pageParts'
 
   let {
     close,
@@ -111,6 +113,12 @@
   let section: Section = $state(start ?? 'appearance')
   /** The import dialog open, for this app's own export or another app's. */
   let importing = $state<'ficelle' | 'other' | null>(null)
+  /** The importers of every other app load only when an import starts. */
+  let ImportDialog = $state<typeof ImportScreen | null>(null)
+  async function startImport(ficelle: boolean) {
+    ImportDialog ??= (await loadPart(() => import('./ImportDialog.svelte')))?.default ?? null
+    if (ImportDialog) importing = ficelle ? 'ficelle' : 'other'
+  }
   let resetting = $state(false)
   let restoringFile = $state(false)
   let filter = $state('')
@@ -198,7 +206,7 @@
     {close}
     {onlock}
     {start}
-    onimport={(ficelle) => (importing = ficelle ? 'ficelle' : 'other')}
+    onimport={(ficelle) => void startImport(ficelle)}
     onrestorefile={() => (restoringFile = true)}
     onreset={() => (resetting = true)}
   />
@@ -538,7 +546,7 @@
           {:else if section === 'data'}
             <DataSettings
               {settings}
-              onimport={(ficelle) => (importing = ficelle ? 'ficelle' : 'other')}
+              onimport={(ficelle) => void startImport(ficelle)}
               onrestorefile={() => (restoringFile = true)}
               onreset={() => (resetting = true)}
             />
@@ -569,11 +577,8 @@
   <ResetDialog close={() => (resetting = false)} />
 {/if}
 
-{#if importing}
-  <!-- the importers of every other app load only when an import starts -->
-  {#await import('./ImportDialog.svelte') then { default: ImportDialog }}
-    <ImportDialog ficelle={importing === 'ficelle'} close={() => (importing = null)} />
-  {/await}
+{#if importing && ImportDialog}
+  <ImportDialog ficelle={importing === 'ficelle'} close={() => (importing = null)} />
 {/if}
 
 {#if restoringFile}

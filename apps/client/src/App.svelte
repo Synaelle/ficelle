@@ -18,6 +18,7 @@
   import { storageRefused } from './lib/webStorage'
   import { applyDyslexicFont } from './lib/dyslexicFont'
   import { catchErrors, errorCatch } from './lib/errorCatch.svelte'
+  import { followPageParts } from './lib/pageParts'
   import ErrorReport from './lib/ErrorReport.svelte'
   import { encryptFlow } from './lib/encryptFlow.svelte'
   import { modal } from './lib/modal'
@@ -63,6 +64,7 @@
 
   captureLogs()
   catchErrors()
+  if (WEB) followPageParts()
   persistPrefs()
   applyTheme(() => backend.systemClock24h())
   $effect(() => void setLocale(prefs.language ?? systemLocale()))

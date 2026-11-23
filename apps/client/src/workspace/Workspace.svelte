@@ -24,6 +24,8 @@
   import { askToKeep, backupDue } from '../lib/webBackups'
   import { onHandOver } from '../lib/backend/web'
   import { toasts } from '../lib/toast.svelte'
+  import { loadPart } from '../lib/pageParts'
+  import type SettingsScreen from '../settings/Settings.svelte'
   import { sendSyncedPrefs, takeSyncedPrefs } from '../lib/syncedPrefs.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import AttachmentList from './AttachmentList.svelte'
@@ -38,9 +40,12 @@
   let width = $state(window.innerWidth)
   let settingsOpen = $state(false)
   let settingsSection: 'sync' | 'updates' | undefined = $state()
-  function openSettings(section?: 'sync' | 'updates') {
+  /** Loaded when first opened. */
+  let Settings = $state<typeof SettingsScreen | null>(null)
+  async function openSettings(section?: 'sync' | 'updates') {
     settingsSection = section
-    settingsOpen = true
+    Settings ??= (await loadPart(() => import('../settings/Settings.svelte')))?.default ?? null
+    settingsOpen = !!Settings
   }
   let searchFocus = $state(0)
 
@@ -109,7 +114,7 @@
       void workspace.togglePin(workspace.current.id, !workspace.current.pinned),
     trash: () => workspace.current && void workspace.trash(workspace.current.id),
     back: () => void workspace.back(),
-    settings: () => (settingsOpen = true),
+    settings: () => void openSettings(),
     // the note is saved first, then sent to the server and the paired
     // devices now rather than at the next round; a word says it happened
     syncNow: () =>
@@ -261,11 +266,8 @@
   {/if}
 </main>
 
-{#if settingsOpen}
-  <!-- loaded when first opened -->
-  {#await import('../settings/Settings.svelte') then { default: Settings }}
-    <Settings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />
-  {/await}
+{#if settingsOpen && Settings}
+  <Settings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />
 {/if}
 
 {#if workspace.error}

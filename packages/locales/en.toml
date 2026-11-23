@@ -1975,6 +1975,9 @@ storage_full = "This browser has no room left for this site. Free some space on 
 storage_missing = "This browser cannot keep files for sites. Update it, or use another browser."
 storage_refused = "This browser does not let this site keep any data, so your notes cannot be saved here. Allow this site to keep cookies and site data, then try again."
 storage_busy = "This page still had your notes open from before it reloaded. Wait a moment, then try again."
+partOffline = "This part of the page could not load without a connection. Try again once you are back online."
+partReload = "This page changed on the server and needs a reload to go on."
+reload = "Reload"
 
 # The web version's wording where the apps say "this device", see
 # lib/i18n.svelte.ts: the same keys under inBrowser
