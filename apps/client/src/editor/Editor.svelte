@@ -715,6 +715,12 @@
         handleDOMEvents: {
           copy: (view, event) => copySelectedImage(view.state.selection, event, false),
           cut: (view, event) => copySelectedImage(view.state.selection, event, true),
+          // a wiki link opens its note (handleClickOn), its `#` address
+          // would also be followed and change the page's own
+          click: (_view, event) => {
+            if ((event.target as Element | null)?.closest?.('a[data-wiki]')) event.preventDefault()
+            return false
+          },
         },
         handlePaste: (view, event) => {
           const data = event.clipboardData
