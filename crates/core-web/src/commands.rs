@@ -155,11 +155,12 @@ fn refused(err: &app_core::Error) -> bool {
         .is_some_and(crate::disk::refused)
 }
 
-/// Opens a session as the apps do: trash past its time goes, and notes
-/// left blank, then the files they had.
+/// Opens a session as the apps do: trash past its time goes, notes left
+/// blank and the empty folders of imports cut short, then the files they had.
 fn open(vault: Vault, mut store: Store) -> CommandResult<Value> {
     store.purge_expired_trash()?;
     store.discard_blank_notes()?;
+    store.discard_left_imports()?;
     let blobs = vault.blobs(&mut store)?;
     match clean_files(&mut store, &blobs) {
         // a storage too full to clean up still opens, for files to be removed

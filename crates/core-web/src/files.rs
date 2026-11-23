@@ -275,12 +275,10 @@ pub fn run(name: &str, a: &Args, bytes: Option<Vec<u8>>) -> Option<CommandResult
         })(),
         "import_begin" => (|| {
             let (id, name): (u32, String) = (a.get("id")?, a.get("name")?);
-            let root: FolderId = with(|s| s.store.create_folder(None, &name))
-                .and_then(|folder| {
-                    serde_json::from_value::<app_core::model::Folder>(folder)
-                        .map_err(|e| CommandError::new("invalid", e.to_string()))
-                })?
-                .id;
+            let root: FolderId = with(|s| s.store.begin_import(&name)).and_then(|root| {
+                serde_json::from_value(root)
+                    .map_err(|e| CommandError::new("invalid", e.to_string()))
+            })?;
             import(id, |open| {
                 open.place = Some(ImportPlace::new(root));
                 Ok(())
@@ -298,9 +296,12 @@ pub fn run(name: &str, a: &Args, bytes: Option<Vec<u8>>) -> Option<CommandResult
             })
         }),
         "import_write" => import_write(a),
-        "import_close" => a.get::<u32>("id").map(|id| {
-            IMPORTS.with_borrow_mut(|(_, open)| open.remove(&id));
-            Value::Null
+        "import_close" => a.get::<u32>("id").and_then(|id| {
+            let open = IMPORTS.with_borrow_mut(|(_, open)| open.remove(&id));
+            match open.and_then(|open| open.place) {
+                Some(place) => with(|s| s.store.end_import(place.root)),
+                None => Ok(Value::Null),
+            }
         }),
         _ => return None,
     })

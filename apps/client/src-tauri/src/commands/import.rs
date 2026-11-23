@@ -154,7 +154,7 @@ pub async fn import_begin(
     name: String,
 ) -> CommandResult<FolderId> {
     imports.with(id, |open| {
-        let root = state.with(|s| s.store.create_folder(None, &name))?.id;
+        let root = state.with(|s| s.store.begin_import(&name))?;
         open.place = Some(ImportPlace::new(root));
         Ok(root)
     })
@@ -310,13 +310,21 @@ pub async fn import_write(
     })
 }
 
-/// Closes an export, removing what opening it wrote to the temporary folder.
+/// Closes an export, removing what opening it wrote to the temporary folder,
+/// and ends the import into its folder.
 #[tauri::command]
-pub async fn import_close(imports: State<'_, Imports>, id: u32) -> CommandResult<()> {
-    imports
+pub async fn import_close(
+    state: State<'_, AppState>,
+    imports: State<'_, Imports>,
+    id: u32,
+) -> CommandResult<()> {
+    let open = imports
         .open
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .remove(&id);
-    Ok(())
+    match open.and_then(|open| open.place) {
+        Some(place) => state.quietly(|s| s.store.end_import(place.root)),
+        None => Ok(()),
+    }
 }

@@ -12,7 +12,8 @@
 //!
 //! The one exception: a note left blank (no title, no text, not pinned) that
 //! never held anything is not worth a trip through the trash and is deleted
-//! straight away. One that was emptied goes to the trash like any other.
+//! straight away. One that was emptied goes to the trash like any other. The
+//! folder of an import cut short before it wrote a note goes the same way.
 
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -69,7 +70,11 @@ fn discard(conn: &Connection, blank: &[(NoteId, bool)], now: Timestamp) -> Resul
 
 /// Deletes notes and folders whose ids are listed. Notes go first because a
 /// folder delete would only detach them.
-fn delete_items(conn: &Connection, notes: &[NoteId], folders: &[FolderId]) -> Result<()> {
+pub(super) fn delete_items(
+    conn: &Connection,
+    notes: &[NoteId],
+    folders: &[FolderId],
+) -> Result<()> {
     for note in notes {
         conn.execute(
             "DELETE FROM notes_fts WHERE rowid = (SELECT rowid FROM notes WHERE id = ?1)",

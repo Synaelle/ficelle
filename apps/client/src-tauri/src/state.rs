@@ -113,8 +113,9 @@ impl AppState {
         Ok(f(session)?)
     }
 
-    /// Opens a session from an unlocked store, removes trash past retention
-    /// and notes left blank when the app last closed. On a device that
+    /// Opens a session from an unlocked store, removes trash past retention,
+    /// notes left blank when the app last closed and the empty folders of
+    /// imports it was killed in. On a device that
     /// syncs, trash past retention goes only once a sync found its clock
     /// right: a clock set ahead would delete trash early and pass the
     /// deletions on to the other devices.
@@ -129,6 +130,7 @@ impl AppState {
             store.purge_expired_trash()?;
         }
         store.discard_blank_notes()?;
+        store.discard_left_imports()?;
         let blobs = vault.blobs(&mut store)?;
         *self.session() = Some(Session {
             vault,

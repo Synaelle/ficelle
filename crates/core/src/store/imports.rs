@@ -3,16 +3,21 @@
 //! Writing what an import found: folders and notes with their own dates,
 //! pin, trash and tags, and their files, a batch per transaction. Each note
 //! remembers where it came from, so importing the same export again skips
-//! it.
+//! it. An import's folder is marked as under way until the import ends, so
+//! one a killed app left empty goes at the next start.
 
 use std::collections::{HashMap, HashSet};
 
 use rusqlite::{OptionalExtension, params};
 use serde::Deserialize;
 
-use super::{Store, attachments::free_name, clean_text, folders, reindex, tags};
+use super::{Store, attachments::free_name, clean_text, folders, reindex, tags, trash};
 use crate::error::{Error, Result};
 use crate::id::{AttachmentId, FolderId, NoteId};
+
+/// Start of the `vault_meta` key marking an import under way, the folder's
+/// id follows.
+const UNDER_WAY: &str = "import_under_way:";
 
 /// A folder of the export.
 #[derive(Debug, Clone, Deserialize)]
@@ -106,7 +111,78 @@ impl ImportPlace {
     }
 }
 
+fn under_way(root: FolderId) -> String {
+    format!("{UNDER_WAY}{root}")
+}
+
 impl Store {
+    /// Makes an import's own folder at the top level, marked as under way
+    /// until [`Store::end_import`].
+    ///
+    /// # Errors
+    ///
+    /// An empty name, database errors.
+    pub fn begin_import(&mut self, name: &str) -> Result<FolderId> {
+        let root = self.create_folder(None, name)?.id;
+        self.conn.execute(
+            "INSERT OR REPLACE INTO vault_meta (key, value) VALUES (?1, x'01')",
+            [under_way(root)],
+        )?;
+        Ok(root)
+    }
+
+    /// The import into `root` ended, its folder stays as it is.
+    ///
+    /// # Errors
+    ///
+    /// Database errors.
+    pub fn end_import(&mut self, root: FolderId) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM vault_meta WHERE key = ?1", [under_way(root)])?;
+        Ok(())
+    }
+
+    /// Deletes the folders of imports that never ended (the app was killed
+    /// or crashed) and hold no note, and forgets the others: the notes
+    /// written before the end are real. Call it at startup. How many
+    /// folders went.
+    ///
+    /// # Errors
+    ///
+    /// Database errors.
+    pub fn discard_left_imports(&mut self) -> Result<usize> {
+        let tx = self.conn.transaction()?;
+        let marks = {
+            let mut stmt = tx.prepare("SELECT key FROM vault_meta WHERE instr(key, ?1) = 1")?;
+            stmt.query_map([UNDER_WAY], |row| row.get(0))?
+                .collect::<rusqlite::Result<Vec<String>>>()?
+        };
+        let mut gone = 0;
+        for key in marks {
+            tx.execute("DELETE FROM vault_meta WHERE key = ?1", [&key])?;
+            let Ok(root) = key[UNDER_WAY.len()..].parse::<FolderId>() else {
+                continue;
+            };
+            match folders::load(&tx, root) {
+                Err(Error::NotFound(_)) => continue,
+                found => found?,
+            };
+            let subtree = folders::subtree(&tx, root)?;
+            let mut held = tx.prepare_cached("SELECT 1 FROM notes WHERE folder_id = ?1")?;
+            let mut empty = true;
+            for folder in &subtree {
+                empty &= !held.exists([folder])?;
+            }
+            drop(held);
+            if empty {
+                trash::delete_items(&tx, &[], &subtree)?;
+                gone += 1;
+            }
+        }
+        crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
+        Ok(gone)
+    }
+
     /// The keys among `keys` whose note is already in the vault (in the trash
     /// too): imported before by `importer`, or, for `id:<note id>` (a Ficelle
     /// export names each note by its id), the very note it was exported from,
@@ -344,6 +420,36 @@ mod tests {
             .list_notes(NoteScope::Folder(Some(inner.id)), NoteSort::default())
             .unwrap();
         assert_eq!(found.len(), 1);
+    }
+
+    #[test]
+    fn an_import_cut_short_leaves_no_empty_folder_and_keeps_its_notes() {
+        let (mut store, _) = store();
+        let killed = store.begin_import("Joplin, 23 Nov 2026").unwrap();
+        let halfway = store.begin_import("Notion, 23 Nov 2026").unwrap();
+        let mut place = ImportPlace::new(halfway);
+        let batch = ImportBatch {
+            importer: "notion".into(),
+            notes: vec![note("1", None, "Seed order")],
+            ..ImportBatch::default()
+        };
+        store.import_batch(&mut place, &batch).unwrap();
+        let ended = store.begin_import("Keep, 22 Nov 2026").unwrap();
+        store.end_import(ended).unwrap();
+
+        assert_eq!(store.discard_left_imports().unwrap(), 1);
+        let left: Vec<FolderId> = store.list_folders().unwrap().iter().map(|f| f.id).collect();
+        assert!(!left.contains(&killed));
+        assert!(left.contains(&halfway), "its note is real");
+        assert!(
+            left.contains(&ended),
+            "an import that ended keeps its folder"
+        );
+        // once looked at, it is an ordinary folder, emptied later or not
+        let seed = store.imported_note("notion", "1").unwrap().unwrap();
+        store.trash_note(seed).unwrap();
+        store.purge_note(seed).unwrap();
+        assert_eq!(store.discard_left_imports().unwrap(), 0);
     }
 
     #[test]
