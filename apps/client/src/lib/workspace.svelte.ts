@@ -654,6 +654,8 @@ class Workspace {
     this.saves++
     try {
       const saved = await this.store(note.id, sent).finally(() => this.saves++)
+      // what an earlier try said (a full disk) is over once one goes through
+      if (this.error?.code.startsWith('SAVE-')) this.error = null
       if (this.current?.id === saved.id) {
         // keys typed during the save are queued now, not after the editor's
         // own pause: text put in the editor below never replaces them

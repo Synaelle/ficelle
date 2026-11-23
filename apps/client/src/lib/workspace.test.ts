@@ -202,6 +202,26 @@ describe('typing without a pause', () => {
   })
 })
 
+describe('a save refused', () => {
+  it('says why until a later save of the note goes through', async () => {
+    workspace.coediting = () => false
+    const note = await create({ title: 'Fence', body: 'posts' })
+    const full = { kind: 'diskFull', message: 'database or disk is full' }
+    const refuse = vi.spyOn(backend, 'updateNote').mockRejectedValueOnce(full)
+    try {
+      workspace.edit({ body: 'posts and rails' })
+      await workspace.flush()
+      expect(workspace.error?.code).toBe('SAVE-DISK-FULL')
+      expect(workspace.unsaved).toBe(true)
+      await workspace.flush()
+    } finally {
+      refuse.mockRestore()
+    }
+    expect(workspace.error).toBeNull()
+    expect((await backend.getNote(note.id)).body).toBe('posts and rails')
+  })
+})
+
 describe('changes from another device', () => {
   it('with co-editing the open note takes them in place', async () => {
     workspace.coediting = () => true
