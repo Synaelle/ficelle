@@ -77,8 +77,8 @@ pub struct Source {
 }
 
 /// The most an import writes out of gzip files and zips inside zips, and
-/// how deep zips may sit in zips: a small file that unpacks without end
-/// fills no disk.
+/// how deep zips and gzip may sit in others: a small file that unpacks
+/// without end fills no disk.
 #[cfg(not(target_family = "wasm"))]
 pub const MAX_UNPACKED: u64 = 4 * 1024 * 1024 * 1024;
 /// The same in the web version, where it all sits in memory.
@@ -222,12 +222,20 @@ impl Source {
         } else if n == 512 && &head[257..262] == b"ustar" {
             self.add_tar(file)
         } else if head[..n].starts_with(&[0x1f, 0x8b]) {
+            // each layer is a temporary file and a call deeper: a file of
+            // gzip in gzip once ran the stack out
+            if self.nesting >= MAX_NESTING {
+                return Err(bad("gzip inside gzip too deep"));
+            }
             let unpacked = self.unpack(flate2::read::GzDecoder::new(BufReader::new(file)))?;
             let inner = name
                 .strip_suffix(".gz")
                 .or_else(|| name.strip_suffix(".tgz"))
                 .unwrap_or(name);
-            self.add_file(unpacked, inner, None)
+            self.nesting += 1;
+            let added = self.add_file(unpacked, inner, None);
+            self.nesting -= 1;
+            added
         } else {
             let size = file.seek(SeekFrom::End(0))?;
             self.entries.push(Entry {
@@ -756,6 +764,23 @@ mod tests {
         let mut source = Source::open(&gzipped).unwrap();
         assert_eq!(source.entries()[0].path, "notes.enex");
         assert_eq!(source.read("notes.enex").unwrap(), b"<en-export/>");
+    }
+
+    #[test]
+    fn gzip_inside_gzip_opens_a_few_levels_deep_no_further() {
+        let mut bytes = b"# Plan".to_vec();
+        for level in 1..=4 {
+            let mut out = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+            out.write_all(&bytes).unwrap();
+            bytes = out.finish().unwrap();
+            let name = format!("Plan.md{}", ".gz".repeat(level));
+            let opened = Source::open_file(std::io::Cursor::new(bytes.clone()), &name);
+            if level <= 3 {
+                assert_eq!(opened.unwrap().read("Plan.md").unwrap(), b"# Plan");
+            } else {
+                assert!(matches!(opened, Err(Error::Invalid(_))));
+            }
+        }
     }
 
     #[test]
