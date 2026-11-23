@@ -92,6 +92,11 @@
      it never covers code */
   padding-top: calc(30px + var(--space-1));
 }
+/* a long line's bar: Windows draws a white track on the code's paper, the
+   theme's colours instead (Linux draws its own, see styles/app.css) */
+:root:not([data-platform='linux']) .prose {
+  scrollbar-color: var(--color-text-faint) transparent;
+}
 .prose .code-language {
   position: absolute;
   top: 6px;
