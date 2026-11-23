@@ -41,6 +41,26 @@ export interface Prepared {
   key?: string
 }
 
+/** Front matter keys read below, the others are reported as left out. */
+const KNOWN_FIELDS = new Set([
+  'title',
+  'tags',
+  'tag',
+  'keywords',
+  'aliases',
+  'alias',
+  'created',
+  'date',
+  'date created',
+  'creation_date',
+  'updated',
+  'modified',
+  'date modified',
+  'lastmod',
+  'id',
+  'pinned',
+])
+
 /** Folders of an export from the paths of its notes, keyed by path. */
 export function foldersOf(
   paths: string[],
@@ -109,7 +129,7 @@ export async function readMarkdownNotes(
       continue
     }
     const own = options.prepare?.(text, path) ?? {}
-    const { meta, body: rest } = splitFrontMatter(own.text ?? text)
+    const { meta, fields, body: rest } = splitFrontMatter(own.text ?? text)
     let title = own.title ?? metaText(meta.title).trim()
     let body = rest
     if (!title && !options.fileTitles) {
@@ -130,6 +150,11 @@ export async function readMarkdownNotes(
     const aliases = [...metaList(meta.aliases), ...metaList(meta.alias)]
     if (aliases.length)
       report.add({ kind: 'dropped', note: title, detail: `aliases: ${aliases.join(', ')}` })
+    for (const [key, lines] of Object.entries(fields)) {
+      if (!KNOWN_FIELDS.has(key)) {
+        report.add({ kind: 'dropped', note: title, detail: lines.replace(/\s*\n\s*/g, ' ') })
+      }
+    }
     const files = new NoteFiles()
     body = rewriteLinks(body, path, title, index, files, report)
     const fileTime = modified.get(path) ?? undefined

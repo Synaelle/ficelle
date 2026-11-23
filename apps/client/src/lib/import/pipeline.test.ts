@@ -53,9 +53,20 @@ describe('front matter and dates', () => {
     expect(body).toBe('Text')
   })
 
+  it('keeps the lines of every key, nested maps and multi-line strings too', () => {
+    const { fields } = splitFrontMatter(
+      '---\ntitle: Plan\nsummary: |\n  Two lines\n  of text\nproject:\n  name: Garden\n---\nBody',
+    )
+    expect(fields).toEqual({
+      title: 'title: Plan',
+      summary: 'summary: |\n  Two lines\n  of text',
+      project: 'project:\n  name: Garden',
+    })
+  })
+
   it('leaves a rule, a line and a rule in the body', () => {
     const text = '---\nShopping list\n---\nmilk'
-    expect(splitFrontMatter(text)).toEqual({ meta: {}, body: text })
+    expect(splitFrontMatter(text)).toEqual({ meta: {}, fields: {}, body: text })
     const list = '---\n- milk\n- eggs\n---\nbread'
     expect(splitFrontMatter(list).body).toBe(list)
   })
@@ -217,6 +228,20 @@ describe('the markdown importer through the pipeline', () => {
     const other = memorySource('Other', { 'Notes/Plan.md': 'Another plan', 'Notes/Ideas.md': '' })
     const fresh = await prepare(other, markdownImporter, backend)
     expect(fresh.counts).toMatchObject({ notes: 2, skipped: 0 })
+  })
+
+  it('reports the front matter it does not read', async () => {
+    const backend = await vault()
+    const source = memorySource('Notes', {
+      'Plan.md':
+        '---\ntitle: Plan\ndescription: Keep this sentence\nsummary: |\n  Two lines\n  of text\n---\nBody',
+    })
+    const prepared = await prepare(source, markdownImporter, backend)
+    expect(prepared.model.notes[0]?.body).toBe('Body')
+    expect(prepared.report.map((r) => `${r.kind} ${r.note}: ${r.detail}`).sort()).toEqual([
+      'dropped Plan: description: Keep this sentence',
+      'dropped Plan: summary: | Two lines of text',
+    ])
   })
 
   it('knows notes an earlier version brought in by their path alone', async () => {

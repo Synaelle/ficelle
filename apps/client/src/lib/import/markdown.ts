@@ -67,11 +67,13 @@ export function unquote(value: string): string {
 
 /**
  * The simple YAML of front matter: `key: value`, `key: [a, b]` and block
- * lists. Nested maps and multi-line strings are left out. A block that is
- * no YAML stays in the body: `---`, a line and `---` are a rule and a heading.
+ * lists. Nested maps and multi-line strings are not read, but each key's
+ * lines are in `fields` as written. A block that is no YAML stays in the
+ * body: `---`, a line and `---` are a rule and a heading.
  */
 export function splitFrontMatter(text: string): {
   meta: Record<string, string | string[]>
+  fields: Record<string, string>
   body: string
 } {
   const front = FRONT_MATTER.exec(text)
@@ -80,21 +82,22 @@ export function splitFrontMatter(text: string): {
   const first = lines.find((line) => line.trim()) ?? 'empty:'
   const yaml =
     fieldLine.test(first) && lines.every((line) => /^(\s|-\s|$)/.test(line) || fieldLine.test(line))
-  if (!front || !yaml) return { meta: {}, body: text }
+  if (!front || !yaml) return { meta: {}, fields: {}, body: text }
   const meta: Record<string, string | string[]> = {}
+  const fields: Record<string, string> = {}
+  let key = ''
   let list: string[] | null = null
   for (const line of lines) {
-    const item = /^\s*-\s+(.*)$/.exec(line)
-    if (item && list) {
-      list.push(unquote(item[1] ?? ''))
-      continue
-    }
     const field = fieldLine.exec(line)
     if (!field) {
-      list = null
+      if (key && line.trim()) fields[key] += `\n${line}`
+      const item = /^\s*-\s+(.*)$/.exec(line)
+      if (item && list) list.push(unquote(item[1] ?? ''))
+      else list = null
       continue
     }
-    const key = (field[1] ?? '').toLowerCase()
+    key = (field[1] ?? '').toLowerCase()
+    fields[key] = line
     const raw = (field[2] ?? '').trim()
     if (raw === '') {
       list = []
@@ -107,7 +110,7 @@ export function splitFrontMatter(text: string): {
       meta[key] = unquote(raw)
     }
   }
-  return { meta, body: text.slice(front[0].length) }
+  return { meta, fields, body: text.slice(front[0].length) }
 }
 
 export const metaText = (value: string | string[] | undefined) =>
