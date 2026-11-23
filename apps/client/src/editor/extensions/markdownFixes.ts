@@ -390,6 +390,7 @@ interface TextEncoding {
   codeTypes: Set<string>
   parseHTMLToken(token: { text?: string; raw?: string; block?: boolean }): JSONContent | null
   htmlAsLiteralText(html: string, isBlock: boolean): JSONContent | null
+  parseFallbackToken(token: { type?: string; raw?: string }, ...rest: unknown[]): unknown
   parse(markdown: string): { type: 'doc'; content: JSONContent[] }
   nodeTypeRegistry: Map<string, RenderSpec[]>
   escapeMarkdownSyntax(text: string): string
@@ -429,6 +430,14 @@ export const ReadableMarkdown = Markdown.extend({
       const html = token.text || token.raw || ''
       return keepsWords(html, parsed) ? parsed : manager.htmlAsLiteralText(html, !!token.block)
     }
+    // a link definition (`[name]: address`) has no place in the editor and
+    // upstream drops it, so one that no link uses left the note: it stays
+    // as its text
+    const fallback = manager.parseFallbackToken.bind(manager)
+    manager.parseFallbackToken = (token, ...rest) =>
+      token.type === 'def'
+        ? manager.htmlAsLiteralText(token.raw ?? '', true)
+        : fallback(token, ...rest)
     if (initial) {
       const json = manager.parse(options.content as string)
       if (json.content.length) options.content = json

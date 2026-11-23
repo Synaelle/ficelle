@@ -452,6 +452,17 @@ describe('html the editor cannot show', () => {
   })
 })
 
+describe('link definitions', () => {
+  it('keeps one as its text, and its links still use it', () => {
+    const out = roundTrip(
+      'See [the docs][docs].\n\n[docs]: https://example.org/docs\n\n[unused]: https://example.org/kept-for-later\n',
+    )
+    expect(out).toContain('See [the docs](https://example.org/docs).')
+    expect(out).toContain('\\[docs\\]: https://example.org/docs')
+    expect(out).toContain('\\[unused\\]: https://example.org/kept-for-later')
+  })
+})
+
 describe('github markdown additions', () => {
   it('keeps footnotes where they are written', () => {
     const out = roundTrip(
