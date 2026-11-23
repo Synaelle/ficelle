@@ -2,7 +2,7 @@
 <!-- Note list with search, sort and new note. On a phone the title is a
      scope picker, since there is no sidebar. -->
 <script lang="ts">
-  import { untrack } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import type { Action } from 'svelte/action'
   import { hour12 } from '../lib/clock.svelte'
   import { localSync } from '../lib/localSync.svelte'
@@ -38,6 +38,10 @@
   } = $props()
 
   let searchInput: HTMLInputElement | undefined = $state()
+  /** Where the focus was before the search took it: Esc gives it back, or
+   * to the list's row when the search took that row away. */
+  let beforeSearch: HTMLElement | null = null
+  let fromList = false
   let fileInput: HTMLInputElement | undefined = $state()
 
   async function importPicked(input: HTMLInputElement) {
@@ -425,6 +429,19 @@
         placeholder={searchLabel}
         value={workspace.query}
         oninput={(e) => workspace.search(e.currentTarget.value)}
+        onfocus={(e) => {
+          beforeSearch = e.relatedTarget instanceof HTMLElement ? e.relatedTarget : null
+          fromList = !!beforeSearch?.closest('.rows')
+        }}
+        onkeydown={async (e) => {
+          const back = beforeSearch
+          if (e.key !== 'Escape' || !back) return
+          e.preventDefault()
+          await workspace.search('')
+          await tick()
+          if (back.isConnected) back.focus()
+          else if (fromList) rows?.focusStop()
+        }}
       />
       {#if workspace.query}
         <button
