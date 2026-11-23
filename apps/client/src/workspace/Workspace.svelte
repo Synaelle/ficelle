@@ -52,7 +52,7 @@
   /** A backup asked for from an error that says to make one. */
   let backingUp = $state(false)
   /** Errors whose way out starts with a backup. */
-  const BACKUP_FIRST = ['storageFull']
+  const BACKUP_FIRST = ['storageFull', 'storageCleared']
 
   const SIDEBAR_MIN = 170
   const LIST_MIN = 240

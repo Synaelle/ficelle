@@ -27,6 +27,28 @@ async function pickedBytes(path: string): Promise<Uint8Array<ArrayBuffer>> {
 /** This page's scope (webScope.ts): its notes, and the lock below, are its own. */
 const SCOPE = pageScope()
 
+/** The folder the core keeps this scope's notes in, see web_scope_folder in
+ * the core's disk.rs. */
+const FOLDER = `.ficelle-${SCOPE}`
+
+/** The browser cleared the site's data while the notes were open: the core
+ * goes on writing, into files that are no longer kept, or fails to. */
+async function storageCleared(): Promise<boolean> {
+  try {
+    await (await navigator.storage.getDirectory()).getDirectoryHandle(FOLDER)
+    return false
+  } catch (err) {
+    return err instanceof DOMException && err.name === 'NotFoundError'
+  }
+}
+
+/** A note written, unless the browser cleared its storage meanwhile. */
+async function kept<T>(written: T): Promise<T> {
+  if (await storageCleared())
+    throw { kind: 'storageCleared', message: 'the browser cleared the notes storage' }
+  return written
+}
+
 /** Held by the one tab whose worker has the notes: the browser lets one
  * page at a time keep the storage the core writes to. One per scope, a web
  * version at another path has notes and a lock of its own. */
@@ -124,10 +146,12 @@ export function createWebBackend(): Backend {
     })
   }
 
-  /** A write the core could not make, told as a full storage when it is:
-   * SQLite and the browser only say a write failed. */
+  /** A write the core could not make, told as a full or cleared storage
+   * when it is: SQLite and the browser only say a write failed. */
   async function failed(error: { kind: string; message: string }, size: number) {
     const write = ['database', 'file'].includes(error.kind)
+    // Firefox refuses writes once the site's data is cleared, Chromium takes them
+    if (write && (await storageCleared())) return { kind: 'storageCleared', message: error.message }
     if (write && (/quota|disk is full/i.test(error.message) || (await storageFull(size))))
       return { kind: 'storageFull', message: error.message }
     return error
@@ -193,6 +217,8 @@ export function createWebBackend(): Backend {
     native: false,
 
     search,
+    createNote: async (note) => kept(await commands.createNote(note)),
+    updateNote: async (id, change) => kept(await commands.updateNote(id, change)),
 
     vaultUnlockPin: async () => {
       throw unsupported('a PIN needs the app')
