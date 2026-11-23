@@ -93,15 +93,25 @@ fn plain_text(path: &str) -> Option<bool> {
 }
 
 /// The files among a launch's arguments, as full paths. Options and other
-/// files are left out.
+/// files are left out. One that cannot be read still gets its window,
+/// which says why.
 #[cfg(desktop)]
 pub fn files_in(args: impl IntoIterator<Item = String>, cwd: &Path) -> Vec<PathBuf> {
     args.into_iter()
         .filter(|arg| !arg.starts_with('-') && plain_text(arg).is_some())
-        .map(|arg| cwd.join(arg))
-        .filter_map(|path| path.canonicalize().ok())
-        .filter(|path| path.is_file())
+        .map(|arg| full_path(&cwd.join(arg)))
         .collect()
+}
+
+/// A path in one form, so the same file opened twice is found open. Its
+/// real path where the system gives one; on some network and shared drives
+/// it gives none (Windows error 1005 on a virtual machine's host share),
+/// and the path is taken as it is.
+#[cfg(desktop)]
+fn full_path(path: &Path) -> PathBuf {
+    path.canonicalize()
+        .or_else(|_| std::path::absolute(path))
+        .unwrap_or_else(|_| path.to_path_buf())
 }
 
 /// Opens a window for each file, or brings forward the one it already has.
@@ -385,15 +395,26 @@ mod tests {
     }
 
     #[test]
-    fn launch_files_are_the_existing_ones() {
+    fn launch_files_are_the_markdown_and_text_ones() {
         let dir = std::env::temp_dir().join(format!("opened-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("a.md"), "# a").unwrap();
         std::fs::write(dir.join("b.png"), "").unwrap();
         let args = ["a.md", "b.png", "missing.md", "--flag.md"].map(String::from);
         let found = files_in(args, &dir);
-        assert_eq!(found, vec![dir.join("a.md").canonicalize().unwrap()]);
+        let real = dir.canonicalize().unwrap();
+        assert_eq!(found, vec![real.join("a.md"), dir.join("missing.md")]);
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_path_without_a_real_one_is_taken_as_given() {
+        let gone = std::env::temp_dir().join(format!("opened-none-{}", std::process::id()));
+        assert!(gone.canonicalize().is_err());
+        assert_eq!(full_path(&gone.join("a.md")), gone.join("a.md"));
+        let relative = full_path(Path::new("gone/a.md"));
+        assert!(relative.is_absolute());
+        assert!(relative.ends_with("gone/a.md"));
     }
 
     #[test]

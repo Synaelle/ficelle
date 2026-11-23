@@ -7,6 +7,7 @@
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
+use tauri::scope::fs::{Pattern, Scope};
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_fs::{FilePath, FsExt, OpenOptions};
 
@@ -24,9 +25,35 @@ pub fn is_document(path: &str) -> bool {
 pub fn picked_path<R: Runtime>(app: &AppHandle<R>, path: &str) -> CommandResult<PathBuf> {
     let scope = app.try_fs_scope();
     checked(path, |p| {
-        scope.as_ref().is_some_and(|s| s.is_allowed(p)) || test_files(p)
+        scope
+            .as_ref()
+            .is_some_and(|s| s.is_allowed(p) || picked_as_given(s, p))
+            || test_files(p)
     })
     .ok_or_else(|| CommandError::new("invalid", "not a picked file or folder"))
+}
+
+/// The scope finds the real path of an existing file first, which fails on
+/// some network and shared drives (Windows error 1005 on a virtual
+/// machine's host share), and then allows nothing. Such a path counts as
+/// picked when a dialog allowed exactly it, as it was given: the file or
+/// folder itself, never what a folder holds.
+fn picked_as_given(scope: &Scope, path: &Path) -> bool {
+    if std::fs::canonicalize(path).is_ok() {
+        return false;
+    }
+    let given: PathBuf = path.components().collect();
+    let forbidden = scope
+        .forbidden_patterns()
+        .iter()
+        .any(|p| p.matches_path(&given));
+    !forbidden && allowed_as_given(&scope.allowed_patterns(), &given)
+}
+
+/// Whether one of `allowed` is exactly `path`, with no wildcard.
+fn allowed_as_given<'a>(allowed: impl IntoIterator<Item = &'a Pattern>, path: &Path) -> bool {
+    let exact = Pattern::escape(&path.to_string_lossy());
+    allowed.into_iter().any(|p| p.as_str() == exact)
 }
 
 /// End to end tests answer the pickers through the page (lib/pick.ts), so no
@@ -120,6 +147,25 @@ mod tests {
         assert!(checked("\\\\server\\share\\theme.json", picked).is_none());
         assert!(checked("\\\\?\\C:\\theme.json", picked).is_none());
         assert!(checked("//server/share/theme.json", picked).is_none());
+    }
+
+    #[test]
+    fn a_path_as_given_needs_its_own_pick() {
+        let dir = if cfg!(windows) {
+            "Z:\\share"
+        } else {
+            "/mnt/share"
+        };
+        let file = Path::new(dir).join("backup [1].ficelle");
+        let allowed = [
+            Pattern::new(&Pattern::escape(dir)).unwrap(),
+            Pattern::new(&format!("{}/**", Pattern::escape(dir))).unwrap(),
+        ];
+        assert!(allowed_as_given(&allowed, Path::new(dir)));
+        assert!(!allowed_as_given(&allowed, &file));
+        let picked = [Pattern::new(&Pattern::escape(&file.to_string_lossy())).unwrap()];
+        assert!(allowed_as_given(&picked, &file));
+        assert!(!allowed_as_given(&picked, &file.with_extension("zip")));
     }
 
     #[test]
