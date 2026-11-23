@@ -233,7 +233,10 @@ fn is_link_only(line: &str) -> bool {
         || ((line.starts_with('[') || line.starts_with("!["))
             && (line.ends_with(')') || line.ends_with('}')));
     // one link only: no second link starting inside it
-    bracketed && line[1..].matches("](").count() <= 1 && line[2..].matches("[[").count() == 0
+    // past the opening `[[`, `![` or `[` and the character after it, which may
+    // take more than one byte
+    let inner = line.char_indices().nth(2).map_or("", |(at, _)| &line[at..]);
+    bracketed && line[1..].matches("](").count() <= 1 && inner.matches("[[").count() == 0
 }
 
 /// Text lines of a body for its summary, code left out unless `with_code`.
@@ -392,6 +395,17 @@ Garden log"
             "See the site and Note today."
         );
         assert_eq!(preview("", "[a](x) and [b](y)", 100), "a and b");
+    }
+
+    #[test]
+    fn a_link_line_with_accents_is_read_whole() {
+        for line in [
+            "[été](notes/ete.md)",
+            "[日本](x)",
+            "- [Ça va](https://example.org)",
+        ] {
+            assert_eq!(preview("", &format!("{line}\nThe text."), 100), "The text.");
+        }
     }
 
     #[test]
