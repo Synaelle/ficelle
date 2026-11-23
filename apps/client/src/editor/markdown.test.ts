@@ -340,6 +340,16 @@ describe('custom syntax', () => {
   })
 })
 
+describe('image attribute blocks', () => {
+  it('keeps what the editor does not read, beside its own keys', () => {
+    const md = '![Chart](attachments/chart.png){#fig-1 .wide}'
+    expect(roundTrip(md)).toBe(md)
+    expect(roundTrip('![a](attachments/a.png){.wide width=200 loading=lazy}')).toBe(
+      '![a](attachments/a.png){width=200 .wide loading=lazy}',
+    )
+  })
+})
+
 describe('plain characters', () => {
   it.each(['a -> b', 'x < y & z > w', 'R&D, 5 > 3'])('keeps %s as typed', (md) => {
     expect(roundTrip(md)).toBe(md)

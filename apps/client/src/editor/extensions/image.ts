@@ -38,19 +38,26 @@ export function parseCrop(text: unknown): Crop | null {
 /** Fractions back to `10,0,5,20`, to a tenth of a percent. */
 const cropText = (crop: Crop) => crop.map((n) => Math.round(n * 1000) / 10).join(',')
 
-/** `width=320 wrap=left` to an object. Unknown keys are ignored. */
+/** The keys of the layout block the editor reads. */
+const LAYOUT_KEYS = ['width', 'height', 'wrap', 'crop']
+
+/** `width=320 wrap=left` to an object. What the editor does not read
+ * (`#fig-1 .wide`, `key=value` of other apps) is kept as `extra`. */
 export function parseLayout(block = ''): {
   width: number | null
   height: number | null
   wrap: Wrap
   crop: string | null
+  extra: string | null
 } {
+  const pair = /(\w+)=("[^"]*"|\S+)/g
   const pairs = Object.fromEntries(
-    [...block.matchAll(/(\w+)=("[^"]*"|\S+)/g)].map(([, key, value]) => [
-      key,
-      (value ?? '').replace(/^"|"$/g, ''),
-    ]),
+    [...block.matchAll(pair)].map(([, key, value]) => [key, (value ?? '').replace(/^"|"$/g, '')]),
   )
+  const extra = block
+    .replace(pair, (text, key: string) => (LAYOUT_KEYS.includes(key) ? '' : text))
+    .trim()
+    .replace(/\s+/g, ' ')
   const number = (text?: string) =>
     text && Number.isFinite(Number(text)) ? Math.round(Number(text)) : null
   const wrap = WRAPS.includes(pairs.wrap as Wrap) ? (pairs.wrap as Wrap) : 'inline'
@@ -60,6 +67,7 @@ export function parseLayout(block = ''): {
     height: number(pairs.height),
     wrap,
     crop: crop && cropText(crop),
+    extra: extra || null,
   }
 }
 
@@ -603,6 +611,8 @@ export const LayoutImage = Image.extend<LayoutImageOptions>({
       height: { default: null },
       wrap: { default: 'inline' },
       crop: { default: null },
+      // never drawn, only written back
+      extra: { default: null, renderHTML: () => ({}) },
     }
   },
 
@@ -645,10 +655,11 @@ export const LayoutImage = Image.extend<LayoutImageOptions>({
       height: token.layout?.height ?? null,
       wrap: token.layout?.wrap ?? 'inline',
       crop: token.layout?.crop ?? null,
+      extra: token.layout?.extra ?? null,
     }),
 
   renderMarkdown(node) {
-    const { src, alt, title, width, height, wrap, crop } = (node.attrs ?? {}) as Record<
+    const { src, alt, title, width, height, wrap, crop, extra } = (node.attrs ?? {}) as Record<
       string,
       string | number | null
     >
@@ -657,6 +668,7 @@ export const LayoutImage = Image.extend<LayoutImageOptions>({
       height ? `height=${Math.round(Number(height))}` : '',
       wrap && wrap !== 'inline' ? `wrap=${wrap}` : '',
       crop ? `crop=${crop}` : '',
+      extra ?? '',
     ]
       .filter(Boolean)
       .join(' ')
