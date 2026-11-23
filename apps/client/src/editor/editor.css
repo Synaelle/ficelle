@@ -88,6 +88,9 @@
    statement (over ProseMirror's own style, which wraps it) */
 .prose .code-block pre {
   white-space: pre;
+  /* a strip above the first line for the picker (6px in, 24px high), so
+     it never covers code */
+  padding-top: calc(30px + var(--space-1));
 }
 .prose .code-language {
   position: absolute;
@@ -105,6 +108,7 @@
   font: inherit;
   font-family: var(--font-ui);
   font-size: 12px;
+  line-height: 18px;
   cursor: pointer;
 }
 .prose .code-block:hover .code-language,
