@@ -207,15 +207,22 @@ export function withEmptyItems<T extends AnyExtension>(list: T): T {
       ...tokenizer,
       tokenize(this: unknown, src: string, ...rest: unknown[]) {
         // lists of letters (a. b. c.) are left to upstream as they are
-        if (!/^[ \t]*\d{1,9}[.)](?:\s|$)/.test(src)) return tokenize.call(this, src, ...rest)
+        const indent = /^([ \t]*)\d{1,9}[.)](?:\s|$)/.exec(src)?.[1]?.length
+        if (indent === undefined) return tokenize.call(this, src, ...rest)
+        // an item set less far in than the first is dropped by upstream: it
+        // starts a list of its own
+        const outer =
+          indent > 0 ? new RegExp(`\\n[ \\t]{0,${indent - 1}}\\d{1,9}[.)](?:\\s|$)`) : null
         for (let count = LIST_LINES; ; count *= 2) {
           let end = -1
           for (let i = 0; i < count && (end = src.indexOf('\n', end + 1)) !== -1; i++);
-          const head = end === -1 ? src : src.slice(0, end)
+          let head = end === -1 ? src : src.slice(0, end)
+          const cut = outer ? head.search(outer) : -1
+          if (cut !== -1) head = head.slice(0, cut)
           const token = tokenize.call(this, head.replace(EMPTY_NUMBER, '$1 '), ...rest)
           if (!token) return token
           const lines = token.raw.split('\n').length
-          if (lines < count || end === -1) {
+          if (lines < count || end === -1 || cut !== -1) {
             // the source as written, not with the spaces put in
             token.raw = src.split('\n', lines).join('\n')
             return token

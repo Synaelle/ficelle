@@ -439,6 +439,13 @@ describe('empty numbered items', () => {
   })
 })
 
+describe('numbered lists set in', () => {
+  it('keep an item set less far in than the first', () => {
+    expect(roundTrip('  1. apples\n2. pears\n')).toMatch(/^1\. apples\n+2\. pears$/)
+    expect(roundTrip('x\n    7)\n-\n1. x\n')).toMatch(/1\. x$/)
+  })
+})
+
 describe('uneven tables', () => {
   it('keeps the cells past the header, as columns of their own', () => {
     const out = roundTrip('| Name | Qty |\n|---|---|\n| Apples | 3 | ripe ones |\n')
