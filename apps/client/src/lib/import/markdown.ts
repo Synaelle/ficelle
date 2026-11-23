@@ -67,23 +67,29 @@ export function unquote(value: string): string {
 
 /**
  * The simple YAML of front matter: `key: value`, `key: [a, b]` and block
- * lists. Nested maps and multi-line strings are left out.
+ * lists. Nested maps and multi-line strings are left out. A block that is
+ * no YAML stays in the body: `---`, a line and `---` are a rule and a heading.
  */
 export function splitFrontMatter(text: string): {
   meta: Record<string, string | string[]>
   body: string
 } {
   const front = FRONT_MATTER.exec(text)
-  if (!front) return { meta: {}, body: text }
+  const lines = (front?.[1] ?? '').split('\n')
+  const fieldLine = /^([A-Za-z_][\w -]*?)\s*:\s?(.*)$/
+  const first = lines.find((line) => line.trim()) ?? 'empty:'
+  const yaml =
+    fieldLine.test(first) && lines.every((line) => /^(\s|-\s|$)/.test(line) || fieldLine.test(line))
+  if (!front || !yaml) return { meta: {}, body: text }
   const meta: Record<string, string | string[]> = {}
   let list: string[] | null = null
-  for (const line of (front[1] ?? '').split('\n')) {
+  for (const line of lines) {
     const item = /^\s*-\s+(.*)$/.exec(line)
     if (item && list) {
       list.push(unquote(item[1] ?? ''))
       continue
     }
-    const field = /^([A-Za-z_][\w -]*?)\s*:\s?(.*)$/.exec(line)
+    const field = fieldLine.exec(line)
     if (!field) {
       list = null
       continue

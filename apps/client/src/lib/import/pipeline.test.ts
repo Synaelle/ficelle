@@ -53,6 +53,13 @@ describe('front matter and dates', () => {
     expect(body).toBe('Text')
   })
 
+  it('leaves a rule, a line and a rule in the body', () => {
+    const text = '---\nShopping list\n---\nmilk'
+    expect(splitFrontMatter(text)).toEqual({ meta: {}, body: text })
+    const list = '---\n- milk\n- eggs\n---\nbread'
+    expect(splitFrontMatter(list).body).toBe(list)
+  })
+
   it('understands the date forms exports use', () => {
     expect(parseDate('20250115T103000Z')).toBe(Date.UTC(2025, 0, 15, 10, 30))
     expect(parseDate('2025-01-15T10:30:00Z')).toBe(Date.UTC(2025, 0, 15, 10, 30))
