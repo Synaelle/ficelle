@@ -308,7 +308,11 @@
   style:width={narrow ? undefined : `${width}px`}
 >
   <header>
-    {#if narrow}
+    <!-- a search through every note leaves the tag: the title says so, the
+         phone's tag button comes back once the search is cleared -->
+    {#if searching && !workspace.searchScoped}
+      <h1>{t('list.found')}</h1>
+    {:else if narrow}
       <h1 class="visually-hidden">{title}</h1>
       <button
         class="scope"
@@ -320,8 +324,6 @@
           size={18}
         /></button
       >
-    {:else if searching && !workspace.searchScoped}
-      <h1>{t('list.found')}</h1>
     {:else}
       <h1><span class="dim">{titleParent}</span>{title}</h1>
       {#if workspace.scope.kind === 'tag'}
@@ -663,6 +665,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* as large as the tag button it stands in for */
+  .narrow h1 {
+    font-size: 18px;
   }
   .scope {
     min-width: 0;
