@@ -192,17 +192,23 @@ export const markdownImporter: Importer = {
   picks: ['folder', 'file'],
   extensions: ['zip', 'md', 'markdown', 'tar'],
   detect: (source) => (source.entries.some((e) => isMarkdown(e.path)) ? 0.3 : 0),
-  read: (source, report) => {
+  read: async (source, report) => {
     const notes = source.entries
       .map((e) => e.path)
       .filter((p) => isMarkdown(p) && !hidden(p) && !inAttachments(p))
     const skip = (dir: string) => hidden(dir) || inAttachments(`${dir}/`)
-    return readMarkdownNotes(source, report, {
+    const model = await readMarkdownNotes(source, report, {
       notes,
       skipDir: skip,
       // empty folders too, which only the export's directories show
       folders: foldersOf([...notes, ...(source.dirs ?? []).map((dir) => `${dir}/`)], skip),
     })
+    const taken = new Set(notes)
+    for (const note of model.notes) for (const file of note.files) taken.add(file.entry ?? '')
+    for (const { path } of source.entries) {
+      if (!taken.has(path) && !hidden(path)) report.add({ kind: 'fileLeftOut', detail: path })
+    }
+    return model
   },
 }
 

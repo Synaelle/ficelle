@@ -70,6 +70,8 @@ pub struct Source {
     temp: Vec<PathBuf>,
     /// Bytes written out so far, for [`MAX_UNPACKED`].
     unpacked: u64,
+    /// Entries not taken: a path that leaves the export, a zip nested too deep.
+    left_out: Vec<String>,
     /// How deep the zip being read sits in other zips.
     nesting: u32,
 }
@@ -190,6 +192,7 @@ impl Source {
             single: None,
             temp: Vec::new(),
             unpacked: 0,
+            left_out: Vec::new(),
             nesting: 0,
         }
     }
@@ -242,6 +245,11 @@ impl Source {
     /// Every entry, in the order found.
     pub fn entries(&self) -> &[Entry] {
         &self.entries
+    }
+
+    /// What the export holds that was not taken, by the name it has there.
+    pub fn left_out(&self) -> &[String] {
+        &self.left_out
     }
 
     /// Every directory, in the order found: an export's empty folders are
@@ -301,6 +309,10 @@ impl Source {
                 continue;
             }
             let Some(name) = file.name().ok().and_then(|n| clean(&n)) else {
+                self.left_out.push(
+                    file.name()
+                        .map_or_else(|_| "?".to_owned(), std::borrow::Cow::into_owned),
+                );
                 continue;
             };
             let name = if prefix.is_empty() {
@@ -324,6 +336,8 @@ impl Source {
         // zips inside: written out (see unpack) and read the same way, their
         // entries named after them
         if self.nesting >= MAX_NESTING {
+            self.left_out
+                .extend(inner.into_iter().map(|(_, name)| name));
             return Ok(());
         }
         for (index, name) in inner {
@@ -574,6 +588,7 @@ mod tests {
             ],
         );
         let mut source = Source::open(&outer).unwrap();
+        assert_eq!(source.left_out(), ["../evil.md"]);
         let paths: Vec<_> = source.entries().iter().map(|e| e.path.clone()).collect();
         assert_eq!(
             paths,

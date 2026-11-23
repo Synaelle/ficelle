@@ -305,6 +305,8 @@ export interface ImportOpened {
   entries: { path: string; size: number; modified: number | null; wallClock: boolean }[]
   /** Its directories, empty ones included. */
   dirs: string[]
+  /** What the export holds that could not be taken (a path leaving it). */
+  leftOut: string[]
 }
 
 /** A file of an imported note: an entry of the export, or stored bytes. */

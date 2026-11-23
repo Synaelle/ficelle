@@ -409,3 +409,30 @@ describe('preview snippets', () => {
     )
   })
 })
+
+describe('markdown files that are not text', () => {
+  it('reads Latin-1 text, leaves binary files out and says what was left out', async () => {
+    const latin = Uint8Array.from(
+      [...'# Caf'].map((c) => c.charCodeAt(0)).concat([0xe9, 0x0a, 0x63, 0x72, 0xe8, 0x6d, 0x65]),
+    )
+    const binary = new Uint8Array(2000).fill(0)
+    binary[5] = 0xff
+    const source = memorySource('Export.zip', {
+      'latin.md': latin,
+      'junk.md': binary,
+      'plain.md': '# Plain\ntext',
+      noext: 'what',
+      'shot.png': new Uint8Array([1]),
+    })
+    source.leftOut = ['../escape.md']
+    const p = await run(source, markdownImporter)
+    expect(p.model.notes.map((n) => n.title).sort()).toEqual(['Café', 'Plain'])
+    expect(note(p, 'Café').body).toContain('crème')
+    expect(kinds(p.report)).toEqual([
+      'fileLeftOut ../escape.md',
+      'fileLeftOut noext',
+      'fileLeftOut shot.png',
+      'unreadable junk.md',
+    ])
+  })
+})

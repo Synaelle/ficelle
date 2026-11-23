@@ -56,6 +56,8 @@ struct Opened {
     name: String,
     entries: Vec<Entry>,
     dirs: Vec<String>,
+    /// What the export holds that could not be taken.
+    left_out: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -133,6 +135,7 @@ fn import_open(a: &Args, bytes: Option<Vec<u8>>) -> CommandResult<Value> {
     let source = Source::open_file(Cursor::new(bytes.ok_or_else(no_file)?), &name)?;
     let entries = source.entries().to_vec();
     let dirs = source.dirs().to_vec();
+    let left_out = source.left_out().to_vec();
     let id = IMPORTS.with_borrow_mut(|(next, open)| {
         let id = *next;
         *next += 1;
@@ -150,6 +153,7 @@ fn import_open(a: &Args, bytes: Option<Vec<u8>>) -> CommandResult<Value> {
         name,
         entries,
         dirs,
+        left_out,
     })
 }
 

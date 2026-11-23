@@ -4,11 +4,33 @@
 
 import type { ImportSource, SourceEntry } from './types'
 
-const decoder = new TextDecoder('utf-8')
+const decoder = new TextDecoder('utf-8', { fatal: true })
+const legacyDecoder = new TextDecoder('windows-1252')
 
-/** An entry as text, UTF-8 with a byte order mark dropped. */
+/** Bytes that are no text: a NUL, or many control characters. */
+function isBinary(bytes: Uint8Array): boolean {
+  const head = bytes.subarray(0, 8192)
+  let controls = 0
+  for (const byte of head) {
+    if (byte === 0) return true
+    if (byte < 32 && byte !== 9 && byte !== 10 && byte !== 12 && byte !== 13) controls++
+  }
+  return controls > head.length / 20
+}
+
+/**
+ * An entry as text, UTF-8 with a byte order mark dropped. Text in an older
+ * single byte encoding is read as Windows-1252, bytes that are no text at
+ * all are refused.
+ */
 export async function readText(source: ImportSource, path: string): Promise<string> {
-  return decoder.decode(await source.read(path)).replace(/^\uFEFF/, '')
+  const bytes = await source.read(path)
+  if (isBinary(bytes)) throw new Error(`${path} is not text`)
+  try {
+    return decoder.decode(bytes).replace(/^\uFEFF/, '')
+  } catch {
+    return legacyDecoder.decode(bytes)
+  }
 }
 
 export const baseName = (path: string) => path.slice(path.lastIndexOf('/') + 1)

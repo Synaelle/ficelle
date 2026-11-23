@@ -193,7 +193,10 @@ export async function prepare(
   backend: Backend,
   progress: (done: number, total: number) => void = () => {},
 ): Promise<Prepared> {
-  const report: ReportItem[] = []
+  const report: ReportItem[] = (source.leftOut ?? []).map((detail) => ({
+    kind: 'fileLeftOut',
+    detail,
+  }))
   const read = await importer.read(source, { add: (item) => report.push(item), progress })
   const settled = settle(read, new Set(source.entries.map((e) => e.path)), report)
   const model = importer.pathKeys ? { ...settled, notes: await withText(settled.notes) } : settled

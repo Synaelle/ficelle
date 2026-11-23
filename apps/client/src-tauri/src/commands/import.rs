@@ -54,6 +54,8 @@ pub struct Opened {
     entries: Vec<Entry>,
     /// Its directories, empty ones included.
     dirs: Vec<String>,
+    /// What the export holds that could not be taken.
+    left_out: Vec<String>,
 }
 
 /// Opens a folder, an archive or a file to import from.
@@ -76,6 +78,7 @@ pub async fn import_open(
     };
     let entries = source.entries().to_vec();
     let dirs = source.dirs().to_vec();
+    let left_out = source.left_out().to_vec();
     let id = imports.next.fetch_add(1, Ordering::Relaxed);
     imports
         .open
@@ -93,6 +96,7 @@ pub async fn import_open(
         name,
         entries,
         dirs,
+        left_out,
     })
 }
 
