@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- On a phone, where the list's title leads: a sheet from the bottom with
-     the notes with no tag, all notes, the tags as a tree that folds, the
-     attachments and the trash. Typing finds a tag at any level and says
-     where it lives. -->
+     the notes with no tag, all notes, the tags as a tree that folds and the
+     way to manage them, the attachments and the trash. Typing finds a tag
+     at any level and says where it lives. -->
 <script lang="ts">
   import { onBack } from '../lib/back'
   import type { Scope, Tag } from '../lib/backend'
@@ -12,6 +12,7 @@
   import { modal } from '../lib/modal'
   import { tagLabel, tagLeaf, tagParent } from '../lib/tagMark.svelte'
   import { tagKey, UNFILED, workspace } from '../lib/workspace.svelte'
+  import TagsDialog from './TagsDialog.svelte'
 
   let { close }: { close: () => void } = $props()
 
@@ -19,6 +20,8 @@
   $effect(() => onBack(close))
 
   let query = $state('')
+  /** Manage tags, open in place of the sheet. */
+  let managing = $state(false)
   let sheet: HTMLDivElement | undefined = $state()
   /** The sheet's height before the search, kept while it shows fewer rows,
    * so the field does not move under the finger. */
@@ -111,70 +114,80 @@
   {/each}
 {/snippet}
 
-<div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
-  <div
-    class="sheet"
-    bind:this={sheet}
-    style:min-height={query.trim() && openHeight ? `${openHeight}px` : undefined}
-    role="dialog"
-    aria-modal="true"
-    aria-label={t('list.scopeLabel')}
-    use:modal={{ onclose: close }}
+{#if managing}
+  <TagsDialog {close} />
+{:else}<div
+    class="backdrop"
+    role="presentation"
+    onclick={(e) => e.target === e.currentTarget && close()}
   >
-    <div class="grab" aria-hidden="true"></div>
-    <label class="find">
-      <Icon name="search" size={18} />
-      <input
-        type="search"
-        placeholder={t('tags.find')}
-        aria-label={t('tags.find')}
-        autocomplete="off"
-        bind:value={query}
-        onfocus={() => (openHeight = sheet?.offsetHeight ?? 0)}
-      />
-    </label>
-    <div class="rows">
-      {#if found}
-        <p class="label">{t('tags.found', { count: found.length })}</p>
-        {#each found as tag (tag.id)}
-          {@const scope: Scope = { kind: 'tag', id: tag.id }}
+    <div
+      class="sheet"
+      bind:this={sheet}
+      style:min-height={query.trim() && openHeight ? `${openHeight}px` : undefined}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('list.scopeLabel')}
+      use:modal={{ onclose: close }}
+    >
+      <div class="grab" aria-hidden="true"></div>
+      <label class="find">
+        <Icon name="search" size={18} />
+        <input
+          type="search"
+          placeholder={t('tags.find')}
+          aria-label={t('tags.find')}
+          autocomplete="off"
+          bind:value={query}
+          onfocus={() => (openHeight = sheet?.offsetHeight ?? 0)}
+        />
+      </label>
+      <div class="rows">
+        {#if found}
+          <p class="label">{t('tags.found', { count: found.length })}</p>
+          {#each found as tag (tag.id)}
+            {@const scope: Scope = { kind: 'tag', id: tag.id }}
+            <button
+              class="row"
+              class:here={here(scope)}
+              aria-current={here(scope) ? 'true' : undefined}
+              onclick={() => go(scope)}
+            >
+              {@render mark(false)}
+              <span class="name two">
+                <span>{tagLeaf(tag.name)}</span>
+                {#if tagParent(tag.name)}<span class="where">{tagLabel(tagParent(tag.name))}</span
+                  >{/if}
+              </span>
+              {#if tag.color}<span class="tag-mark" data-color={tag.color}></span>{/if}
+              <span class="count">{tag.noteCount}</span>
+            </button>
+          {/each}
+        {:else}
+          {@render place(UNFILED, 'inbox', t('sidebar.untagged'))}
+          {@render place({ kind: 'all' }, 'allNotes', t('sidebar.allNotes'))}
+          {#if workspace.tags.length}
+            <p class="label">{t('sidebar.tags')}</p>
+            {@render tree('', 0)}
+          {/if}
+          <!-- the first tag is made here too, as the sidebar's + does -->
+          <button class="row" onclick={() => (managing = true)}>
+            <Icon name="tag" size={20} /><span class="name">{t('tags.manage')}</span>
+          </button>
+          <hr />
           <button
             class="row"
-            class:here={here(scope)}
-            aria-current={here(scope) ? 'true' : undefined}
-            onclick={() => go(scope)}
+            class:here={workspace.files}
+            aria-current={workspace.files ? 'true' : undefined}
+            onclick={() => ((workspace.files = true), close())}
           >
-            {@render mark(false)}
-            <span class="name two">
-              <span>{tagLeaf(tag.name)}</span>
-              {#if tagParent(tag.name)}<span class="where">{tagLabel(tagParent(tag.name))}</span
-                >{/if}
-            </span>
-            {#if tag.color}<span class="tag-mark" data-color={tag.color}></span>{/if}
-            <span class="count">{tag.noteCount}</span>
+            <Icon name="attachment" size={20} /><span class="name">{t('sidebar.files')}</span>
           </button>
-        {/each}
-      {:else}
-        {@render place(UNFILED, 'inbox', t('sidebar.untagged'))}
-        {@render place({ kind: 'all' }, 'allNotes', t('sidebar.allNotes'))}
-        {#if workspace.tags.length}
-          <p class="label">{t('sidebar.tags')}</p>
-          {@render tree('', 0)}
+          {@render place({ kind: 'trash' }, 'trash', t('sidebar.trash'))}
         {/if}
-        <hr />
-        <button
-          class="row"
-          class:here={workspace.files}
-          aria-current={workspace.files ? 'true' : undefined}
-          onclick={() => ((workspace.files = true), close())}
-        >
-          <Icon name="attachment" size={20} /><span class="name">{t('sidebar.files')}</span>
-        </button>
-        {@render place({ kind: 'trash' }, 'trash', t('sidebar.trash'))}
-      {/if}
+      </div>
     </div>
-  </div>
-</div>
+  </div>{/if}
 
 <style>
   .backdrop {
