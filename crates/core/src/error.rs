@@ -41,6 +41,11 @@ pub enum Error {
     #[error("the notes database is missing or empty")]
     NotesMissing,
 
+    /// The vault's database file is there but damaged: the key that opens
+    /// it is known to be right, or it needs none.
+    #[error("the notes database is damaged")]
+    NotesDamaged,
+
     /// Data on disk does not have the expected shape.
     #[error("damaged data: {0}")]
     Corrupt(String),
@@ -66,6 +71,8 @@ impl Error {
     /// The kind of error, as the pages name it to say what went wrong.
     pub fn kind(&self) -> &'static str {
         match self {
+            Self::Db(err) if damaged(err) => "notesDamaged",
+            Self::NotesDamaged => "notesDamaged",
             Self::Db(_) => "database",
             Self::Io(_) => "file",
             Self::WrongPassword => "wrongPassword",
@@ -82,6 +89,14 @@ impl Error {
             Self::Crypto => "crypto",
         }
     }
+}
+
+/// Whether SQLite found the file damaged, at opening or on a later read.
+fn damaged(err: &rusqlite::Error) -> bool {
+    matches!(
+        err.sqlite_error_code(),
+        Some(rusqlite::ErrorCode::DatabaseCorrupt | rusqlite::ErrorCode::NotADatabase)
+    )
 }
 
 /// Result alias used across the crate.

@@ -282,7 +282,11 @@ impl Vault {
                 "this vault is encrypted, a password is needed".into(),
             ));
         }
-        Ok(Store::new(db::open_existing(&self.db_path(), None)?))
+        // without a key no key is wrong: the file is damaged
+        Ok(Store::new(damaged_if_wrong_key(db::open_existing(
+            &self.db_path(),
+            None,
+        ))?))
     }
 
     /// Opens an encrypted vault with its password.
@@ -292,7 +296,7 @@ impl Vault {
     /// [`Error::WrongPassword`] when the password does not match.
     pub fn unlock_with_password(&self, password: &str) -> Result<Store> {
         let key = self.key_from_password(password)?;
-        Ok(Store::new(db::open_existing(&self.db_path(), Some(&key))?))
+        self.unlock_with_key(&key)
     }
 
     /// Opens an encrypted vault with the key remembered on this device.
@@ -356,13 +360,17 @@ impl Vault {
         db::open_existing(&self.db_path(), Some(key)).map(drop)
     }
 
-    /// Opens with the key in hand, however it was had.
+    /// Opens with the key in hand, however it was had: `vault.json` or the
+    /// device's store checked it, so a file it does not open is damaged.
     ///
     /// # Errors
     ///
-    /// [`Error::WrongKey`] or database errors.
+    /// [`Error::NotesDamaged`] or database errors.
     pub fn unlock_with_key(&self, key: &DatabaseKey) -> Result<Store> {
-        Ok(Store::new(db::open_existing(&self.db_path(), Some(key))?))
+        Ok(Store::new(damaged_if_wrong_key(db::open_existing(
+            &self.db_path(),
+            Some(key),
+        ))?))
     }
 
     /// Keeps `key` in `keys` for this vault, after checking it opens it.
@@ -633,7 +641,7 @@ impl Vault {
             .as_ref()
             .ok_or_else(|| Error::Invalid("this vault has no recovery key".into()))?
             .unwrap(&recovery::normalize(code)?)?;
-        let store = Store::new(db::open_existing(&self.db_path(), Some(&key))?);
+        let store = self.unlock_with_key(&key)?;
         self.meta.wrapped_key = Some(WrappedKey::wrap(&key, new_password, kdf)?);
         self.write_meta()?;
         Ok(store)
@@ -798,6 +806,14 @@ impl Vault {
         self.disk.write(&self.dir.join(META_FILE), &mut |out| {
             Ok(out.write_all(text.as_bytes())?)
         })
+    }
+}
+
+/// A key known to be right that does not open the file: the file is damaged.
+fn damaged_if_wrong_key<T>(opened: Result<T>) -> Result<T> {
+    match opened {
+        Err(Error::WrongKey) => Err(Error::NotesDamaged),
+        other => other,
     }
 }
 
@@ -1465,6 +1481,52 @@ mod tests {
             Err(Error::NotesMissing)
         ));
         assert!(!db.exists());
+    }
+
+    #[test]
+    fn a_damaged_database_is_told_from_a_wrong_password() {
+        for password in [None, Some("pw")] {
+            let dir = tempfile::tempdir().unwrap();
+            let encryption = password.map_or(Encryption::Off, on);
+            let (vault, mut store) = Vault::create(dir.path(), encryption).unwrap();
+            for n in 0..300 {
+                note(
+                    &mut store,
+                    &format!("Weekly plan {n} {}", "cedar posts ".repeat(40)),
+                );
+            }
+            drop(store);
+            let unlock = || match password {
+                Some(password) => vault.unlock_with_password(password).map(drop),
+                None => vault.unlock_plain().map(drop),
+            };
+            let db = dir.path().join(DB_FILE);
+            let good = fs::read(&db).unwrap();
+            if password.is_some() {
+                assert!(matches!(
+                    vault.unlock_with_password("not it"),
+                    Err(Error::WrongPassword)
+                ));
+            }
+            let mut header = good.clone();
+            header[..100].fill(0x5a);
+            fs::write(&db, &header).unwrap();
+            let err = unlock().unwrap_err();
+            assert_eq!(err.kind(), "notesDamaged", "{password:?} header: {err}");
+            assert_eq!(fs::read(&db).unwrap(), header, "the file is left as it was");
+
+            let cut = &good[..good.len() / 2];
+            fs::write(&db, cut).unwrap();
+            let opened = unlock().and_then(|()| {
+                let store = match password {
+                    Some(password) => vault.unlock_with_password(password)?,
+                    None => vault.unlock_plain()?,
+                };
+                store.search("cedar", 500).map(drop)
+            });
+            let err = opened.unwrap_err();
+            assert_eq!(err.kind(), "notesDamaged", "{password:?} cut: {err}");
+        }
     }
 
     #[test]
