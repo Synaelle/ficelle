@@ -2,7 +2,13 @@
 // The editor schema. Used by the editor component and by the round trip
 // tests, so both always agree on what markdown the app understands.
 
-import { Extension, type AnyExtension } from '@tiptap/core'
+import {
+  Extension,
+  flattenExtensions,
+  nodeInputRule,
+  type AnyExtension,
+  type Node,
+} from '@tiptap/core'
 import { Placeholder } from '@tiptap/extensions'
 import { BulletList, OrderedList, TaskItem, TaskList } from '@tiptap/extension-list'
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
@@ -36,6 +42,9 @@ export interface EditorSetup {
   keys?: Record<string, () => boolean>
   /** Turn "- " and "1. " at a line start into lists while typing. Default on. */
   autoLists?: boolean
+  /** Turn "---" typed alone on a line into a horizontal line. Default on;
+   * off, the dashes stay as typed and "***" or "___" still make one. */
+  dashRule?: boolean
   /** Turn GitHub's `:name:` shortcodes into their emoji, typed or read.
    * Default on; off, they stay as written. */
   emojiShortcodes?: boolean
@@ -54,6 +63,17 @@ function withoutTypingRule<T extends typeof BulletList | typeof OrderedList>(lis
   return list.extend({ addInputRules: () => [] }) as T
 }
 
+/** The kit's horizontal line made only from "*** " and "___ ", the dashes
+ * staying as typed. */
+function withoutDashRule(): Node {
+  const rule = flattenExtensions([StarterKit]).find((part) => part.name === 'horizontalRule')
+  return (rule as Node).extend({
+    addInputRules() {
+      return [nodeInputRule({ find: /^(?:___\s|\*\*\*\s)$/, type: this.type })]
+    },
+  })
+}
+
 export function createExtensions(setup: EditorSetup = {}): AnyExtension[] {
   return [
     StarterKit.configure({
@@ -65,7 +85,9 @@ export function createExtensions(setup: EditorSetup = {}): AnyExtension[] {
       // read again; bare words like example.com stay text, the note never
       // links them
       link: { openOnClick: false, shouldAutoLink: (url) => /^https?:\/\//i.test(url) },
+      ...(setup.dashRule === false ? { horizontalRule: false as const } : {}),
     }),
+    ...(setup.dashRule === false ? [withoutDashRule()] : []),
     SafeParagraph,
     LanguageCodeBlock.configure(
       setup.codeLabels

@@ -11,9 +11,10 @@ import { Markdown } from '@tiptap/markdown'
  * Paragraph that keeps line start escapes and image only paragraphs.
  *
  * Upstream only escapes inline syntax, so a paragraph starting with "# ",
- * "1. ", "- " or "> " was written unescaped and came back as a heading, list
- * or quote. Upstream also lifts an image alone in a paragraph out as a block,
- * which is invalid once images are inline (needed to float them in text).
+ * "1. ", "- ", "> " or "---" was written unescaped and came back as a
+ * heading, list, quote or horizontal line. Upstream also lifts an image
+ * alone in a paragraph out as a block, which is invalid once images are
+ * inline (needed to float them in text).
  */
 export const SafeParagraph = Paragraph.extend({
   parseMarkdown: (token, helpers) => {
@@ -30,12 +31,14 @@ export const SafeParagraph = Paragraph.extend({
     // markdown has no way to keep them, like every other markdown editor.
     if (!node.content?.length) return ''
     const out: string = this.parent?.(node, helpers, context) ?? ''
+    // dashes typed as text alone on a line would come back as a horizontal line
     return out
       .replace(
         /^( {0,3})(#{1,6}(?=\s|$)|[-+*](?=\s)|>)/gm,
         (_match, space: string, marker: string) => `${space}\\${marker}`,
       )
       .replace(/^( {0,3}\d{1,9})([.)])(?=\s)/gm, '$1\\$2')
+      .replace(/^( {0,3})(?=(?:-[ \t]*){3,}$)/gm, '$1\\')
   },
 })
 

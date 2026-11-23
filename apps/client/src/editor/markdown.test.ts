@@ -456,6 +456,31 @@ describe('typing GitHub extras', () => {
     expect(typedWith('a ---> b', { arrow: '' })).toBe('a ---> b')
   })
 
+  it('makes a horizontal line of --- unless turned off', () => {
+    expect(typedWith('---', {})).toBe('---')
+    expect(typedWith('*** ', { dashRule: false })).toBe('---')
+    expect(typedWith('---', { dashRule: false })).toBe('\\---')
+    expect(typedWith('a\n---', { dashRule: false })).toBe('a\n\n\\---')
+    expect(roundTrip('a\n\n\\---\n')).toBe('a\n\n\\---')
+    expect(roundTrip('a\n\n---\n\nb\n')).toBe('a\n\n---\n\nb')
+  })
+
+  it('still reads a horizontal line with the dash rule off', () => {
+    const editor = new Editor({
+      element: document.createElement('div'),
+      extensions: createExtensions({ dashRule: false }),
+      content: 'a\n\n---\n\nb\n',
+      contentType: 'markdown',
+    })
+    expect(editor.state.doc.child(1).type.name).toBe('horizontalRule')
+    expect(editor.getMarkdown()).toBe('a\n\n---\n\nb')
+    editor.destroy()
+  })
+
+  it('makes a long arrow of ---> with the dash rule off', () => {
+    expect(typedWith('---> a', { dashRule: false })).toBe('⟶ a')
+  })
+
   it('makes -> the chosen arrow', () => {
     expect(typedWith('a -> b', { arrow: '➞' })).toBe('a ➞ b')
     expect(typedWith('a -> b => c', { arrow: '⟶' })).toBe('a ⟶ b ⇒ c')

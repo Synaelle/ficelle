@@ -672,6 +672,9 @@
         webImage: () => t('editor.webImage'),
         keys: keyBindings(),
         autoLists: prefs.autoLists,
+        // a phone keyboard has no quick way to a horizontal line, a desktop
+        // one types dashes it means as dashes
+        dashRule: HANDHELD,
         emojiShortcodes: prefs.emojiShortcodes,
         arrow: prefs.arrow,
         placeholder: () => t('note.bodyPlaceholder'),
