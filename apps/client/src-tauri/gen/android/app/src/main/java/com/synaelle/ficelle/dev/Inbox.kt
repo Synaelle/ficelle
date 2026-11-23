@@ -8,6 +8,7 @@ import android.os.Parcelable
 import android.provider.OpenableColumns
 import android.util.Log
 import android.webkit.JavascriptInterface
+import android.webkit.MimeTypeMap
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -18,11 +19,19 @@ import org.json.JSONObject
 /** The largest file a share copies in, 512 MB. */
 private const val MAX_SHARED_BYTES = 512L * 1024 * 1024
 
+/** Ends the name of a shared file while it is being copied in. */
+private const val COPYING = ".part"
+
+/** Leftovers are looked for once a process, before any share of its own. */
+@Volatile private var leftoversTaken = false
+
 // Shares from other apps, the icon's quick actions and taps on the home
 // screen widget arrive as intents, often before the page is loaded or the
 // notes are unlocked. They wait here until the page takes them
 // (lib/inbox.ts). Shared files are copied into the app's cache right away,
-// the other app's permission to read them ends with its intent.
+// the other app's permission to read them ends with its intent. A copy the
+// page never took, the app killed first, becomes a share again at the next
+// start.
 class Inbox(private val activity: Activity) {
   private val items = JSONArray()
 
@@ -52,6 +61,32 @@ class Inbox(private val activity: Activity) {
       openNote -> intent.getStringExtra("noteId")?.let {
         add(JSONObject().put("kind", "openNote").put("id", it))
       }
+    }
+  }
+
+  /**
+   * The shared files a killed app left in the inbox, each waiting again as
+   * a share of its own, and the copies it was cut off in removed. Call it
+   * before the launch intent is received.
+   */
+  fun takeLeftovers() {
+    if (leftoversTaken) return
+    leftoversTaken = true
+    val left = File(activity.cacheDir, "inbox").listFiles() ?: return
+    for (file in left.sortedBy { it.name }) {
+      if (file.name.endsWith(COPYING)) {
+        file.delete()
+        continue
+      }
+      // copies are named <nanoTime>-<name>
+      val name = file.name.substringAfter('-')
+      val mime = MimeTypeMap.getSingleton()
+        .getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
+        ?: "application/octet-stream"
+      val files = JSONArray().put(
+        JSONObject().put("path", file.absolutePath).put("name", name).put("mime", mime),
+      )
+      add(JSONObject().put("kind", "share").put("text", "").put("subject", "").put("files", files))
     }
   }
 
@@ -148,8 +183,9 @@ class Inbox(private val activity: Activity) {
     val safe = name.replace(Regex("[^A-Za-z0-9._ -]"), "_").trimStart('.')
     val dir = File(activity.cacheDir, "inbox").apply { mkdirs() }
     val file = File(dir, "${System.nanoTime()}-$safe")
+    val partial = File(dir, file.name + COPYING)
     val copied = resolver.openInputStream(uri)?.use { input ->
-      file.outputStream().use { output ->
+      partial.outputStream().use { output ->
         // a cap, so a share cannot fill the phone's storage
         val buffer = ByteArray(64 * 1024)
         var total = 0L
@@ -159,7 +195,7 @@ class Inbox(private val activity: Activity) {
           total += read
           if (total > MAX_SHARED_BYTES) {
             output.close()
-            file.delete()
+            partial.delete()
             throw java.io.IOException("a shared file over ${MAX_SHARED_BYTES / (1024 * 1024)} MB")
           }
           output.write(buffer, 0, read)
@@ -168,7 +204,11 @@ class Inbox(private val activity: Activity) {
       }
     }
     if (copied == null) {
+      partial.delete()
       null
+    } else if (!partial.renameTo(file)) {
+      partial.delete()
+      throw java.io.IOException("could not name the copy of a shared file")
     } else {
       JSONObject()
         .put("path", file.absolutePath)

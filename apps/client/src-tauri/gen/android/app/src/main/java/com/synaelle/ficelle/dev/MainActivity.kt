@@ -65,6 +65,7 @@ class MainActivity : TauriActivity() {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     SystemInfo.applyHidden(this)
+    inbox.takeLeftovers()
     // a recreated activity already handed its launch intent over
     if (savedInstanceState == null) inbox.receive(intent)
     inbox.publishShortcuts()
