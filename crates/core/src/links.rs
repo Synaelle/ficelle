@@ -6,6 +6,7 @@
 //! Links inside fenced code blocks and inline code are ignored, so code that
 //! happens to contain `[[` is never treated as a link or rewritten.
 
+use std::collections::HashMap;
 use std::ops::Range;
 
 /// One wiki link found in a body.
@@ -77,10 +78,31 @@ fn code_ranges(body: &str) -> Vec<Range<usize>> {
     ranges
 }
 
+/// Whether `pos` is inside one of `code`, which is sorted and disjoint.
+fn in_code(code: &[Range<usize>], pos: usize) -> bool {
+    let next = code.partition_point(|r| r.end <= pos);
+    code.get(next).is_some_and(|r| r.contains(&pos))
+}
+
 /// Inline code spans of one line: a run of backticks up to the next run of
 /// the same length, as in `CommonMark`.
 fn inline_code(line: &str, offset: usize) -> Vec<Range<usize>> {
     let bytes = line.as_bytes();
+    // where each run of backticks starts, by its length: the closing run is
+    // looked up, a line of many runs is not read again for each of them
+    let mut runs: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        let start = i;
+        while i < bytes.len() && bytes[i] == b'`' {
+            i += 1;
+        }
+        if i > start {
+            runs.entry(i - start).or_default().push(start);
+        } else {
+            i += 1;
+        }
+    }
     let mut ranges = Vec::new();
     let mut i = 0;
     while i < bytes.len() {
@@ -92,24 +114,9 @@ fn inline_code(line: &str, offset: usize) -> Vec<Range<usize>> {
         while i < bytes.len() && bytes[i] == b'`' {
             i += 1;
         }
-        let run = i - start;
-        let mut j = i;
-        let mut closed = None;
-        while j < bytes.len() {
-            if bytes[j] == b'`' {
-                let close = j;
-                while j < bytes.len() && bytes[j] == b'`' {
-                    j += 1;
-                }
-                if j - close == run {
-                    closed = Some(j);
-                    break;
-                }
-            } else {
-                j += 1;
-            }
-        }
-        if let Some(end) = closed {
+        let same = &runs[&(i - start)];
+        if let Some(&close) = same.get(same.partition_point(|&at| at <= start)) {
+            let end = close + (i - start);
             ranges.push(offset + start..offset + end);
             i = end;
         }
@@ -117,21 +124,39 @@ fn inline_code(line: &str, offset: usize) -> Vec<Range<usize>> {
     ranges
 }
 
+/// The end of the link opening with `[[` at `start`, past its `]]`. Without
+/// one before a newline or another `[[`, `Err` with where to look next.
+fn link_end(body: &str, start: usize) -> std::result::Result<usize, usize> {
+    let bytes = body.as_bytes();
+    let mut i = start + 2;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\n' => return Err(i + 1),
+            b']' if bytes.get(i + 1) == Some(&b']') => return Ok(i + 2),
+            b'[' if bytes.get(i + 1) == Some(&b'[') => return Err(i),
+            _ => i += 1,
+        }
+    }
+    Err(bytes.len())
+}
+
 /// Every wiki link of a body, in order.
 pub fn parse(body: &str) -> Vec<WikiLink> {
     let code = code_ranges(body);
-    let in_code = |pos: usize| code.iter().any(|r| r.contains(&pos));
     let mut links = Vec::new();
     let mut from = 0;
     while let Some(found) = body[from..].find("[[") {
         let start = from + found;
-        let Some(len) = body[start + 2..].find("]]") else {
-            break;
+        let end = match link_end(body, start) {
+            Ok(end) => end,
+            Err(next) => {
+                from = next;
+                continue;
+            }
         };
-        let inner = &body[start + 2..start + 2 + len];
-        let end = start + 2 + len + 2;
+        let inner = &body[start + 2..end - 2];
         from = start + 2;
-        if inner.contains('\n') || inner.contains("[[") || in_code(start) {
+        if in_code(&code, start) {
             continue;
         }
         let (reference, alias) = match inner.split_once('|') {
@@ -185,7 +210,7 @@ pub fn headings(body: &str) -> Vec<String> {
     for line in body.split_inclusive('\n') {
         let start = offset;
         offset += line.len();
-        if code.iter().any(|r| r.contains(&start)) {
+        if in_code(&code, start) {
             continue;
         }
         let trimmed = line.trim_end();
@@ -254,6 +279,23 @@ mod tests {
             "[[New name]] [[New name|label]] [[New name#Part]] [[Other]] `[[Old]]`"
         );
         assert_eq!(retarget("[[Other]]", "Old", "New"), None);
+    }
+
+    /// Each `[[` once read up to a far `]]`: 80 000 of them took seconds on
+    /// every save.
+    #[test]
+    fn many_openings_and_backtick_runs_are_read_in_one_pass() {
+        let started = std::time::Instant::now();
+        let many = format!("{}]] [[Plan]]", "[[".repeat(200_000));
+        assert_eq!(targets(&many), vec![("Plan".into(), None, None)]);
+        let labels = format!("{}]]\n[[Old]]", "[[a|".repeat(100_000));
+        assert_eq!(
+            retarget(&labels, "Old", "New").unwrap(),
+            format!("{}]]\n[[New]]", "[[a|".repeat(100_000))
+        );
+        let runs: Vec<String> = (1..600).map(|n| "`".repeat(n)).collect();
+        assert_eq!(targets(&format!("{} [[Plan]]", runs.join(" "))).len(), 1);
+        assert!(started.elapsed().as_secs() < 2, "{:?}", started.elapsed());
     }
 
     #[test]
