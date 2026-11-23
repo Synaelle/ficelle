@@ -58,7 +58,7 @@
   {#if notificationsHere}
     <Row
       label={t('appUpdate.notify')}
-      icon="inbox"
+      icon="bell"
       help={notifyDenied ? t('appUpdate.notifyDenied') : undefined}
       on={prefs.updateNotifications && !elsewhere}
       disabled={elsewhere}
