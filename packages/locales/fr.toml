@@ -248,7 +248,6 @@ confirmEmptyTrash = "Supprimer définitivement tout le contenu de la corbeille�
 clearFilter = "Revenir aux notes sans étiquette"
 clearSearch = "Effacer la recherche"
 pullToSearch = "Relâchez pour rechercher"
-swipeTrash = "Corbeille"
 
 [list.count]
 one = "{count} note"
@@ -271,7 +270,7 @@ title = "Titre"
 pinned = "Épinglées"
 pin = "Épingler"
 unpin = "Désépingler"
-more = "Plus"
+options = "Options de la note"
 notSaved = "Pas encore enregistré, nouvel essai"
 saving = "Enregistrement…"
 saved = "Enregistré"
