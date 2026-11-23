@@ -5,7 +5,7 @@
 
 import { backend } from './backend'
 import type { BackupSchedule, BackupsView } from './backend/types'
-import { errorDetail, shownError, type ShownError } from './errors'
+import { errorCode, errorDetail, shownError, type ShownError } from './errors'
 import { t } from './i18n.svelte'
 import { toasts } from './toast.svelte'
 
@@ -56,6 +56,13 @@ export function backupError(err: unknown): ShownError {
   const key = BACKUP_REASONS[shown.kind]
   return { ...shown, reason: key ? t(key) : errorDetail(err) || shown.reason }
 }
+
+/** Attachments a backup left out, their file damaged on this device. */
+export const damagedError = (names: string[]): ShownError => ({
+  kind: 'damagedFile',
+  reason: t('backup.damaged', { count: names.length, files: names.join(', ') }),
+  code: errorCode('BACKUP', 'damagedFile'),
+})
 
 /** The time zone, for the backup file's name. */
 const offsetSeconds = () => -new Date().getTimezoneOffset() * 60

@@ -3,7 +3,8 @@
 
 import { describe, expect, it } from 'vitest'
 import type { BackupSchedule, BackupsView } from './backend/types'
-import { due, overdue } from './backups.svelte'
+import { damagedError, due, overdue } from './backups.svelte'
+import { setLocale } from './i18n.svelte'
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -22,6 +23,7 @@ function view(
       lastErrorKind: null,
       files: 0,
       storedBytes: 0,
+      damaged: [],
       ...status,
     },
     running,
@@ -68,5 +70,15 @@ describe('scheduled backups', () => {
     // just set up, not tried yet
     expect(overdue(view('daily'), now)).toBe(false)
     expect(overdue(view('off', { lastSuccessAt: now - 300 * DAY }), now)).toBe(false)
+  })
+})
+
+describe('damagedError', () => {
+  it('names the attachments left out, with a code to send back', async () => {
+    await setLocale('en')
+    const shown = damagedError(['fence quote.pdf', 'garden.jpg'])
+    expect(shown.code).toBe('BACKUP-DAMAGED-FILE')
+    expect(shown.reason).toContain('2 attachments are damaged')
+    expect(shown.reason).toContain('fence quote.pdf, garden.jpg')
   })
 })

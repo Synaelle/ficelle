@@ -373,10 +373,11 @@ fn run(state: &AppState, offset_seconds: i64) -> CommandResult<()> {
     let newest = files
         .iter()
         .any(|(name, _)| app_core::auto_backup::is_automatic(name));
+    let mut damaged = None;
     // nothing changed since the last one, which is still there
     if last.as_deref() != Some(&digest) || !newest {
         let name = app_core::auto_backup::file_name(now(), offset_seconds);
-        place.write(&name, |file| {
+        let manifest = place.write(&name, |file| {
             app_core::backup::write_backup_data(
                 &data,
                 &blobs,
@@ -385,6 +386,7 @@ fn run(state: &AppState, offset_seconds: i64) -> CommandResult<()> {
                 KdfParams::DEFAULT,
             )
         })?;
+        damaged = Some(manifest.damaged);
         let names: Vec<String> = place.list()?.into_iter().map(|(n, _)| n).collect();
         for gone in app_core::auto_backup::beyond(&names, config.keep) {
             place.delete(&gone)?;
@@ -401,6 +403,9 @@ fn run(state: &AppState, offset_seconds: i64) -> CommandResult<()> {
         status.last_error = None;
         status.last_error_kind = None;
         status.last_digest = Some(digest);
+        if let Some(damaged) = damaged {
+            status.damaged = damaged;
+        }
         status.files = automatic.len() as u64;
         status.stored_bytes = automatic.iter().map(|(_, size)| size).sum();
         s.store.set_backup_status(&status)

@@ -493,6 +493,10 @@ other = "{count} files were never downloaded to this device and are not in it."
 one = "{count} file was not in the backup: its note came back without it."
 other = "{count} files were not in the backup: their notes came back without them."
 
+[backup.damaged]
+one = "{count} attachment is damaged on this device and was left out of the backup ({files})."
+other = "{count} attachments are damaged on this device and were left out of the backup ({files})."
+
 [backup.present]
 one = "{count} note of it is already here and will stay as it is."
 other = "{count} notes of it are already here and will stay as they are."

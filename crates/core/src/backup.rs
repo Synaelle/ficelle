@@ -68,6 +68,10 @@ pub struct Manifest {
     /// read means a damaged backup, not a file its device never had.
     #[serde(default)]
     pub stored: Vec<String>,
+    /// Names of the attachments left out because their file on this device
+    /// is damaged, not counted in `files_missing`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub damaged: Vec<String>,
 }
 
 /// Seals what is written to it in chunks, the last one on `finish`.
@@ -296,12 +300,31 @@ pub fn write_backup_data(
 ) -> Result<Manifest> {
     let hashes = data.file_hashes();
     let mut have = Vec::new();
+    let mut bad = std::collections::HashSet::new();
     for sha in &hashes {
-        if blobs.has(sha)? {
+        if !blobs.has(sha)? {
+            continue;
+        }
+        // read through first: one damaged file found half way into the zip
+        // stopped every backup, and a zip entry cannot be taken back
+        if damaged(blobs, sha)? {
+            bad.insert(sha.as_str());
+        } else {
             have.push(sha.clone());
         }
     }
     have.sort();
+    let mut damaged_names: Vec<String> = data
+        .attachments
+        .iter()
+        .filter(|a| {
+            bad.contains(a.sha256.as_str())
+                || a.thumb_sha256.as_deref().is_some_and(|t| bad.contains(t))
+        })
+        .map(|a| a.file_name.clone())
+        .collect();
+    damaged_names.sort();
+    damaged_names.dedup();
     let manifest = Manifest {
         format: FORMAT,
         app: app_brand::DISPLAY_NAME.to_owned(),
@@ -312,8 +335,9 @@ pub fn write_backup_data(
         folders: data.folders.len(),
         versions: data.versions.len(),
         files: have.len(),
-        files_missing: hashes.len() - have.len(),
+        files_missing: hashes.len() - have.len() - bad.len(),
         stored: have.clone(),
+        damaged: damaged_names,
     };
 
     let mut out = BufWriter::new(file);
@@ -341,6 +365,21 @@ pub fn write_backup_data(
         }
     }
     Ok(manifest)
+}
+
+/// Whether the file of `sha` here fails its check when read through.
+fn damaged(blobs: &BlobStore, sha: &str) -> Result<bool> {
+    let mut reader = match blobs.open(sha) {
+        Ok(Some(reader)) => reader,
+        Ok(None) => return Ok(false),
+        Err(Error::Corrupt(_)) => return Ok(true),
+        Err(e) => return Err(e),
+    };
+    match std::io::copy(&mut reader, &mut std::io::sink()) {
+        Ok(_) => Ok(false),
+        Err(e) if e.kind() == std::io::ErrorKind::InvalidData => Ok(true),
+        Err(e) => Err(e.into()),
+    }
 }
 
 fn write_zip<W: Write>(
@@ -831,6 +870,57 @@ mod tests {
                 .iter()
                 .all(|a| a.file_name != "lost.pdf")
         );
+    }
+
+    #[test]
+    fn a_damaged_file_is_left_out_and_named_and_the_rest_is_backed_up() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut source, blobs) = filled(dir.path());
+        let plan = source
+            .backup_data()
+            .unwrap()
+            .notes
+            .into_iter()
+            .find(|n| n.title == "Plan")
+            .unwrap();
+        let content = b"scan of the fence quote".repeat(100);
+        let sha = blobs.put(&content).unwrap();
+        source
+            .add_attachment(plan.id, "fence quote.pdf", "application/pdf", 2300, &sha)
+            .unwrap();
+        let file = std::fs::read_dir(dir.path().join("blobs"))
+            .unwrap()
+            .flat_map(|shard| std::fs::read_dir(shard.unwrap().path()).unwrap())
+            .map(|entry| entry.unwrap().path())
+            .find(|path| path.to_string_lossy().contains(&sha))
+            .unwrap();
+        let mut raw = std::fs::read(&file).unwrap();
+        raw[1000] ^= 0xff;
+        std::fs::write(&file, raw).unwrap();
+        let stored_before = write_backup_data(
+            &source.backup_data().unwrap(),
+            &blobs,
+            std::io::sink(),
+            None,
+            KDF,
+        );
+        let path = dir.path().join("d.backup");
+        let manifest = write_backup(&source, &blobs, &path, None, KDF).unwrap();
+        assert_eq!(manifest.damaged, vec!["fence quote.pdf".to_owned()]);
+        assert_eq!(manifest.files_missing, 0);
+        assert!(!manifest.stored.contains(&sha));
+        assert_eq!(stored_before.unwrap().stored, manifest.stored);
+
+        // the backup restores whole, every other file with it
+        let (mut target, _) = store();
+        let target_blobs = BlobStore::new(dir.path().join("t"), None);
+        let report = Backup::open(&path, None)
+            .unwrap()
+            .restore(&mut target, &target_blobs)
+            .unwrap();
+        assert_eq!(report.notes, manifest.notes);
+        assert_eq!(report.files_missing, 1);
+        assert!(!target_blobs.has(&sha).unwrap());
     }
 
     #[test]

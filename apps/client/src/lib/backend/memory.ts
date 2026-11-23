@@ -130,6 +130,7 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       lastErrorKind: null,
       files: 0,
       storedBytes: 0,
+      damaged: [],
     },
     running: false,
   }

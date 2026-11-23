@@ -10,7 +10,7 @@
   import { onMount } from 'svelte'
   import { backend } from '../lib/backend'
   import type { BackupFile, BackupSchedule } from '../lib/backend/types'
-  import { backupError, backups } from '../lib/backups.svelte'
+  import { backupError, backups, damagedError } from '../lib/backups.svelte'
   import { errorLine, type ShownError } from '../lib/errors'
   import ErrorText from '../lib/ErrorText.svelte'
   import { bytes, dateTime, relative } from '../lib/format'
@@ -282,9 +282,14 @@
                 message: view.status.lastError,
               }),
             )
-          : view?.status.lastSuccessAt
-            ? t('backups.size', { count: view.status.files, size: bytes(view.status.storedBytes) })
-            : undefined}
+          : view?.status.damaged.length
+            ? errorLine(damagedError(view.status.damaged))
+            : view?.status.lastSuccessAt
+              ? t('backups.size', {
+                  count: view.status.files,
+                  size: bytes(view.status.storedBytes),
+                })
+              : undefined}
       >
         <button class="btn" disabled={busy || view?.running} onclick={runNow}
           >{t('backups.now')}</button

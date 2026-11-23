@@ -17,6 +17,7 @@
   import { workspace } from '../lib/workspace.svelte'
   import { namedError, shownError, type ShownError } from '../lib/errors'
   import ErrorText from '../lib/ErrorText.svelte'
+  import { damagedError } from '../lib/backups.svelte'
 
   let {
     mode,
@@ -206,6 +207,9 @@
       <p role="status">{t('backup.made', { count: made.notes, files: made.files })}</p>
       {#if made.filesMissing}
         <p class="muted">{t('backup.filesMissing', { count: made.filesMissing })}</p>
+      {/if}
+      {#if made.damaged?.length}
+        <p class="error" role="alert"><ErrorText error={damagedError(made.damaged)} /></p>
       {/if}
     {:else if restored}
       <p role="status">

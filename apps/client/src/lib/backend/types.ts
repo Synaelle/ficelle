@@ -254,6 +254,8 @@ export interface BackupManifest {
   files: number
   /** Files whose content the device that made it did not have. */
   filesMissing: number
+  /** Names of attachments left out, their file on that device damaged. */
+  damaged?: string[]
 }
 
 export interface RestoreReport {
@@ -277,6 +279,8 @@ export interface BackupStatus {
   /** The automatic backup files in the folder after the last run. */
   files: number
   storedBytes: number
+  /** Attachments the last backup made left out, their file damaged. */
+  damaged: string[]
 }
 
 /** This device's backups, see commands/backups.rs. */

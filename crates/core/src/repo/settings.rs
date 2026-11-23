@@ -94,4 +94,6 @@ pub struct BackupStatus {
     pub files: u64,
     /// What the last automatic backup held, see [`crate::auto_backup::digest`].
     pub last_digest: Option<String>,
+    /// Attachments the last backup made left out, their file here damaged.
+    pub damaged: Vec<String>,
 }
