@@ -6,9 +6,9 @@
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { noteDropTarget, startTagDrag, tagDropTarget } from '../lib/noteDrag'
-  import { overlay, SEPARATOR, type MenuItem } from '../lib/overlay.svelte'
+  import { overlay } from '../lib/overlay.svelte'
+  import { tagMenuItems } from '../lib/tagMenu'
   import { tagLeaf, tagParent } from '../lib/tagMark.svelte'
-  import { TAG_COLORS } from '../lib/backend'
   import { moveTag, tagKey, UNFILED, workspace } from '../lib/workspace.svelte'
   import TagTree from './TagTree.svelte'
 
@@ -37,54 +37,21 @@
     }
   }
 
-  async function newInside(tag: Tag) {
-    const name = await overlay.askText(t('tags.newInside', { name: tagLeaf(tag.name) }))
-    if (!name?.trim()) return
-    collapsed[tagKey(tag.name)] = false
-    await workspace.createTag(`${tag.name}/${name}`)
-  }
-
-  async function remove(tag: Tag) {
-    const yes = await overlay.ask(
-      t('tags.confirmDelete', { name: tagLeaf(tag.name), count: tag.noteCount }),
-      {
-        confirmLabel: t('tags.delete'),
-        danger: true,
-      },
-    )
-    if (yes) await workspace.deleteTag(tag.id)
-  }
-
   function oncontextmenu(event: MouseEvent, tag: Tag) {
-    const items: MenuItem[] = [
-      { label: t('tags.newInsideMenu'), icon: 'plus', run: () => void newInside(tag) },
-      {
-        label: t('tags.rename'),
-        icon: 'pencil',
-        run: () => {
-          renaming = tag.id
-          draft = tagLeaf(tag.name)
-        },
+    const items = tagMenuItems(tag, {
+      rename: () => {
+        renaming = tag.id
+        draft = tagLeaf(tag.name)
       },
-      {
-        label: t('tags.colour'),
-        icon: 'palette',
-        items: [
-          {
-            label: t('tags.noColour'),
-            checked: !tag.color,
-            run: () => void workspace.setTagColor(tag.id, null),
-          },
-          ...TAG_COLORS.map((color) => ({
-            label: t(`tags.colour_${color}`),
-            checked: tag.color === color,
-            run: () => void workspace.setTagColor(tag.id, color),
-          })),
-        ],
+      attempt: async (change) => {
+        try {
+          await change()
+        } catch (err) {
+          workspace.report(err)
+        }
       },
-      SEPARATOR,
-      { label: t('tags.delete'), icon: 'trash', danger: true, run: () => void remove(tag) },
-    ]
+      unfold: () => (collapsed[tagKey(tag.name)] = false),
+    })
     overlay.openMenu(event, items)
   }
 </script>

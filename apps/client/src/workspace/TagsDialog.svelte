@@ -2,13 +2,14 @@
 <!-- Every tag in one place: find, make, rename or move, merge, colour and
      delete. Renaming takes the tags inside along, a path moves a tag. -->
 <script lang="ts">
-  import { TAG_COLORS, type Tag } from '../lib/backend'
+  import type { Tag } from '../lib/backend'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { modal } from '../lib/modal'
-  import { overlay, SEPARATOR, type MenuItem } from '../lib/overlay.svelte'
+  import { overlay } from '../lib/overlay.svelte'
   import { tagLabel, tagLeaf } from '../lib/tagMark.svelte'
-  import { isBackendError, tagKey, tagWithin, workspace } from '../lib/workspace.svelte'
+  import { tagMenuItems } from '../lib/tagMenu'
+  import { isBackendError, tagKey, workspace } from '../lib/workspace.svelte'
 
   let { close }: { close: () => void } = $props()
 
@@ -56,17 +57,6 @@
     if (name && name !== tag.name) await attempt(() => workspace.renameTag(tag.id, name))
   }
 
-  async function remove(tag: Tag) {
-    const yes = await overlay.ask(
-      t('tags.confirmDelete', { name: tag.name, count: tag.noteCount }),
-      {
-        confirmLabel: t('tags.delete'),
-        danger: true,
-      },
-    )
-    if (yes) await attempt(() => workspace.deleteTag(tag.id))
-  }
-
   /** The tag whose menu is open, its button marked meanwhile. */
   let menuFor: string | null = $state(null)
   $effect(() => {
@@ -74,42 +64,7 @@
   })
 
   function menu(button: HTMLElement, tag: Tag) {
-    const others = workspace.tags.filter((o) => !tagWithin(o.name, tag.name))
-    const items: MenuItem[] = [
-      { label: t('tags.rename'), icon: 'pencil', run: () => startRename(tag) },
-      {
-        label: t('tags.merge'),
-        icon: 'move',
-        disabled: others.length === 0,
-        items: others.map((other) => ({
-          label: tagLabel(other.name),
-          run: () => void attempt(() => workspace.renameTag(tag.id, other.name)),
-        })),
-      },
-      {
-        label: t('tags.colour'),
-        icon: 'palette',
-        items: [
-          {
-            label: t('tags.noColour'),
-            checked: !tag.color,
-            run: () => void attempt(() => workspace.setTagColor(tag.id, null)),
-          },
-          ...TAG_COLORS.map((color) => ({
-            label: t(`tags.colour_${color}`),
-            checked: tag.color === color,
-            run: () => void attempt(() => workspace.setTagColor(tag.id, color)),
-          })),
-        ],
-      },
-      SEPARATOR,
-      {
-        label: t('tags.deleteFrom', { count: tag.noteCount }),
-        icon: 'trash',
-        danger: true,
-        run: () => void remove(tag),
-      },
-    ]
+    const items = tagMenuItems(tag, { rename: () => startRename(tag), attempt })
     overlay.openMenuBelow(button, items)
     menuFor = tag.id
   }
