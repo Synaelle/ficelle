@@ -18,6 +18,9 @@ export const MOBILE = ANDROID
  * version on a touch screen, which a narrow mouse window is not. */
 export const HANDHELD =
   ANDROID || (PLATFORM === 'web' && window.matchMedia('(pointer: coarse)').matches)
+/** A phone, not a tablet: turned sideways it is wide enough for three
+ * panes, but with the keyboard up the note would have no room left. */
+export const PHONE = HANDHELD && Math.min(screen.width, screen.height) < 600
 export const WINDOWS = PLATFORM === 'windows'
 export const LINUX = PLATFORM === 'linux'
 /** Windows or Linux. */

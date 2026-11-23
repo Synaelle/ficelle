@@ -53,7 +53,7 @@
     onrestorefile: () => void
     /** Opens deleting everything on this device. */
     onreset: () => void
-    start?: 'sync'
+    start?: 'sync' | 'updates'
   } = $props()
 
   type Page =

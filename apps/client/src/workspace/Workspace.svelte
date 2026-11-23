@@ -20,7 +20,7 @@
   import { pageZoom } from '../lib/uiSize'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import { listen } from '@tauri-apps/api/event'
-  import { DESKTOP, HANDHELD, LINUX, WEB } from '../lib/platform'
+  import { DESKTOP, LINUX, PHONE, WEB } from '../lib/platform'
   import { askToKeep, backupDue } from '../lib/webBackups'
   import { onHandOver } from '../lib/backend/web'
   import { toasts } from '../lib/toast.svelte'
@@ -37,8 +37,8 @@
 
   let width = $state(window.innerWidth)
   let settingsOpen = $state(false)
-  let settingsSection: 'sync' | undefined = $state()
-  function openSettings(section?: 'sync') {
+  let settingsSection: 'sync' | 'updates' | undefined = $state()
+  function openSettings(section?: 'sync' | 'updates') {
     settingsSection = section
     settingsOpen = true
   }
@@ -49,9 +49,6 @@
   // the note keeps at least this much room, below it the list and the note
   // take turns: at 200 px its title and toolbar no longer fit
   const NOTE_MIN = 360
-  /** A phone, not a tablet: turned sideways it is wide enough for three
-   * panes, but with the keyboard up the note would have no room left. */
-  const PHONE = HANDHELD && Math.min(screen.width, screen.height) < 600
   // the web version zooms the page itself, the panes are sized in its pixels
   let zoom = $state(pageZoom())
   $effect(() => {

@@ -163,6 +163,18 @@ class AppUpdates {
   private timer: ReturnType<typeof setInterval> | undefined
   private lookedAt = 0
 
+  /** `ready` gets its card, or its mark on a phone: not closed for this
+   * start, not skipped, not asked in the middle of the screen. */
+  get offered() {
+    return (
+      !!this.ready &&
+      this.shown &&
+      !this.dismissed &&
+      !this.critical &&
+      this.skipped !== this.ready.version
+    )
+  }
+
   /** Looks now, every few hours after, and when the app comes back on screen
    * after a while, once per launch. */
   async start() {

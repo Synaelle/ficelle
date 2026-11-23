@@ -5,7 +5,7 @@
      changed". "Later" offers waiting for the next start or
      skipping this version for the next one (a security fix can only wait). -->
 <script lang="ts">
-  import { ANDROID } from './platform'
+  import { ANDROID, PHONE } from './platform'
   import {
     appUpdates,
     changelogLabelled,
@@ -48,7 +48,8 @@
   const details = $derived(appUpdates.ready?.changelog || appUpdates.ready?.notes || '')
 </script>
 
-{#if appUpdates.ready && appUpdates.shown && !appUpdates.dismissed && !appUpdates.critical && appUpdates.skipped !== appUpdates.ready.version}
+<!-- a phone has its mark in the note list instead -->
+{#if appUpdates.ready && appUpdates.offered && !PHONE}
   <section
     class="update"
     aria-label={t('appUpdate.cardTitle', { version: appUpdates.ready.version })}

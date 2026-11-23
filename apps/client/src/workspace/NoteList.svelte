@@ -20,7 +20,8 @@
   import { prefs } from '../lib/prefs.svelte'
   import { UNFILED, workspace } from '../lib/workspace.svelte'
   import { noteWindowsSupported } from '../lib/windows'
-  import { WEB } from '../lib/platform'
+  import { PHONE, WEB } from '../lib/platform'
+  import UpdateMark from '../lib/UpdateMark.svelte'
   import TagSheet from './TagSheet.svelte'
   import VirtualList from './VirtualList.svelte'
 
@@ -33,7 +34,7 @@
     narrow: boolean
     width: number
     searchFocus: number
-    onsettings: (section?: 'sync') => void
+    onsettings: (section?: 'sync' | 'updates') => void
   } = $props()
 
   let searchInput: HTMLInputElement | undefined = $state()
@@ -344,6 +345,9 @@
         <button class="icon-btn" aria-label={line} title={line} onclick={() => onsettings('sync')}>
           <SyncIcon state="error" size={18} />
         </button>
+      {/if}
+      {#if PHONE}
+        <UpdateMark onopen={() => onsettings('updates')} />
       {/if}
       {#if narrow}
         <button class="icon-btn" aria-label={t('sidebar.settings')} onclick={() => onsettings()}>

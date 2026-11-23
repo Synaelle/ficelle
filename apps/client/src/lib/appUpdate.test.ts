@@ -3,6 +3,7 @@
 import { brand } from '@app/brand'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  appUpdates,
   channel,
   channelChoice,
   downloadLine,
@@ -101,5 +102,29 @@ describe('downloadLine', () => {
       'Downloading, 12.4 of 24.2 MB',
     )
     expect(downloadLine({ done: 3_000_000, total: null })).toBe('Downloading, 3 MB')
+  })
+})
+
+describe('offered', () => {
+  it('offers a version found once the notes are open', () => {
+    appUpdates.ready = { version: '0.9.0', notes: '' }
+    appUpdates.shown = false
+    expect(appUpdates.offered).toBe(false)
+    appUpdates.shown = true
+    expect(appUpdates.offered).toBe(true)
+  })
+
+  it('offers it no more once put off, skipped or asked in the middle', () => {
+    appUpdates.ready = { version: '0.9.0', notes: '' }
+    appUpdates.shown = true
+    appUpdates.dismissed = true
+    expect(appUpdates.offered).toBe(false)
+    appUpdates.dismissed = false
+    appUpdates.skip()
+    expect(appUpdates.offered).toBe(false)
+    appUpdates.ready = { version: '0.9.1', notes: '' }
+    expect(appUpdates.offered).toBe(true)
+    appUpdates.critical = { version: '0.9.1', notes: '', critical: true }
+    expect(appUpdates.offered).toBe(false)
   })
 })

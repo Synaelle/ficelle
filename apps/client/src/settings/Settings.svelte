@@ -41,7 +41,11 @@
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'
 
-  let { close, onlock, start }: { close: () => void; onlock: () => void; start?: 'sync' } = $props()
+  let {
+    close,
+    onlock,
+    start,
+  }: { close: () => void; onlock: () => void; start?: 'sync' | 'updates' } = $props()
 
   type Section =
     | 'appearance'
