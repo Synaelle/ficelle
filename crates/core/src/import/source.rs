@@ -294,6 +294,28 @@ impl Source {
 
     fn add_zip(&mut self, file: Box<dyn ReadSeek>, prefix: &str) -> Result<()> {
         let mut archive = zip::ZipArchive::new(BufReader::new(file)).map_err(bad)?;
+        if archive.has_duplicate_names() {
+            // the archive keeps the last entry of a name: the earlier ones
+            // are left out, named as the archive lists them all
+            let mut reader = archive.into_inner();
+            let mut all = zip::unstable::read::ZipIterable::try_new(
+                &mut reader,
+                zip::read::Config::default(),
+            )
+            .map_err(bad)?;
+            let mut seen = std::collections::HashSet::new();
+            for entry in all.files().map_err(bad)? {
+                let name = entry.map_err(bad)?.name().map_err(bad)?.into_owned();
+                if !seen.insert(name.clone()) {
+                    self.left_out.push(if prefix.is_empty() {
+                        name
+                    } else {
+                        format!("{prefix}/{name}")
+                    });
+                }
+            }
+            archive = zip::ZipArchive::new(reader).map_err(bad)?;
+        }
         let at = self.zips.len();
         let mut inner = Vec::new();
         for index in 0..archive.len() {
@@ -606,6 +628,28 @@ mod tests {
         let temp = source.temp.clone();
         drop(source);
         assert!(temp.iter().all(|t| !t.exists()), "temporary zips removed");
+    }
+
+    #[test]
+    fn a_zip_with_two_entries_of_one_name_says_the_earlier_is_left_out() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Export.zip");
+        write_zip(
+            &path,
+            &[("Note.md", b"first text"), ("Nite.md", b"second text")],
+        );
+        // the zip writer refuses a name twice, some exporters do not
+        let mut bytes = std::fs::read(&path).unwrap();
+        for at in 0..bytes.len() - 7 {
+            if &bytes[at..at + 7] == b"Nite.md" {
+                bytes[at + 1] = b'o';
+            }
+        }
+        std::fs::write(&path, bytes).unwrap();
+        let mut source = Source::open(&path).unwrap();
+        assert_eq!(source.left_out(), ["Note.md"]);
+        assert_eq!(source.entries().len(), 1);
+        assert_eq!(source.read("Note.md").unwrap(), b"second text");
     }
 
     /// Zips inside zips are opened a few
