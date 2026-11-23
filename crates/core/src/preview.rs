@@ -26,12 +26,8 @@ const DETAILS_TAGS: [&str; 5] = [
 /// dashes and underscores. Its length with the brackets.
 fn footnote(rest: &str) -> Option<usize> {
     let label = rest.strip_prefix("[^")?;
-    let end = label.find(']')?;
-    let ok = end > 0
-        && label[..end]
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_');
-    ok.then_some(end + 3)
+    let end = label.find(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_'))?;
+    (end > 0 && label[end..].starts_with(']')).then_some(end + 3)
 }
 
 /// The emoji of a `:name:` shortcode at the start of `rest`, and its length.
@@ -112,7 +108,8 @@ fn entity(rest: &str) -> Option<(char, usize)> {
 /// `<me@example.org>`, and the autolink's length. Other angle brackets
 /// (`<c>`, `a < b > c`) are not one.
 fn autolink(rest: &str) -> Option<(&str, usize)> {
-    let inner = &rest[1..rest.find('>')?];
+    let end = 1 + rest[1..].find(|c: char| c == '>' || c == '<' || c.is_whitespace())?;
+    let inner = rest[end..].starts_with('>').then(|| &rest[1..end])?;
     let scheme = inner.split_once(':').is_some_and(|(scheme, _)| {
         (2..=32).contains(&scheme.len())
             && scheme.starts_with(|c: char| c.is_ascii_alphabetic())
@@ -120,9 +117,40 @@ fn autolink(rest: &str) -> Option<(&str, usize)> {
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '.' | '-'))
     });
-    let ok =
-        (scheme || inner.contains('@')) && !inner.contains(|c: char| c.is_whitespace() || c == '<');
-    ok.then_some((inner, inner.len() + 2))
+    (scheme || inner.contains('@')).then_some((inner, inner.len() + 2))
+}
+
+/// Where `pattern` is next in a line, from a place that only moves on:
+/// remembered, so a line of many `[` is not searched again from each.
+struct Next {
+    pattern: &'static str,
+    /// Whether it was looked for yet.
+    searched: bool,
+    /// Where the last search found it, `None` for nowhere.
+    found: Option<usize>,
+}
+
+impl Next {
+    const fn of(pattern: &'static str) -> Self {
+        Self {
+            pattern,
+            searched: false,
+            found: None,
+        }
+    }
+
+    /// The pattern's first place at `from` or after. `from` never goes back.
+    fn from(&mut self, line: &str, from: usize) -> Option<usize> {
+        match self.found {
+            Some(at) if at >= from => Some(at),
+            None if self.searched => None,
+            _ => {
+                self.searched = true;
+                self.found = line[from..].find(self.pattern).map(|i| from + i);
+                self.found
+            }
+        }
+    }
 }
 
 /// Text of `[label](target)` or `[[target|label]]` links, images dropped,
@@ -130,7 +158,10 @@ fn autolink(rest: &str) -> Option<(&str, usize)> {
 fn strip_inline(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
     let mut rest = line;
+    let (mut wiki_end, mut mid, mut close, mut layout_end) =
+        (Next::of("]]"), Next::of("]("), Next::of(")"), Next::of("}"));
     while let Some(c) = rest.chars().next() {
+        let at = line.len() - rest.len();
         if let Some(escaped) = rest.strip_prefix('\\').and_then(|r| r.chars().next()) {
             out.push(escaped);
             rest = &rest[1 + escaped.len_utf8()..];
@@ -148,7 +179,7 @@ fn strip_inline(line: &str) -> String {
             out.push_str(emoji);
             rest = &rest[len..];
         } else if rest.starts_with("[[") {
-            if let Some(end) = rest.find("]]") {
+            if let Some(end) = wiki_end.from(line, at + 2).map(|end| end - at) {
                 let inner = &rest[2..end];
                 let label = inner
                     .rsplit_once('|')
@@ -162,10 +193,11 @@ fn strip_inline(line: &str) -> String {
         } else if rest.starts_with("![") || rest.starts_with('[') {
             let image = rest.starts_with('!');
             let open = usize::from(image) + 1;
-            let target = rest[open..].find("](").and_then(|mid| {
-                rest[open + mid..]
-                    .find(')')
-                    .map(|close| (mid, open + mid + close))
+            let target = mid.from(line, at + open).and_then(|found| {
+                let found = found - at - open;
+                close
+                    .from(line, at + open + found)
+                    .map(|end| (found, end - at))
             });
             if let Some((mid, close)) = target {
                 if !image {
@@ -174,7 +206,10 @@ fn strip_inline(line: &str) -> String {
                 rest = &rest[close + 1..];
                 // layout block after an image: {width=320 wrap=left}
                 if image && rest.starts_with('{') {
-                    rest = rest.find('}').map_or(rest, |end| &rest[end + 1..]);
+                    let from = line.len() - rest.len();
+                    rest = layout_end
+                        .from(line, from)
+                        .map_or(rest, |end| &line[end + 1..]);
                 }
             } else {
                 out.push(c);
@@ -451,6 +486,22 @@ Garden log"
             preview("", "Meet at 10:30:00 :nope: [^] [^a b]", 100),
             "Meet at 10:30:00 :nope: [^] [^a b]"
         );
+    }
+
+    /// Each `[` once looked for a `](` to the end of its line: 80 000 of
+    /// them took seconds.
+    #[test]
+    fn long_runs_of_link_marks_are_read_in_one_pass() {
+        let started = std::time::Instant::now();
+        let brackets = "[".repeat(300_000);
+        assert_eq!(preview("", &brackets, 3), "[[[…");
+        let images = format!("{} and the site", "![".repeat(150_000));
+        assert!(search_text(&images).ends_with("![ and the site"));
+        let marks = ["[[", "[^", "<a", "![a](b){"]
+            .map(|m| m.repeat(100_000))
+            .concat();
+        assert!(!search_text(&marks).is_empty());
+        assert!(started.elapsed().as_secs() < 2, "{:?}", started.elapsed());
     }
 
     #[test]
