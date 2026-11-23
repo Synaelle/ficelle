@@ -4,7 +4,8 @@
      encryption before them; the web version goes straight to them. -->
 <script lang="ts">
   import { brand } from '@app/brand'
-  import { LINUX, WEB } from './lib/platform'
+  import { LINUX, PHONE, WEB } from './lib/platform'
+  import { followBrowserBack } from './lib/browserBack.svelte'
   // file viewer
   import FileViewer from './fileViewer/InApp.svelte'
   import DevReport from './devreport/DevReport.svelte'
@@ -65,6 +66,7 @@
   captureLogs()
   catchErrors()
   if (WEB) followPageParts()
+  if (WEB && PHONE) followBrowserBack()
   persistPrefs()
   applyTheme(() => backend.systemClock24h())
   $effect(() => void setLocale(prefs.language ?? systemLocale()))
