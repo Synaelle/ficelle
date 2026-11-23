@@ -115,6 +115,68 @@ export function withShortRows<T extends AnyExtension>(table: T): T {
   } as Partial<T['config']>) as T
 }
 
+/** The cells of a table row as written, split at the pipes that are not
+ * escaped or in code, as the reader splits them. */
+function rowCells(line: string): string[] {
+  const masked = line.replace(/\\.|(`+)[\s\S]*?\1/g, (part) => 'x'.repeat(part.length))
+  const cells: string[] = []
+  let from = 0
+  for (let at = 0; at <= line.length; at++)
+    if (at === line.length || masked[at] === '|') {
+      cells.push(line.slice(from, at))
+      from = at + 1
+    }
+  // a pipe at either end opens or closes the row
+  if (cells.length > 1 && cells[0]?.trim() === '') cells.shift()
+  if (cells.length > 1 && cells.at(-1)?.trim() === '') cells.pop()
+  return cells.map((cell) => cell.trim().replace(/\\\|/g, '|'))
+}
+
+type TableToken = { raw?: string; header?: unknown[]; rows?: unknown[] }
+type ParseHelpers = {
+  tokenizeInline(src: string): unknown[]
+  parseInline(tokens: unknown[]): JSONContent[]
+}
+
+/**
+ * Reads a table whose rows have more cells than its header with every
+ * cell. Upstream drops the cells past the header's, so they left the note
+ * at its next save: they are read from the row as written, and the header
+ * and the shorter rows get empty cells up to the longest row.
+ */
+export function withAllCells<T extends AnyExtension>(table: T): T {
+  const parse = table.config.parseMarkdown as
+    ((this: unknown, token: TableToken, helpers: ParseHelpers) => JSONContent) | undefined
+  if (!parse) return table
+  return table.extend({
+    parseMarkdown(this: unknown, token: TableToken, helpers: ParseHelpers) {
+      const parsed = parse.call(this, token, helpers)
+      const rows = parsed.content ?? []
+      const lines = (token.raw ?? '').replace(/\n+$/, '').split('\n').slice(2)
+      const width = token.header?.length ?? 0
+      if (lines.length !== token.rows?.length || rows.length !== lines.length + 1) return parsed
+      const cell = (type: string, content: JSONContent[] = []) => ({
+        type,
+        content: [{ type: 'paragraph', content }],
+      })
+      lines.forEach((line, index) => {
+        const extra = rowCells(line).slice(width)
+        rows[index + 1]?.content?.push(
+          ...extra.map((text) =>
+            cell('tableCell', helpers.parseInline(helpers.tokenizeInline(text))),
+          ),
+        )
+      })
+      const most = rows.reduce((longest, row) => Math.max(longest, row.content?.length ?? 0), 0)
+      rows.forEach((row, index) => {
+        while ((row.content?.length ?? most) < most)
+          row.content?.push(cell(index === 0 ? 'tableHeader' : 'tableCell'))
+      })
+      return parsed
+    },
+  } as Partial<T['config']>) as T
+}
+
 /** A numbered item with nothing after its number: "2." alone on its line. */
 const EMPTY_NUMBER = /^([ \t]*\d{1,9}[.)])$/gm
 

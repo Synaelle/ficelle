@@ -26,6 +26,7 @@ import {
   SafeParagraph,
   TASK_GUARD,
   taskListExtent,
+  withAllCells,
   withBoundedStart,
   withEmptyItems,
   withShortRows,
@@ -97,7 +98,7 @@ export function createExtensions(setup: EditorSetup = {}): AnyExtension[] {
     ),
     setup.autoLists === false ? withoutTypingRule(BulletList) : BulletList,
     withEmptyItems(setup.autoLists === false ? withoutTypingRule(OrderedList) : OrderedList),
-    withShortRows(withBoundedStart(Table, undefined)).configure({ resizable: false }),
+    withShortRows(withAllCells(withBoundedStart(Table, undefined))).configure({ resizable: false }),
     TableRow,
     // one line of text per cell, all a Markdown table can hold: no table, list
     // or quote inside a cell, which the file could not keep

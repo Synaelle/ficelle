@@ -398,6 +398,21 @@ describe('empty numbered items', () => {
   })
 })
 
+describe('uneven tables', () => {
+  it('keeps the cells past the header, as columns of their own', () => {
+    const out = roundTrip('| Name | Qty |\n|---|---|\n| Apples | 3 | ripe ones |\n')
+    expect(out).toBe('| Name | Qty | |\n| --- | --- | --- |\n| Apples | 3 | ripe ones |')
+    expect(roundTrip(out)).toBe(out)
+    expect(roundTrip('Kitchen\n-|\nTomatoes|Basil\n')).toContain('| Tomatoes | Basil |')
+  })
+
+  it('counts no cell for an escaped pipe or one in code, and leaves a heading a heading', () => {
+    const md = '| a | b |\n| - | - |\n| c \\| d | `e|f` |\n'
+    expect(roundTrip(md)).toMatch(/^\| a \| b \|\n\| --- \| --- \|\n\| c \\\| d \| `e\\?\|f` \|$/)
+    expect(roundTrip('Title\n---\na | b\n')).toMatch(/^## Title\n\na \| b$|^Title\n---\n\na \| b$/)
+  })
+})
+
 describe('github markdown additions', () => {
   it('keeps footnotes where they are written', () => {
     const out = roundTrip(
