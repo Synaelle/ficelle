@@ -12,7 +12,7 @@ import { download, showOrDownload } from '../download'
 import { pickedFile } from '../pick'
 import { backupMade, notesMade } from '../webBackups'
 import { createTauriBackend } from './tauri'
-import type { Attachment, AttachmentFile } from './types'
+import type { Attachment, AttachmentFile, SearchHit } from './types'
 
 const unsupported = (message: string) => ({ kind: 'unsupported', message })
 
@@ -138,6 +138,21 @@ export function createWebBackend(): Backend {
   const call = ((name: string, args?: Record<string, unknown>) => send(name, args)) as typeof invoke
   const commands = createTauriBackend(call)
 
+  /** The searches asked for, the last one's number. Each waits for the one
+   * before it and runs only if none was asked for since: a word typed in the
+   * search box keeps one search in the worker, never one per key ahead of a
+   * save. */
+  let searches = 0
+  let searching: Promise<unknown> = Promise.resolve()
+  function search(query: string, limit: number): Promise<SearchHit[]> {
+    const asked = ++searches
+    const found = searching.then(() =>
+      asked === searches ? commands.search(query, limit) : ([] as SearchHit[]),
+    )
+    searching = found.catch(() => {})
+    return found
+  }
+
   /** Pictures of the open notes as blob urls, by hash: `fileUrl` answers at
    * once, so they are read when the note's files are listed. */
   const urls = new Map<string, string>()
@@ -162,6 +177,8 @@ export function createWebBackend(): Backend {
   return {
     ...commands,
     native: false,
+
+    search,
 
     vaultUnlockPin: async () => {
       throw unsupported('a PIN needs the app')

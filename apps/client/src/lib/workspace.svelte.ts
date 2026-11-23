@@ -125,6 +125,8 @@ class Workspace {
   private saves = 0
   /** The save on its way to the store, one at a time. */
   private saving: Promise<void> | null = null
+  /** Grows with each search asked for. */
+  private searches = 0
   /** Changes from another device are being taken in, and more came since. */
   private following = false
   private followAgain = false
@@ -206,12 +208,15 @@ class Workspace {
 
   async search(query: string) {
     this.query = query
+    const asked = ++this.searches
     const scoped = this.searchScoped
     // the store searches every note: the list's own hits are picked from far
     // more, so a tag's few are not crowded out by the rest
     let found = query.trim()
       ? await backend.search(query, scoped ? SEARCH_LIMIT * 20 : SEARCH_LIMIT + 1)
       : null
+    // a search answered after a newer one was asked for is not shown
+    if (asked !== this.searches) return
     if (found && scoped) {
       const listed = new Set(this.notes.map((note) => note.id))
       found = found.filter((hit) => listed.has(hit.noteId))
