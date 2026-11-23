@@ -41,7 +41,9 @@ export const Details = Node.create({
   markdownTokenizer: {
     name: 'details',
     level: 'block',
-    start: (src: string) => /^<details/m.exec(src)?.index ?? -1,
+    // marked asks from the second letter of a paragraph on: its start is no
+    // line start, and "\<details" (a broken tag kept as text) was cut there
+    start: (src: string) => src.search(/(?<=\n)<details/),
     tokenize(src, _tokens, lexer) {
       const match = DETAILS.exec(src)
       if (!match) return undefined

@@ -524,6 +524,15 @@ describe('github markdown additions', () => {
     expect(roundTrip(out)).toBe(out)
   })
 
+  it('keeps a broken details tag as its text', () => {
+    const out = roundTrip('<details 2\n')
+    expect(out).toBe('\\<details 2')
+    expect(roundTrip(out)).toBe(out)
+    expect(roundTrip('Text\n<details>\n<summary>More</summary>\n\nHidden.\n\n</details>\n')).toBe(
+      'Text\n\n<details>\n<summary>More</summary>\n\nHidden.\n\n</details>',
+    )
+  })
+
   it('reads known emoji shortcodes and leaves the others', () => {
     const out = roundTrip(
       'Done :tada: and :+1:, not :notanemoji: or 10:30:45.\n\n`:smile:` in code.\n',
