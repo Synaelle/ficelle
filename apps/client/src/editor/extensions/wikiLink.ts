@@ -4,7 +4,7 @@
 // [[ opens suggestions, the popup itself is WikiSuggest.svelte.
 
 import { Node } from '@tiptap/core'
-import { PluginKey } from '@tiptap/pm/state'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
 import Suggestion, { type SuggestionProps } from '@tiptap/suggestion'
 
 const WIKI = /^\[\[([^\]|#\n]+)(?:#([^\]|\n]+))?(?:\|([^\]\n]+))?\]\]/
@@ -28,6 +28,8 @@ export interface WikiLinkOptions {
 }
 
 export const wikiSuggestKey = new PluginKey('wikiSuggest')
+/** Set while the caret is right after the space put behind a picked link. */
+const pickedSpaceKey = new PluginKey<boolean>('wikiPickedSpace')
 
 export const WikiLink = Node.create<WikiLinkOptions>({
   name: 'wikiLink',
@@ -122,6 +124,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
               { type: 'wikiLink', attrs: { target: props.title, heading: props.heading ?? null } },
               { type: 'text', text: ' ' },
             ])
+            .setMeta(pickedSpaceKey, true)
             .run(),
         render: () => ({
           onStart: (props) => void options.onSuggest({ phase: 'start', props }),
@@ -129,6 +132,24 @@ export const WikiLink = Node.create<WikiLinkOptions>({
           onExit: () => void options.onSuggest({ phase: 'exit' }),
           onKeyDown: ({ event }) => options.onSuggest({ phase: 'key', key: event.key }),
         }),
+      }),
+      // the space after a picked link is the one typed next: typing it
+      // again only walks past it, instead of leaving two
+      new Plugin<boolean>({
+        key: pickedSpaceKey,
+        state: {
+          init: () => false,
+          apply: (tr, picked) =>
+            (tr.getMeta(pickedSpaceKey) as boolean | undefined) ??
+            (picked && !tr.docChanged && !tr.selectionSet),
+        },
+        props: {
+          handleTextInput: (view, _from, _to, text) => {
+            if (text !== ' ' || !pickedSpaceKey.getState(view.state)) return false
+            view.dispatch(view.state.tr.setMeta(pickedSpaceKey, false))
+            return true
+          },
+        },
       }),
     ]
   },
