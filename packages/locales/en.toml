@@ -557,6 +557,7 @@ dropped = "Content with no equivalent, left out"
 encrypted = "Encrypted content"
 simplified = "Kept in a simpler form"
 unreadable = "Items that could not be read"
+damaged = "Damaged characters, shown as �"
 
 [import.alreadyHere]
 one = "{count} note was already here, it was left as it is."

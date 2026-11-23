@@ -2,10 +2,14 @@
 // Helpers over a source: paths, text, sources in memory for the browser
 // preview and the tests.
 
-import type { ImportSource, SourceEntry } from './types'
+import type { ImportSource, Report, SourceEntry } from './types'
 
 const decoder = new TextDecoder('utf-8', { fatal: true })
+const lenientDecoder = new TextDecoder('utf-8')
 const legacyDecoder = new TextDecoder('windows-1252')
+/** Valid UTF-8 characters beyond ASCII for each bad byte sequence, at least,
+ * to read a file as damaged UTF-8 rather than as an older encoding. */
+const UTF8_PER_BAD = 4
 
 /** Bytes that are no text: a NUL, or many control characters. */
 function isBinary(bytes: Uint8Array): boolean {
@@ -19,17 +23,29 @@ function isBinary(bytes: Uint8Array): boolean {
 }
 
 /**
- * An entry as text, UTF-8 with a byte order mark dropped. Text in an older
- * single byte encoding is read as Windows-1252, bytes that are no text at
- * all are refused.
+ * An entry as text, UTF-8 with a byte order mark dropped. UTF-8 with a few
+ * damaged bytes keeps its text, the bad bytes read as U+FFFD and `report`
+ * told. Text in an older single byte encoding is read as Windows-1252,
+ * bytes that are no text at all are refused.
  */
-export async function readText(source: ImportSource, path: string): Promise<string> {
+export async function readText(
+  source: ImportSource,
+  path: string,
+  report?: Report,
+): Promise<string> {
   const bytes = await source.read(path)
   if (isBinary(bytes)) throw new Error(`${path} is not text`)
   try {
     return decoder.decode(bytes).replace(/^\uFEFF/, '')
   } catch {
-    return legacyDecoder.decode(bytes)
+    // in Windows-1252 text nearly every accent is a bad sequence, valid
+    // UTF-8 beyond ASCII is then all but absent
+    const text = lenientDecoder.decode(bytes)
+    const bad = text.match(/\uFFFD/g)?.length ?? 0
+    const valid = text.match(/[^\p{ASCII}\uFFFD]/gu)?.length ?? 0
+    if (valid < bad * UTF8_PER_BAD) return legacyDecoder.decode(bytes)
+    report?.add({ kind: 'damaged', detail: path })
+    return text
   }
 }
 

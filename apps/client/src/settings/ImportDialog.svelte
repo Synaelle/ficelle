@@ -64,6 +64,7 @@
     'encrypted',
     'simplified',
     'unreadable',
+    'damaged',
   ]
 
   const day = (time: number) =>

@@ -435,4 +435,12 @@ describe('markdown files that are not text', () => {
       'unreadable junk.md',
     ])
   })
+
+  it('reads UTF-8 with one damaged byte as UTF-8 and says so', async () => {
+    const text = new TextEncoder().encode('# Note\n\nÉté à Zürich, naïve.\n')
+    const damaged = new Uint8Array([...text, 0xff])
+    const p = await run(memorySource('Export.zip', { 'Note.md': damaged }), markdownImporter)
+    expect(note(p, 'Note').body).toBe('Été à Zürich, naïve.\n\uFFFD')
+    expect(kinds(p.report)).toEqual(['damaged Note.md'])
+  })
 })

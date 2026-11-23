@@ -103,7 +103,7 @@ export async function readMarkdownNotes(
     report.progress(done++, options.notes.length)
     let text: string
     try {
-      text = (await readText(source, path)).replace(/\r\n?/g, '\n')
+      text = (await readText(source, path, report)).replace(/\r\n?/g, '\n')
     } catch {
       report.add({ kind: 'unreadable', detail: path })
       continue

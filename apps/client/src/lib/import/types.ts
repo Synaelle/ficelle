@@ -79,6 +79,8 @@ export type ReportKind =
   | 'simplified'
   /** An item of the export that could not be read at all. */
   | 'unreadable'
+  /** Text with damaged bytes, read with those replaced. */
+  | 'damaged'
 
 export interface ReportItem {
   kind: ReportKind
