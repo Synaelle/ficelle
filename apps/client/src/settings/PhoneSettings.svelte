@@ -236,8 +236,8 @@
       ? [
           {
             icon: 'key',
-            label: t('recovery.heading'),
-            value: vault?.recovery ? t('settings.phone.keyCreated') : t('settings.phone.keyNone'),
+            label: vault?.recovery ? t('recovery.heading') : t('recovery.create'),
+            value: vault?.recovery ? t('settings.phone.keyCreated') : undefined,
             run: recoveryMenu,
           },
           ...(vault?.hasPassword
