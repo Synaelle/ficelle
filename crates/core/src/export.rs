@@ -335,7 +335,8 @@ fn yaml_string(text: &str) -> String {
             '\\' => out.push_str("\\\\"),
             '\n' => out.push_str("\\n"),
             '\t' => out.push_str("\\t"),
-            c if c.is_control() => {
+            // YAML allows neither control characters nor these two
+            c if c.is_control() || c == '\u{fffe}' || c == '\u{ffff}' => {
                 let _ = write!(out, "\\u{:04x}", u32::from(c));
             }
             c => out.push(c),
@@ -502,6 +503,14 @@ mod tests {
     fn yaml_strings_are_escaped() {
         assert_eq!(yaml_string("say \"no\"\n\\"), r#""say \"no\"\n\\""#);
         assert_eq!(yaml_string("no"), "\"no\"");
+    }
+
+    #[test]
+    fn yaml_strings_escape_the_characters_yaml_refuses() {
+        assert_eq!(
+            yaml_string("Seeds\u{ffff}\u{fffe}\u{7}"),
+            r#""Seeds\uffff\ufffe\u0007""#
+        );
     }
 
     #[test]
