@@ -104,8 +104,13 @@ export function onChangedElsewhere(run: () => void): Promise<UnlistenFn> {
 /** Runs when the notes lock, whichever window locked them. */
 export const onLocked = (run: () => void) => listen(LOCKED, run)
 
-/** This window unlocked the notes: the others come back too. */
-export const announceUnlocked = () => emit(UNLOCKED, { from: label() }).catch(() => {})
+/** This window unlocked the notes: the others come back too. Only the
+ * desktop app's windows listen, and the web version has no window to name:
+ * asking it for one throws. */
+export async function announceUnlocked() {
+  if (!noteWindowsSupported) return
+  await emit(UNLOCKED, { from: label() }).catch(() => {})
+}
 
 export function onUnlockedElsewhere(run: () => void): Promise<UnlistenFn> {
   return listen<{ from: string }>(UNLOCKED, (event) => {
