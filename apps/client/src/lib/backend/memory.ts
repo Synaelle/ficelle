@@ -222,6 +222,14 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
       notes.clear()
       folders.clear()
     },
+    vaultSetAside: async () => {
+      unlocked = false
+      exists = false
+      encrypted = false
+      notes.clear()
+      folders.clear()
+      return 'set aside'
+    },
     vaultChangePassword: async () => {},
 
     listNotes: async (scope: Scope, sort) => {

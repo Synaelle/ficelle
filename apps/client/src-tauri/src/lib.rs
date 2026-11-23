@@ -177,6 +177,7 @@ pub fn run() {
             commands::vault::vault_unlock,
             commands::vault::vault_lock,
             commands::vault::vault_reset,
+            commands::vault::vault_set_aside,
             commands::vault::vault_unlock_biometric,
             commands::vault::vault_unlock_pin,
             commands::vault::vault_set_way,

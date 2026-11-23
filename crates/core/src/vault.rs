@@ -695,6 +695,37 @@ impl Vault {
         Ok(())
     }
 
+    /// Moves the vault in `dir` of `disk` into a new folder inside it, named
+    /// for the day `now` (unix milliseconds), and returns that folder: the
+    /// database with SQLite's side files, `vault.json` and the files, so a
+    /// new vault can start there while a damaged one stays for a recovery
+    /// tool. The imported themes stay where they are.
+    ///
+    /// # Errors
+    ///
+    /// When a file cannot be moved, the ones before it are in the new folder.
+    pub fn set_aside_on(disk: &dyn Disk, dir: &Path, now: i64) -> Result<PathBuf> {
+        let day = crate::clock::utc(now);
+        let name = format!("set aside {:04}-{:02}-{:02}", day.year, day.month, day.day);
+        let mut aside = dir.join(&name);
+        let mut n = 1;
+        while disk.exists(&aside) {
+            n += 1;
+            aside = dir.join(format!("{name} {n}"));
+        }
+        disk.make_folder(&aside)?;
+        for path in disk.list(dir)? {
+            let name = path.file_name().unwrap_or_default().to_string_lossy();
+            let ours = [META_FILE, BLOBS_DIR, ENC_BLOBS].contains(&name.as_ref())
+                || name.starts_with(DB_FILE)
+                || (name.starts_with("vault.") && name.ends_with(".tmp"));
+            if ours {
+                disk.rename(&path, &aside.join(name.as_ref()))?;
+            }
+        }
+        Ok(aside)
+    }
+
     /// Keeps a PIN to open the vault on this device: the key wrapped by the
     /// PIN, in `keys` and never beside the database, with [`PIN_TRIES`]
     /// tries. Replaces an earlier PIN.
@@ -1527,6 +1558,38 @@ mod tests {
             let err = opened.unwrap_err();
             assert_eq!(err.kind(), "notesDamaged", "{password:?} cut: {err}");
         }
+    }
+
+    #[test]
+    fn setting_aside_moves_the_vault_into_a_dated_folder_and_frees_the_place() {
+        let dir = tempfile::tempdir().unwrap();
+        let (vault, mut store) = Vault::create(dir.path(), on("pw")).unwrap();
+        note(&mut store, "Order more cedar posts");
+        let sha = vault.blobs(&mut store).unwrap().put(b"picture").unwrap();
+        drop(store);
+        fs::create_dir_all(dir.path().join("themes")).unwrap();
+        fs::write(dir.path().join("themes").join("mine.json"), "{}").unwrap();
+        // 2026-11-23
+        let now = 1_795_392_000_000;
+        let aside = Vault::set_aside_on(&NativeDisk, dir.path(), now).unwrap();
+        assert_eq!(aside, dir.path().join("set aside 2026-11-23"));
+        assert!(!Vault::exists(dir.path()));
+        assert!(!dir.path().join(DB_FILE).exists() && !dir.path().join(BLOBS_DIR).exists());
+        assert!(dir.path().join("themes").join("mine.json").exists());
+
+        // the folder set aside opens as the vault it was
+        let moved = Vault::open(&aside).unwrap();
+        let mut store = moved.unlock_with_password("pw").unwrap();
+        assert_eq!(store.search("cedar", 5).unwrap().len(), 1);
+        assert!(moved.blobs(&mut store).unwrap().has(&sha).unwrap());
+        drop(store);
+
+        // a new vault starts in the place, a second start the same day gets its own folder
+        let (_, store) = Vault::create(dir.path(), Encryption::Off).unwrap();
+        drop(store);
+        let again = Vault::set_aside_on(&NativeDisk, dir.path(), now).unwrap();
+        assert_eq!(again, dir.path().join("set aside 2026-11-23 2"));
+        assert!(Vault::exists(&again) && Vault::exists(&aside));
     }
 
     #[test]

@@ -229,6 +229,9 @@ export function createWebBackend(): Backend {
     vaultSetWay: async () => {
       throw unsupported('unlock ways need the app')
     },
+    vaultSetAside: async () => {
+      throw unsupported('the browser has no folder to set notes aside in')
+    },
     vaultCreate: async (way, password, pin) => {
       await commands.vaultCreate(way, password, pin)
       notesMade()

@@ -1775,6 +1775,10 @@ server = "Notes already on a paired device or a sync server stay there, and come
 final = "This cannot be undone."
 wait = "Reset everything ({count})"
 confirm = "Reset everything"
+asideBody = "This moves the files of your notes on this device into a new folder beside them, then starts again with no notes. Nothing is deleted."
+asideWait = "Start again ({count})"
+asideConfirm = "Start again"
+asideDone = "Your old files are now in this folder."
 
 [backups]
 schedule_off = "Only when asked"

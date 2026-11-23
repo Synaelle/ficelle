@@ -476,6 +476,20 @@ pub async fn vault_reset(state: State<'_, AppState>) -> CommandResult<()> {
     forgotten
 }
 
+/// Starts again from the lock screen: the vault's files move into a dated
+/// folder beside them, never deleted, since a damaged database still holds
+/// most notes for a recovery tool. The keys this device kept stay, they open
+/// that copy if it is put back. Returns the folder. The page then starts the
+/// first launch setup.
+#[tauri::command]
+pub async fn vault_set_aside(state: State<'_, AppState>) -> CommandResult<String> {
+    state.check_alone()?;
+    state.close();
+    let now = app_core::clock::Clock::now(&app_core::clock::SystemClock);
+    let aside = Vault::set_aside_on(&app_core::disk::NativeDisk, &state.dir, now)?;
+    Ok(aside.display().to_string())
+}
+
 #[tauri::command]
 pub async fn vault_change_password(
     app: AppHandle,

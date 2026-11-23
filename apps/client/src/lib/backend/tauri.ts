@@ -67,6 +67,7 @@ export function createTauriBackend(call: typeof invoke = invoke): Backend {
     vaultRecover: (code, newPassword) => call('vault_recover', { code, newPassword }),
     vaultLock: () => call('vault_lock'),
     vaultReset: () => call('vault_reset'),
+    vaultSetAside: () => call('vault_set_aside'),
     vaultChangePassword: (old, next) => call('vault_change_password', { old, new: next }),
 
     listNotes: (scope, sort) => call('list_notes', { scope, sort }),

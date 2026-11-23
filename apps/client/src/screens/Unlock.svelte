@@ -22,6 +22,7 @@
   import { errorKind, shownError, type ShownError } from '../lib/errors'
   import ErrorText from '../lib/ErrorText.svelte'
   import ResetDialog from '../settings/ResetDialog.svelte'
+  import { WEB } from '../lib/platform'
 
   let { done, status }: { done: () => void; status: VaultStatus } = $props()
 
@@ -299,7 +300,7 @@
 </main>
 
 {#if resetting}
-  <ResetDialog close={() => (resetting = false)} />
+  <ResetDialog aside={!WEB} close={() => (resetting = false)} />
 {/if}
 
 <style>

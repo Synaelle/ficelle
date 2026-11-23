@@ -2,7 +2,8 @@
 <!-- Deleting everything on this device. The button waits a few seconds
      before it can be pressed, so the choice is read, not clicked through.
      Used by the settings and by the unlock screen, where notes that no
-     longer open can still be started over. -->
+     longer open can still be started over: there the files are set aside
+     in a folder beside them instead, and the dialog says which. -->
 <script lang="ts">
   import { onMount } from 'svelte'
   import { backend } from '../lib/backend'
@@ -12,7 +13,7 @@
   import { t } from '../lib/i18n.svelte'
   import { modal } from '../lib/modal'
 
-  let { close }: { close: () => void } = $props()
+  let { close, aside = false }: { close: () => void; aside?: boolean } = $props()
 
   // dev and preview builds are reset often while testing: a short pause
   const WAIT_SECONDS = __APP_DEV_TOOLS__ ? 2 : 10
@@ -20,6 +21,8 @@
   let left = $state(WAIT_SECONDS)
   let busy = $state(false)
   let error: ShownError | null = $state(null)
+  /** Where the files were set aside, once they were. */
+  let folder = $state('')
 
   onMount(() => {
     const timer = setInterval(() => {
@@ -34,6 +37,11 @@
     busy = true
     error = null
     try {
+      if (aside) {
+        folder = await backend.vaultSetAside()
+        busy = false
+        return
+      }
       await backend.vaultReset()
       try {
         // this device's display choices go too: a fresh start
@@ -48,7 +56,7 @@
     }
   }
 
-  const closeIfIdle = () => !busy && close()
+  const closeIfIdle = () => !busy && !folder && close()
 </script>
 
 <div
@@ -65,23 +73,39 @@
     use:modal={{ onclose: closeIfIdle }}
   >
     <header>
-      <h2 id="reset-title">{t('reset.title')}</h2>
-      <button class="icon-btn" aria-label={t('common.close')} disabled={busy} onclick={close}
-        ><Icon name="close" /></button
-      >
+      <h2 id="reset-title">{aside ? t('unlock.startAgain') : t('reset.title')}</h2>
+      {#if !folder}
+        <button class="icon-btn" aria-label={t('common.close')} disabled={busy} onclick={close}
+          ><Icon name="close" /></button
+        >
+      {/if}
     </header>
-    <div id="reset-body">
-      <p>{t('reset.body')}</p>
-      <p class="muted">{t('reset.server')}</p>
-      <p class="strong">{t('reset.final')}</p>
-    </div>
-    {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
-    <div class="actions">
-      <button class="btn danger" disabled={left > 0 || busy} onclick={reset}>
-        {left > 0 ? t('reset.wait', { count: left }) : t('reset.confirm')}
-      </button>
-      <button class="btn" disabled={busy} onclick={close}>{t('common.cancel')}</button>
-    </div>
+    {#if folder}
+      <div id="reset-body">
+        <p role="status">{t('reset.asideDone')}</p>
+        <p class="folder">{folder}</p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" onclick={() => location.reload()}>{t('common.ok')}</button>
+      </div>
+    {:else}
+      <div id="reset-body">
+        <p>{aside ? t('reset.asideBody') : t('reset.body')}</p>
+        <p class="muted">{t('reset.server')}</p>
+        {#if !aside}<p class="strong">{t('reset.final')}</p>{/if}
+      </div>
+      {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
+      <div class="actions">
+        <button class="btn danger" disabled={left > 0 || busy} onclick={reset}>
+          {#if aside}
+            {left > 0 ? t('reset.asideWait', { count: left }) : t('reset.asideConfirm')}
+          {:else}
+            {left > 0 ? t('reset.wait', { count: left }) : t('reset.confirm')}
+          {/if}
+        </button>
+        <button class="btn" disabled={busy} onclick={close}>{t('common.cancel')}</button>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -125,6 +149,11 @@
   }
   .strong {
     font-weight: 600;
+  }
+  .folder {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+    user-select: text;
   }
   .error {
     color: var(--color-danger);

@@ -116,6 +116,9 @@ export interface Backend {
   vaultLock(): Promise<void>
   /** Deletes everything on this device, locked or not: the first launch setup comes next. */
   vaultReset(): Promise<void>
+  /** Moves the files of the notes into a dated folder beside them, locked or
+   * not, and gives that folder: the first launch setup comes next. */
+  vaultSetAside(): Promise<string>
   vaultChangePassword(old: string, next: string): Promise<void>
 
   listNotes(scope: Scope, sort: NoteSort): Promise<NoteSummary[]>
