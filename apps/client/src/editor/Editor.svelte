@@ -64,8 +64,6 @@
   /** Typing with no such pause is turned into markdown this often all the
    * same, so it is saved and reaches the other devices while it goes on. */
   const SERIALIZE_AT_MOST_MS = 2000
-  /** Phones and tablets, where the system spells and selects. */
-  const PHONE = HANDHELD
   /** Touch screens have the toolbar fixed over the bottom of the note: the
    * caret is kept above it, not just inside the window. */
   const TOUCH = window.matchMedia('(pointer: coarse)').matches
@@ -153,7 +151,7 @@
 
   /** The picture itself goes on the clipboard; Android's takes text only. */
   const picturesCopy = (file: AttachmentFile) =>
-    file.mimeType.startsWith('image/') && backend.native && !PHONE
+    file.mimeType.startsWith('image/') && backend.native && !HANDHELD
 
   /** Puts a picture of the note on the clipboard, as an image other apps
    * paste. Says whether it went. */
@@ -694,9 +692,10 @@
         attributes: {
           class: 'prose',
           'aria-label': t('editor.label'),
-          // off unless chosen. On a phone, never: a tap on an unknown word
-          // opens the system's spelling popup instead of the usual selection
-          spellcheck: prefs.spellcheck && !PHONE ? 'true' : 'false',
+          // off unless chosen. On a phone or tablet, never: the system
+          // spells, and a tap on an unknown word opens its spelling popup
+          // instead of the usual selection
+          spellcheck: prefs.spellcheck && !HANDHELD ? 'true' : 'false',
         },
         scrollMargin: { top: 5, bottom: CLEAR_BELOW, left: 5, right: 5 },
         scrollThreshold: { top: 0, bottom: CLEAR_BELOW, left: 0, right: 0 },

@@ -28,7 +28,7 @@
   import AboutSettings from './AboutSettings.svelte'
   import UpdateCheck from './UpdateCheck.svelte'
   import { MODES } from '../lib/theme.svelte'
-  import { LINUX, MOBILE, WEB } from '../lib/platform'
+  import { HANDHELD, LINUX, MOBILE, WEB } from '../lib/platform'
   import { UI_SIZES } from '../lib/uiSize'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
   import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
@@ -342,6 +342,13 @@
     ['timer', 'settings.clock', 'language'],
     ['info', 'settings.credits', 'about'],
   ]
+  // a narrow window on a computer: its own spelling, and a list beside the
+  // note once it is wider
+  if (!HANDHELD)
+    inner.push(
+      ['pencil', 'settings.spellcheck', 'editor'],
+      ['pin', 'settings.openNoteFirst', 'editor'],
+    )
   if (updatesHere) inner.push(['search', 'appUpdate.check', 'updates'])
   if (updatesHere && channelChoice) inner.push(['flask', 'appUpdate.nightlyVersions', 'updates'])
   const innerRows = $derived<SettingRow[]>(
@@ -608,6 +615,20 @@
             on: prefs.emojiShortcodes,
             run: () => (prefs.emojiShortcodes = !prefs.emojiShortcodes),
           })}
+          {#if !HANDHELD}
+            {@render row({
+              icon: 'pencil',
+              label: t('settings.spellcheck'),
+              on: prefs.spellcheck,
+              run: () => (prefs.spellcheck = !prefs.spellcheck),
+            })}
+            {@render row({
+              icon: 'pin',
+              label: t('settings.openNoteFirst'),
+              on: prefs.openNoteFirst,
+              run: () => (prefs.openNoteFirst = !prefs.openNoteFirst),
+            })}
+          {/if}
           {@render row({
             icon: 'allNotes',
             label: t('settings.openLastNote'),

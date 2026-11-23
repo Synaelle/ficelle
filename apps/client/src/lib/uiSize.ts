@@ -9,14 +9,13 @@
 
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { backend } from './backend'
+import { HANDHELD } from './platform'
 
 export type UiSize = 'small' | 'medium' | 'huge'
 export const UI_SIZES: UiSize[] = ['small', 'medium', 'huge']
 
-const phone = /android|iphone|ipad/i.test(navigator.userAgent)
-
 /** Small is the original size. Huge keeps a 412 px phone at least 317 px wide. */
-const SCALES: Record<UiSize, number> = phone
+const SCALES: Record<UiSize, number> = HANDHELD
   ? { small: 1, medium: 1.02, huge: 1.3 }
   : { small: 1, medium: 1.1, huge: 1.25 }
 /** Layouts are checked down to 317 px, the width of Huge on a usual phone. */
@@ -53,8 +52,8 @@ function systemFontScale(): number {
 export function applyUiSize(size: UiSize) {
   const chosen = SCALES[size] ?? SCALES.medium
   // the system font size multiplies the chosen size, as in other apps
-  const scale = phone ? Math.min(chosen * systemFontScale(), MAX_PHONE_SCALE) : chosen
-  if (phone && backend.native) {
+  const scale = HANDHELD ? Math.min(chosen * systemFontScale(), MAX_PHONE_SCALE) : chosen
+  if (HANDHELD && backend.native) {
     // the minimum keeps the layout width, pinching only magnifies
     document
       .querySelector('meta[name=viewport]')
