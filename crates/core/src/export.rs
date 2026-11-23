@@ -439,10 +439,16 @@ pub fn export_markdown_zip(
     let partial = out.with_extension("partial");
     let done = std::fs::File::create(&partial)
         .map_err(Error::from)
-        .and_then(|file| export_markdown_zip_to(store, file, files));
+        .and_then(|file| {
+            let report = export_markdown_zip_to(store, &file, files)?;
+            // on the disk before it takes the name, as a backup
+            file.sync_all()?;
+            Ok(report)
+        });
     match done {
         Ok(report) => {
             std::fs::rename(&partial, out)?;
+            crate::disk::sync_folder_of(out)?;
             Ok(report)
         }
         Err(e) => {

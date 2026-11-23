@@ -255,10 +255,17 @@ pub fn write_backup(
     let partial = path.with_extension("partial");
     let written = File::create(&partial)
         .map_err(Error::from)
-        .and_then(|file| write_backup_to(store, blobs, file, password, kdf));
+        .and_then(|file| {
+            let manifest = write_backup_to(store, blobs, &file, password, kdf)?;
+            // on the disk before it takes the name: a backup said done
+            // after a power cut is whole
+            file.sync_all()?;
+            Ok(manifest)
+        });
     match written {
         Ok(manifest) => {
             std::fs::rename(&partial, path)?;
+            crate::disk::sync_folder_of(path)?;
             Ok(manifest)
         }
         Err(e) => {

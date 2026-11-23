@@ -118,7 +118,10 @@ impl Disk for NativeDisk {
             Ok(())
         })();
         match written {
-            Ok(()) => Ok(std::fs::rename(&tmp, path)?),
+            Ok(()) => {
+                std::fs::rename(&tmp, path)?;
+                Ok(sync_folder_of(path)?)
+            }
             Err(e) => {
                 let _ = std::fs::remove_file(&tmp);
                 Err(e)
@@ -158,6 +161,24 @@ impl Disk for NativeDisk {
             .ok()
             .and_then(|t| t.elapsed().ok())
     }
+}
+
+/// Writes the folder holding `path` to the disk, so a file renamed into it
+/// is there after a power cut too: the file's own sync leaves its name in
+/// the folder unwritten. Windows has no such sync, its file systems keep
+/// the name with the file.
+///
+/// # Errors
+///
+/// A folder that cannot be opened or synced.
+pub fn sync_folder_of(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    if let Some(dir) = path.parent() {
+        File::open(dir)?.sync_all()?;
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+    Ok(())
 }
 
 /// The web version's folder of a scope's notes, `None` for anything that is not a scope as

@@ -177,6 +177,7 @@ impl Place {
                     })
                     .and_then(|filled| {
                         std::fs::rename(&partial, &path)?;
+                        app_core::disk::sync_folder_of(&path)?;
                         Ok(filled)
                     });
                 if written.is_err() {
