@@ -52,6 +52,8 @@
   let unreadable = $state(false)
   /** The notes are not encrypted: their backups need no password either. */
   let openDevice = $state(false)
+  /** The notes are encrypted: an export is not, the export says so. */
+  let encrypted = $state(false)
   let password = $state('')
 
   let files = $state<BackupFile[] | null>(null)
@@ -64,7 +66,10 @@
   let markdownInput: HTMLInputElement | undefined = $state()
 
   onMount(() => {
-    void backend.vaultStatus().then((v) => (openDevice = !v.encrypted))
+    void backend.vaultStatus().then((v) => {
+      openDevice = !v.encrypted
+      encrypted = v.encrypted
+    })
     void backups.refresh()
   })
 
@@ -450,7 +455,7 @@
   onchange={(e) => importPicked(e.currentTarget)}
 />
 
-<Group title={t('settings.exportTitle')}>
+<Group title={t('settings.exportTitle')} note={encrypted ? t('settings.exportPlain') : undefined}>
   <Row
     label={t('settings.exportZip')}
     icon="archive"
