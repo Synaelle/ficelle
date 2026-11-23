@@ -5,6 +5,7 @@
   import { tick, untrack } from 'svelte'
   import type { Action } from 'svelte/action'
   import { hour12 } from '../lib/clock.svelte'
+  import { MARKDOWN_ACCEPT } from '../lib/importing'
   import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
   import SyncIcon from './SyncIcon.svelte'
@@ -398,7 +399,7 @@
           <input
             bind:this={fileInput}
             type="file"
-            accept=".md,.markdown,.mdown,.mkd,text/markdown"
+            accept={MARKDOWN_ACCEPT}
             multiple
             hidden
             onchange={(e) => importPicked(e.currentTarget)}

@@ -4,6 +4,7 @@
 // becomes the title instead of staying in the text twice.
 
 import { splitInline, unquote } from './import/markdown'
+import { WINDOWS } from './platform'
 
 export interface ImportedNote {
   title: string
@@ -14,6 +15,12 @@ export interface ImportedNote {
 }
 
 const MARKDOWN_FILE = /\.(md|markdown|mdown|mkd)$/i
+
+/** The file inputs' filter. Windows' dialog lists the extension a type
+ * stands for again after the extensions, so it gets them alone. */
+export const MARKDOWN_ACCEPT = WINDOWS
+  ? '.md,.markdown,.mdown,.mkd'
+  : '.md,.markdown,.mdown,.mkd,text/markdown'
 
 export function isMarkdownFile(file: { name: string }): boolean {
   return MARKDOWN_FILE.test(file.name)

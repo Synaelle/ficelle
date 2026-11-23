@@ -16,6 +16,7 @@
   import { bytes, dateTime, relative } from '../lib/format'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
+  import { MARKDOWN_ACCEPT } from '../lib/importing'
   import { overlay } from '../lib/overlay.svelte'
   import PasswordField from '../lib/PasswordField.svelte'
   import { pickToOpen } from '../lib/pick'
@@ -449,7 +450,7 @@
 <input
   bind:this={markdownInput}
   type="file"
-  accept=".md,.markdown,.mdown,.mkd,text/markdown"
+  accept={MARKDOWN_ACCEPT}
   multiple
   hidden
   onchange={(e) => importPicked(e.currentTarget)}
