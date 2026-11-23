@@ -166,8 +166,8 @@ export class SettingsState {
     if (!old) return
     const next = await overlay.askPassword(t('settings.newPassword'))
     if (!next) return
-    if (next.length < 8) {
-      this.message = t('setup.tooShort', { count: 8 })
+    if (next.length < MIN_PASSWORD) {
+      this.message = t('setup.tooShort', { count: MIN_PASSWORD })
       return
     }
     await this.changePassword(old, next)
