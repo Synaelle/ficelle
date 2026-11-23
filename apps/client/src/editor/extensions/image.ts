@@ -10,7 +10,7 @@
 
 import Image from '@tiptap/extension-image'
 import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model'
-import { NodeSelection } from '@tiptap/pm/state'
+import { NodeSelection, TextSelection } from '@tiptap/pm/state'
 import { dropPoint } from '@tiptap/pm/transform'
 import type { Editor } from '@tiptap/core'
 import { pageZoom } from '../../lib/uiSize'
@@ -105,9 +105,11 @@ const busy = (on: boolean) => document.body.classList.toggle('image-busy', on)
  * With Alt held every handle shows, and dragging one cuts that side instead.
  * The size changes once per frame and is written to the note at the end.
  *
- * On touch screens a selected image moves with the finger: the browser's
- * drag and drop is for mice, Android's webview has none. With a mouse the
- * editor's own drag and drop moves it.
+ * On touch screens a selected image moves with a finger drawn sideways:
+ * the browser's drag and drop is for mice, Android's webview has none. Up
+ * and down, with one finger or two, the note scrolls, so a picture as tall
+ * as the screen never holds it. With a mouse the editor's own drag and drop
+ * moves it.
  */
 class ImageView {
   dom: HTMLElement
@@ -115,6 +117,8 @@ class ImageView {
   /** What stands in for a picture from the web: its text and why. */
   private web: HTMLElement
   private moving = false
+  /** The fingers on the image: a second one is a scroll or a zoom. */
+  private fingers = new Set<number>()
 
   constructor(
     private node: PMNode,
@@ -156,9 +160,26 @@ class ImageView {
     if (!fromWeb(src)) this.img.src = this.resolve(src)
   }
 
+  /** A tap elsewhere on the note, its text, title or margins, lets go of the
+   * image. Around a picture as tall as the screen there is little text to
+   * tap, and a tap outside the text moves no caret. The bars stay with it. */
+  private tapElsewhere = (event: MouseEvent) => {
+    const target = event.target instanceof Element ? event.target : null
+    if (!target || this.dom.contains(target) || target.closest('[role=toolbar]')) return
+    const note = scrollParent(this.dom) ?? this.editor.view.dom
+    if (!note.contains(target)) return
+    const pos = this.getPos()
+    const { selection, tr } = this.editor.state
+    if (pos === undefined || !(selection instanceof NodeSelection) || selection.from !== pos) return
+    this.editor.view.dispatch(
+      tr.setSelection(TextSelection.create(tr.doc, pos + this.node.nodeSize)),
+    )
+  }
+
   destroy() {
     window.removeEventListener(ATTACHMENTS_CHANGED, this.refresh)
     this.watchAlt(false)
+    document.removeEventListener('click', this.tapElsewhere, true)
   }
 
   private watchAlt(on: boolean) {
@@ -349,14 +370,33 @@ class ImageView {
     handle.addEventListener('pointercancel', end)
   }
 
-  /** A finger on a selected image: past a few pixels it carries the image. */
+  /** A finger on a selected image: past a few pixels sideways it carries the
+   * image, up or down the browser scrolls the note (editor.css). */
   private startMove(event: PointerEvent) {
     if (event.pointerType !== 'touch' || !this.editor.isEditable) return
+    const id = event.pointerId
+    this.fingers.add(id)
+    const lift = (e: PointerEvent) => {
+      if (e.pointerId !== id) return
+      this.fingers.delete(id)
+      window.removeEventListener('pointerup', lift)
+      window.removeEventListener('pointercancel', lift)
+    }
+    window.addEventListener('pointerup', lift)
+    window.addEventListener('pointercancel', lift)
+    if (this.fingers.size > 1) return
     // a tap selects the image without focusing the text: no keyboard opening
     // and pushing the note around under the finger
     event.preventDefault()
     if (!this.dom.classList.contains('selected')) {
-      this.img.addEventListener('pointerup', () => this.select(), { once: true })
+      // a scroll begun on the image is cancelled, and selects nothing
+      const select = () => this.select()
+      this.img.addEventListener('pointerup', select, { once: true })
+      this.img.addEventListener(
+        'pointercancel',
+        () => this.img.removeEventListener('pointerup', select),
+        { once: true },
+      )
       return
     }
     const view = this.editor.view
@@ -412,6 +452,9 @@ class ImageView {
     }
 
     const move = (e: PointerEvent) => {
+      if (e.pointerId !== id) return
+      // a second finger came: the browser scrolls or zooms, the image stays
+      if (this.fingers.size > 1) return end(null)
       last = e
       if (!this.moving) {
         if (Math.hypot(e.clientX - from.x, e.clientY - from.y) < MOVE_SLOP) return
@@ -419,7 +462,8 @@ class ImageView {
       }
       place()
     }
-    const end = (e: PointerEvent) => {
+    const end = (e: PointerEvent | null) => {
+      if (e && e.pointerId !== id) return
       this.img.removeEventListener('pointermove', move)
       this.img.removeEventListener('pointerup', end)
       this.img.removeEventListener('pointercancel', end)
@@ -430,7 +474,7 @@ class ImageView {
       this.moving = false
       this.dom.classList.remove('moving')
       busy(false)
-      if (e.type === 'pointerup' && target !== null) this.moveTo(target)
+      if (e?.type === 'pointerup' && target !== null) this.moveTo(target)
     }
     this.img.addEventListener('pointermove', move)
     this.img.addEventListener('pointerup', end)
@@ -477,11 +521,13 @@ class ImageView {
   selectNode() {
     this.dom.classList.add('selected')
     this.watchAlt(true)
+    document.addEventListener('click', this.tapElsewhere, true)
   }
 
   deselectNode() {
     this.dom.classList.remove('selected')
     this.watchAlt(false)
+    document.removeEventListener('click', this.tapElsewhere, true)
   }
 
   /** Handles own their pointer events, the editor must not see them, nor

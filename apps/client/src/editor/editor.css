@@ -435,10 +435,11 @@
 .prose .image-view.resizing img {
   will-change: width;
 }
-/* a selected image moves with the finger instead of scrolling the note */
+/* a selected image moves with a finger drawn sideways, up and down the note
+   still scrolls and two fingers still zoom */
 @media (pointer: coarse) {
   .prose .image-view.selected img {
-    touch-action: none;
+    touch-action: pan-y pinch-zoom;
   }
   .prose .image-view .handle {
     --size: 22px;
