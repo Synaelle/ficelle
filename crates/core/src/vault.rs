@@ -526,10 +526,15 @@ impl Vault {
             "ATTACH DATABASE ?1 AS encrypted KEY ?2",
             rusqlite::params![enc.to_string_lossy(), key.pragma_value().as_str()],
         )?;
-        conn.query_row("SELECT sqlcipher_export('encrypted')", [], |_| Ok(()))?;
+        // one transaction: the export commits each table on its own
+        // otherwise, and their syncs made encrypting an empty vault take half
+        // a minute. A crash before vault.json says encrypted drops the copy
+        let tx = conn.unchecked_transaction()?;
+        tx.query_row("SELECT sqlcipher_export('encrypted')", [], |_| Ok(()))?;
         // the export copies the tables, not the schema version migrations read
-        let version: i64 = conn.query_row("PRAGMA main.user_version", [], |row| row.get(0))?;
-        conn.pragma_update(Some("encrypted"), "user_version", version)?;
+        let version: i64 = tx.query_row("PRAGMA main.user_version", [], |row| row.get(0))?;
+        tx.pragma_update(Some("encrypted"), "user_version", version)?;
+        tx.commit()?;
         conn.execute("DETACH DATABASE encrypted", [])?;
         drop(store);
         let plain = BlobStore::on(self.disk.clone(), self.dir.join(BLOBS_DIR), None);
