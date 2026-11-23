@@ -6,6 +6,7 @@ import { Editor } from '@tiptap/core'
 import { TaskList } from '@tiptap/extension-list'
 import { MarkdownManager } from '@tiptap/markdown'
 import { describe, expect, it, vi } from 'vitest'
+import { asWritten } from './asWritten'
 import { createExtensions } from './extensions'
 import {
   TASK_GUARD,
@@ -410,6 +411,44 @@ describe('uneven tables', () => {
     const md = '| a | b |\n| - | - |\n| c \\| d | `e|f` |\n'
     expect(roundTrip(md)).toMatch(/^\| a \| b \|\n\| --- \| --- \|\n\| c \\\| d \| `e\\?\|f` \|$/)
     expect(roundTrip('Title\n---\na | b\n')).toMatch(/^## Title\n\na \| b$|^Title\n---\n\na \| b$/)
+  })
+})
+
+describe('html the editor cannot show', () => {
+  it('keeps a comment in a line as its text', () => {
+    const out = roundTrip('Price list <!-- check prices --> for 2025\n')
+    expect(out).toBe('Price list \\<!-- check prices --> for 2025')
+    expect(roundTrip(out)).toBe(out)
+    expect(roundTrip('Before <!-- never closed\nand more words\n')).toContain('and more words')
+  })
+
+  it('keeps comments, scripts and doctypes on their own lines as their text', () => {
+    const out = roundTrip(
+      'Notes\n\n<!-- remember to call Anna -->\n\n<script>x()</script>\n\n<!doctype html>\n',
+    )
+    expect(out).toContain('\\<!-- remember to call Anna -->')
+    expect(out).toContain('\\<script>x()\\</script>')
+    expect(out).toContain('\\<!doctype html>')
+    expect(roundTrip(out)).toBe(out)
+  })
+
+  it('still reads the html it can show', () => {
+    expect(roundTrip('Text <b>bold</b> here\n')).toBe('Text **bold** here')
+  })
+
+  it('keeps them as written when a line next to them is typed in', () => {
+    const stored = 'Notes\n\n<!-- remember to call Anna -->\n\n<script>x()</script>\n'
+    const editor = new Editor({
+      element: document.createElement('div'),
+      extensions: createExtensions(),
+      content: stored,
+      contentType: 'markdown',
+    })
+    const before = editor.getMarkdown()
+    editor.commands.insertContentAt(6, ' for May')
+    const saved = asWritten(stored, before, editor.getMarkdown())
+    expect(saved).toBe(stored.replace('Notes', 'Notes for May'))
+    editor.destroy()
   })
 })
 

@@ -362,9 +362,34 @@ type LinkNode = { attrs?: { href?: string | null; title?: string | null } }
 interface RenderSpec {
   renderMarkdown?: (node: LinkNode, helpers: { renderChildren(node: unknown): string }) => string
 }
+/** The letters and digits of `text`, in order. */
+const lettersOf = (text: string) => (text.match(/[\p{L}\p{N}]/gu) ?? []).join('')
+
+/** The text `content` holds, at any depth. */
+function textOf(content: JSONContent | JSONContent[] | null): string {
+  if (!content) return ''
+  if (Array.isArray(content)) return content.map(textOf).join('')
+  return (content.text ?? '') + textOf(content.content ?? [])
+}
+
+/**
+ * Whether HTML read as `parsed` kept the words of `html`: all its letters
+ * and digits outside its tags and entities, in order. A comment, a script
+ * or a doctype comes out of the reader empty.
+ */
+export function keepsWords(html: string, parsed: JSONContent | JSONContent[] | null): boolean {
+  const said = lettersOf(html.replace(/<\/?[A-Za-z][^<>]*>|&#?\w+;/g, ''))
+  const kept = lettersOf(textOf(parsed))
+  let at = 0
+  for (const letter of kept) if (letter === said[at]) at++
+  return at >= said.length
+}
+
 /** The private parts of the markdown manager these fixes replace, as of 3.32. */
 interface TextEncoding {
   codeTypes: Set<string>
+  parseHTMLToken(token: { text?: string; raw?: string; block?: boolean }): JSONContent | null
+  htmlAsLiteralText(html: string, isBlock: boolean): JSONContent | null
   parse(markdown: string): { type: 'doc'; content: JSONContent[] }
   nodeTypeRegistry: Map<string, RenderSpec[]>
   escapeMarkdownSyntax(text: string): string
@@ -395,6 +420,14 @@ export const ReadableMarkdown = Markdown.extend({
       )
       if (chunks.length === 1) return parse(markdown)
       return { type: 'doc', content: chunks.flatMap((chunk) => parse(chunk).content) }
+    }
+    // HTML the editor cannot show (a comment, a script) stays as its text
+    // rather than leaving the note
+    const parseHTML = manager.parseHTMLToken.bind(manager)
+    manager.parseHTMLToken = (token) => {
+      const parsed = parseHTML(token)
+      const html = token.text || token.raw || ''
+      return keepsWords(html, parsed) ? parsed : manager.htmlAsLiteralText(html, !!token.block)
     }
     if (initial) {
       const json = manager.parse(options.content as string)
