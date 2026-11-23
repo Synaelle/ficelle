@@ -107,7 +107,12 @@ fn inline_code(line: &str, offset: usize) -> Vec<Range<usize>> {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] != b'`' {
-            i += 1;
+            // a link is read whole before a backtick inside it can open
+            // code, as the editor reads it: a title may hold one backtick
+            i = match bytes[i..].starts_with(b"[[").then(|| link_end(line, i)) {
+                Some(Ok(end)) => end,
+                _ => i + 1,
+            };
             continue;
         }
         let start = i;
@@ -296,6 +301,18 @@ mod tests {
         let runs: Vec<String> = (1..600).map(|n| "`".repeat(n)).collect();
         assert_eq!(targets(&format!("{} [[Plan]]", runs.join(" "))).len(), 1);
         assert!(started.elapsed().as_secs() < 2, "{:?}", started.elapsed());
+    }
+
+    #[test]
+    fn a_title_with_one_backtick_leaves_the_next_link_a_link() {
+        let renamed = retarget("See [[Plan]] and [[Plan]]", "Plan", "Tom`s plan").unwrap();
+        assert_eq!(renamed, "See [[Tom`s plan]] and [[Tom`s plan]]");
+        assert_eq!(parse(&renamed).len(), 2);
+        assert_eq!(
+            targets("`[[a`]] and [[b]]"),
+            vec![("b".into(), None, None)],
+            "code opened before a link still holds it"
+        );
     }
 
     #[test]
