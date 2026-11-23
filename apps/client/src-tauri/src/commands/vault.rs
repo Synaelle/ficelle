@@ -80,6 +80,13 @@ pub async fn vault_status(state: State<'_, AppState>) -> CommandResult<VaultStat
     let biometric_available = guarded.as_ref().is_some_and(GuardedKeyStore::available);
     let device = biometric::device_store();
     let device_available = device.is_some();
+    // the page says to put it back, a new vault would not take the notes in
+    if Vault::meta_missing(&state.dir) {
+        return Err(CommandError::new(
+            "vaultMissing",
+            state.dir.display().to_string(),
+        ));
+    }
     if !Vault::exists(&state.dir) {
         return Ok(VaultStatus {
             exists: false,

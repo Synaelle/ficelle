@@ -160,6 +160,12 @@ impl Vault {
         disk.exists(&dir.join(META_FILE))
     }
 
+    /// Whether `dir` holds a vault's database without its `vault.json`: a
+    /// file lost, never a first start, since the database is made first.
+    pub fn meta_missing(dir: &Path) -> bool {
+        !Self::exists(dir) && NativeDisk.exists(&dir.join(DB_FILE))
+    }
+
     /// Creates a vault in `dir` (created if missing) and returns it unlocked.
     ///
     /// # Errors
@@ -1059,6 +1065,17 @@ mod tests {
         drop(store);
         let store = Vault::open(dir.path()).unwrap().unlock_plain().unwrap();
         assert_eq!(store.search("hello", 5).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_database_without_its_vault_json_is_told_apart_from_a_first_start() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!Vault::meta_missing(dir.path()));
+        let (_, store) = Vault::create(dir.path(), Encryption::Off).unwrap();
+        drop(store);
+        assert!(!Vault::meta_missing(dir.path()));
+        fs::remove_file(dir.path().join(META_FILE)).unwrap();
+        assert!(Vault::meta_missing(dir.path()));
     }
 
     #[test]

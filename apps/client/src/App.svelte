@@ -59,6 +59,7 @@
     readOnly: 'unlock.readOnlyHelp',
     vaultDamaged: 'unlock.damagedHelp',
     notesMissing: 'unlock.notesMissingHelp',
+    vaultMissing: 'unlock.vaultMissingHelp',
   }
   type CannotOpen = keyof typeof CANNOT_OPEN
   const cannotOpenKind = (kind: string | undefined): kind is CannotOpen =>
@@ -115,8 +116,8 @@
       const { kind, message } = err as { kind?: string; message?: string }
       // another copy of the app has the notes: this one leaves them alone
       if (kind === 'openElsewhere') return (stage = 'elsewhere')
-      // a folder that cannot be written, a damaged vault.json or a missing
-      // notes.db: said as such
+      // a folder that cannot be written, a damaged or missing vault.json or
+      // a missing notes.db: said as such
       if (cannotOpenKind(kind)) {
         cannotOpen = { kind, folder: message ?? '' }
         return (stage = 'failed')
