@@ -98,6 +98,9 @@ class Workspace {
   conflicted: Id[] = $state([])
   /** Last error to show, as a translation kind. */
   error: string | null = $state(null)
+  /** A new note is on its way: the open one takes no more typing, which
+   * would land in it, not in the new note. */
+  making = $state(false)
   /** True while an edit waits to be saved. */
   dirty = $state(false)
   /** The last save failed: the edit waits, tried again, and the note stays
@@ -507,16 +510,29 @@ class Workspace {
   async create(initial?: { title?: string; body?: string }, open?: true): Promise<Note | null>
   async create(initial: { title?: string; body?: string }, open: false): Promise<Note>
   async create(initial: { title?: string; body?: string } = {}, open = true) {
-    if (open && !(await this.leave())) return null
     const tags = this.scope.kind === 'tag' ? [this.tagName(this.scope.id)] : []
-    const note = await backend.createNote({ ...initial, tags })
-    if (open) {
+    if (!open) {
+      const note = await backend.createNote({ ...initial, tags })
+      await this.refreshNotes()
+      return note
+    }
+    this.making = true
+    try {
+      if (!(await this.leave())) return null
+      const note = await backend.createNote({ ...initial, tags })
       this.trail = []
       this.fresh = note.id
       this.show(note)
+      await this.refreshNotes()
+      return note
+    } catch (err) {
+      // what the store refused is said here, a bug goes to the error notice
+      if (!isBackendError(err) || err.kind === 'unknown') throw err
+      this.report(err)
+      return null
+    } finally {
+      this.making = false
     }
-    await this.refreshNotes()
-    return note
   }
 
   /** A copy of a note, its tags and files too, opened in its place. */

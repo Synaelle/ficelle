@@ -146,9 +146,10 @@
     if (restore) void tick().then(restore)
   })
 
-  // a note just made: the caret in its title, ready to type
+  // a note just made: the caret in its title, ready to type, once the view
+  // takes typing again
   $effect(() => {
-    if (!note || !titleInput || workspace.fresh !== note.id) return
+    if (!note || !titleInput || workspace.making || workspace.fresh !== note.id) return
     workspace.fresh = null
     titleInput.focus()
   })
@@ -252,7 +253,7 @@
     })
 </script>
 
-<section class="view" class:narrow aria-label={t('note.label')}>
+<section class="view" class:narrow aria-label={t('note.label')} inert={workspace.making}>
   {#if note}
     <header>
       {#if narrow}
