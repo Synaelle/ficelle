@@ -234,6 +234,7 @@ pub fn lock_when_alone<R: Runtime>(app: &AppHandle<R>, closing: &str) {
         return;
     }
     app.state::<crate::state::AppState>().close();
+    crate::sync::files::clean_opened_copies(app);
     let _ = tauri::Emitter::emit(app, "vault-locked", ());
 }
 

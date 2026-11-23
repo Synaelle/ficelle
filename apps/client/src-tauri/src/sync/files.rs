@@ -293,12 +293,22 @@ pub async fn save_attachment(
     .map_err(|e| CommandError::new("file", e.to_string()))
 }
 
-/// Copies of attachments opened in other apps, in the app's cache. Android's
-/// `FileProvider` hands this folder out (`res/xml/file_paths.xml`).
+/// Copies of attachments opened in other apps, in the app's cache, or the
+/// portable exe's data folder. Android's `FileProvider` hands this folder
+/// out (`res/xml/file_paths.xml`).
 const OPENED_DIR: &str = "opened";
 /// Copies older than this are cleaned away when another file is opened: by
 /// then the app that showed it is done with it.
 const OPENED_KEEP: Duration = Duration::from_hours(1);
+/// On desktops, copies older than this go when the app starts and when the
+/// notes lock: a copy is the file unencrypted, kept no longer than the app
+/// that shows it needs to read it.
+#[cfg(desktop)]
+const OPENED_KEEP_LOCKED: Duration = Duration::from_mins(2);
+
+fn opened_dir<R: tauri::Runtime>(app: &AppHandle<R>) -> tauri::Result<std::path::PathBuf> {
+    Ok(crate::portable::cache_dir(app)?.join(OPENED_DIR))
+}
 
 /// File types the system runs rather than shows: opening one from a note
 /// would start a program someone attached, so it is only saved.
@@ -343,13 +353,9 @@ pub async fn open_attachment(
         .filter(|part| part.bytes().all(|b| b.is_ascii_hexdigit()))
         .ok_or_else(|| CommandError::new("invalid", "not a file hash"))?
         .to_owned();
-    let opened = app
-        .path()
-        .app_cache_dir()
-        .map_err(|e| CommandError::new("file", e.to_string()))?
-        .join(OPENED_DIR);
+    let opened = opened_dir(&app).map_err(|e| CommandError::new("file", e.to_string()))?;
     let path = tauri::async_runtime::spawn_blocking(move || {
-        clean_opened(&opened);
+        clean_opened(&opened, OPENED_KEEP);
         let dir = opened.join(folder);
         std::fs::create_dir_all(&dir)?;
         let path = dir.join(name);
@@ -369,9 +375,20 @@ pub async fn open_attachment(
     Ok(())
 }
 
-/// Takes away the copies opened a while ago. Best effort: a copy another
-/// app still holds stays for the next time.
-fn clean_opened(opened: &std::path::Path) {
+/// Takes away the copies opened a while ago, as the app starts or the notes
+/// lock.
+#[cfg(desktop)]
+pub fn clean_opened_copies<R: tauri::Runtime>(app: &AppHandle<R>) {
+    match opened_dir(app) {
+        Ok(opened) => clean_opened(&opened, OPENED_KEEP_LOCKED),
+        Err(err) => eprintln!("no folder for opened copies: {err}"),
+    }
+}
+
+/// Takes away the copies opened more than `keep` ago. A copy another app
+/// still holds open stays for the next time.
+fn clean_opened(opened: &std::path::Path, keep: Duration) {
+    // none opened yet
     let Ok(entries) = std::fs::read_dir(opened) else {
         return;
     };
@@ -379,11 +396,21 @@ fn clean_opened(opened: &std::path::Path) {
         let old = entry
             .metadata()
             .and_then(|m| m.modified())
-            .is_ok_and(|at| at.elapsed().is_ok_and(|age| age > OPENED_KEEP));
-        if old {
-            let _ = std::fs::remove_dir_all(entry.path());
+            .is_ok_and(|at| at.elapsed().is_ok_and(|age| age > keep));
+        if !old {
+            continue;
+        }
+        match std::fs::remove_dir_all(entry.path()) {
+            Err(err) if !still_open(&err) => eprintln!("could not remove an opened copy: {err}"),
+            _ => {}
         }
     }
+}
+
+/// Windows refuses to delete a file another program has open.
+fn still_open(err: &std::io::Error) -> bool {
+    const ERROR_SHARING_VIOLATION: i32 = 32;
+    cfg!(windows) && err.raw_os_error() == Some(ERROR_SHARING_VIOLATION)
 }
 
 /// What the server allows this account and what it uses, as the last round
@@ -426,5 +453,22 @@ mod tests {
         for name in ["report.pdf", "photo.png", "notes.txt", "noextension"] {
             assert!(!super::runs_as_program(OsStr::new(name)), "{name}");
         }
+    }
+
+    #[test]
+    fn only_old_opened_copies_go() {
+        let opened = std::env::temp_dir().join(format!("opened-copies-{}", std::process::id()));
+        std::fs::create_dir_all(opened.join("a")).unwrap();
+        std::fs::write(opened.join("a/receipt.pdf"), "pdf").unwrap();
+        super::clean_opened(&opened, super::OPENED_KEEP);
+        assert!(opened.join("a/receipt.pdf").exists());
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        super::clean_opened(&opened, std::time::Duration::from_millis(10));
+        assert!(!opened.join("a").exists());
+        std::fs::remove_dir_all(opened).unwrap();
+        super::clean_opened(
+            &std::env::temp_dir().join("opened-never-made"),
+            super::OPENED_KEEP,
+        );
     }
 }

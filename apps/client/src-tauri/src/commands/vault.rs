@@ -444,6 +444,8 @@ pub async fn vault_encrypt(
 #[tauri::command]
 pub async fn vault_lock(app: tauri::AppHandle, state: State<'_, AppState>) -> CommandResult<()> {
     state.close();
+    #[cfg(desktop)]
+    crate::sync::files::clean_opened_copies(&app);
     // every window locks, not only the one that asked
     let _ = tauri::Emitter::emit(&app, "vault-locked", ());
     Ok(())

@@ -148,6 +148,8 @@ pub fn run() {
             // after manage: the thread reads the state from the handle
             app.state::<AppState>().sync.start(app.handle().clone());
             app.state::<sync::local::Local>().start(app.handle());
+            #[cfg(desktop)]
+            sync::files::clean_opened_copies(app.handle());
             // started to open files (file viewer): their windows only,
             // nothing of the notes
             #[cfg(desktop)]

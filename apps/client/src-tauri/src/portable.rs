@@ -23,6 +23,15 @@ pub fn data_dir<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<PathBuf> {
     app.path().app_data_dir()
 }
 
+/// Where this build keeps files it can do without: the portable exe's data
+/// folder, the system's cache folder otherwise.
+pub fn cache_dir<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<PathBuf> {
+    if let Some(dir) = beside_exe() {
+        return Ok(dir);
+    }
+    app.path().app_cache_dir()
+}
+
 /// The webview's folder, set on every window: only the portable exe has one,
 /// tauri picks the system's otherwise.
 pub fn webview_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
