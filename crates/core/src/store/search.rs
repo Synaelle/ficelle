@@ -52,6 +52,33 @@ fn snippet_around(body: &str, term: &str) -> String {
     format!("{open}{before}{MATCH_START}{term}{MATCH_END}{after}{close}")
 }
 
+/// Bodies longer than this get their snippet from [`snippet_around`]: the
+/// index's own snippet weighs every match against every other, and a note of
+/// a few megabytes with thousands of them took the core tens of seconds.
+const LONG_BODY: i64 = 100_000;
+
+/// The text of `body` where a word first starts with `term`, in any case.
+fn word_starting_with<'a>(body: &'a str, term: &str) -> Option<&'a str> {
+    let mut before: Option<char> = None;
+    for (at, c) in body.char_indices() {
+        if !before.is_some_and(char::is_alphanumeric) {
+            let mut end = at;
+            let mut rest = body[at..].chars();
+            let starts = term.chars().all(|t| {
+                rest.next().is_some_and(|b| {
+                    end += b.len_utf8();
+                    b.to_lowercase().eq(t.to_lowercase())
+                })
+            });
+            if starts {
+                return Some(&body[at..end]);
+            }
+        }
+        before = Some(c);
+    }
+    None
+}
+
 impl Store {
     /// Searches titles, bodies and tags of live notes. Title matches rank
     /// highest, then tags, then the body. Matching is case and accent
@@ -68,25 +95,43 @@ impl Store {
             return Ok(Vec::new());
         };
         let mut stmt = self.conn.prepare(
-            "SELECT n.id, n.title, snippet(notes_fts, 1, ?2, ?3, '…', 12)
+            "SELECT n.id, n.title,
+                    CASE WHEN length(notes_fts.body) <= ?5
+                         THEN snippet(notes_fts, 1, ?2, ?3, '…', 12) END,
+                    CASE WHEN length(notes_fts.body) > ?5 THEN notes_fts.body END
              FROM notes_fts JOIN notes n ON n.rowid = notes_fts.rowid
              WHERE notes_fts MATCH ?1 AND n.trashed_at IS NULL
              ORDER BY bm25(notes_fts, 10.0, 1.0, 5.0)
              LIMIT ?4",
         )?;
+        let terms: Vec<String> = input
+            .split_whitespace()
+            .map(|w| w.replace('"', ""))
+            .collect();
         let hits = stmt
             .query_map(
                 params![
                     query,
                     MATCH_START.to_string(),
                     MATCH_END.to_string(),
-                    i64::try_from(limit).unwrap_or(i64::MAX)
+                    i64::try_from(limit).unwrap_or(i64::MAX),
+                    LONG_BODY
                 ],
                 |row| {
+                    let snippet = if let Some(snippet) = row.get(2)? {
+                        snippet
+                    } else {
+                        let body: String = row.get(3)?;
+                        let term = terms
+                            .iter()
+                            .find_map(|t| word_starting_with(&body, t))
+                            .unwrap_or("");
+                        snippet_around(&body, term)
+                    };
                     Ok(SearchHit {
                         note_id: row.get(0)?,
                         title: row.get(1)?,
-                        snippet: row.get(2)?,
+                        snippet,
                     })
                 },
             )?
@@ -260,6 +305,24 @@ mod tests {
 
         store.set_note_tags(n.id, &["workshop".into()]).unwrap();
         assert_eq!(store.search("workshop", 10).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn long_note_gets_a_snippet_around_its_first_match() {
+        let (mut store, _) = store();
+        let body = format!(
+            "{} Silk thread {}",
+            "loom ".repeat(30_000),
+            "silk ".repeat(10)
+        );
+        store.create_note(&note("Long", &body, &[])).unwrap();
+        let hit = &store.search("sil", 10).unwrap()[0];
+        assert!(
+            hit.snippet
+                .contains(&format!("{MATCH_START}Sil{MATCH_END}k thread")),
+            "{}",
+            hit.snippet
+        );
     }
 
     #[test]
