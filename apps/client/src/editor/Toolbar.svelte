@@ -98,6 +98,13 @@
       active: () => editor.isActive('blockquote'),
     },
     {
+      icon: 'inlineCode',
+      label: () => t('editor.inlineCode'),
+      action: 'code',
+      run: () => chain().toggleCode().run(),
+      active: () => editor.isActive('code'),
+    },
+    {
       icon: 'code',
       label: () => t('editor.code'),
       // the code shortcut makes inline code, a code block has none

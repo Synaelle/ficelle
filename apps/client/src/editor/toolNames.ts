@@ -12,6 +12,7 @@ export const TOOL_NAMES: readonly { icon: IconName; label: string }[] = [
   { icon: 'listOrdered', label: 'editor.orderedList' },
   { icon: 'tasks', label: 'editor.checklist' },
   { icon: 'quote', label: 'editor.quote' },
+  { icon: 'inlineCode', label: 'editor.inlineCode' },
   { icon: 'code', label: 'editor.code' },
   { icon: 'link', label: 'editor.link' },
   { icon: 'table', label: 'editor.table' },
