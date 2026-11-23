@@ -2004,3 +2004,4 @@ fileNote = "Anyone who has this key can open your notes. Keep it away from the c
 
 [inBrowser.reset]
 body = "This deletes from this browser every note and tag, with their files and history."
+server = "A backup file you downloaded keeps them, and Restore from a file in Data and backups brings them back."
