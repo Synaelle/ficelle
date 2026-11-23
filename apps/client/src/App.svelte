@@ -33,6 +33,7 @@
   import Overlays from './lib/Overlays.svelte'
   import CriticalUpdate from './lib/CriticalUpdate.svelte'
   import Toasts from './lib/Toasts.svelte'
+  import { toasts } from './lib/toast.svelte'
   import { appUpdates } from './lib/appUpdate.svelte'
   import { applyTheme } from './lib/theme.svelte'
   import { applyUiSize } from './lib/uiSize'
@@ -134,6 +135,8 @@
       }
       throw err
     }
+    // said once, by the first check after the crash
+    if (status.encryptionUndone) toasts.push(t('settings.security'), t('settings.encryptionUndone'))
     if (!status.exists) return void firstLaunch()
     if (status.unlocked) return (stage = needsPassword(status) ? 'upgrade' : 'ready')
     // the unlock screen asks for Windows Hello, the fingerprint, the PIN or

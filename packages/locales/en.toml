@@ -423,6 +423,7 @@ encryptNote = "Your notes are kept on this device without a password. Encrypt th
 details = "Technical details"
 lockNow = "Lock now"
 encrypted = "Your notes are encrypted."
+encryptionUndone = "Encrypting your notes was cut short, so they are still unencrypted. Encrypt them again in Settings, under Security."
 
 [settings.exported]
 one = "Exported {count} note."

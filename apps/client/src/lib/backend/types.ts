@@ -189,6 +189,9 @@ export interface VaultStatus {
   recovery: boolean
   /** Wrong PINs left before the password is needed, with the PIN way. */
   pinTriesLeft: number | null
+  /** This check found an encryption a crash cut short: the notes stayed
+   * unencrypted. Only the apps tell. */
+  encryptionUndone?: boolean
 }
 
 export type VaultWay = 'plain' | 'device' | 'guarded' | 'pin' | 'password'

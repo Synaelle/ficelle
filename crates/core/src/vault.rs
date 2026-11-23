@@ -144,6 +144,9 @@ pub struct Vault {
     dir: PathBuf,
     meta: Meta,
     disk: Arc<dyn Disk>,
+    /// Opening found an encryption a crash cut short before `vault.json`
+    /// said encrypted, and kept the notes unencrypted.
+    encryption_undone: bool,
 }
 
 impl Vault {
@@ -216,6 +219,7 @@ impl Vault {
                 recovery_key: None,
                 device_only: keep_in.is_some(),
             },
+            encryption_undone: false,
         };
         // kept before anything is written that needs it
         if let (Some(keys), Some(key)) = (keep_in, &key) {
@@ -251,13 +255,20 @@ impl Vault {
                 "this vault was made by a newer version of the app".into(),
             ));
         }
-        let vault = Self {
+        let mut vault = Self {
             dir: dir.to_owned(),
             meta,
             disk,
+            encryption_undone: false,
         };
-        vault.settle_encrypting()?;
+        vault.encryption_undone = vault.settle_encrypting()?;
         Ok(vault)
+    }
+
+    /// Whether opening found an encryption a crash cut short, and kept the
+    /// notes unencrypted as they were before it.
+    pub fn encryption_undone(&self) -> bool {
+        self.encryption_undone
     }
 
     /// Vault id.
@@ -539,28 +550,28 @@ impl Vault {
     }
 
     /// Finishes or undoes an [`Vault::encrypt`] a crash cut short, never one
-    /// under way in this process.
-    fn settle_encrypting(&self) -> Result<()> {
+    /// under way in this process. True when the notes stay unencrypted.
+    fn settle_encrypting(&self) -> Result<bool> {
         if Encrypting::busy(&self.dir) {
-            return Ok(());
+            return Ok(false);
         }
         self.finish_encrypting()
     }
 
     /// Puts the encrypted copy in place once `vault.json` says encrypted,
-    /// else removes it.
-    fn finish_encrypting(&self) -> Result<()> {
+    /// else removes it. True when it removed one.
+    fn finish_encrypting(&self) -> Result<bool> {
         let enc = self.dir.join(ENC_DB);
         let enc_blobs = self.dir.join(ENC_BLOBS);
         let disk = &self.disk;
         if !disk.exists(&enc) && !disk.exists(&enc_blobs) {
-            return Ok(());
+            return Ok(false);
         }
         if !self.is_encrypted() {
             // vault.json never said so: the plain vault is the real one
             disk.remove(&enc)?;
             disk.remove_all(&enc_blobs)?;
-            return Ok(());
+            return Ok(true);
         }
         if disk.exists(&enc) {
             for name in [DB_FILE, "notes.db-wal", "notes.db-shm", "notes.db-journal"] {
@@ -573,7 +584,7 @@ impl Vault {
             disk.remove_all(&blobs)?;
             disk.rename(&enc_blobs, &blobs)?;
         }
-        Ok(())
+        Ok(false)
     }
 
     /// Stores the key in the device key store so the next unlock needs no
@@ -1483,6 +1494,7 @@ mod tests {
         std::fs::write(dir.path().join(ENC_DB), b"half written").unwrap();
         std::fs::create_dir_all(dir.path().join(ENC_BLOBS)).unwrap();
         let vault = Vault::open(dir.path()).unwrap();
+        assert!(vault.encryption_undone());
         assert!(!dir.path().join(ENC_DB).exists() && !dir.path().join(ENC_BLOBS).exists());
         assert_eq!(
             vault
@@ -1513,6 +1525,7 @@ mod tests {
         .unwrap();
         std::fs::copy(other.path().join(DB_FILE), plain_dir.path().join(DB_FILE)).unwrap();
         let vault = Vault::open(plain_dir.path()).unwrap();
+        assert!(!vault.encryption_undone());
         assert!(!plain_dir.path().join(ENC_DB).exists());
         assert_eq!(
             vault
@@ -1534,11 +1547,12 @@ mod tests {
         std::fs::write(dir.path().join(ENC_DB), b"being written").unwrap();
         {
             let _busy = Encrypting::start(dir.path());
-            Vault::open(dir.path()).unwrap();
+            let vault = Vault::open(dir.path()).unwrap();
+            assert!(!vault.encryption_undone());
             assert!(dir.path().join(ENC_DB).exists());
         }
         // once it is no longer under way, the copy is a crash's
-        Vault::open(dir.path()).unwrap();
+        assert!(Vault::open(dir.path()).unwrap().encryption_undone());
         assert!(!dir.path().join(ENC_DB).exists());
     }
 

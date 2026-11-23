@@ -58,6 +58,9 @@ pub struct VaultStatus {
     recovery: bool,
     /// Wrong PINs left before the password is needed, with the PIN way.
     pin_tries_left: Option<u8>,
+    /// This check found an encryption a crash cut short: the notes stayed
+    /// unencrypted.
+    encryption_undone: bool,
 }
 
 /// Whether the app may write in the vault's folder: a read-only one (a disk
@@ -88,6 +91,7 @@ pub async fn vault_status(state: State<'_, AppState>) -> CommandResult<VaultStat
             device_available,
             recovery: false,
             pin_tries_left: None,
+            encryption_undone: false,
         });
     }
     let vault = match Vault::open(&state.dir) {
@@ -140,6 +144,7 @@ pub async fn vault_status(state: State<'_, AppState>) -> CommandResult<VaultStat
         device_available,
         recovery: vault.has_recovery_key(),
         pin_tries_left,
+        encryption_undone: vault.encryption_undone(),
     })
 }
 
