@@ -79,9 +79,19 @@ describe('opening on the last note', () => {
     // as a new start finds them
     prefs.lastNote = note.id
     prefs.lastScope = { kind: 'tag', id: tag.id }
+    prefs.openLastNote = true
     await workspace.openLast()
+    prefs.openLastNote = false
     expect(workspace.current?.id).toBe(note.id)
     expect(workspace.scope).toEqual({ kind: 'tag', id: tag.id })
+  })
+
+  it('stays on the list by default', async () => {
+    const note = await create({ title: 'Plumber', body: 'Tuesday' })
+    await workspace.open(null)
+    prefs.lastNote = note.id
+    await workspace.openLast()
+    expect(workspace.current).toBeNull()
   })
 })
 

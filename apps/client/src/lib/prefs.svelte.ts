@@ -117,7 +117,7 @@ export const DEFAULT_PREFS: Prefs = {
   clock: 'system',
   openNoteFirst: false,
   nameFromAttachment: true,
-  openLastNote: true,
+  openLastNote: false,
   hiddenTools: [],
   lastNote: null,
   lastScope: null,
