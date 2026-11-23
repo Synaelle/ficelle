@@ -96,12 +96,29 @@
     danger?: boolean
     /** Shown, but nothing to do here (the browser has no files). */
     disabled?: boolean
+    /** Opens its choices in place, under it: the id of their list. */
+    folds?: string
     run: (event: MouseEvent) => void
   }
 
   const languageName = $derived(
     LOCALES.find((l) => l.code === prefs.language)?.name ?? t('settings.languageSystem'),
   )
+
+  // the language page shows one choice list at a time, the other folded
+  // into its row, so the page fits a screen
+  let unfolded: 'language' | 'clock' | null = $state(null)
+  function fold(list: 'language' | 'clock') {
+    unfolded = unfolded === list ? null : list
+  }
+  /** A choice made: its list folds and the focus goes back to its row. */
+  function chosen() {
+    const list = unfolded
+    unfolded = null
+    void tick().then(() =>
+      screen?.querySelector<HTMLElement>(`[aria-controls="choices-${list}"]`)?.focus(),
+    )
+  }
 
   function recoveryMenu(event: MouseEvent) {
     if (!vault?.recovery) return void settings.createRecovery()
@@ -406,6 +423,8 @@
     class:danger={r.danger}
     role={r.on === undefined ? undefined : 'switch'}
     aria-checked={r.on}
+    aria-controls={r.folds}
+    aria-expanded={r.folds ? r.folds === `choices-${unfolded}` : undefined}
     disabled={r.disabled}
     onclick={(e) => r.run(e)}
   >
@@ -417,6 +436,10 @@
     </span>
     {#if r.on !== undefined}
       <Switch drawn checked={r.on} />
+    {:else if r.folds}
+      <span class="chev" class:open={r.folds === `choices-${unfolded}`}
+        ><Icon name="down" size={16} /></span
+      >
     {:else if !r.action}
       <Icon name="right" size={16} />
     {/if}
@@ -611,32 +634,63 @@
           {/each}
         </Group>
       {:else if page === 'language'}
-        <Group title={t('settings.language')}>
-          <Row
-            label={t('settings.languageSystem')}
-            checked={prefs.language === null}
-            onclick={() => (prefs.language = null)}
-          />
-          {#each LOCALES as locale (locale.code)}
-            <Row
-              label={locale.name}
-              help={translatedLine(locale.done)}
-              checked={prefs.language === locale.code}
-              onclick={() => (prefs.language = locale.code as Locale)}
-            />
-          {/each}
+        <Group>
+          {@render row({
+            icon: 'language',
+            label: t('settings.language'),
+            value: languageName,
+            folds: 'choices-language',
+            run: () => fold('language'),
+          })}
+          {#if unfolded === 'language'}
+            <div id="choices-language" class="choices">
+              <Row
+                label={t('settings.languageSystem')}
+                checked={prefs.language === null}
+                onclick={() => {
+                  prefs.language = null
+                  chosen()
+                }}
+              />
+              {#each LOCALES as locale (locale.code)}
+                <Row
+                  label={locale.name}
+                  help={translatedLine(locale.done)}
+                  checked={prefs.language === locale.code}
+                  onclick={() => {
+                    prefs.language = locale.code as Locale
+                    chosen()
+                  }}
+                />
+              {/each}
+            </div>
+          {/if}
         </Group>
         {#if currentLocale() !== 'en'}
           <p class="settings-help">{t('settings.translatedWith')}</p>
         {/if}
-        <Group title={t('settings.clock')}>
-          {#each ['system', '24', '12'] as const as choice (choice)}
-            <Row
-              label={t(`settings.clock_${choice}`)}
-              checked={prefs.clock === choice}
-              onclick={() => (prefs.clock = choice)}
-            />
-          {/each}
+        <Group>
+          {@render row({
+            icon: 'timer',
+            label: t('settings.clock'),
+            value: t(`settings.clock_${prefs.clock}`),
+            folds: 'choices-clock',
+            run: () => fold('clock'),
+          })}
+          {#if unfolded === 'clock'}
+            <div id="choices-clock" class="choices">
+              {#each ['system', '24', '12'] as const as choice (choice)}
+                <Row
+                  label={t(`settings.clock_${choice}`)}
+                  checked={prefs.clock === choice}
+                  onclick={() => {
+                    prefs.clock = choice
+                    chosen()
+                  }}
+                />
+              {/each}
+            </div>
+          {/if}
         </Group>
       {:else if page === 'lock'}
         <Group>
@@ -901,6 +955,32 @@
   }
   .tile :global(.icon) {
     color: inherit;
+  }
+  .chev {
+    display: grid;
+    flex: none;
+    color: var(--color-text-faint);
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .chev.open {
+    transform: rotate(180deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chev {
+      transition: none;
+    }
+  }
+  /* the choices opened under their row, a hairline between like any row */
+  .choices {
+    position: relative;
+  }
+  .choices::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: var(--space-3);
+    right: 0;
+    border-top: 1px solid var(--color-border);
   }
   /* a shared row with an icon (settings/ui/Row) gets the same tile, and its
      hairline starts after it */
