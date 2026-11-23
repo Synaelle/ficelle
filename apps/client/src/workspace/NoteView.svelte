@@ -20,6 +20,7 @@
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
   import { displayBinding } from '../lib/shortcuts'
   import type { MenuItem } from '../lib/overlay.svelte'
+  import { HANDHELD } from '../lib/platform'
   import { noteWindowsSupported, windowKind } from '../lib/windows'
   import { workspace } from '../lib/workspace.svelte'
 
@@ -137,10 +138,6 @@
   let sourceArea: HTMLTextAreaElement | undefined = $state()
   let tagDraft = $state('')
   let titleInput: HTMLInputElement | undefined = $state()
-  /** Phones: no spelling popup on the title either, see the editor. */
-  const PHONE = /android|iphone|ipad/i.test(navigator.userAgent)
-  // a phone has no room for the tabs, a narrow window on a computer has
-  const viewTabs = $derived(!narrow || !PHONE)
 
   // a title from another device: the caret stays on the same words
   $effect.pre(() => {
@@ -217,12 +214,6 @@
         run: () => void workspace.trash(id),
       },
     ]
-    // a phone has no room for the tabs: Raw is a choice in this menu
-    if (!viewTabs)
-      items.unshift(
-        { label: t('note.raw'), icon: 'code', checked: source, run: () => (source = !source) },
-        SEPARATOR,
-      )
     // a finger gets the sheet a long touch opens, a mouse the menu under ⋯
     if (overlay.byTouch) overlay.openSheet(items)
     else overlay.openMenuBelow(button, items)
@@ -332,7 +323,7 @@
         <input
           bind:this={titleInput}
           class="title"
-          spellcheck={prefs.spellcheck && !PHONE}
+          spellcheck={prefs.spellcheck && !HANDHELD}
           placeholder={t('note.untitled')}
           aria-label={t('note.title')}
           value={note.title}
@@ -376,30 +367,29 @@
           </form>
         </div>
 
-        <!-- the formatted note, or its Markdown to edit as text (on a phone,
-             Raw in the note's menu) -->
-        {#if viewTabs}<div class="views" role="tablist" aria-label={t('note.view')}>
-            {#each [false, true] as raw (raw)}
-              <button
-                class="view-tab"
-                class:on={source === raw}
-                role="tab"
-                aria-selected={source === raw}
-                tabindex={source === raw ? 0 : -1}
-                onclick={() => (source = raw)}
-                onkeydown={(e) => {
-                  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-                  e.preventDefault()
-                  source = !source
-                  const tabs = e.currentTarget.parentElement?.querySelectorAll('button')
-                  tabs?.[source ? 1 : 0]?.focus()
-                }}
-              >
-                <Icon name={raw ? 'code' : 'pencil'} size={16} />
-                {raw ? t('note.raw') : t('note.preview')}
-              </button>
-            {/each}
-          </div>{/if}
+        <!-- the formatted note, or its Markdown to edit as text -->
+        <div class="views" role="tablist" aria-label={t('note.view')}>
+          {#each [false, true] as raw (raw)}
+            <button
+              class="view-tab"
+              class:on={source === raw}
+              role="tab"
+              aria-selected={source === raw}
+              tabindex={source === raw ? 0 : -1}
+              onclick={() => (source = raw)}
+              onkeydown={(e) => {
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+                e.preventDefault()
+                source = !source
+                const tabs = e.currentTarget.parentElement?.querySelectorAll('button')
+                tabs?.[source ? 1 : 0]?.focus()
+              }}
+            >
+              <Icon name={raw ? 'code' : 'pencil'} size={16} />
+              {raw ? t('note.raw') : t('note.preview')}
+            </button>
+          {/each}
+        </div>
 
         {#if source}
           <RawView
@@ -723,6 +713,11 @@
   .view-tab.on {
     color: var(--color-text);
     border-bottom-color: var(--color-accent);
+  }
+  @media (pointer: coarse) {
+    .view-tab {
+      height: 44px;
+    }
   }
   .tag {
     display: inline-flex;
