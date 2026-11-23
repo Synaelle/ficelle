@@ -244,6 +244,20 @@ describe('the markdown importer through the pipeline', () => {
     ])
   })
 
+  it('keeps private use characters apart from its own markers', async () => {
+    const backend = await vault()
+    const text = 'Icons \uE000home\uE001x\uE002 and \uE003file\uE004 here'
+    const prepared = await prepare(
+      memorySource('Icons', { 'Icons.md': text }),
+      markdownImporter,
+      backend,
+    )
+    expect(prepared.model.notes[0]?.body).toBe(
+      'Icons &#xE000;home&#xE001;x&#xE002; and &#xE003;file&#xE004; here',
+    )
+    expect(prepared.report).toEqual([])
+  })
+
   it('knows notes an earlier version brought in by their path alone', async () => {
     const backend = await vault()
     const files = { 'a.md': 'one', 'b.md': 'two' }

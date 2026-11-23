@@ -123,7 +123,11 @@ export async function readMarkdownNotes(
     report.progress(done++, options.notes.length)
     let text: string
     try {
-      text = (await readText(source, path, report)).replace(/\r\n?/g, '\n')
+      text = (await readText(source, path, report))
+        .replace(/\r\n?/g, '\n')
+        // the importer's own markers are these private use characters,
+        // the text keeps them as markdown's character references
+        .replace(/[\uE000-\uE004]/g, (c) => `&#x${c.charCodeAt(0).toString(16).toUpperCase()};`)
     } catch {
       report.add({ kind: 'unreadable', detail: path })
       continue
