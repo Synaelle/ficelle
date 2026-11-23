@@ -234,14 +234,6 @@ fn zip_error(e: zip::result::ZipError) -> Error {
     }
 }
 
-/// The most a backup's header may ask of Argon2id: a file from elsewhere
-/// must not make the device run out of memory or spin for minutes.
-const MAX_KDF: KdfParams = KdfParams {
-    memory_kib: 1024 * 1024,
-    iterations: 32,
-    parallelism: 16,
-};
-
 /// Writes a backup of the vault to `path`, encrypted when a password is
 /// given. Written beside it first and moved in place at the end, so a
 /// failed backup never leaves half a file under the name.
@@ -461,9 +453,12 @@ impl Backup {
                 iterations: word(at + 8),
                 parallelism: word(at + 12),
             };
-            if kdf.memory_kib > MAX_KDF.memory_kib
-                || kdf.iterations > MAX_KDF.iterations
-                || kdf.parallelism > MAX_KDF.parallelism
+            // what the key derivation refuses is a damaged header: a file
+            // from elsewhere must not make the device run out of memory or
+            // spin for minutes
+            if kdf.memory_kib > KdfParams::MOST.memory_kib
+                || kdf.iterations > KdfParams::MOST.iterations
+                || kdf.parallelism > KdfParams::MOST.parallelism
             {
                 return Err(Error::Corrupt("backup key settings out of range".into()));
             }
@@ -763,6 +758,22 @@ mod tests {
         write_backup(&source, &blobs, &path, Some("pw"), KDF).unwrap();
         let bytes = std::fs::read(&path).unwrap();
         std::fs::write(&path, &bytes[..OUTER_HEADER - 3]).unwrap();
+        assert!(matches!(
+            Backup::open(&path, Some("pw")),
+            Err(Error::Corrupt(_))
+        ));
+    }
+
+    #[test]
+    fn a_header_asking_more_passes_than_derivation_takes_is_damaged() {
+        let dir = tempfile::tempdir().unwrap();
+        let (source, blobs) = filled(dir.path());
+        let path = dir.path().join("b.backup");
+        write_backup(&source, &blobs, &path, Some("pw"), KDF).unwrap();
+        let mut bytes = std::fs::read(&path).unwrap();
+        let passes = MAGIC.len() + 8;
+        bytes[passes..passes + 4].copy_from_slice(&(KdfParams::MOST.iterations + 1).to_le_bytes());
+        std::fs::write(&path, bytes).unwrap();
         assert!(matches!(
             Backup::open(&path, Some("pw")),
             Err(Error::Corrupt(_))

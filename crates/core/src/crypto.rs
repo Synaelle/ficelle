@@ -121,7 +121,7 @@ impl KdfParams {
     /// The most any stored settings may ask for: 1 GiB, 20 passes, 16
     /// lanes, far above what this app writes. A changed vault or backup file
     /// cannot make opening it take all the memory there is.
-    const MOST: Self = Self {
+    pub(crate) const MOST: Self = Self {
         memory_kib: 1024 * 1024,
         iterations: 20,
         parallelism: 16,
