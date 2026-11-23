@@ -137,6 +137,8 @@
   let editorRef: Editor | undefined = $state()
   let sourceArea: HTMLTextAreaElement | undefined = $state()
   let tagDraft = $state('')
+  /** Tags offered while typing one, less those the note has. */
+  const tagChoices = $derived(workspace.tags.filter((o) => !note?.tags.includes(o.name)))
   let titleInput: HTMLInputElement | undefined = $state()
 
   // a title from another device: the caret stays on the same words
@@ -363,7 +365,7 @@
               bind:value={tagDraft}
             />
             <datalist id="tag-choices">
-              {#each workspace.tags as tag (tag.id)}<option value={tag.name}></option>{/each}
+              {#each tagChoices as tag (tag.id)}<option value={tag.name}></option>{/each}
             </datalist>
           </form>
         </div>
