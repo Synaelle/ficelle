@@ -1968,6 +1968,10 @@ welcomeStart = "Start writing"
 welcomeGetApps = "Get the apps"
 appFor = "{app} for {system}"
 download = "Download"
+storage_blocked = "This browser is blocking storage for this site, or still asking about it. Allow it, then try again."
+storage_private = "This browser keeps no files for sites in a private window. Open this page in a normal window."
+storage_full = "This browser has no room left for this site. Free some space on the device, then try again."
+storage_missing = "This browser cannot keep files for sites. Update it, or use another browser."
 
 # The web version's wording where the apps say "this device", see
 # lib/i18n.svelte.ts: the same keys under inBrowser

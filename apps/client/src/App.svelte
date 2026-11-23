@@ -13,6 +13,8 @@
   import TagsMerged from './workspace/TagsMerged.svelte'
   import { autoLock } from './lib/autolock.svelte'
   import { backend, type VaultStatus } from './lib/backend'
+  import { reopenNotes } from './lib/backend/web'
+  import { storageTrouble, type StorageTrouble } from './lib/storageTrouble'
   import { applyDyslexicFont } from './lib/dyslexicFont'
   import { catchErrors, errorCatch } from './lib/errorCatch.svelte'
   import ErrorReport from './lib/ErrorReport.svelte'
@@ -48,6 +50,8 @@
   /** Why the notes cannot be opened, when it is known, and their folder. */
   let cannotOpen = $state<{ kind: 'readOnly' | 'vaultDamaged'; folder: string } | null>(null)
   let stage = $state<Stage>('loading')
+  /** In the web version, what kept the browser's storage from the notes. */
+  let trouble = $state<StorageTrouble | null>(null)
   let status = $state<VaultStatus | null>(null)
   /** An old vault the app opened without asking: it gets a password before
    * the notes show. The browser's test vault stays as it is. A vault left
@@ -82,6 +86,11 @@
         cannotOpen = { kind, folder: message ?? '' }
         return (stage = 'failed')
       }
+      // the browser's storage would not open: said why, with a way to retry
+      if (WEB && kind === 'storage') {
+        trouble = await storageTrouble(err)
+        return (stage = 'failed')
+      }
       throw err
     }
     if (!status.exists) return void firstLaunch()
@@ -107,9 +116,21 @@
       await backend.vaultCreate('plain', '', null)
       if (WEB) await ready()
       else stage = 'welcome'
-    } catch {
+    } catch (err) {
+      if (WEB) trouble = await storageTrouble(err)
       stage = 'failed'
     }
+  }
+
+  /** The web version starts over with a new worker, which opens the storage
+   * again: the one that failed keeps failing, whatever the browser allowed
+   * since. */
+  async function retry() {
+    if (!WEB) return void firstLaunch()
+    trouble = null
+    stage = 'loading'
+    await reopenNotes()
+    await start()
   }
 
   /** The notes fade as they lock, the lock screen's knot then ties itself. */
@@ -193,8 +214,8 @@
 {:else if stage === 'failed'}
   <main class="failed">
     <h1>{t('unlock.failedTitle')}</h1>
-    <p role="alert">{t('unlock.failedHelp')}</p>
-    <button class="btn primary" onclick={firstLaunch}>{t('unlock.retry')}</button>
+    <p role="alert">{trouble ? t(`web.storage_${trouble}`) : t('unlock.failedHelp')}</p>
+    <button class="btn primary" onclick={retry}>{t('unlock.retry')}</button>
   </main>
 {:else if stage === 'elsewhere'}
   <main class="failed">

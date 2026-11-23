@@ -39,6 +39,16 @@ export function onHandOver(save: () => Promise<void>) {
   beforeHandOver = save
 }
 
+let reopen = async () => {}
+
+/** Ends the worker whose storage would not open, once the notes are free
+ * again: the next call starts a new one, which opens the storage from
+ * nothing. A worker keeps the failure it started with, even after the
+ * browser was allowed to store. */
+export function reopenNotes(): Promise<void> {
+  return reopen()
+}
+
 export function createWebBackend(): Backend {
   const waiting = new Map<number, { resolve(value: unknown): void; reject(err: unknown): void }>()
   let next = 0
@@ -48,6 +58,14 @@ export function createWebBackend(): Backend {
   /** Ends the worker and lets go of the notes. */
   let stop: (() => void) | null = null
   const tabs = new BroadcastChannel(LOCK)
+  /** Settles once this tab has let go of the notes. */
+  let released: Promise<unknown> = Promise.resolve()
+  reopen = async () => {
+    stop?.()
+    stop = null
+    worker = null
+    await released
+  }
 
   /** The worker, once this tab holds the notes. The first try only takes
    * them when free; after the "already open" screen, a try asks the tab
@@ -56,7 +74,7 @@ export function createWebBackend(): Backend {
     const takeOver = refused
     return new Promise<Worker>((resolve, reject) => {
       if (takeOver) tabs.postMessage('take')
-      void navigator.locks.request(LOCK, takeOver ? {} : { ifAvailable: true }, (lock) => {
+      released = navigator.locks.request(LOCK, takeOver ? {} : { ifAvailable: true }, (lock) => {
         if (!lock) {
           refused = true
           reject({ kind: 'openElsewhere', message: 'the notes are open in another tab' })
