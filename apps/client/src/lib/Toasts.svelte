@@ -14,7 +14,12 @@
   <ErrorNotice />
   {#each toasts.list as toast (toast.id)}
     <div class="toast">
-      <span class="text"><b>{toast.from}</b> {toast.text}</span>
+      <span class="text"
+        ><b>{toast.from}</b>
+        {toast.text}
+        {#if toast.code}<span class="error-code">{t('common.errorCode', { code: toast.code })}</span
+          >{/if}</span
+      >
       {#if toast.action}
         {@const action = toast.action}
         <button

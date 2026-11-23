@@ -14,7 +14,9 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { modal } from '../lib/modal'
   import { pickToOpen, pickToSave } from '../lib/pick'
-  import { isBackendError, workspace } from '../lib/workspace.svelte'
+  import { workspace } from '../lib/workspace.svelte'
+  import { namedError, shownError, type ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
 
   let {
     mode,
@@ -37,7 +39,7 @@
   let password = $state('')
   let again = $state('')
   let busy = $state(false)
-  let error = $state<string | null>(null)
+  let error = $state<ShownError | null>(null)
   let made = $state<BackupManifest | null>(null)
 
   // restoring
@@ -46,7 +48,6 @@
   let inspected = $state<{ manifest: BackupManifest; present: number } | null>(null)
   let restored = $state<RestoreReport | null>(null)
 
-  const errorText = (err: unknown) => t(`errors.${isBackendError(err) ? err.kind : 'unknown'}`)
   const when = (time: number) =>
     new Intl.DateTimeFormat(currentLocale(), {
       dateStyle: 'medium',
@@ -70,7 +71,7 @@
   async function make() {
     error = null
     if (notesPassword && !(await backend.vaultCheckPassword(password))) {
-      error = t('errors.wrongPassword')
+      error = namedError('wrongPassword', 'BACKUP')
       return
     }
     const target = await pickToSave({
@@ -84,7 +85,7 @@
       made = await backend.backupWrite(target, sealed ? password : null)
       onmade?.()
     } catch (err) {
-      error = errorText(err)
+      error = shownError(err, 'BACKUP')
     } finally {
       busy = false
       password = ''
@@ -106,7 +107,7 @@
       needsPassword = await backend.backupEncrypted(picked)
       if (!needsPassword) await inspect()
     } catch (err) {
-      error = errorText(err)
+      error = shownError(err, 'RESTORE')
     }
   }
 
@@ -117,7 +118,7 @@
     try {
       inspected = await backend.backupInspect(path, needsPassword ? password : null)
     } catch (err) {
-      error = errorText(err)
+      error = shownError(err, 'RESTORE')
     } finally {
       busy = false
     }
@@ -131,7 +132,7 @@
       restored = await backend.backupRestore(path, needsPassword ? password : null)
       await Promise.all([workspace.refreshTagsAndNotes()])
     } catch (err) {
-      error = errorText(err)
+      error = shownError(err, 'RESTORE')
     } finally {
       busy = false
       password = ''
@@ -250,7 +251,7 @@
       </form>
     {/if}
 
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
+    {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
 
     <div class="actions">
       <span class="grow"></span>

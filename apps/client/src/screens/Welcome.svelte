@@ -10,6 +10,8 @@
   import { onBack } from '../lib/back'
   import { backend } from '../lib/backend'
   import { backupError, backups } from '../lib/backups.svelte'
+  import type { ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
   import { t } from '../lib/i18n.svelte'
   import Setup from './Setup.svelte'
 
@@ -18,7 +20,7 @@
   type Step = 'backups' | 'encrypt' | 'password'
   let step: Step = $state('backups')
   let busy = $state(false)
-  let error = $state('')
+  let error: ShownError | null = $state(null)
   /** Encrypted by the password steps: leaving them opens the notes. */
   let encrypted = false
 
@@ -28,7 +30,7 @@
 
   async function answerBackups(yes: boolean) {
     busy = true
-    error = ''
+    error = null
     try {
       if (yes) {
         const folder = window.AppSystem?.backupFolder?.() || (await documentDir())
@@ -38,8 +40,7 @@
       } else if (backups.view?.config) backups.view = await backend.backupsTurnOff()
       step = 'encrypt'
     } catch (err) {
-      const e = err as { kind?: string; message?: string }
-      error = backupError(e?.kind, e?.message ?? String(err))
+      error = backupError(err)
     } finally {
       busy = false
     }
@@ -60,7 +61,7 @@
       {#if step === 'backups'}
         <h1>{t('welcome.backupsTitle')}</h1>
         <p class="muted">{t('welcome.backupsHelp')}</p>
-        {#if error}<p class="error" role="alert">{error}</p>{/if}
+        {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
         <div class="actions">
           <button
             class="btn primary"

@@ -15,6 +15,7 @@
   import { pickToSave } from '../lib/pick'
   import { ATTACHMENT_PREFIX, openAttachment } from '../lib/attachments'
   import { backend, type AttachmentFile } from '../lib/backend'
+  import { errorCode, shownError, type ShownError } from '../lib/errors'
   import { shrinkImage, thumbnailOf } from '../lib/images'
   import { FILES_CHANGED } from '../lib/sync.svelte'
   import { t } from '../lib/i18n.svelte'
@@ -23,7 +24,7 @@
   import type { IconName } from '../lib/icons/sets'
   import { LEADING, prefs, shortcutFor } from '../lib/prefs.svelte'
   import type { ActionId } from '../lib/shortcuts'
-  import { isBackendError, workspace } from '../lib/workspace.svelte'
+  import { workspace } from '../lib/workspace.svelte'
   import { createExtensions } from './extensions'
   import { aroundEdit, asWritten } from './asWritten'
   import { deleteLine } from './deleteLine'
@@ -150,6 +151,13 @@
   }
 
   /** The picture itself goes on the clipboard; Android's takes text only. */
+  /** An address that cannot be a link, said as an error. */
+  const linkRefused = (): ShownError => ({
+    kind: 'refused',
+    reason: t('editor.linkRefused'),
+    code: errorCode('LINK', 'refused'),
+  })
+
   const picturesCopy = (file: AttachmentFile) =>
     file.mimeType.startsWith('image/') && backend.native && !HANDHELD
 
@@ -170,7 +178,10 @@
       return true
     } catch (err) {
       console.warn('copy image failed', err)
-      toasts.push(t('files.title'), t('files.imageNotCopied'))
+      toasts.push(t('files.title'), {
+        ...shownError(err, 'COPY'),
+        reason: t('files.imageNotCopied'),
+      })
       return false
     }
   }
@@ -264,7 +275,7 @@
       files.delete(file.fileName)
       save()
     } catch (err) {
-      workspace.error = isBackendError(err) ? err.kind : 'unknown'
+      workspace.report(err, 'FILES')
     }
   }
 
@@ -272,7 +283,7 @@
     try {
       await openAttachment(file)
     } catch (err) {
-      workspace.error = isBackendError(err) ? err.kind : 'unknown'
+      workspace.report(err, 'FILES')
     }
   }
 
@@ -282,7 +293,7 @@
       const path = await pickToSave({ defaultPath: file.fileName })
       if (path) await backend.saveAttachment(file.sha256, path)
     } catch (err) {
-      workspace.error = isBackendError(err) ? err.kind : 'unknown'
+      workspace.report(err, 'FILES')
     }
   }
 
@@ -547,7 +558,7 @@
         if (at !== undefined) chain?.insertContentAt(at, content).run()
         else chain?.insertContent(content).run()
       } catch (err) {
-        workspace.error = isBackendError(err) ? err.kind : 'unknown'
+        workspace.report(err, 'ATTACH')
       }
     }
   }
@@ -617,7 +628,7 @@
       const href = linkAddress(asked.href)
       if (!href || href === 'https://') return
       if (!editor.can().setLink({ href })) {
-        toasts.push(t('editor.link'), t('editor.linkRefused'))
+        toasts.push(t('editor.link'), linkRefused())
         return
       }
       editor
@@ -641,7 +652,7 @@
     const href = asked === '' ? '' : linkAddress(asked)
     if (href === '') editor.chain().focus().unsetLink().run()
     else if (!editor.chain().focus().extendMarkRange('link').setLink({ href }).run())
-      toasts.push(t('editor.link'), t('editor.linkRefused'))
+      toasts.push(t('editor.link'), linkRefused())
   }
 
   let stopDrops: (() => void) | null = null
@@ -774,7 +785,7 @@
                 if (!yes) return
                 backend
                   .openLink(href)
-                  .catch((err: unknown) => toasts.push(t('editor.link'), String(err)))
+                  .catch((err: unknown) => toasts.push(t('editor.link'), shownError(err, 'LINK')))
               })
             return true
           }

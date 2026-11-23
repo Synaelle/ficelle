@@ -11,6 +11,8 @@
   import { backend } from '../lib/backend'
   import type { BackupFile, BackupSchedule } from '../lib/backend/types'
   import { backupError, backups } from '../lib/backups.svelte'
+  import { errorLine, type ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
   import { bytes, dateTime, relative } from '../lib/format'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
@@ -58,7 +60,7 @@
   let filePassword = $state('')
   let busy = $state(false)
   let message: string | null = $state(null)
-  let failure: string | null = $state(null)
+  let failure: ShownError | null = $state(null)
   let markdownInput: HTMLInputElement | undefined = $state()
 
   onMount(() => {
@@ -74,9 +76,8 @@
       await action()
       if (done) message = done
     } catch (err) {
-      const e = err as { kind?: string; message?: string }
-      if (e?.kind === 'unreadable') unreadable = true
-      failure = backupError(e?.kind, e?.message ?? String(err))
+      failure = backupError(err)
+      if (failure.kind === 'unreadable') unreadable = true
     } finally {
       busy = false
     }
@@ -269,7 +270,12 @@
         label={health}
         icon="info"
         help={view?.status.lastError && !view.running
-          ? backupError(view.status.lastErrorKind, view.status.lastError)
+          ? errorLine(
+              backupError({
+                kind: view.status.lastErrorKind ?? 'unknown',
+                message: view.status.lastError,
+              }),
+            )
           : view?.status.lastSuccessAt
             ? t('backups.size', { count: view.status.files, size: bytes(view.status.storedBytes) })
             : undefined}
@@ -362,7 +368,7 @@
     </div>
   {/if}
 
-  {#if failure}<p class="settings-help bad" role="alert">{failure}</p>{/if}
+  {#if failure}<p class="settings-help bad" role="alert"><ErrorText error={failure} /></p>{/if}
   {#if message}<p class="settings-help" role="status">{message}</p>{/if}
 
   <Group title={t('backups.restoreTitle')}>

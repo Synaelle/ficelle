@@ -12,6 +12,7 @@
   import { errorCatch } from './errorCatch.svelte'
   import {
     contactOk,
+    feedbackError,
     installId,
     MAX_ABOUT,
     MAX_CONTACT,
@@ -22,6 +23,8 @@
     reportLogs,
     scrub,
   } from './feedback'
+  import type { ShownError } from './errors'
+  import ErrorText from './ErrorText.svelte'
   import Icon from './icons/Icon.svelte'
   import { t } from './i18n.svelte'
   import { modal } from './modal'
@@ -33,15 +36,16 @@
   let withShot = $state(false)
   let shotUrl = $state('')
   let busy = $state(false)
-  let problem = $state('')
+  let problem: ShownError | null = $state(null)
   let sent = $state(false)
   let copied = $state(false)
 
   // titles of every note the list holds are taken out, as in the feedback form
   const titles = () => workspace.notes.map((n) => n.title)
   const error = errorCatch.caught ?? ''
-  const about = `Error, ${scrub(error, titles())}`.slice(0, MAX_ABOUT)
-  const details = scrub([error, errorCatch.where].filter(Boolean).join('\n'), titles())
+  const code = errorCatch.shown?.code ?? ''
+  const about = `Error ${code}, ${scrub(error, titles())}`.slice(0, MAX_ABOUT)
+  const details = scrub([code, error, errorCatch.where].filter(Boolean).join('\n'), titles())
   const logs = reportLogs(titles())
   const message = $derived(
     [doing.trim(), details].filter(Boolean).join('\n\n').slice(0, MAX_MESSAGE),
@@ -61,20 +65,11 @@
       .catch(() => (place = null))
   })
 
-  function errorText(err: unknown): string {
-    const e = err as { code?: string; retryAfterSeconds?: number } | null
-    const code = e?.code ?? 'internal'
-    const text = t(`feedback.error_${code}`, {
-      minutes: Math.ceil((e?.retryAfterSeconds ?? 0) / 60),
-    })
-    return text === `feedback.error_${code}` ? t('feedback.error_internal') : text
-  }
-
   async function send(event: SubmitEvent) {
     event.preventDefault()
     if (busy || contactBad) return
     busy = true
-    problem = ''
+    problem = null
     try {
       const image = withShot && errorCatch.shot ? await prepareImage(errorCatch.shot) : null
       const { secret, receipt } = await newReceipt()
@@ -91,7 +86,7 @@
       rememberSent({ secret, url: done.url, host: done.host, about, sentAt: Date.now() })
       sent = true
     } catch (err) {
-      problem = errorText(err)
+      problem = feedbackError(err)
     } finally {
       busy = false
     }
@@ -197,7 +192,7 @@
           </dl>
         </details>
         {#if place}<p class="muted">{t('errorReport.sentTo', { host: place.host })}</p>{/if}
-        {#if problem}<p class="error" role="alert">{problem}</p>{/if}
+        {#if problem}<p class="error" role="alert"><ErrorText error={problem} /></p>{/if}
         <div class="actions">
           <button class="btn primary" type="submit" disabled={busy || !place || contactBad}
             >{busy ? t('feedback.sending') : t('feedback.send')}</button

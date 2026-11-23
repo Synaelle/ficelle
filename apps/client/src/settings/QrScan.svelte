@@ -9,6 +9,8 @@
   import { invoke } from '@tauri-apps/api/core'
   import { onDestroy, onMount } from 'svelte'
   import { onBack } from '../lib/back'
+  import { errorCode, type ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
   import { t } from '../lib/i18n.svelte'
   import { parseOffer } from '../lib/linkOffer'
 
@@ -23,7 +25,12 @@
   let stream: MediaStream | null = null
   let stopped = false
   let timer: ReturnType<typeof setTimeout> | undefined
-  let problem = $state('')
+  let problem: ShownError | null = $state(null)
+  const failed = (kind: string, key: string): ShownError => ({
+    kind,
+    reason: t(key, { appName: brand.displayName }),
+    code: errorCode('QR', kind),
+  })
   const canvas = document.createElement('canvas')
 
   $effect(() => onBack(close))
@@ -35,7 +42,7 @@
         audio: false,
       })
     } catch {
-      problem = t('sync.scanNoCamera', { appName: brand.displayName })
+      problem = failed('camera', 'sync.scanNoCamera')
       return
     }
     if (stopped || !video) return stop()
@@ -79,7 +86,7 @@
             found(offer.server, offer.offer)
             return
           }
-          problem = t('sync.scanNotOurs', { appName: brand.displayName })
+          problem = failed('notOurs', 'sync.scanNotOurs')
         }
       }
     }
@@ -110,7 +117,7 @@
     <video bind:this={video} playsinline muted></video>
     <div class="frame" aria-hidden="true"></div>
   </div>
-  {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+  {#if problem}<p class="problem" role="alert"><ErrorText error={problem} /></p>{/if}
   <button class="btn" type="button" onclick={close}>{t('common.cancel')}</button>
 </div>
 

@@ -5,6 +5,7 @@
      changed". "Later" offers waiting for the next start or
      skipping this version for the next one (a security fix can only wait). -->
 <script lang="ts">
+  import ErrorText from './ErrorText.svelte'
   import { ANDROID, PHONE } from './platform'
   import {
     appUpdates,
@@ -80,7 +81,7 @@
         <span>{downloadLine(appUpdates.progress)}</span>
       </div>
     {/if}
-    {#if appUpdates.error}<p class="error">{t(`errors.${appUpdates.error}`)}</p>{/if}
+    {#if appUpdates.error}<p class="error"><ErrorText error={appUpdates.error} /></p>{/if}
     <div class="actions">
       <button
         class="btn primary"

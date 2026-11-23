@@ -5,6 +5,8 @@
 // and the draft kept while the form is open or a send failed. The form is
 // settings/FeedbackSettings.svelte, the sending src-tauri/src/sync/feedback.rs.
 
+import { errorCode, type ShownError } from './errors'
+import { t } from './i18n.svelte'
 import { prefs } from './prefs.svelte'
 
 /** Lines kept, the newest. */
@@ -298,4 +300,17 @@ export function rememberSent(report: SentReport) {
 
 export function forgetSent(secret: string) {
   saveSent(loadSent().filter((r) => r.secret !== secret))
+}
+
+/** Why a report was not sent, as the server said it. */
+export function feedbackError(err: unknown): ShownError {
+  const e = err as { code?: string; retryAfterSeconds?: number } | null
+  const kind = e?.code ?? 'internal'
+  const key = `feedback.error_${kind}`
+  const text = t(key, { minutes: Math.ceil((e?.retryAfterSeconds ?? 0) / 60) })
+  return {
+    kind,
+    reason: text === key ? t('feedback.error_internal') : text,
+    code: errorCode('FEEDBACK', kind),
+  }
 }

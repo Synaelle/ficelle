@@ -53,16 +53,6 @@ export interface LocalStatus {
   forgottenBy: string[]
 }
 
-/** A failed command: `kind` is stable, see the shell's error.rs. */
-export interface LocalError {
-  kind: string
-  message: string
-}
-
-export function isLocalError(err: unknown): err is LocalError {
-  return typeof err === 'object' && err !== null && 'kind' in err && 'message' in err
-}
-
 const EMPTY: LocalStatus = {
   open: false,
   name: '',

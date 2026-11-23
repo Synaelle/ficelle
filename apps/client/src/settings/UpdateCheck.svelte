@@ -5,6 +5,7 @@
      rows stay, greyed. A phone has no update card, only a mark that opens
      this page: Later and the list of changes are here instead. -->
 <script lang="ts">
+  import ErrorText from '../lib/ErrorText.svelte'
   import { ANDROID, PHONE } from '../lib/platform'
   import { channelSwitch } from '../lib/channelChange.svelte'
   import {
@@ -134,7 +135,7 @@
     />
   {/if}
   {#if appUpdates.error}<p class="error" role="alert">
-      {t(`errors.${appUpdates.error}`)}
+      <ErrorText error={appUpdates.error} />
     </p>{/if}
 </Group>
 

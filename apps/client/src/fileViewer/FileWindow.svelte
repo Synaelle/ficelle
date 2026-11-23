@@ -34,7 +34,7 @@
     writeOpenedFile,
     type OpenedFile,
   } from './files'
-  import { isBackendError } from '../lib/workspace.svelte'
+  import { errorCode, errorKind, isBackendError, shownError } from '../lib/errors'
   import Unlock from '../screens/Unlock.svelte'
 
   let { close }: { close: () => void } = $props()
@@ -76,6 +76,8 @@
   let crlf = false
   let dirty = $state(false)
   let problem = $state<Problem | null>(null)
+  /** The code of the error behind `failed` or `notSaved`, see lib/errors. */
+  let code = $state('')
   /** Grows when the file is read again, the editor then starts over. */
   let revision = $state(0)
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -113,7 +115,8 @@
       // read again once another app moved or deleted it: what shows stays
       if (file) problem = 'fileGone'
       else {
-        failed = isBackendError(err) && err.kind === 'notText' ? 'notText' : 'failed'
+        failed = errorKind(err) === 'notText' ? 'notText' : 'failed'
+        code = errorCode('READ', errorKind(err))
         if (DESKTOP) name = await getCurrentWindow().title()
       }
     }
@@ -148,7 +151,8 @@
         problem = null
       })
       .catch((err: unknown) => {
-        const kind = isBackendError(err) ? err.kind : 'unknown'
+        const kind = errorKind(err)
+        code = errorCode('WRITE', kind)
         // an app that let Ficelle read its file without writing it (Android)
         const refused = isBackendError(err) && /denied|permission/i.test(err.message)
         problem =
@@ -187,7 +191,7 @@
       imported = note.id
       toasts.push(file.name, t('file.imported', { title: note.title || t('note.untitled') }))
     } catch (err) {
-      toasts.push(file.name, t(`errors.${isBackendError(err) ? err.kind : 'unknown'}`))
+      toasts.push(file.name, shownError(err, 'IMPORT'))
     } finally {
       importing = false
     }
@@ -287,11 +291,19 @@
       <button class="btn" onclick={() => void save(true)}>{t('file.saveAgain')}</button>
     </p>
   {:else if problem}
-    <p class="problem" role="alert">{t(`file.${problem}`)}</p>
+    <p class="problem" role="alert">
+      <span
+        >{t(`file.${problem}`)}
+        {#if problem === 'notSaved'}<span class="error-code">{t('common.errorCode', { code })}</span
+          >{/if}</span
+      >
+    </p>
   {/if}
 
   {#if failed}
-    <p class="empty" role="alert">{t(`file.${failed}`)}</p>
+    <p class="empty" role="alert">
+      {t(`file.${failed}`)} <span class="error-code">{t('common.errorCode', { code })}</span>
+    </p>
   {:else if file}
     {#key revision}
       <div class="scroll">

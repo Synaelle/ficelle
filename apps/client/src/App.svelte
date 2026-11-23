@@ -19,6 +19,7 @@
   import { storageRefused } from './lib/webStorage'
   import { applyDyslexicFont } from './lib/dyslexicFont'
   import { catchErrors, errorCatch } from './lib/errorCatch.svelte'
+  import { errorCode, shownError, type ShownError } from './lib/errors'
   import { followPageParts } from './lib/pageParts'
   import ErrorReport from './lib/ErrorReport.svelte'
   import { encryptFlow } from './lib/encryptFlow.svelte'
@@ -55,8 +56,14 @@
   let stage = $state<Stage>('loading')
   /** In the web version, what kept the browser's storage from the notes. */
   let trouble = $state<StorageTrouble | null>(null)
-  /** What failed, short, for the person to send back with a report. */
-  let failCode = $state('')
+  /** Why the notes did not open, with its code to send back. */
+  let failure = $state<ShownError | null>(null)
+  /** What the browser's storage did, as an error. */
+  const troubleError = (found: StorageTrouble): ShownError => ({
+    kind: `storage_${found}`,
+    reason: t(`web.storage_${found}`),
+    code: errorCode('START', `storage_${found}`),
+  })
   let status = $state<VaultStatus | null>(null)
   /** An old vault the app opened without asking: it gets a password before
    * the notes show. The browser's test vault stays as it is. A vault left
@@ -89,7 +96,7 @@
     // the browser keeps nothing for this site: no notes could last a reload
     if (WEB && storageRefused) {
       trouble = 'refused'
-      failCode = 'STORAGE-REFUSED'
+      failure = troubleError(trouble)
       return (stage = 'failed')
     }
     try {
@@ -112,7 +119,7 @@
           return start(tries + 1)
         }
         trouble = found
-        failCode = `STORAGE-${(found ?? kind).toUpperCase()}`
+        failure = found ? troubleError(found) : shownError(err, 'START')
         return (stage = 'failed')
       }
       throw err
@@ -142,8 +149,7 @@
       else stage = 'welcome'
     } catch (err) {
       if (WEB) trouble = await storageTrouble(err)
-      const { kind = 'unknown' } = err as { kind?: string }
-      failCode = trouble ? `STORAGE-${trouble.toUpperCase()}` : `CREATE-${kind.toUpperCase()}`
+      failure = trouble ? troubleError(trouble) : shownError(err, 'START')
       stage = 'failed'
     }
   }
@@ -156,7 +162,7 @@
     // what the browser allows is read as the page loads
     if (storageRefused) return location.reload()
     trouble = null
-    failCode = ''
+    failure = null
     stage = 'loading'
     await reopenNotes()
     await start()
@@ -234,6 +240,7 @@
         : t('unlock.damagedHelp')}
     </p>
     <p class="folder">{cannotOpen.folder}</p>
+    <p class="code">{t('common.errorCode', { code: errorCode('START', cannotOpen.kind) })}</p>
     <button
       class="btn primary"
       onclick={() => ((cannotOpen = null), (stage = 'loading'), void start())}
@@ -243,8 +250,9 @@
 {:else if stage === 'failed'}
   <main class="failed">
     <h1>{t('unlock.failedTitle')}</h1>
-    <p role="alert">{trouble ? t(`web.storage_${trouble}`) : t('unlock.failedHelp')}</p>
-    {#if failCode}<p class="code">{t('common.errorCode', { code: failCode })}</p>{/if}
+    <p role="alert">{failure?.reason}</p>
+    {#if !trouble}<p>{t('unlock.failedHelp')}</p>{/if}
+    {#if failure}<p class="code">{t('common.errorCode', { code: failure.code })}</p>{/if}
     <button class="btn primary" onclick={retry}>{t('unlock.retry')}</button>
   </main>
 {:else if stage === 'elsewhere'}

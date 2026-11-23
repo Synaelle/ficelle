@@ -3,6 +3,7 @@
      or without automatic updates. Nothing installs without "Update now";
      "Don't update" asks once more, then this version is not asked again. -->
 <script lang="ts">
+  import ErrorText from './ErrorText.svelte'
   import { ANDROID } from './platform'
   import { appUpdates } from './appUpdate.svelte'
   import { t } from './i18n.svelte'
@@ -44,7 +45,9 @@
       <p id="critical-text">
         {t('appUpdate.criticalText', { version: appUpdates.critical.version })}
       </p>
-      {#if appUpdates.error}<p class="error" role="alert">{t(`errors.${appUpdates.error}`)}</p>{/if}
+      {#if appUpdates.error}<p class="error" role="alert">
+          <ErrorText error={appUpdates.error} />
+        </p>{/if}
       <div class="actions">
         <button
           class="btn primary"

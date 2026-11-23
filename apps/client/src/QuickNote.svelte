@@ -14,7 +14,8 @@
   import { displayBinding } from './lib/shortcuts'
   import { applyTheme } from './lib/theme.svelte'
   import { applyUiSize } from './lib/uiSize'
-  import { isBackendError } from './lib/workspace.svelte'
+  import { errorKind, shownError, type ShownError } from './lib/errors'
+  import ErrorText from './lib/ErrorText.svelte'
 
   applyTheme(() => backend.systemClock24h())
   $effect(() => void setLocale(prefs.language ?? systemLocale()))
@@ -24,7 +25,7 @@
   let title = $state('')
   let body = $state('')
   let busy = $state(false)
-  let problem = $state('')
+  let problem: ShownError | string = $state('')
   let bodyField: HTMLTextAreaElement | undefined = $state()
 
   const empty = $derived(!title.trim() && !body.trim())
@@ -59,9 +60,9 @@
       await getCurrentWindow().close()
     } catch (err) {
       problem =
-        isBackendError(err) && err.kind === 'locked'
+        errorKind(err) === 'locked'
           ? t('quick.locked', { app: brand.displayName })
-          : t(`errors.${isBackendError(err) ? err.kind : 'unknown'}`)
+          : shownError(err, 'QUICK')
     } finally {
       busy = false
     }
@@ -100,7 +101,7 @@
     aria-label={t('quick.title')}
     bind:value={body}
     bind:this={bodyField}></textarea>
-  {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+  {#if problem}<p class="problem" role="alert"><ErrorText error={problem} /></p>{/if}
   <footer>
     <span class="muted">{t('quick.hint', { keys: displayBinding('Mod+Enter') })}</span>
     <button class="btn primary" disabled={empty || busy} onclick={save}>{t('quick.save')}</button>

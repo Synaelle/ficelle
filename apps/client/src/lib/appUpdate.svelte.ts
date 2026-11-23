@@ -16,12 +16,12 @@ import { brand } from '@app/brand'
 import { listen } from '@tauri-apps/api/event'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
 import { NIGHTLY, pretendRelease, resetBetaWelcome } from './beta.svelte'
+import { namedError, shownError, type ShownError } from './errors'
 import { currentLocale, t } from './i18n.svelte'
 import { ANDROID, LINUX, PLATFORM } from './platform'
 import { prefs } from './prefs.svelte'
 import { lastNotified, rememberNotified, worthNotifying } from './updateNotify'
 import { overlay } from './overlay.svelte'
-import { isBackendError } from './workspace.svelte'
 
 declare global {
   interface Window {
@@ -150,8 +150,8 @@ class AppUpdates {
   checking = $state(false)
   /** The last check found nothing newer. */
   upToDate = $state(false)
-  /** The error kind of the last check. */
-  error = $state('')
+  /** The last check's, download's or install's error. */
+  error: ShownError | null = $state(null)
   installing = $state(false)
   /** A critical security fix waiting for the person's answer. */
   critical: AppUpdate | null = $state(null)
@@ -258,15 +258,15 @@ class AppUpdates {
   async check() {
     if (!updatesHere || this.elsewhere || this.checking) return
     if (pretendRelease) {
-      this.error = 'testBuild'
+      this.error = namedError('testBuild', 'UPDATE')
       return
     }
     this.checking = true
-    this.error = ''
+    this.error = null
     try {
       this.found(await backend.appUpdateLatest(channel()))
     } catch (err) {
-      this.error = isBackendError(err) ? err.kind : 'unknown'
+      this.error = shownError(err, 'UPDATE')
     } finally {
       this.checking = false
     }
@@ -283,7 +283,7 @@ class AppUpdates {
       })
       if (!yes) return
     }
-    this.error = ''
+    this.error = null
     this.progress = { done: 0, total: null }
     const stop = await listen<{ done: number; total: number | null }>(
       'app-update-progress',
@@ -294,7 +294,7 @@ class AppUpdates {
       this.ready = update
       this.downloaded = !!update
     } catch (err) {
-      this.error = isBackendError(err) ? err.kind : 'unknown'
+      this.error = shownError(err, 'DOWNLOAD')
     } finally {
       stop()
       this.progress = null
@@ -307,7 +307,7 @@ class AppUpdates {
     if (!this.ready) return
     if (!this.ready.page && !this.downloaded) return this.download()
     if (ANDROID && window.AppInstaller) {
-      if (!window.AppInstaller.install()) this.error = 'notFound'
+      if (!window.AppInstaller.install()) this.error = namedError('notFound', 'INSTALL')
       return
     }
     // the portable exe opens the download page and keeps running
@@ -315,7 +315,7 @@ class AppUpdates {
     try {
       await backend.appUpdateInstall()
     } catch (err) {
-      this.error = isBackendError(err) ? err.kind : 'unknown'
+      this.error = shownError(err, 'INSTALL')
       this.installing = false
     }
   }
@@ -333,7 +333,7 @@ class AppUpdates {
     this.downloaded = false
     this.critical = null
     this.upToDate = false
-    this.error = ''
+    this.error = null
     if (look && updatesHere && this.timer) void this.look()
   }
 

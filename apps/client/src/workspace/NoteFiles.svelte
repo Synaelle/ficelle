@@ -14,7 +14,7 @@
   import { pickToSave } from '../lib/pick'
   import { WEB } from '../lib/platform'
   import { FILES_CHANGED } from '../lib/sync.svelte'
-  import { isBackendError, workspace } from '../lib/workspace.svelte'
+  import { workspace } from '../lib/workspace.svelte'
   import { ATTACHMENTS_CHANGED } from '../editor/extensions/image'
 
   /** The open editor, absent while the note shows its markdown source. */
@@ -67,7 +67,7 @@
     try {
       await work()
     } catch (err) {
-      workspace.error = isBackendError(err) ? err.kind : 'unknown'
+      workspace.report(err, 'FILES')
     }
     await load(noteId)
   }

@@ -3,20 +3,22 @@
      delete. Renaming takes the tags inside along, a path moves a tag. -->
 <script lang="ts">
   import type { Tag } from '../lib/backend'
+  import { isBackendError, type ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
   import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { modal } from '../lib/modal'
   import { overlay } from '../lib/overlay.svelte'
   import { tagLabel, tagLeaf } from '../lib/tagMark.svelte'
   import { tagMenuItems } from '../lib/tagMenu'
-  import { isBackendError, tagKey, workspace } from '../lib/workspace.svelte'
+  import { tagKey, workspace } from '../lib/workspace.svelte'
 
   let { close }: { close: () => void } = $props()
 
   let find = $state('')
   let renaming: string | null = $state(null)
   let draft = $state('')
-  let error: string | null = $state(null)
+  let error: ShownError | null = $state(null)
 
   const shown = $derived(
     workspace.tags.filter((tag) => !find.trim() || tagKey(tag.name).includes(tagKey(find.trim()))),
@@ -32,12 +34,12 @@
     try {
       await change()
     } catch (err) {
-      workspace.report(err)
+      workspace.report(err, 'TAG')
       // the one mistake a name can make that the general text does not explain
       error =
-        isBackendError(err) && err.message.includes('inside itself')
-          ? t('tags.insideItself')
-          : t(`errors.${workspace.error ?? 'unknown'}`)
+        workspace.error && isBackendError(err) && err.message.includes('inside itself')
+          ? { ...workspace.error, reason: t('tags.insideItself') }
+          : workspace.error
     }
   }
 
@@ -97,7 +99,7 @@
         ><Icon name="plus" size={16} />{t('tags.new')}</button
       >
     </div>
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
+    {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
     {#if shown.length}
       <ul class="rows">
         {#each shown as tag (tag.id)}

@@ -14,6 +14,8 @@
   import { backups } from './backups.svelte'
   import { pretendRelease } from './beta.svelte'
   import { channelSwitch, notesSynced } from './channelChange.svelte'
+  import { namedError, shownError, type ShownError } from './errors'
+  import ErrorText from './ErrorText.svelte'
   import { t } from './i18n.svelte'
   import { modal } from './modal'
   import { overlay } from './overlay.svelte'
@@ -22,7 +24,7 @@
   const WAIT_SECONDS = 5
 
   let busy = $state(false)
-  let problem = $state('')
+  let problem: ShownError | null = $state(null)
   let oneFile = $state(false)
   let left = $state(WAIT_SECONDS)
 
@@ -46,7 +48,7 @@
   })
 
   async function backUp() {
-    problem = ''
+    problem = null
     if (!backups.view?.config) {
       oneFile = true
       return
@@ -59,7 +61,10 @@
       if (done < started - 1000) throw new Error(backups.view?.status.lastError ?? '')
       await channelSwitch.proceed(true)
     } catch (err) {
-      problem = safety === 'synced' ? t('betaSwitch.failed') : t('betaSwitch.failedTryAgain')
+      problem = {
+        ...shownError(err, 'BACKUP'),
+        reason: safety === 'synced' ? t('betaSwitch.failed') : t('betaSwitch.failedTryAgain'),
+      }
       console.warn('backup before changing channel failed', err)
     } finally {
       busy = false
@@ -73,7 +78,7 @@
     })
     if (!yes) return
     // a pretend beta (Test tools) uninstalls nothing
-    if (pretendRelease) problem = t('errors.testBuild')
+    if (pretendRelease) problem = namedError('testBuild', 'UNINSTALL')
     else window.AppInstaller?.uninstall?.()
   }
 
@@ -127,7 +132,7 @@
               : t('backToStable.backupLost')}
           </p>
         {/if}
-        {#if problem}<p class="error" role="alert">{problem}</p>{/if}
+        {#if problem}<p class="error" role="alert"><ErrorText error={problem} /></p>{/if}
         <div class="actions">
           <button class="btn primary" disabled={busy} onclick={() => void backUp()}
             >{busy
@@ -174,7 +179,7 @@
         </div>
       {:else if step === 'failed'}
         <p id="channel-switch-text" class="error" role="alert">{t('backToStable.failed')}</p>
-        {#if channelSwitch.error}<p class="muted">{t(`errors.${channelSwitch.error}`)}</p>{/if}
+        {#if channelSwitch.error}<p class="muted"><ErrorText error={channelSwitch.error} /></p>{/if}
         <div class="actions">
           <button class="btn primary" onclick={cancel}>{t('common.close')}</button>
         </div>
@@ -209,7 +214,7 @@
             </li>
           {/if}
         </ol>
-        {#if problem}<p class="error" role="alert">{problem}</p>{/if}
+        {#if problem}<p class="error" role="alert"><ErrorText error={problem} /></p>{/if}
         <div class="actions">
           <button class="btn" onclick={cancel}>{t('backToStable.later')}</button>
         </div>

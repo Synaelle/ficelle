@@ -7,6 +7,7 @@
 // are saved and the server answers, or says why it cannot.
 
 import { brand } from '@app/brand'
+import { errorCode } from './errors'
 import { t } from './i18n.svelte'
 import { toasts } from './toast.svelte'
 import { workspace } from './workspace.svelte'
@@ -30,15 +31,16 @@ function reloadForPart(): Promise<void> {
       () => false,
     )
     if (!reachable)
-      return toasts.push(
-        brand.displayName,
-        `${t('web.partOffline')} ${t('common.errorCode', { code: 'PART-OFFLINE' })}`,
-      )
+      return toasts.push(brand.displayName, {
+        kind: 'offline',
+        reason: t('web.partOffline'),
+        code: errorCode('PART', 'offline'),
+      })
     const last = Number(sessionStorage.getItem(RELOADED) ?? 0)
     if (Date.now() - last < AGAIN_MS)
       return toasts.push(
         brand.displayName,
-        `${t('web.partReload')} ${t('common.errorCode', { code: 'PART-RELOAD' })}`,
+        { kind: 'reload', reason: t('web.partReload'), code: errorCode('PART', 'reload') },
         { label: t('web.reload'), run: () => location.reload() },
       )
     sessionStorage.setItem(RELOADED, String(Date.now()))

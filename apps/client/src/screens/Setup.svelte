@@ -17,7 +17,8 @@
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import PinPad from '../lib/PinPad.svelte'
-  import { isBackendError } from '../lib/workspace.svelte'
+  import { errorKind, shownError, type ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
   import RecoveryKey from './RecoveryKey.svelte'
 
   let {
@@ -57,7 +58,7 @@
   let firstPin = $state('')
   let pinShake = $state(0)
   let busy = $state(false)
-  let error = $state('')
+  let error: ShownError | string = $state('')
   const method = $derived(biometricMethod())
   /** Something quicker than the password can open the notes here: without
    * (the web version), the password is the only way and nothing asks. */
@@ -146,17 +147,17 @@
       }
     } catch (err) {
       firstPin = ''
-      if (isBackendError(err) && err.kind === 'keyStore' && way !== 'password') {
+      if (errorKind(err) === 'keyStore' && way !== 'password') {
         // no system keychain (a Linux desktop without a secret service): the
         // quick way cannot be kept here, the password each time still works
         if (way === 'pin') deviceAvailable = false
         else biometricAvailable = false
         way = 'password'
         step = 'quick'
-        error = t('setup.keyStoreFallback')
-      } else if (!isBackendError(err) || err.kind !== 'cancelled')
+        error = { ...shownError(err, 'SETUP'), reason: t('setup.keyStoreFallback') }
+      } else if (errorKind(err) !== 'cancelled')
         // a cancelled Windows Hello prompt leaves the choice on screen
-        error = t(`errors.${isBackendError(err) ? err.kind : 'unknown'}`)
+        error = shownError(err, 'SETUP')
     } finally {
       busy = false
     }
@@ -256,7 +257,7 @@
             </label>
           {/each}
         </div>
-        {#if error}<p class="error" role="alert">{error}</p>{/if}
+        {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
         <div class="actions">
           <button class="btn primary" type="submit" disabled={busy}
             >{busy
@@ -285,7 +286,7 @@
           onpin={typedPin}
         />
         {#if busy}<p class="muted center">{t('setup.working')}</p>{/if}
-        {#if error}<p class="error" role="alert">{error}</p>{/if}
+        {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
         <button
           class="btn"
           type="button"

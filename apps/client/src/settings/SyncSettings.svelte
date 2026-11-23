@@ -15,6 +15,8 @@
   import { prefs } from '../lib/prefs.svelte'
   import { protocolGap, protocolRange, versionGap } from '../lib/serverVersion'
   import Icon from '../lib/icons/Icon.svelte'
+  import { errorCode, errorDetail, errorReason, shownError, type ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
   import {
     isSyncError,
     sync,
@@ -35,7 +37,7 @@
 
   let { phone = false }: { phone?: boolean } = $props()
 
-  /** Error codes with their own text, the others read "something went wrong". */
+  /** Error codes with their own text, the others say their message. */
   const KNOWN = [
     'offline',
     'empty',
@@ -81,21 +83,31 @@
   let method: SecondFactor = $state('totp')
   let code = $state('')
   let busy = $state(false)
-  let error = $state('')
+  let error: ShownError | null = $state(null)
   let confirming = $state(false)
   /** The server, account and versions, folded away until asked for. */
   let details = $state(false)
 
-  function explain(err: unknown) {
-    if (!isSyncError(err)) return t('sync.error.other')
-    if (err.code === 'lockedOut' && err.retryAfterSeconds)
-      return t('sync.error.lockedOutFor', { minutes: Math.ceil(err.retryAfterSeconds / 60) })
-    return KNOWN.includes(err.code) ? t(`sync.error.${err.code}`) : t('sync.error.other')
+  function explain(err: unknown): ShownError {
+    if (!isSyncError(err)) return shownError(err, 'SYNC')
+    const reason =
+      err.code === 'lockedOut' && err.retryAfterSeconds
+        ? t('sync.error.lockedOutFor', { minutes: Math.ceil(err.retryAfterSeconds / 60) })
+        : KNOWN.includes(err.code)
+          ? t(`sync.error.${err.code}`)
+          : errorReason('unknown', errorDetail(err))
+    return { kind: err.code, reason, code: errorCode('SYNC', err.code) }
   }
+
+  const incompatible = (): ShownError => ({
+    kind: 'incompatible',
+    reason: t('sync.error.incompatible'),
+    code: errorCode('SYNC', 'incompatible'),
+  })
 
   async function run(action: () => Promise<void>) {
     busy = true
-    error = ''
+    error = null
     try {
       await action()
     } catch (err) {
@@ -110,7 +122,7 @@
     event.preventDefault()
     void run(async () => {
       checked = await sync.checkServer(address)
-      if (!checked.compatible) error = t('sync.error.incompatible')
+      if (!checked.compatible) error = incompatible()
     })
   }
 
@@ -221,7 +233,7 @@
     void run(async () => {
       checked = await sync.checkServer(server)
       if (!checked.compatible) {
-        error = t('sync.error.incompatible')
+        error = incompatible()
         return
       }
       qrOffer = offer
@@ -331,7 +343,7 @@
   let viewingKey: string | null = $state(null)
   const viewing = $derived(local.devices.find((d) => d.key === viewingKey) ?? null)
   let forgetting = $state(false)
-  let localError = $state('')
+  let localError: ShownError | null = $state(null)
 
   function rename(event: SubmitEvent) {
     event.preventDefault()
@@ -340,7 +352,7 @@
     localSync
       .rename(name)
       .then(() => (renaming = null))
-      .catch(() => (localError = t('local.error.other')))
+      .catch((err: unknown) => (localError = shownError(err, 'RENAME')))
   }
 
   function forget(device: LocalDevice) {
@@ -348,7 +360,7 @@
     localSync
       .forget(device.key)
       .then(() => (viewingKey = null))
-      .catch(() => (localError = t('local.error.other')))
+      .catch((err: unknown) => (localError = shownError(err, 'FORGET')))
   }
 
   /** What a device row says about it. */
@@ -598,7 +610,7 @@
       {#if local.discoveryError && local.running}
         <p class="settings-help">{t('local.discoveryProblem', { error: local.discoveryError })}</p>
       {/if}
-      {#if localError}<p class="error" role="alert">{localError}</p>{/if}
+      {#if localError}<p class="error" role="alert"><ErrorText error={localError} /></p>{/if}
     {/if}
   </div>
 {/if}
@@ -636,7 +648,12 @@
                 })}
               </p>
             {:else if status.state === 'error' && status.error}
-              <p class="settings-help detail">{status.error}</p>
+              <p class="settings-help detail">
+                {status.error}
+                <span class="error-code"
+                  >{t('common.errorCode', { code: errorCode('SYNC', 'failed') })}</span
+                >
+              </p>
             {/if}
             {#if status.rejected > 0}
               <p role="alert">{t('sync.rejected', { count: status.rejected })}</p>
@@ -693,6 +710,9 @@
       {#if linkedServer}
         {#if protocolProblem}<p class="error" role="alert">
             {t(`sync.error.${protocolProblem}`)}
+            <span class="error-code"
+              >{t('common.errorCode', { code: errorCode('SYNC', protocolProblem) })}</span
+            >
           </p>{/if}
         {#if versionNote(linkedServer)}<p class="settings-help">{versionNote(linkedServer)}</p>{/if}
       {/if}
@@ -948,7 +968,7 @@
       <QrScan found={scanned} close={() => (scanning = false)} />
     {/if}
 
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
+    {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
   </div>
 {/if}
 

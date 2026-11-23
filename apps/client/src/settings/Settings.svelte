@@ -2,6 +2,8 @@
 <!-- Settings dialog. A search box filters sections by their translated text.
      Phones get their own full screen layout, PhoneSettings. -->
 <script lang="ts">
+  import { errorCode } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
   import { MIN_PASSWORD } from '../lib/passwords'
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
@@ -283,7 +285,12 @@
               </Row>
             </Group>
             {#if prefs.dyslexicFont && dyslexicStatus.failed}
-              <p class="settings-help failed" role="alert">{t('settings.dyslexicFontFailed')}</p>
+              <p class="settings-help failed" role="alert">
+                {t('settings.dyslexicFontFailed')}
+                <span class="error-code"
+                  >{t('common.errorCode', { code: errorCode('FONT', 'download') })}</span
+                >
+              </p>
             {/if}
           {:else if section === 'editor'}
             <Group>
@@ -567,7 +574,9 @@
           {/if}
         </div>
 
-        {#if settings.message}<p class="message" role="status">{settings.message}</p>{/if}
+        {#if settings.message}<p class="message" role="status">
+            <ErrorText error={settings.message} />
+          </p>{/if}
       </div>
     </div>
   </div>

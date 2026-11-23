@@ -4,6 +4,7 @@
 // offline or a wrong password, are handled where they happen and never get
 // here. Each error shows once a run, one notice at a time.
 
+import { shownError, type ShownError } from './errors'
 import { screenshot } from './screenshot'
 
 /** Browser noise that is no bug of the app. */
@@ -12,6 +13,8 @@ const NOISE = [/ResizeObserver loop/i, /^Script error\.?$/]
 class ErrorCatch {
   /** The error the notice is about, in one line. */
   caught: string | null = $state(null)
+  /** The same error with its reason and code, as the notice says it. */
+  shown: ShownError | null = $state(null)
   /** Where it happened, the first calls, for the report. */
   where = ''
   /** The report form is open. */
@@ -29,6 +32,7 @@ class ErrorCatch {
     // the one already shown, or being reported, stays
     if (this.caught || this.open) return
     this.caught = text
+    this.shown = shownError(error, 'APP')
     this.where = places(error)
   }
 
@@ -39,6 +43,7 @@ class ErrorCatch {
     if (__APP_DEV_TOOLS__) {
       window.dispatchEvent(new Event('app-dev-report'))
       this.caught = null
+      this.shown = null
       return
     }
     this.shooting = true
@@ -52,6 +57,7 @@ class ErrorCatch {
 
   dismiss() {
     this.caught = null
+    this.shown = null
     this.open = false
     this.shot = null
   }

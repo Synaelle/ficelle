@@ -3,13 +3,14 @@
      report it (lib/errorCatch). -->
 <script lang="ts">
   import { errorCatch } from './errorCatch.svelte'
+  import ErrorText from './ErrorText.svelte'
   import Icon from './icons/Icon.svelte'
   import { t } from './i18n.svelte'
 </script>
 
-{#if errorCatch.caught && !errorCatch.open && !errorCatch.shooting}
+{#if errorCatch.shown && !errorCatch.open && !errorCatch.shooting}
   <div class="notice" data-error-notice data-no-shot>
-    <span class="text">{t('errorReport.notice')}</span>
+    <span class="text"><ErrorText error={errorCatch.shown} /></span>
     <button class="btn small" onclick={() => void errorCatch.report()}
       >{t('errorReport.report')}</button
     >

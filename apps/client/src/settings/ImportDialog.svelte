@@ -26,7 +26,9 @@
   import type { Importer, ImportSource, ReportKind } from '../lib/import/types'
   import { modal } from '../lib/modal'
   import { sync } from '../lib/sync.svelte'
-  import { isBackendError, workspace } from '../lib/workspace.svelte'
+  import { workspace } from '../lib/workspace.svelte'
+  import { errorKind, shownError, type ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
 
   let { close, ficelle = false }: { close: () => void; ficelle?: boolean } = $props()
 
@@ -41,7 +43,7 @@
   let written = $state<Written | null>(null)
   let folderName = $state('')
   let progress = $state({ done: 0, total: 0 })
-  let error = $state<string | null>(null)
+  let error = $state<ShownError | null>(null)
   let notice = $state<string | null>(null)
   let stop: AbortController | null = null
   let find = $state('')
@@ -63,8 +65,6 @@
     'simplified',
     'unreadable',
   ]
-
-  const errorText = (err: unknown) => t(`errors.${isBackendError(err) ? err.kind : 'unknown'}`)
 
   const day = (time: number) =>
     new Intl.DateTimeFormat(currentLocale(), { dateStyle: 'medium' }).format(time)
@@ -113,9 +113,9 @@
       stage = 'preview'
     } catch (err) {
       // anything but a known refusal is a file that could not be read through
-      const refused =
-        isBackendError(err) && !['invalid', 'corrupt', 'file', 'unknown'].includes(err.kind)
-      error = refused ? errorText(err) : t('import.damaged')
+      const shown = shownError(err, 'IMPORT')
+      const refused = !['invalid', 'corrupt', 'file', 'unknown'].includes(errorKind(err))
+      error = refused ? shown : { ...shown, reason: t('import.damaged') }
       stage = 'choose'
       await finishSource()
     }
@@ -135,7 +135,7 @@
       stage = 'done'
       await Promise.all([workspace.refreshTagsAndNotes()])
     } catch (err) {
-      error = errorText(err)
+      error = shownError(err, 'IMPORT')
       stage = 'preview'
     } finally {
       stop = null
@@ -325,7 +325,7 @@
       {/if}
     {/if}
 
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
+    {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
 
     <div class="actions">
       <span class="grow"></span>

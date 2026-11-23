@@ -6,10 +6,11 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { backend } from '../lib/backend'
+  import { shownError, type ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { t } from '../lib/i18n.svelte'
   import { modal } from '../lib/modal'
-  import { isBackendError } from '../lib/workspace.svelte'
 
   let { close }: { close: () => void } = $props()
 
@@ -18,7 +19,7 @@
 
   let left = $state(WAIT_SECONDS)
   let busy = $state(false)
-  let error: string | null = $state(null)
+  let error: ShownError | null = $state(null)
 
   onMount(() => {
     const timer = setInterval(() => {
@@ -42,7 +43,7 @@
       }
       location.reload()
     } catch (err) {
-      error = isBackendError(err) ? t(`errors.${err.kind}`) : t('errors.unknown')
+      error = shownError(err, 'RESET')
       busy = false
     }
   }
@@ -74,7 +75,7 @@
       <p class="muted">{t('reset.server')}</p>
       <p class="strong">{t('reset.final')}</p>
     </div>
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
+    {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
     <div class="actions">
       <button class="btn danger" disabled={left > 0 || busy} onclick={reset}>
         {left > 0 ? t('reset.wait', { count: left }) : t('reset.confirm')}

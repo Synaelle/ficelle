@@ -5,6 +5,7 @@
 
 import { backend } from './backend'
 import type { BackupSchedule, BackupsView } from './backend/types'
+import { errorDetail, shownError, type ShownError } from './errors'
 import { t } from './i18n.svelte'
 import { toasts } from './toast.svelte'
 
@@ -41,12 +42,19 @@ export function overdue(view: BackupsView | null, now: number): boolean {
   return now - lastSuccessAt >= 2 * period
 }
 
-/** What went wrong with a backup, in the person's language when known. */
-export function backupError(kind: string | null | undefined, message: string): string {
-  if (kind === 'notFound') return t('backups.notThere')
-  if (kind === 'wrongPassword') return t('backups.wrongPassword')
-  if (kind === 'unprotected') return t('backups.unprotected')
-  return message
+/** Backup failures with a text of their own. */
+const BACKUP_REASONS: Record<string, string> = {
+  notFound: 'backups.notThere',
+  wrongPassword: 'backups.wrongPassword',
+  unprotected: 'backups.unprotected',
+}
+
+/** What went wrong with a backup, in the person's language when known,
+ * else as the native side said it. */
+export function backupError(err: unknown): ShownError {
+  const shown = shownError(err, 'BACKUP')
+  const key = BACKUP_REASONS[shown.kind]
+  return { ...shown, reason: key ? t(key) : errorDetail(err) || shown.reason }
 }
 
 /** The time zone, for the backup file's name. */
@@ -74,9 +82,11 @@ class Backups {
     } catch (err) {
       await this.refresh()
       if (scheduled) {
-        const e = err as { kind?: string; message?: string }
-        const message = backupError(e.kind, e.message ?? String(err))
-        toasts.push(t('backups.title'), t('backups.failed', { error: message }))
+        const failed = backupError(err)
+        toasts.push(t('backups.title'), {
+          ...failed,
+          reason: t('backups.failed', { error: failed.reason }),
+        })
       } else {
         throw err
       }

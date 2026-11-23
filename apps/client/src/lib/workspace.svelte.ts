@@ -5,7 +5,6 @@
 
 import {
   backend,
-  type BackendError,
   type Id,
   type Note,
   type NoteChange,
@@ -19,6 +18,7 @@ import {
 } from './backend'
 import { writeTextFile } from '@tauri-apps/plugin-fs'
 import { download } from './download'
+import { errorKind, namedError, shownError, type ShownError } from './errors'
 import { t } from './i18n.svelte'
 import { isMarkdownFile, parseMarkdownFile } from './importing'
 import { pickToSave } from './pick'
@@ -49,7 +49,7 @@ export function moveTag(name: string, into: string) {
   const leaf = name.slice(name.lastIndexOf('/') + 1)
   const target = into ? `${into}/${leaf}` : leaf
   if (tagKey(target) === tagKey(name)) return
-  void workspace.renameTag(tag.id, target).catch((err) => workspace.report(err))
+  void workspace.renameTag(tag.id, target).catch((err) => workspace.report(err, 'TAG'))
 }
 
 /** Wait after the last keystroke before saving. A pause between words is
@@ -70,10 +70,6 @@ const RETRY_DELAY_MS = 5000
 /** Search results listed at most, each keystroke searches again. One more
  * is asked for, to say when there are more. */
 export const SEARCH_LIMIT = 500
-
-export function isBackendError(err: unknown): err is BackendError {
-  return typeof err === 'object' && err !== null && 'kind' in err
-}
 
 class Workspace {
   tags: Tag[] = $state([])
@@ -96,8 +92,8 @@ class Workspace {
   conflict: NoteConflict | null = $state(null)
   /** Notes waiting for a decision, marked in lists. */
   conflicted: Id[] = $state([])
-  /** Last error to show, as a translation kind. */
-  error: string | null = $state(null)
+  /** Last error to show. */
+  error: ShownError | null = $state(null)
   /** A new note is on its way: the open one takes no more typing, which
    * would land in it, not in the new note. */
   making = $state(false)
@@ -176,7 +172,7 @@ class Workspace {
       await backend.resolveConflict(note.id, keep)
       this.replace(await backend.getNote(note.id))
     } catch (err) {
-      this.report(err)
+      this.report(err, 'CONFLICT')
     }
     await this.load()
   }
@@ -452,7 +448,7 @@ class Workspace {
       try {
         if (await this.nameAfterAttachment(note.id)) return true
       } catch (err) {
-        this.report(err)
+        this.report(err, 'NOTE')
       }
     }
     if (!note || note.id === next || note.title.trim() || note.body.trim() || note.pinned)
@@ -460,7 +456,7 @@ class Workspace {
     try {
       if (await backend.discardIfBlank(note.id)) await this.refreshNotes()
     } catch (err) {
-      this.report(err)
+      this.report(err, 'NOTE')
     }
     return true
   }
@@ -499,7 +495,7 @@ class Workspace {
     if (!id) return
     this.trail = this.trail.slice(0, -1)
     // it may have gone to the trash since
-    await this.visit(id).catch((err: unknown) => this.report(err))
+    await this.visit(id).catch((err: unknown) => this.report(err, 'OPEN'))
   }
 
   /**
@@ -527,8 +523,8 @@ class Workspace {
       return note
     } catch (err) {
       // what the store refused is said here, a bug goes to the error notice
-      if (!isBackendError(err) || err.kind === 'unknown') throw err
-      this.report(err)
+      if (errorKind(err) === 'unknown') throw err
+      this.report(err, 'CREATE')
       return null
     } finally {
       this.making = false
@@ -556,7 +552,7 @@ class Workspace {
       }
       this.show(copy)
     } catch (err) {
-      this.report(err)
+      this.report(err, 'COPY')
     }
     await this.refreshNotes()
   }
@@ -575,7 +571,7 @@ class Workspace {
       if (WEB) download(file.text, path, 'text/markdown')
       else await writeTextFile(path, file.text)
     } catch (err) {
-      this.report(err)
+      this.report(err, 'EXPORT')
     }
   }
 
@@ -586,7 +582,8 @@ class Workspace {
   async importFiles(files: File[]) {
     const markdown = files.filter(isMarkdownFile)
     // nothing failed, a passing message is enough
-    if (markdown.length < files.length) toasts.push(t('list.import'), t('errors.notMarkdown'))
+    if (markdown.length < files.length)
+      toasts.push(t('list.import'), namedError('notMarkdown', 'IMPORT'))
     // nothing to import: the open note stays open, so it must stay too
     if (markdown.length === 0 || !(await this.leave())) return
     const scopeTags = this.scope.kind === 'tag' ? [this.tagName(this.scope.id)] : []
@@ -599,7 +596,7 @@ class Workspace {
       }
       this.show(last)
     } catch (err) {
-      this.report(err)
+      this.report(err, 'IMPORT')
     }
     await this.refreshTagsAndNotes()
   }
@@ -681,14 +678,14 @@ class Workspace {
       await Promise.all([this.refreshNotes(), this.refreshConflicts()])
       if (change.title !== undefined) await this.refreshTags()
     } catch (err) {
-      if (this.current?.id !== note.id) return this.report(err)
-      if (isBackendError(err) && err.kind === 'notFound') return this.keepAsNew()
+      if (this.current?.id !== note.id) return this.report(err, 'SAVE')
+      if (errorKind(err) === 'notFound') return this.keepAsNew()
       // the edit is queued again, ahead of any typed since, and tried again
       this.pending = { ...change, ...this.pending }
       this.unsaved = true
       clearTimeout(this.timer)
       this.timer = setTimeout(() => void this.flush(), RETRY_DELAY_MS)
-      this.report(err)
+      this.report(err, 'SAVE')
     }
   }
 
@@ -717,7 +714,7 @@ class Workspace {
       kept = await backend.createNote({ ...copy, folderId: note.folderId })
     } catch (err) {
       // its folder went too
-      if (!isBackendError(err) || err.kind !== 'notFound') throw err
+      if (errorKind(err) !== 'notFound') throw err
       kept = await backend.createNote(copy)
     }
     this.show(kept)
@@ -731,7 +728,7 @@ class Workspace {
     try {
       return await backend.updateNote(id, sent)
     } catch (err) {
-      if (!isBackendError(err) || err.kind !== 'invalid') throw err
+      if (errorKind(err) !== 'invalid') throw err
       if (!(await backend.getNote(id)).trashedAt) throw err
       return backend.updateNote(id, { ...sent, inTrash: true })
     }
@@ -822,8 +819,9 @@ class Workspace {
     return this.tags.find((t) => t.id === id)?.name ?? ''
   }
 
-  report(err: unknown) {
-    this.error = isBackendError(err) ? err.kind : 'unknown'
+  /** Shows a failure in `area`, see lib/errors. */
+  report(err: unknown, area: string) {
+    this.error = shownError(err, area)
     console.error(err)
   }
 }

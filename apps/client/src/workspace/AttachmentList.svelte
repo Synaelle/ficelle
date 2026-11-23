@@ -13,7 +13,7 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { prefs } from '../lib/prefs.svelte'
   import { FILES_CHANGED } from '../lib/sync.svelte'
-  import { isBackendError, workspace } from '../lib/workspace.svelte'
+  import { workspace } from '../lib/workspace.svelte'
   import TagSheet from './TagSheet.svelte'
 
   let { narrow, onsettings }: { narrow: boolean; onsettings: () => void } = $props()
@@ -63,7 +63,7 @@
     try {
       await openAttachment(file)
     } catch (err) {
-      workspace.error = isBackendError(err) ? err.kind : 'unknown'
+      workspace.report(err, 'FILES')
     }
   }
 </script>

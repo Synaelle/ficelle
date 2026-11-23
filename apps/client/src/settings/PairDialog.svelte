@@ -8,7 +8,9 @@
   import { backend } from '../lib/backend'
   import Icon from '../lib/icons/Icon.svelte'
   import { t } from '../lib/i18n.svelte'
-  import { isLocalError, localSync } from '../lib/localSync.svelte'
+  import { errorCode, shownError, type ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
+  import { localSync } from '../lib/localSync.svelte'
   import { modal } from '../lib/modal'
   import { WINDOWS } from '../lib/platform'
 
@@ -20,7 +22,7 @@
   let address = $state('')
   let byAddress = $state(false)
   let busy = $state(false)
-  let error = $state('')
+  let error: ShownError | null = $state(null)
   /** The device paired from this side, by typing. */
   let typedPaired: string | null = $state(null)
   let copied = $state(false)
@@ -41,11 +43,11 @@
 
   const grouped = (c: string) => (c.length > 3 ? `${c.slice(0, 3)} ${c.slice(3)}` : c)
 
-  function explain(err: unknown) {
-    const kind = isLocalError(err) ? err.kind : ''
-    return ['wrongCode', 'notFound', 'serverLinked', 'locked'].includes(kind)
-      ? t(`local.error.${kind}`)
-      : t('local.error.other')
+  function explain(err: unknown): ShownError {
+    const shown = shownError(err, 'PAIR')
+    return ['wrongCode', 'notFound', 'serverLinked', 'locked'].includes(shown.kind)
+      ? { ...shown, reason: t(`local.error.${shown.kind}`) }
+      : shown
   }
 
   async function begin() {
@@ -87,7 +89,7 @@
     event.preventDefault()
     if (digits.length !== 6 || busy) return
     busy = true
-    error = ''
+    error = null
     saveName()
       .then(() => localSync.pairCode(digits, byAddress ? address.trim() : null))
       .then((name) => (typedPaired = name))
@@ -212,9 +214,14 @@
           </div>
         {/if}
       {:else if pairing?.failed}
-        <p class="error" role="alert">{t(`local.pairing.${pairing.failed}`)}</p>
+        <p class="error" role="alert">
+          {t(`local.pairing.${pairing.failed}`)}
+          <span class="error-code"
+            >{t('common.errorCode', { code: errorCode('PAIR', pairing.failed) })}</span
+          >
+        </p>
       {/if}
-      {#if error}<p class="error" role="alert">{error}</p>{/if}
+      {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
       <div class="actions">
         <button class="btn" onclick={() => void begin()}>{t('local.pairing.newCode')}</button>
         <button class="btn" onclick={close}>{t('common.cancel')}</button>
@@ -257,7 +264,7 @@
             />
           {/if}
         </div>
-        {#if error}<p class="error" role="alert">{error}</p>{/if}
+        {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
         <div class="actions">
           <button
             class="btn primary"

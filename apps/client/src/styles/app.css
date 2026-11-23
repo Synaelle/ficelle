@@ -304,6 +304,12 @@ select.field {
   color: var(--color-text-muted);
 }
 
+/* an error's code (lib/ErrorText), kept on one line to copy into a message */
+.error-code {
+  white-space: nowrap;
+  user-select: text;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

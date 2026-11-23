@@ -16,6 +16,7 @@
   import {
     contactOk,
     EMPTY_DRAFT,
+    feedbackError,
     installId,
     loadDraft,
     MAX_ABOUT,
@@ -30,13 +31,15 @@
     saveDraft,
     type PreparedImage,
   } from '../lib/feedback'
+  import type { ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
   import { bytes } from '../lib/format'
   import { t } from '../lib/i18n.svelte'
   import { workspace } from '../lib/workspace.svelte'
   import SentFeedback from './SentFeedback.svelte'
 
   let place: FeedbackWhere | null = $state(null)
-  let placeProblem = $state('')
+  let placeProblem: ShownError | null = $state(null)
   let draft = $state(loadDraft())
   let images: PreparedImage[] = $state([])
   let sent = $state(false)
@@ -45,7 +48,7 @@
   let shownLogs = $state('')
   let dragging = $state(false)
   let busy = $state(false)
-  let problem = $state('')
+  let problem: ShownError | string = $state('')
   let sentTo = $state('')
   /** Counts the reports sent while open, so the list below reads again. */
   let sentCount = $state(0)
@@ -59,21 +62,12 @@
   const contactBad = $derived(!contactOk(draft.contact))
   const ready = $derived(draft.about.trim() !== '' && !contactBad)
 
-  function errorText(err: unknown): string {
-    const e = err as { code?: string; retryAfterSeconds?: number } | null
-    const code = e?.code ?? 'internal'
-    const text = t(`feedback.error_${code}`, {
-      minutes: Math.ceil((e?.retryAfterSeconds ?? 0) / 60),
-    })
-    return text === `feedback.error_${code}` ? t('feedback.error_internal') : text
-  }
-
   async function look() {
-    placeProblem = ''
+    placeProblem = null
     try {
       place = await backend.feedbackWhere()
     } catch (err) {
-      placeProblem = errorText(err)
+      placeProblem = feedbackError(err)
     }
   }
 
@@ -161,7 +155,7 @@
       sent = true
     } catch (err) {
       // the words stay as a draft to try again
-      problem = errorText(err)
+      problem = feedbackError(err)
     } finally {
       busy = false
     }
@@ -174,7 +168,7 @@
 </script>
 
 {#if placeProblem}
-  <p class="problem" role="alert">{placeProblem}</p>
+  <p class="problem" role="alert"><ErrorText error={placeProblem} /></p>
   <button class="btn" onclick={() => void look()}>{t('feedback.retry')}</button>
 {:else if place && !place.available}
   <p class="settings-help" data-feedback-off>{t(`feedback.unavailable_${place.via}`)}</p>
@@ -331,7 +325,7 @@
       </div>
     </div>
   {/if}
-  {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+  {#if problem}<p class="problem" role="alert"><ErrorText error={problem} /></p>{/if}
 {/if}
 {#key sentCount}<SentFeedback />{/key}
 

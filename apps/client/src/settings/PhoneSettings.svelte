@@ -3,6 +3,8 @@
      icon tiles, the current value on the right, a short note under groups.
      Every row is one tap from the first screen, details open a page. -->
 <script lang="ts">
+  import { errorCode } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
   import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
   import SyncSettings from './SyncSettings.svelte'
@@ -567,7 +569,12 @@
           {#if prefs.dyslexicFont && dyslexicStatus.loading}
             <p class="under" role="status">{t('settings.dyslexicFontLoading')}</p>
           {:else if prefs.dyslexicFont && dyslexicStatus.failed}
-            <p class="under error" role="alert">{t('settings.dyslexicFontFailed')}</p>
+            <p class="under error" role="alert">
+              {t('settings.dyslexicFontFailed')}
+              <span class="error-code"
+                >{t('common.errorCode', { code: errorCode('FONT', 'download') })}</span
+              >
+            </p>
           {/if}
         </Group>
       {:else if page === 'editor'}
@@ -747,7 +754,9 @@
     </div>
   {/if}
 
-  {#if settings.message}<p class="message" role="status">{settings.message}</p>{/if}
+  {#if settings.message}<p class="message" role="status">
+      <ErrorText error={settings.message} />
+    </p>{/if}
 </div>
 
 <style>

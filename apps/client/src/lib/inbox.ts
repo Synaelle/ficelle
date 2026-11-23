@@ -51,7 +51,7 @@ export async function saveShare(item: Extract<InboxItem, { kind: 'share' }>) {
       const attachment = await backend.attachInboxFile(note.id, file.path, file.name, file.mime)
       lines.push(attachmentMarkdown(attachment, file.mime))
     } catch (err) {
-      workspace.report(err)
+      workspace.report(err, 'SHARE')
     }
   }
   if (lines.length > 0) {

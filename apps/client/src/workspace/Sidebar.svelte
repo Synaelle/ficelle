@@ -41,7 +41,7 @@
     try {
       await workspace.createTag(name)
     } catch (err) {
-      workspace.report(err)
+      workspace.report(err, 'TAG')
     }
   }
 </script>

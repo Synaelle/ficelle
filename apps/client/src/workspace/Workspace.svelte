@@ -27,6 +27,7 @@
   import { loadPart } from '../lib/pageParts'
   import type SettingsScreen from '../settings/Settings.svelte'
   import { sendSyncedPrefs, takeSyncedPrefs } from '../lib/syncedPrefs.svelte'
+  import ErrorText from '../lib/ErrorText.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import BackupDialog from '../settings/BackupDialog.svelte'
   import AttachmentList from './AttachmentList.svelte'
@@ -182,7 +183,7 @@
       if (item.kind === 'newNote') await workspace.create()
       else if (item.kind === 'share') await saveShare(item)
       else if (item.kind === 'openNote')
-        await workspace.open(item.id).catch((err: unknown) => workspace.report(err))
+        await workspace.open(item.id).catch((err: unknown) => workspace.report(err, 'OPEN'))
       else {
         if (narrow) await workspace.open(null)
         searchFocus += 1
@@ -285,8 +286,8 @@
 
 {#if workspace.error}
   <div class="toast" role="alert">
-    {t(`errors.${workspace.error}`)}
-    {#if BACKUP_FIRST.includes(workspace.error)}
+    <span><ErrorText error={workspace.error} /></span>
+    {#if BACKUP_FIRST.includes(workspace.error.kind)}
       <button class="btn" onclick={() => (backingUp = true)}>{t('backups.download')}</button>
     {/if}
     <button class="icon-btn" aria-label={t('common.close')} onclick={() => (workspace.error = null)}

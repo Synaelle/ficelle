@@ -33,7 +33,7 @@
     try {
       await workspace.renameTag(tag.id, parent ? `${parent}/${name}` : name)
     } catch (err) {
-      workspace.report(err)
+      workspace.report(err, 'TAG')
     }
   }
 
@@ -47,7 +47,7 @@
         try {
           await change()
         } catch (err) {
-          workspace.report(err)
+          workspace.report(err, 'TAG')
         }
       },
       unfold: () => (collapsed[tagKey(tag.name)] = false),

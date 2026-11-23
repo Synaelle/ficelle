@@ -12,7 +12,7 @@ import { backups } from '../lib/backups.svelte'
 import { t } from '../lib/i18n.svelte'
 import { pickToOpen, pickToSave } from '../lib/pick'
 import { overlay } from '../lib/overlay.svelte'
-import { isBackendError } from '../lib/workspace.svelte'
+import { errorKind, shownError, type ShownError } from '../lib/errors'
 
 /** Choices for the auto lock delay in minutes, 0 is never. */
 export const LOCK_CHOICES = [0, 1, 5, 15, 30, 60]
@@ -71,12 +71,10 @@ export const SETTINGS_INSIDE: (readonly [IconName, string, InsidePage])[] = [
     : []),
 ]
 
-const errorText = (err: unknown) => t(`errors.${isBackendError(err) ? err.kind : 'unknown'}`)
-
 export class SettingsState {
   vault: VaultStatus | null = $state(null)
   /** Last outcome to show, success or error, already translated. */
-  message = $state('')
+  message: ShownError | string = $state('')
   /** A new recovery key to show once, empty otherwise. */
   recoveryCode = $state('')
 
@@ -143,7 +141,7 @@ export class SettingsState {
       await backend.vaultSetWay(way, password, newPassword, pin)
       this.message = t(`settings.waySet.${way}`)
     } catch (err) {
-      if (!isBackendError(err) || err.kind !== 'cancelled') this.message = errorText(err)
+      if (errorKind(err) !== 'cancelled') this.message = shownError(err, 'SECURITY')
     }
     await this.refresh()
   }
@@ -166,7 +164,7 @@ export class SettingsState {
     try {
       this.recoveryCode = await backend.vaultCreateRecovery(password)
     } catch (err) {
-      this.message = errorText(err)
+      this.message = shownError(err, 'RECOVERY')
     }
   }
 
@@ -178,7 +176,7 @@ export class SettingsState {
       await backend.vaultRemoveRecovery(password)
       await this.refresh()
     } catch (err) {
-      this.message = errorText(err)
+      this.message = shownError(err, 'RECOVERY')
     }
   }
 
@@ -196,7 +194,7 @@ export class SettingsState {
       void backups.runAfterPasswordChange()
       return true
     } catch (err) {
-      this.message = errorText(err)
+      this.message = shownError(err, 'PASSWORD')
       return false
     }
   }
@@ -221,7 +219,7 @@ export class SettingsState {
       const report = await backend.exportMarkdown(dir)
       this.message = t('settings.exported', { count: report.notes })
     } catch (err) {
-      this.message = errorText(err)
+      this.message = shownError(err, 'EXPORT')
     }
   }
 
@@ -237,7 +235,7 @@ export class SettingsState {
       const report = await backend.exportMarkdownZip(path)
       this.message = t('settings.exported', { count: report.notes })
     } catch (err) {
-      this.message = errorText(err)
+      this.message = shownError(err, 'EXPORT')
     }
   }
 }

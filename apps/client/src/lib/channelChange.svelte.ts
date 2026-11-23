@@ -29,10 +29,10 @@ import { brand } from '@app/brand'
 import { appUpdates, isBigJump, thisVersion } from './appUpdate.svelte'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
 import { NIGHTLY, pretendRelease } from './beta.svelte'
+import { shownError, type ShownError } from './errors'
 import { ANDROID } from './platform'
 import { prefs } from './prefs.svelte'
 import { sync, type SyncState } from './sync.svelte'
-import { isBackendError } from './workspace.svelte'
 
 /** Where the notes stand on the sync server. */
 export type SyncSafety = 'none' | 'uploading' | 'synced'
@@ -104,8 +104,8 @@ class ChannelSwitch {
   saved = $state('')
   /** A backup was made on the way. */
   backedUp = $state(false)
-  /** The error kind when going back failed. */
-  error = $state('')
+  /** Why going back failed. */
+  error: ShownError | null = $state(null)
 
   get open() {
     return this.step !== null
@@ -134,7 +134,7 @@ class ChannelSwitch {
 
   private show(step: Step) {
     this.backedUp = false
-    this.error = ''
+    this.error = null
     this.saved = ''
     this.step = step
   }
@@ -206,7 +206,7 @@ class ChannelSwitch {
       }
       await backend.appUpdateInstall()
     } catch (err) {
-      this.error = isBackendError(err) ? err.kind : 'unknown'
+      this.error = shownError(err, 'STABLE')
       this.step = 'failed'
     }
   }

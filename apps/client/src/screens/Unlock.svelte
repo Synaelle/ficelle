@@ -19,14 +19,15 @@
   import Icon from '../lib/icons/Icon.svelte'
   import Knot from '@app/ui/Knot.svelte'
   import PinPad from '../lib/PinPad.svelte'
-  import { isBackendError } from '../lib/workspace.svelte'
+  import { errorKind, shownError, type ShownError } from '../lib/errors'
+  import ErrorText from '../lib/ErrorText.svelte'
   import ResetDialog from '../settings/ResetDialog.svelte'
 
   let { done, status }: { done: () => void; status: VaultStatus } = $props()
 
   let password = $state('')
   let busy = $state(false)
-  let error = $state('')
+  let error: ShownError | string = $state('')
   let resetting = $state(false)
   let trouble = $state(false)
   /** Opened: the knot lets go, then the notes come back. */
@@ -49,7 +50,8 @@
   const showPassword = $derived(status.hasPassword && !quick)
   const method = $derived(biometricMethod())
 
-  const kind = (err: unknown) => (isBackendError(err) ? err.kind : 'unknown')
+  /** The error with a reason this screen says better, its code kept. */
+  const said = (err: unknown, reason: string) => ({ ...shownError(err, 'UNLOCK'), reason })
 
   let finished = false
   /** The notes show once the knot has let go, or after its time if the
@@ -65,16 +67,15 @@
     setTimeout(finish, 1500)
   }
 
-  async function attempt(action: () => Promise<void>) {
+  async function attempt(action: () => Promise<void>, area = 'UNLOCK') {
     busy = true
     error = ''
     try {
       await action()
       opened()
     } catch (err) {
-      const k = kind(err)
-      if (k === 'cancelled') return
-      error = t(`errors.${k}`)
+      if (errorKind(err) === 'cancelled') return
+      error = shownError(err, area)
       throw err
     } finally {
       busy = false
@@ -84,30 +85,30 @@
   async function retry() {
     await attempt(() => backend.vaultUnlock(null)).catch((err) => {
       // without a password no key is wrong: the file is damaged
-      if (kind(err) === 'wrongKey') error = t('errors.corrupt')
-      else if (kind(err) === 'notRemembered') error = t('unlock.keyGone')
+      if (errorKind(err) === 'wrongKey') error = said(err, t('errors.corrupt'))
+      else if (errorKind(err) === 'notRemembered') error = said(err, t('unlock.keyGone'))
     })
   }
 
   async function unlockBiometric() {
     await attempt(() => backend.vaultUnlockBiometric()).catch((err) => {
-      if (kind(err) === 'notRemembered') {
+      if (errorKind(err) === 'notRemembered') {
         // the sealed key will never open again: the password, or recovery
         stale = true
-        error = sentence(t('unlock.biometricChanged', { method }))
+        error = said(err, sentence(t('unlock.biometricChanged', { method })))
       }
     })
   }
 
   async function unlockPin(value: string) {
     await attempt(() => backend.vaultUnlockPin(value)).catch(async (err) => {
-      if (kind(err) === 'wrongPassword') {
+      if (errorKind(err) === 'wrongPassword') {
         wrongPin++
         const left = (await backend.vaultStatus()).pinTriesLeft ?? 0
-        error = t('pin.wrong', { count: left })
-      } else if (kind(err) === 'notRemembered') {
+        error = said(err, t('pin.wrong', { count: left }))
+      } else if (errorKind(err) === 'notRemembered') {
         pinGone = true
-        error = t('pin.gone')
+        error = said(err, t('pin.gone'))
       }
     })
   }
@@ -143,10 +144,11 @@
   async function recover(event: SubmitEvent) {
     event.preventDefault()
     if (recoverProblem) return
-    await attempt(() => backend.vaultRecover(code, newPassword))
+    await attempt(() => backend.vaultRecover(code, newPassword), 'RECOVER')
       .then(() => void backups.runAfterPasswordChange())
       .catch((err) => {
-        if (kind(err) === 'wrongPassword' || kind(err) === 'invalid') error = t('recovery.wrongKey')
+        if (errorKind(err) === 'wrongPassword' || errorKind(err) === 'invalid')
+          error = { ...shownError(err, 'RECOVER'), reason: t('recovery.wrongKey') }
       })
   }
 
@@ -203,7 +205,7 @@
           >
             {recoverProblem}
           </p>{/if}
-        {#if error}<p class="error" role="alert">{error}</p>{/if}
+        {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
         <div class="actions">
           <button class="btn primary" type="submit" disabled={busy || !code || !!recoverProblem}
             >{t('unlock.open')}</button
@@ -256,7 +258,7 @@
           >
         {/if}
 
-        {#if error}<p class="error" role="alert">{error}</p>{/if}
+        {#if error}<p class="error" role="alert"><ErrorText {error} /></p>{/if}
 
         <!-- the password always works, the quick way is one tap back -->
         {#if quick && status.hasPassword}
