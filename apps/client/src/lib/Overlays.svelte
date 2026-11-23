@@ -22,12 +22,26 @@
   let textInput: HTMLInputElement | undefined = $state()
   let beforeInput: HTMLInputElement | undefined = $state()
   let draft = $state('')
-  /** A dialog about some text of the page goes to the side with more room,
-   * so the text stays in view. */
-  const dialogSide = $derived.by(() => {
-    const around = overlay.dialog?.kind === 'text' ? overlay.dialog.around : undefined
-    if (!around) return undefined
-    return around.top > window.innerHeight - around.bottom ? 'start' : 'end'
+  let dialogElement: HTMLDivElement | undefined = $state()
+  /** A dialog about some text of the page sits next to it, below or above,
+   * on the side with more room, so the text stays in view. Measured once
+   * drawn, placed through pageZoom like the menus. */
+  let dialogPlace: { left: number; top: number } | null = $state(null)
+  const around = $derived(overlay.dialog?.kind === 'text' ? overlay.dialog.around : undefined)
+  $effect(() => {
+    const text = around
+    dialogPlace = null
+    if (!text) return
+    void tick().then(() => {
+      const box = dialogElement?.getBoundingClientRect()
+      if (!box) return
+      const below = text.top <= window.innerHeight - text.bottom
+      const top = below ? text.bottom + 8 : text.top - 8 - box.height
+      dialogPlace = {
+        left: Math.max(16, Math.min(text.left, window.innerWidth - box.width - 16)),
+        top: Math.max(16, Math.min(top, window.innerHeight - box.height - 16)),
+      }
+    })
   })
   /** The seconds left before a question that asks for a pause can be confirmed. */
   let waitLeft = $state(0)
@@ -290,11 +304,20 @@
   <div
     class="backdrop"
     role="presentation"
-    style:align-items={dialogSide}
     onclick={(e) => e.target === e.currentTarget && overlay.answer(null)}
   >
     <!-- Esc is answered by onkeydown above -->
-    <div role="alertdialog" aria-modal="true" aria-label={overlay.dialog.message} use:modal>
+    <div
+      bind:this={dialogElement}
+      role="alertdialog"
+      aria-modal="true"
+      aria-label={overlay.dialog.message}
+      class:beside={!!around}
+      class:measuring={!!around && !dialogPlace}
+      style:left={dialogPlace ? `${dialogPlace.left / pageZoom()}px` : null}
+      style:top={dialogPlace ? `${dialogPlace.top / pageZoom()}px` : null}
+      use:modal
+    >
       <form
         class="dialog"
         onsubmit={(e) => {
@@ -480,6 +503,14 @@
   }
   [role='alertdialog'] {
     width: min(420px, 100%);
+  }
+  .beside {
+    position: fixed;
+    width: min(420px, calc(100% - 32px));
+  }
+  /* drawn unseen first, to be measured; still focusable, unlike hidden */
+  .measuring {
+    opacity: 0;
   }
   .dialog {
     display: grid;

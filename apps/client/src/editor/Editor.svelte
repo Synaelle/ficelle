@@ -605,10 +605,8 @@
   /** The lines a selection spans in the window, for a dialog to leave in view. */
   function selectionBox(current: Editor): Around {
     const { from, to } = current.state.selection
-    return {
-      top: current.view.coordsAtPos(from).top,
-      bottom: current.view.coordsAtPos(to).bottom,
-    }
+    const start = current.view.coordsAtPos(from)
+    return { top: start.top, bottom: current.view.coordsAtPos(to).bottom, left: start.left }
   }
 
   async function promptLink() {

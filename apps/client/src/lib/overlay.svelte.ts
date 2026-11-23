@@ -56,10 +56,11 @@ interface TextDialog {
   resolve: (value: string | null) => void
 }
 
-/** The top and bottom of something on the page, in window coordinates. */
+/** The top, bottom and left of something on the page, in window coordinates. */
 export interface Around {
   top: number
   bottom: number
+  left: number
 }
 
 export type Dialog = AskDialog | TextDialog
