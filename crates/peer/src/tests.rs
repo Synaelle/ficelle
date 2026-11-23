@@ -197,12 +197,15 @@ fn three_wrong_codes_and_the_code_is_gone() {
     let (a, _ha) = node("Desktop");
     let (b, _hb) = node("Phone");
     let shown = a.start_pairing().unwrap();
+    assert!(!shown.reached);
     let wrong = if shown.code == "000000" {
         "111111"
     } else {
         "000000"
     };
-    for _ in 0..3 {
+    b.pair_with_code(wrong, Some(&address(&a))).unwrap_err();
+    assert!(a.status().pairing.is_some_and(|p| p.reached));
+    for _ in 0..2 {
         let err = b.pair_with_code(wrong, Some(&address(&a))).unwrap_err();
         assert!(matches!(err, Error::WrongCode), "{err}");
     }

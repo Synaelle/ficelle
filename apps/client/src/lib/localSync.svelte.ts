@@ -34,6 +34,8 @@ export interface Pairing {
   /** ip:port for the other device to type when it cannot find this one. */
   address: string | null
   failed: 'tooManyTries' | 'expired' | null
+  /** A device has reached this one and tried a code. */
+  reached: boolean
   /** Name of the device that typed the code. */
   paired: string | null
 }

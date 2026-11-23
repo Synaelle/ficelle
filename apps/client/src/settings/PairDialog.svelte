@@ -33,6 +33,9 @@
   /** This device's name as the other one shows it, read in the hello: two
    * computers often share a host name. */
   let ownName = $state(localSync.status.name)
+  /** The code has shown this long with no device reaching this one. */
+  let unreached = $state(false)
+  let unreachedTimer: ReturnType<typeof setTimeout> | undefined
 
   const pairing = $derived(localSync.status.pairing)
   const pairedName = $derived(mode === 'show' ? (pairing?.paired ?? null) : typedPaired)
@@ -50,10 +53,16 @@
       : shown
   }
 
+  /** Long enough to type a code, short enough to say why nothing comes. */
+  const UNREACHED_MS = 30_000
+
   async function begin() {
     if (mode === 'show') {
+      clearTimeout(unreachedTimer)
+      unreached = false
       try {
         await localSync.pairStart()
+        unreachedTimer = setTimeout(() => (unreached = true), UNREACHED_MS)
       } catch (err) {
         error = explain(err)
       }
@@ -75,6 +84,7 @@
       else step = 'asking'
     })()
     return () => {
+      clearTimeout(unreachedTimer)
       if (mode === 'show' && !localSync.status.pairing?.paired) void localSync.pairCancel()
     }
   })
@@ -192,6 +202,14 @@
           {t('local.pairing.sameNetwork')}
           {#if WINDOWS}{t('local.pairing.windowsFirewall')}{/if}
         </p>
+        {#if unreached && !pairing.reached}
+          <p class="error small" role="status">
+            {t('local.pairing.unreached')}
+            <span class="error-code"
+              >{t('common.errorCode', { code: errorCode('PAIR', 'unreached') })}</span
+            >
+          </p>
+        {/if}
         {#if pairing.address}
           <div class="fold">
             <button

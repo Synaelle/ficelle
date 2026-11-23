@@ -80,6 +80,9 @@ pub struct PairingStatus {
     pub address: Option<String>,
     /// `tooManyTries` or `expired`.
     pub failed: Option<&'static str>,
+    /// A device reached this one and tried a code: one that never does may
+    /// be kept out by a firewall.
+    pub reached: bool,
     /// The name of the device that typed the code.
     pub paired: Option<String>,
 }
@@ -1295,6 +1298,7 @@ impl<H: Host> Node<H> {
                 seconds_left: p.until.saturating_duration_since(now).as_secs(),
                 address: address.clone(),
                 failed: p.failed,
+                reached: p.tries < TRIES,
                 paired: p.paired.clone(),
             }
         });

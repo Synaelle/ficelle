@@ -182,6 +182,7 @@ struct PairingView {
     seconds_left: u64,
     address: Option<String>,
     failed: Option<&'static str>,
+    reached: bool,
     paired: Option<String>,
 }
 
@@ -192,6 +193,7 @@ impl From<PairingStatus> for PairingView {
             seconds_left: p.seconds_left,
             address: p.address,
             failed: p.failed,
+            reached: p.reached,
             paired: p.paired,
         }
     }
