@@ -241,7 +241,6 @@ confirmEmptyTrash = "¿Desea eliminar definitivamente todo el contenido de la pa
 clearFilter = "Volver a las notas sin etiqueta"
 clearSearch = "Borrar búsqueda"
 pullToSearch = "Suelte para buscar"
-swipeTrash = "Papelera"
 
 [list.count]
 one = "{count} nota"
@@ -264,7 +263,7 @@ title = "Título"
 pinned = "Fijado"
 pin = "Fijar"
 unpin = "Desfijar"
-more = "Más"
+options = "Opciones de las notas"
 notSaved = "Aún no se ha guardado, lo intentará de nuevo"
 saving = "Guardando…"
 saved = "Guardado"

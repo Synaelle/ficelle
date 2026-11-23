@@ -241,7 +241,6 @@ confirmEmptyTrash = "Wilt u alles in de prullenbak definitief verwijderen? Deze 
 clearFilter = "Terug naar notities zonder tag"
 clearSearch = "Zoekopdracht wissen"
 pullToSearch = "Laat los om te zoeken"
-swipeTrash = "Prullenbak"
 
 [list.count]
 one = "{count} notitie"
@@ -264,7 +263,7 @@ title = "Titel"
 pinned = "Vastgezet"
 pin = "Vastzetten"
 unpin = "Losmaken"
-more = "Meer"
+options = "Notitie-opties"
 notSaved = "Nog niet opgeslagen, ik probeer het opnieuw"
 saving = "Bezig met opslaan…"
 saved = "Opgeslagen"

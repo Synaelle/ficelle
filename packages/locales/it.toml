@@ -241,7 +241,6 @@ confirmEmptyTrash = "Desidera eliminare definitivamente tutto il contenuto del c
 clearFilter = "Torna alle note senza tag"
 clearSearch = "Cancella ricerca"
 pullToSearch = "Rilasciare per effettuare la ricerca"
-swipeTrash = "Cestino"
 
 [list.count]
 one = "{count} nota"
@@ -264,7 +263,7 @@ title = "Titolo"
 pinned = "Fissata in alto"
 pin = "Fissa in alto"
 unpin = "Stacca"
-more = "Altro"
+options = "Opzioni delle note"
 notSaved = "Non ancora salvato, si sta riprovando"
 saving = "Salvataggio in corso…"
 saved = "Salvato"

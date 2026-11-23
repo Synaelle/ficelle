@@ -241,7 +241,6 @@ confirmEmptyTrash = "Sollen alle Inhalte im Papierkorb endgültig gelöscht werd
 clearFilter = "Zurück zu den Notizen ohne Tag"
 clearSearch = "Suche löschen"
 pullToSearch = "Zum Suchen loslassen"
-swipeTrash = "Papierkorb"
 
 [list.count]
 one = "{count} Notiz"
@@ -264,7 +263,7 @@ title = "Titel"
 pinned = "Angeheftet"
 pin = "Anheften"
 unpin = "Abheften"
-more = "Mehr"
+options = "Notizoptionen"
 notSaved = "Noch nicht gespeichert, ich versuche es erneut"
 saving = "Wird gespeichert…"
 saved = "Gespeichert"

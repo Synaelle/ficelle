@@ -241,7 +241,6 @@ confirmEmptyTrash = "Deseja excluir definitivamente todo o conteúdo da lixeira?
 clearFilter = "Voltar às notas sem tag"
 clearSearch = "Limpar pesquisa"
 pullToSearch = "Solte para pesquisar"
-swipeTrash = "Lixeira"
 
 [list.count]
 one = "{count} nota"
@@ -264,7 +263,7 @@ title = "Título"
 pinned = "Fixado"
 pin = "Fixar"
 unpin = "Desfixar"
-more = "Mais"
+options = "Opções de nota"
 notSaved = "Não foi salvo, pois não foi possível gravar o arquivo. Importe-o para manter seu texto."
 saving = "Salvando…"
 saved = "Salvo"
