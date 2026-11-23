@@ -27,6 +27,7 @@ import {
   TASK_GUARD,
   taskListExtent,
   withBoundedStart,
+  withEmptyItems,
   withShortRows,
 } from './markdownFixes'
 import { MathBlock, MathInline } from './math'
@@ -95,7 +96,7 @@ export function createExtensions(setup: EditorSetup = {}): AnyExtension[] {
         : {},
     ),
     setup.autoLists === false ? withoutTypingRule(BulletList) : BulletList,
-    setup.autoLists === false ? withoutTypingRule(OrderedList) : OrderedList,
+    withEmptyItems(setup.autoLists === false ? withoutTypingRule(OrderedList) : OrderedList),
     withShortRows(withBoundedStart(Table, undefined)).configure({ resizable: false }),
     TableRow,
     // one line of text per cell, all a Markdown table can hold: no table, list

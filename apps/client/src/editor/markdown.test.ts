@@ -373,6 +373,31 @@ describe('typing lists', () => {
   })
 })
 
+describe('empty numbered items', () => {
+  it('saves a note with one after a line is added below it', () => {
+    const editor = new Editor({
+      element: document.createElement('div'),
+      extensions: createExtensions(),
+      content: 'Shopping\n\n1.\n\nEnd\n',
+      contentType: 'markdown',
+    })
+    editor.commands.insertContentAt(editor.state.doc.content.size, {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'milk' }],
+    })
+    expect(editor.getMarkdown()).toMatch(/^Shopping\n\n1\. ?\n\nEnd\n\nmilk/)
+    editor.destroy()
+  })
+
+  it('keeps one between two items, and the numbers after it', () => {
+    const out = roundTrip('Agenda\n\n1. Coffee\n2.\n3. Close\n')
+    expect(out).toMatch(/^Agenda\n\n1\. Coffee\n2\. ?\n3\. Close$/)
+    expect(roundTrip(out)).toBe(out)
+    expect(roundTrip('1.\n2.\n3.\n')).toMatch(/^1\. ?\n2\. ?\n3\. ?$/)
+    expect(roundTrip('a. Apples\nb. Pears\n')).toBe('a. Apples\nb. Pears')
+  })
+})
+
 describe('github markdown additions', () => {
   it('keeps footnotes where they are written', () => {
     const out = roundTrip(

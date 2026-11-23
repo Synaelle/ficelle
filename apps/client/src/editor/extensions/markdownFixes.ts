@@ -115,6 +115,63 @@ export function withShortRows<T extends AnyExtension>(table: T): T {
   } as Partial<T['config']>) as T
 }
 
+/** A numbered item with nothing after its number: "2." alone on its line. */
+const EMPTY_NUMBER = /^([ \t]*\d{1,9}[.)])$/gm
+
+/** Lines the ordered list tokenizer is first given, doubled while the list
+ * fills them, as upstream reads them. */
+const LIST_LINES = 64
+
+/**
+ * Reads a numbered item with no text after its number. Upstream's ordered
+ * list wants a space after the number, so "2." alone was read as text of
+ * the item above it and the next items were numbered one less, and a note
+ * that was only "1." made an item with no line at all, which threw at
+ * every save after it. A space is put after such numbers before the list
+ * is read, and each item gets its empty line.
+ */
+export function withEmptyItems<T extends AnyExtension>(list: T): T {
+  const tokenizer = list.config.markdownTokenizer
+  const parse = list.config.parseMarkdown as
+    ((this: unknown, ...args: unknown[]) => JSONContent | JSONContent[]) | undefined
+  if (!tokenizer || !parse) return list
+  const tokenize = tokenizer.tokenize as (
+    this: unknown,
+    src: string,
+    ...rest: unknown[]
+  ) => { raw: string } | undefined
+  return list.extend({
+    markdownTokenizer: {
+      ...tokenizer,
+      tokenize(this: unknown, src: string, ...rest: unknown[]) {
+        // lists of letters (a. b. c.) are left to upstream as they are
+        if (!/^[ \t]*\d{1,9}[.)](?:\s|$)/.test(src)) return tokenize.call(this, src, ...rest)
+        for (let count = LIST_LINES; ; count *= 2) {
+          let end = -1
+          for (let i = 0; i < count && (end = src.indexOf('\n', end + 1)) !== -1; i++);
+          const head = end === -1 ? src : src.slice(0, end)
+          const token = tokenize.call(this, head.replace(EMPTY_NUMBER, '$1 '), ...rest)
+          if (!token) return token
+          const lines = token.raw.split('\n').length
+          if (lines < count || end === -1) {
+            // the source as written, not with the spaces put in
+            token.raw = src.split('\n', lines).join('\n')
+            return token
+          }
+        }
+      },
+    },
+    parseMarkdown(this: unknown, ...args: unknown[]) {
+      const parsed = parse.apply(this, args)
+      for (const list of Array.isArray(parsed) ? parsed : [parsed])
+        for (const item of list.content ?? [])
+          if (item.content?.[0]?.type !== 'paragraph')
+            item.content = [{ type: 'paragraph', content: [] }, ...(item.content ?? [])]
+      return parsed
+    },
+  } as Partial<T['config']>) as T
+}
+
 /** A task item line: "- [ ] text" or "* [x] text". */
 export const TASK_GUARD = /^ {0,3}[-+*][ \t]+\[[ xX]\][ \t]/
 
