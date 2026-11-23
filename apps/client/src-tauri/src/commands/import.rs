@@ -4,9 +4,9 @@
 //! export, hands its entries to the page as asked, stores the files straight
 //! from the export and writes the notes a batch at a time.
 
-use std::collections::HashMap;
-use std::sync::Mutex;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use app_core::id::{FolderId, NoteId};
 use app_core::import::source::{Entry, Source};
@@ -18,6 +18,31 @@ use tauri::ipc::{Request, Response};
 use super::files::body_bytes;
 use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
+
+/// Files stored for imports while the app runs. A batch refers to its files
+/// only once it is written, and the file cleanup in between took them for
+/// files nothing refers to. Held while one is stored and while the cleanup
+/// runs, so neither sees the other half done.
+static PUT: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
+
+/// The files stored for imports, see [`PUT`].
+pub fn put_for_imports() -> MutexGuard<'static, BTreeSet<String>> {
+    // a set of names, sound whatever panicked while it was held
+    PUT.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Stores an entry of the export in the vault's files, kept from the
+/// cleanup until the batch refers to it.
+fn store_for_import(
+    open: &mut Open,
+    entry: &str,
+    blobs: &app_core::blobs::BlobStore,
+) -> app_core::Result<(String, u64)> {
+    let mut put = put_for_imports();
+    let stored = open.source.store(entry, blobs)?;
+    put.insert(stored.0.clone());
+    Ok(stored)
+}
 
 /// An export being imported.
 struct Open {
@@ -148,8 +173,11 @@ pub struct Stored {
 pub async fn import_put(state: State<'_, AppState>, request: Request<'_>) -> CommandResult<Stored> {
     let bytes = body_bytes(&request)?;
     let blobs = state.quietly(|s| Ok(s.blobs.clone()))?;
+    let mut put = put_for_imports();
+    let sha256 = blobs.put(&bytes)?;
+    put.insert(sha256.clone());
     Ok(Stored {
-        sha256: blobs.put(&bytes)?,
+        sha256,
         size: bytes.len() as u64,
     })
 }
@@ -237,7 +265,7 @@ pub async fn import_write(
                     }
                 }
                 let stored = match (&file.entry, &file.sha256) {
-                    (Some(entry), _) => match open.source.store(entry, &blobs) {
+                    (Some(entry), _) => match store_for_import(open, entry, &blobs) {
                         Ok(stored) => Some(stored),
                         Err(app_core::Error::NotFound(_)) => {
                             leave("missing");

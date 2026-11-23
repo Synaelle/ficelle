@@ -145,9 +145,13 @@ fn clean_up(state: &AppState) {
         .as_ref()
         .map_or(KEEP_DAYS, |info| info.policy.retention_days);
     let keep = i64::from(days) * 24 * 60 * 60 * 1000;
+    // taken before the vault: an import storing a large file holds it, and
+    // the notes stay usable meanwhile
+    let put = crate::commands::import::put_for_imports();
     let result = state.quietly(|s| {
         s.store.forget_removed_files(keep)?;
-        let used = s.store.referenced_blobs()?;
+        let mut used = s.store.referenced_blobs()?;
+        used.extend(put.iter().cloned());
         s.blobs.remove_unreferenced(&used)
     });
     if let Err(err) = result {
