@@ -86,7 +86,6 @@
     },
     {
       icon: 'tasks',
-      quick: true,
       label: () => t('editor.checklist'),
       action: 'checklist',
       run: () => chain().toggleTaskList().run(),
@@ -119,7 +118,7 @@
       // a table holds no table, a Markdown file could not keep it
       disabled: () => editor.isActive('table'),
     },
-    { icon: 'image', label: () => t('editor.image'), run: () => onimage?.() },
+    { icon: 'image', quick: true, label: () => t('editor.image'), run: () => onimage?.() },
   ]
 
   /** The buttons not hidden in the settings. */
