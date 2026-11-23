@@ -12,7 +12,7 @@ use std::time::Duration;
 use app_core::Result;
 use app_core::clock::{Clock, SystemClock};
 use app_core::disk::Disk;
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, ErrorCode, OptionalExtension, params};
 use sqlite_wasm_rs::vfs::VfsFilesManager;
 use sqlite_wasm_rs::vfs::transfer::DbTransfer;
 use sqlite_wasm_vfs::sahpool::OpfsSAHPoolUtil;
@@ -32,6 +32,7 @@ const FILES_DB: &str = "/files.db";
 /// The database of files cannot be opened.
 pub fn start(pool: OpfsSAHPoolUtil) -> Result<()> {
     let files = Connection::open(FILES_DB)?;
+    incremental(&files)?;
     files.execute_batch(
         "CREATE TABLE IF NOT EXISTS files (
             path TEXT PRIMARY KEY,
@@ -42,6 +43,66 @@ pub fn start(pool: OpfsSAHPoolUtil) -> Result<()> {
     POOL.with_borrow_mut(|p| *p = Some(pool));
     FILES.with_borrow_mut(|f| *f = Some(files));
     Ok(())
+}
+
+/// SQLite's `auto_vacuum` mode that frees pages when asked.
+const INCREMENTAL: i64 = 2;
+
+/// Gives the room of deleted files back to the browser's storage: SQLite
+/// keeps it in its file for later writes otherwise.
+///
+/// # Errors
+///
+/// The database of files refuses.
+pub fn reclaim() -> std::io::Result<()> {
+    files(|f| {
+        if !incremental(f)? {
+            return Ok(());
+        }
+        // in rounds that grow: each journals the pages it moves, which a
+        // nearly full storage has room for only a few of, and gives room back
+        // for the next. A storage too full even for that keeps the pages, for
+        // later writes of files and the next cleanup
+        let mut round_pages = 8;
+        loop {
+            let left: i64 = f.query_row("PRAGMA freelist_count", [], |row| row.get(0))?;
+            if left == 0 {
+                return Ok(());
+            }
+            let round = f
+                .prepare(&format!("PRAGMA incremental_vacuum({round_pages})"))
+                .and_then(|mut vacuum| {
+                    let mut pages = vacuum.query([])?;
+                    while pages.next()?.is_some() {}
+                    Ok(())
+                });
+            match round {
+                Err(err) if err.sqlite_error_code().is_some_and(refused) => return Ok(()),
+                round => round?,
+            }
+            round_pages = (round_pages * 2).min(4096);
+        }
+    })
+}
+
+/// Whether SQLite's `code` says the browser's storage refused a write. A
+/// full storage reads as one or the other, depending on the browser and on
+/// what was written.
+pub fn refused(code: ErrorCode) -> bool {
+    matches!(code, ErrorCode::DiskFull | ErrorCode::SystemIoFailure)
+}
+
+/// Makes SQLite free the room of deleted files when asked, see [`reclaim`],
+/// and says whether it does. A database made before takes it with a vacuum,
+/// which needs room for a copy of what it keeps: on a full storage it fails,
+/// and is tried again at the next start or cleanup, once files are removed.
+fn incremental(files: &Connection) -> rusqlite::Result<bool> {
+    let mode = || files.query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, i64>(0));
+    if mode()? != INCREMENTAL {
+        files.execute_batch("PRAGMA auto_vacuum = INCREMENTAL")?;
+        let _ = files.execute_batch("VACUUM");
+    }
+    Ok(mode()? == INCREMENTAL)
 }
 
 /// The vault's files, see the module.

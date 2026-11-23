@@ -266,6 +266,24 @@ impl Store {
         Ok(set)
     }
 
+    /// Hashes of the files attachments not removed refer to: what a device
+    /// with no other device to tell of a removal keeps.
+    ///
+    /// # Errors
+    ///
+    /// Fails only on database errors.
+    pub fn kept_blobs(&self) -> Result<HashSet<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT sha256 FROM attachments WHERE removed_at IS NULL
+             UNION SELECT thumb_sha256 FROM attachments
+             WHERE removed_at IS NULL AND thumb_sha256 IS NOT NULL",
+        )?;
+        let set = stmt
+            .query_map([], |row| row.get(0))?
+            .collect::<rusqlite::Result<HashSet<String>>>()?;
+        Ok(set)
+    }
+
     /// The key that encrypts attachment files, created on first use. It lives
     /// in the database, so it is as protected as the notes.
     ///
@@ -829,8 +847,10 @@ mod tests {
             .add_attachment(note.id, "a.png", "image/png", 1, HASH)
             .unwrap();
         store.set_attachment_thumb(a.id, OTHER).unwrap();
+        assert_eq!(store.kept_blobs().unwrap().len(), 2);
         store.remove_attachment(a.id).unwrap();
         assert_eq!(store.referenced_blobs().unwrap().len(), 2);
+        assert!(store.kept_blobs().unwrap().is_empty());
         assert_eq!(store.forget_removed_files(30 * DAY).unwrap(), 0);
         clock.advance(31 * DAY);
         assert_eq!(store.forget_removed_files(30 * DAY).unwrap(), 1);

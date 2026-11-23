@@ -5,7 +5,7 @@
 //! work as the apps' (`src-tauri/src/commands/backup.rs` and `import.rs`).
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
 
 use app_core::backup::{Backup, Manifest};
@@ -31,6 +31,9 @@ thread_local! {
     /// What the last command answering with bytes reported (a backup's
     /// manifest, an export's counts), for the page to ask after.
     static REPORT: RefCell<Value> = const { RefCell::new(Value::Null) };
+    /// Files stored for an import, which its notes refer to only once
+    /// written: kept from the cleanup until the worker ends.
+    static PUT: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
 }
 
 #[derive(Serialize)]
@@ -224,6 +227,11 @@ fn import_write(a: &Args) -> CommandResult<Value> {
     })
 }
 
+/// The files stored for imports, see `PUT`.
+pub fn put_for_imports() -> HashSet<String> {
+    PUT.with_borrow(Clone::clone)
+}
+
 /// The commands that take json and maybe bytes, `None` for another name.
 pub fn run(name: &str, a: &Args, bytes: Option<Vec<u8>>) -> Option<CommandResult<Value>> {
     Some(match name {
@@ -281,8 +289,10 @@ pub fn run(name: &str, a: &Args, bytes: Option<Vec<u8>>) -> Option<CommandResult
         })(),
         "import_put" => bytes.ok_or_else(no_file).and_then(|bytes| {
             with(|s| {
+                let sha256 = s.blobs.put(&bytes)?;
+                PUT.with_borrow_mut(|put| put.insert(sha256.clone()));
                 Ok(Stored {
-                    sha256: s.blobs.put(&bytes)?,
+                    sha256,
                     size: bytes.len() as u64,
                 })
             })

@@ -6,6 +6,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use app_core::blobs::BlobStore;
 use app_core::crypto::KdfParams;
 use app_core::id::{AttachmentId, FolderId, NoteId, TagId, VersionId};
 use app_core::model::{NoteScope, NoteSort};
@@ -118,12 +119,53 @@ pub fn with<T: Serialize>(
     answer(value)
 }
 
+/// Deletes the files no note refers to any more, those of removed
+/// attachments too: the apps keep them a while for the other devices, the
+/// web version has none, and the browser gives it little room.
+fn clean_files(store: &mut Store, blobs: &BlobStore) -> app_core::Result<()> {
+    let mut kept = store.kept_blobs()?;
+    kept.extend(crate::files::put_for_imports());
+    // the room of files removed before comes back too, once there is
+    // enough for it, see reclaim
+    let removed = blobs.remove_unreferenced(&kept)?;
+    crate::disk::reclaim()?;
+    // -1: removed in this very millisecond too
+    if removed > 0 {
+        match store.forget_removed_files(-1) {
+            // forgotten at a later cleanup, once there is room for this write
+            Err(err) if refused(&err) => {}
+            forgotten => {
+                forgotten?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The browser's storage refused a write, as it does when full.
+fn refused(err: &app_core::Error) -> bool {
+    let db = match err {
+        app_core::Error::Db(db) => Some(db),
+        app_core::Error::Io(io) => io
+            .get_ref()
+            .and_then(|inner| inner.downcast_ref::<rusqlite::Error>()),
+        _ => None,
+    };
+    db.and_then(rusqlite::Error::sqlite_error_code)
+        .is_some_and(crate::disk::refused)
+}
+
 /// Opens a session as the apps do: trash past its time goes, and notes
-/// left blank.
+/// left blank, then the files they had.
 fn open(vault: Vault, mut store: Store) -> CommandResult<Value> {
     store.purge_expired_trash()?;
     store.discard_blank_notes()?;
     let blobs = vault.blobs(&mut store)?;
+    match clean_files(&mut store, &blobs) {
+        // a storage too full to clean up still opens, for files to be removed
+        Err(err) if refused(&err) => {}
+        cleaned => cleaned?,
+    }
     SESSION.with_borrow_mut(|session| {
         *session = Some(Session {
             vault,
@@ -347,11 +389,18 @@ fn note_command(name: &str, a: &Args) -> Option<CommandResult<Value>> {
         })(),
         "trash_note" => id().and_then(|id| with(|s| s.store.trash_note(id))),
         "restore_note" => id().and_then(|id| with(|s| s.store.restore_note(id))),
-        "purge_note" => id().and_then(|id| with(|s| s.store.purge_note(id))),
+        "purge_note" => id().and_then(|id| {
+            with(|s| {
+                s.store.purge_note(id)?;
+                clean_files(&mut s.store, &s.blobs)
+            })
+        }),
         "discard_if_blank" => id().and_then(|id| with(|s| s.store.discard_if_blank(id))),
         "empty_trash" => with(|s| {
             let now = app_core::clock::Clock::now(&app_core::clock::SystemClock);
-            s.store.purge_trashed_before(now)
+            let purged = s.store.purge_trashed_before(now)?;
+            clean_files(&mut s.store, &s.blobs)?;
+            Ok(purged)
         }),
         "list_versions" => id().and_then(|id| with(|s| s.store.list_versions(id))),
         "restore_version" => a
@@ -455,9 +504,12 @@ fn file_command(name: &str, a: &Args, bytes: Option<Vec<u8>>) -> Option<CommandR
             .get::<NoteId>("id")
             .and_then(|id| with(|s| s.store.list_attachments(id))),
         "all_attachments" => with(|s| s.store.all_attachments()),
-        "remove_attachment" => a
-            .get::<AttachmentId>("id")
-            .and_then(|id| with(|s| s.store.remove_attachment(id))),
+        "remove_attachment" => a.get::<AttachmentId>("id").and_then(|id| {
+            with(|s| {
+                s.store.remove_attachment(id)?;
+                clean_files(&mut s.store, &s.blobs)
+            })
+        }),
         "attachment_files" => note().and_then(|note| {
             with(|s| {
                 s.store
