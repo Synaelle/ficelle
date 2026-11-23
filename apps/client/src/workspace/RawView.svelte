@@ -7,7 +7,7 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import { keepCaret } from '../lib/caret'
-  import { shortcutFor } from '../lib/prefs.svelte'
+  import { LEADING, prefs, shortcutFor } from '../lib/prefs.svelte'
   import { bindingOf } from '../lib/shortcuts'
 
   let {
@@ -84,7 +84,11 @@
 </script>
 
 <!-- the margin is as wide as the last line's number -->
-<div class="raw" style:--digits={Math.max(3, String(lines.length).length)}>
+<div
+  class="raw"
+  style:--digits={Math.max(3, String(lines.length).length)}
+  style:--leading={LEADING[prefs.lineSpacing]}
+>
   <div class="copy" aria-hidden="true">
     {#each lines as line, index (index)}
       <div class="line">
@@ -108,7 +112,8 @@
     counter-reset: line;
     font-family: var(--font-mono);
     font-size: 14px;
-    line-height: 1.7;
+    /* the line spacing chosen in the settings */
+    line-height: var(--leading);
   }
   .copy,
   textarea {
@@ -129,7 +134,7 @@
   }
   .line {
     position: relative;
-    min-height: 1.7em;
+    min-height: calc(var(--leading) * 1em);
     counter-increment: line;
   }
   .line::before {

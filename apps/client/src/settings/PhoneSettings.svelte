@@ -19,7 +19,7 @@
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { overlay, type MenuItem } from '../lib/overlay.svelte'
-  import { prefs, showTool } from '../lib/prefs.svelte'
+  import { LINE_SPACINGS, prefs, showTool } from '../lib/prefs.svelte'
   import { TOOL_NAMES } from '../editor/toolNames'
   import ArrowPicker from './ArrowPicker.svelte'
   import DataSettings from './DataSettings.svelte'
@@ -315,6 +315,7 @@
     ['palette', 'settings.pureBlack', 'appearance'],
     ['textSize', 'settings.uiSize', 'accessibility'],
     ['font', 'settings.dyslexicFont', 'accessibility'],
+    ['textStyle', 'settings.lineSpacing', 'editor'],
     ['list', 'settings.autoLists', 'editor'],
     ['emoji', 'settings.emojiShortcodes', 'editor'],
     ['allNotes', 'settings.openLastNote', 'editor'],
@@ -561,6 +562,15 @@
           {/if}
         </Group>
       {:else if page === 'editor'}
+        <Group title={t('settings.lineSpacing')}>
+          {#each LINE_SPACINGS as spacing (spacing)}
+            <Row
+              label={t(`settings.lineSpacing_${spacing}`)}
+              checked={prefs.lineSpacing === spacing}
+              onclick={() => (prefs.lineSpacing = spacing)}
+            />
+          {/each}
+        </Group>
         <Group>
           {@render row({
             icon: 'list',

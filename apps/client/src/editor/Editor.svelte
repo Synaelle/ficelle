@@ -21,7 +21,7 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { overlay, SEPARATOR, textItems, type Around, type MenuItem } from '../lib/overlay.svelte'
   import type { IconName } from '../lib/icons/sets'
-  import { prefs, shortcutFor } from '../lib/prefs.svelte'
+  import { LEADING, prefs, shortcutFor } from '../lib/prefs.svelte'
   import type { ActionId } from '../lib/shortcuts'
   import { isBackendError, workspace } from '../lib/workspace.svelte'
   import { createExtensions } from './extensions'
@@ -950,6 +950,7 @@
   <div
     class="surface"
     bind:this={element}
+    style:--leading={LEADING[prefs.lineSpacing]}
     oncontextmenu={editorMenu}
     onscrollcapture={() => (tick += 1)}
     role="presentation"

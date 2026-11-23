@@ -12,6 +12,12 @@ import type { UiSize } from './uiSize'
 /** What a typed -> may become, the first leaves it as typed. */
 export const ARROW_CHOICES = ['', '→', '➔', '➞']
 
+export type LineSpacing = 'compact' | 'normal' | 'relaxed'
+export const LINE_SPACINGS: LineSpacing[] = ['compact', 'normal', 'relaxed']
+/** The line height of each, in notes and their Markdown. Relaxed is what
+ * notes had before the choice came. */
+export const LEADING: Record<LineSpacing, number> = { compact: 1.35, normal: 1.5, relaxed: 1.65 }
+
 export interface Prefs {
   /** Dark, or the light background chosen in Accessibility. */
   mode: Mode
@@ -39,6 +45,8 @@ export interface Prefs {
   arrow: string
   /** The browser's spell check in notes, desktop only. */
   spellcheck: boolean
+  /** Room between the lines of a note, and between its paragraphs. */
+  lineSpacing: LineSpacing
   /** How times read: as the system shows them, or always 24 or 12 hours. */
   clock: 'system' | '24' | '12'
   /** The open note stays first in the note list, whatever the sort. */
@@ -105,6 +113,7 @@ export const DEFAULT_PREFS: Prefs = {
   emojiShortcodes: true,
   arrow: '➔',
   spellcheck: false,
+  lineSpacing: 'normal',
   clock: 'system',
   openNoteFirst: false,
   nameFromAttachment: true,
@@ -151,6 +160,7 @@ function load(): Prefs {
     // from older versions: following the system is dark now, a custom arrow the default
     if (loaded.mode !== 'light') loaded.mode = 'dark'
     if (!ARROW_CHOICES.includes(loaded.arrow)) loaded.arrow = DEFAULT_PREFS.arrow
+    if (!LINE_SPACINGS.includes(loaded.lineSpacing)) loaded.lineSpacing = DEFAULT_PREFS.lineSpacing
     // a sort order this version does not know (a newer version's) breaks the list
     if (!SORTS.includes(loaded.sort)) loaded.sort = DEFAULT_PREFS.sort
     // betas ended, nightlies took their place: back on Stable, told once

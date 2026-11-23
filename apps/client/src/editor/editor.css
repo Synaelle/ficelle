@@ -4,7 +4,8 @@
 .prose {
   font-family: var(--font-editor);
   font-size: 16px;
-  line-height: 1.65;
+  /* the line spacing chosen in the settings (Editor.svelte) */
+  line-height: var(--leading);
   overflow-wrap: anywhere;
 }
 .prose:focus,
@@ -18,10 +19,10 @@
   margin: 0;
 }
 /* blocks a blank line apart in the Markdown, paragraphs too, so prose does
-   not run together */
+   not run together: the more room between lines, the more between them */
 .prose > * + *,
 .prose blockquote > * + * {
-  margin-top: 0.75em;
+  margin-top: calc((var(--leading) - 1) * 1.15em);
 }
 /* an empty note says where to write (the placeholder extension) */
 .prose p.is-editor-empty:first-child::before {

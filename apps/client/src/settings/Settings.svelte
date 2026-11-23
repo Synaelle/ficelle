@@ -11,7 +11,7 @@
   import { currentLocale, LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
-  import { prefs, shortcutFor, showTool } from '../lib/prefs.svelte'
+  import { LINE_SPACINGS, prefs, shortcutFor, showTool } from '../lib/prefs.svelte'
   import { TOOL_NAMES } from '../editor/toolNames'
   import { MODES } from '../lib/theme.svelte'
   import { LINUX, WEB } from '../lib/platform'
@@ -267,6 +267,20 @@
             {/if}
           {:else if section === 'editor'}
             <Group>
+              <Row label={t('settings.lineSpacing')}>
+                <div class="segmented" role="radiogroup" aria-label={t('settings.lineSpacing')}>
+                  {#each LINE_SPACINGS as spacing (spacing)}
+                    <label class:checked={prefs.lineSpacing === spacing}>
+                      <input
+                        type="radio"
+                        name="lineSpacing"
+                        value={spacing}
+                        bind:group={prefs.lineSpacing}
+                      />{t(`settings.lineSpacing_${spacing}`)}
+                    </label>
+                  {/each}
+                </div>
+              </Row>
               <Row label={t('settings.autoLists')}>
                 <Switch label={t('settings.autoLists')} bind:checked={prefs.autoLists} />
               </Row>
