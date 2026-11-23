@@ -164,13 +164,6 @@ pub fn run() {
             portable::open_main(app.handle())?;
             #[cfg(target_os = "linux")]
             linux_desktop::save_on_term(app.handle());
-            // the version after the name in the title bar
-            #[cfg(desktop)]
-            if let Some(main) = app.get_webview_window("main")
-                && let Ok(name) = main.title()
-            {
-                let _ = main.set_title(&commands::quick::titled(&name));
-            }
             Ok(())
         })
         .register_uri_scheme_protocol(protocol::SCHEME, protocol::handle)

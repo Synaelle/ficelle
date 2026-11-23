@@ -52,7 +52,8 @@ fn beside_exe() -> Option<PathBuf> {
 
 /// The main window, which the config leaves to the code: a launch that
 /// opens files shows their windows alone. Its config is used as is, with
-/// the webview's folder next to the exe when portable.
+/// the version after the name in the title bar, and the webview's folder
+/// next to the exe when portable.
 pub fn open_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let Some(config) = app
         .config()
@@ -64,6 +65,10 @@ pub fn open_main<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         return Ok(());
     };
     let mut builder = tauri::WebviewWindowBuilder::from_config(app, config)?;
+    #[cfg(desktop)]
+    {
+        builder = builder.title(crate::commands::quick::titled(&config.title));
+    }
     if let Some(webview) = webview_dir(app) {
         builder = builder.data_directory(webview);
     }
