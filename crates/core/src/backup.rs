@@ -217,6 +217,16 @@ fn random_salt() -> Result<[u8; SALT]> {
     Ok(salt)
 }
 
+/// A file that is no zip, or a zip with no manifest, is not a backup at all.
+fn not_a_backup(e: zip::result::ZipError) -> Error {
+    match e {
+        zip::result::ZipError::InvalidArchive(_)
+        | zip::result::ZipError::UnsupportedArchive(_)
+        | zip::result::ZipError::FileNotFound => Error::NotBackup,
+        other => zip_error(other),
+    }
+}
+
 fn zip_error(e: zip::result::ZipError) -> Error {
     match e {
         zip::result::ZipError::Io(io) => Error::Io(io),
@@ -416,6 +426,7 @@ impl Backup {
     /// # Errors
     ///
     /// [`Error::WrongPassword`] for a wrong or missing password,
+    /// [`Error::NotBackup`] for a file that is no backup,
     /// [`Error::Corrupt`] for a damaged backup or a newer format.
     pub fn open(path: &Path, password: Option<&str>) -> Result<Self> {
         Self::open_file(File::open(path)?, password)
@@ -465,9 +476,9 @@ impl Backup {
         } else {
             Box::new(BufReader::new(file))
         };
-        let mut archive = zip::ZipArchive::new(reader).map_err(zip_error)?;
+        let mut archive = zip::ZipArchive::new(reader).map_err(not_a_backup)?;
         let manifest: Manifest =
-            serde_json::from_reader(archive.by_name("manifest.json").map_err(zip_error)?)
+            serde_json::from_reader(archive.by_name("manifest.json").map_err(not_a_backup)?)
                 .map_err(|e| Error::Corrupt(format!("backup manifest: {e}")))?;
         if manifest.format > FORMAT {
             return Err(Error::Corrupt(
@@ -725,6 +736,37 @@ mod tests {
             b.restore(&mut t, &BlobStore::new(dir.path().join("bad"), None))
         });
         assert!(restored.is_err());
+    }
+
+    #[test]
+    fn a_file_that_is_no_backup_is_told_from_a_damaged_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let (source, blobs) = filled(dir.path());
+        let random = dir.path().join("random.backup");
+        std::fs::write(&random, b"just some text, nothing like a backup").unwrap();
+        assert!(matches!(Backup::open(&random, None), Err(Error::NotBackup)));
+        let empty = dir.path().join("empty.backup");
+        std::fs::write(&empty, b"").unwrap();
+        assert!(matches!(Backup::open(&empty, None), Err(Error::NotBackup)));
+
+        // a zip that is not a backup has no manifest
+        let other = dir.path().join("other.zip");
+        let mut zip = zip::ZipWriter::new(File::create(&other).unwrap());
+        zip.start_file("a.md", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(b"hello").unwrap();
+        zip.finish().unwrap();
+        assert!(matches!(Backup::open(&other, None), Err(Error::NotBackup)));
+
+        // a real backup cut short is damaged, not foreign
+        let path = dir.path().join("b.backup");
+        write_backup(&source, &blobs, &path, Some("pw"), KDF).unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        std::fs::write(&path, &bytes[..OUTER_HEADER - 3]).unwrap();
+        assert!(matches!(
+            Backup::open(&path, Some("pw")),
+            Err(Error::Corrupt(_))
+        ));
     }
 
     #[test]

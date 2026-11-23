@@ -41,6 +41,10 @@ pub enum Error {
     #[error("damaged data: {0}")]
     Corrupt(String),
 
+    /// The file is not a backup of this app at all.
+    #[error("not a backup")]
+    NotBackup,
+
     /// Something would go over a size limit, in bytes.
     #[error("over the limit of {0} bytes")]
     TooLarge(usize),
@@ -67,6 +71,7 @@ impl Error {
             Self::Invalid(_) => "invalid",
             Self::KeyStore(_) => "keyStore",
             Self::Corrupt(_) => "corrupt",
+            Self::NotBackup => "notBackup",
             Self::Cancelled => "cancelled",
             Self::TooLarge(_) => "tooLarge",
             Self::Crypto => "crypto",
