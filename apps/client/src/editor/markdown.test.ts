@@ -358,6 +358,21 @@ describe('code fences', () => {
   })
 })
 
+describe('list items that start with a block', () => {
+  it.each(['- ```js\n', '-     1\n', '- a\n- \n- b\n'])(
+    'read back as they were written: %j',
+    (md) => {
+      const once = roundTrip(md)
+      expect(roundTrip(once)).toBe(once)
+    },
+  )
+
+  it('keep their code', () => {
+    expect(roundTrip('- ```js\n')).toBe('-\n  ```js\n  \n  ```')
+    expect(roundTrip(roundTrip('-     1\n'))).toBe('-\n  ```\n  1\n  ```')
+  })
+})
+
 describe('plain characters', () => {
   it.each(['a -> b', 'x < y & z > w', 'R&D, 5 > 3'])('keeps %s as typed', (md) => {
     expect(roundTrip(md)).toBe(md)

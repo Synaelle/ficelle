@@ -482,6 +482,15 @@ export const ReadableMarkdown = Markdown.extend({
         return title ? `[${text}](${href} "${title}")` : `[${text}](${href})`
       }
     }
+    // an item whose first line is empty is written with its marker alone:
+    // "- " with its space and nothing after reads as text, and the code or
+    // list the item held after it went with the next save
+    for (const spec of manager.nodeTypeRegistry.get('listItem') ?? []) {
+      const render = spec.renderMarkdown as ((...args: unknown[]) => string) | undefined
+      if (!render) continue
+      spec.renderMarkdown = (...args: unknown[]) =>
+        render(...args).replace(/^([-+*]|\d{1,9}[.)]) +(?=\n|$)/, '$1')
+    }
     const inCode = (node: JSONLike, parent?: JSONLike) =>
       (parent?.type !== undefined && manager.codeTypes.has(parent.type)) ||
       (node.marks ?? []).some((m) => manager.codeTypes.has(typeof m === 'string' ? m : m.type))
