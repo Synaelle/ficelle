@@ -214,17 +214,23 @@
 
   // save before the window goes away: beforeunload cannot wait for the save,
   // so a desktop window holds its close until the save is done, and a phone
-  // saves as the app leaves the screen, where it may be stopped unasked
+  // saves as the app leaves the screen, where it may be stopped unasked. A
+  // browser may stop the worker before the save reaches it (Firefox does):
+  // the page asks before leaving while one is under way or failed
   $effect(() => {
     const save = () => void workspace.flush()
     const hidden = () => document.visibilityState === 'hidden' && save()
-    window.addEventListener('beforeunload', save)
+    const leaving = (event: BeforeUnloadEvent) => {
+      save()
+      if (WEB && (workspace.dirty || workspace.unsaved)) event.preventDefault()
+    }
+    window.addEventListener('beforeunload', leaving)
     document.addEventListener('visibilitychange', hidden)
     const unlisten = DESKTOP ? getCurrentWindow().onCloseRequested(() => workspace.flush()) : null
     // a logout or shutdown, see save_on_term
     const ending = LINUX && !WEB ? listen('app-ending', save) : null
     return () => {
-      window.removeEventListener('beforeunload', save)
+      window.removeEventListener('beforeunload', leaving)
       document.removeEventListener('visibilitychange', hidden)
       void unlisten?.then((stop) => stop())
       void ending?.then((stop) => stop())
