@@ -30,12 +30,23 @@ export async function storageTrouble(
       ? 'private'
       : 'blocked'
   }
-  try {
-    const { usage = 0, quota } = await storage.estimate()
-    if (quota !== undefined && quota - usage < ROOM) return 'full'
-  } catch {
-    // no estimate: the other signs decide
-  }
+  if (await storageFull(0, storage)) return 'full'
   // the page reaches the storage, the worker could not open or write it
   return kind === 'storage' || kind === 'file' ? 'blocked' : null
+}
+
+/** Whether the site's storage has no room left for a write of about `size`
+ * bytes, which SQLite writes more than once: its journal, the search index
+ * and the note's versions. */
+export async function storageFull(
+  size: number,
+  storage: StorageManager | undefined = navigator.storage,
+): Promise<boolean> {
+  try {
+    const { usage = 0, quota } = (await storage?.estimate()) ?? {}
+    return quota !== undefined && quota - usage < ROOM + 4 * size
+  } catch {
+    // no estimate: the other signs decide
+    return false
+  }
 }

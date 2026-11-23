@@ -11,6 +11,7 @@ import { pageScope } from '../webScope'
 import { download, showOrDownload } from '../download'
 import { pickedFile } from '../pick'
 import { backupMade, notesMade } from '../webBackups'
+import { storageFull } from '../storageTrouble'
 import { createTauriBackend } from './tauri'
 import type { Attachment, AttachmentFile, SearchHit } from './types'
 
@@ -50,7 +51,10 @@ export function reopenNotes(): Promise<void> {
 }
 
 export function createWebBackend(): Backend {
-  const waiting = new Map<number, { resolve(value: unknown): void; reject(err: unknown): void }>()
+  const waiting = new Map<
+    number,
+    { resolve(value: unknown): void; reject(err: unknown): void; size: number }
+  >()
   let next = 0
   let worker: Promise<Worker> | null = null
   /** Asked once already: the next try takes the notes from the other tab. */
@@ -91,7 +95,7 @@ export function createWebBackend(): Backend {
         started.onmessage = ({ data }: MessageEvent<CoreAnswer>) => {
           const pending = waiting.get(data.id)
           waiting.delete(data.id)
-          if ('error' in data) pending?.reject(data.error)
+          if ('error' in data) void failed(data.error, pending?.size ?? 0).then(pending?.reject)
           else pending?.resolve(data.value)
         }
         resolve(started)
@@ -120,6 +124,15 @@ export function createWebBackend(): Backend {
     })
   }
 
+  /** A write the core could not make, told as a full storage when it is:
+   * SQLite and the browser only say a write failed. */
+  async function failed(error: { kind: string; message: string }, size: number) {
+    const write = ['database', 'file'].includes(error.kind)
+    if (write && (/quota|disk is full/i.test(error.message) || (await storageFull(size))))
+      return { kind: 'storageFull', message: error.message }
+    return error
+  }
+
   async function send<T>(
     name: string,
     args: Record<string, unknown> = {},
@@ -129,8 +142,9 @@ export function createWebBackend(): Backend {
     const ready = await worker
     const id = next++
     return new Promise<T>((resolve, reject) => {
-      waiting.set(id, { resolve: resolve as (value: unknown) => void, reject })
       const request: CoreRequest = { id, name, args: JSON.stringify(args), ...more }
+      const size = request.args.length + (more.bytes?.length ?? 0)
+      waiting.set(id, { resolve: resolve as (value: unknown) => void, reject, size })
       ready.postMessage(request, more.bytes ? [more.bytes.buffer] : [])
     })
   }

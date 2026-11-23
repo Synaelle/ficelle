@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest'
-import { storageTrouble } from './storageTrouble'
+import { storageFull, storageTrouble } from './storageTrouble'
 
 /** A browser's storage: its folder given or refused, its room. */
 function storage(folder: () => Promise<unknown>, usage = 0, quota = 1e9) {
@@ -49,5 +49,14 @@ describe('storageTrouble', () => {
   it('blames the storage only for its own errors', async () => {
     expect(await storageTrouble(failed, reached)).toBe('blocked')
     expect(await storageTrouble({ kind: 'database', message: 'malformed' }, reached)).toBeNull()
+  })
+})
+
+describe('storageFull', () => {
+  it('counts the room a write needs', async () => {
+    const room = storage(async () => ({}), 7_000_000, 10_000_000)
+    expect(await storageFull(0, room)).toBe(false)
+    expect(await storageFull(700_000, room)).toBe(true)
+    expect(await storageFull(0, undefined)).toBe(false)
   })
 })

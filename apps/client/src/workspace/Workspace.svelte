@@ -28,6 +28,7 @@
   import type SettingsScreen from '../settings/Settings.svelte'
   import { sendSyncedPrefs, takeSyncedPrefs } from '../lib/syncedPrefs.svelte'
   import Icon from '../lib/icons/Icon.svelte'
+  import BackupDialog from '../settings/BackupDialog.svelte'
   import AttachmentList from './AttachmentList.svelte'
   import NoteList from './NoteList.svelte'
   import NoteView from './NoteView.svelte'
@@ -48,6 +49,10 @@
     settingsOpen = !!Settings
   }
   let searchFocus = $state(0)
+  /** A backup asked for from an error that says to make one. */
+  let backingUp = $state(false)
+  /** Errors whose way out starts with a backup. */
+  const BACKUP_FIRST = ['storageFull']
 
   const SIDEBAR_MIN = 170
   const LIST_MIN = 240
@@ -276,9 +281,14 @@
   <Settings close={() => (settingsOpen = false)} {onlock} start={settingsSection} />
 {/if}
 
+{#if backingUp}<BackupDialog mode="make" close={() => (backingUp = false)} />{/if}
+
 {#if workspace.error}
   <div class="toast" role="alert">
     {t(`errors.${workspace.error}`)}
+    {#if BACKUP_FIRST.includes(workspace.error)}
+      <button class="btn" onclick={() => (backingUp = true)}>{t('backups.download')}</button>
+    {/if}
     <button class="icon-btn" aria-label={t('common.close')} onclick={() => (workspace.error = null)}
       ><Icon name="close" size={16} /></button
     >
@@ -296,6 +306,8 @@
     left: 50%;
     bottom: var(--space-5);
     transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100vw - 2 * var(--space-4));
     display: flex;
     align-items: center;
     gap: var(--space-3);
