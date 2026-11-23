@@ -345,6 +345,17 @@ class AppUpdates {
     if (this.downloaded || this.ready?.page) await this.install()
   }
 
+  /** "Later" offers waiting for the next start or skipping this version;
+   * a security fix can only wait. */
+  later(button: HTMLElement) {
+    const wait = () => (this.dismissed = true)
+    if (this.ready?.critical) return void wait()
+    overlay.openMenuBelow(button, [
+      { label: t('appUpdate.laterStart'), icon: 'timer', run: wait },
+      { label: t('appUpdate.skip'), icon: 'close', run: () => this.skip() },
+    ])
+  }
+
   /** "Skip this version": its card comes back no more, the next version's
    * does. Never for a critical fix, and Settings still offers it. */
   skip() {

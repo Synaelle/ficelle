@@ -17,19 +17,9 @@
   import Icon from './icons/Icon.svelte'
   import Knot from '@app/ui/Knot.svelte'
   import { t } from './i18n.svelte'
-  import { overlay } from './overlay.svelte'
 
   const phone = ANDROID
   let changes = $state(false)
-
-  function later(event: MouseEvent) {
-    const wait = () => (appUpdates.dismissed = true)
-    if (appUpdates.ready?.critical) return void wait()
-    overlay.openMenuBelow(event.currentTarget as HTMLElement, [
-      { label: t('appUpdate.laterStart'), icon: 'timer', run: wait },
-      { label: t('appUpdate.skip'), icon: 'close', run: () => appUpdates.skip() },
-    ])
-  }
 
   /** A new version (another middle number, or a beta) or a fix for this one,
    * downloaded or only out (`page`: the portable exe, a Linux package). */
@@ -107,7 +97,7 @@
       <button
         class="btn later"
         aria-haspopup={appUpdates.ready.critical ? undefined : 'menu'}
-        onclick={later}>{t('appUpdate.later')}</button
+        onclick={(e) => appUpdates.later(e.currentTarget)}>{t('appUpdate.later')}</button
       >
     </div>
   </section>

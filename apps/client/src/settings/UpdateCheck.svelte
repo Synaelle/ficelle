@@ -2,12 +2,14 @@
 <!-- Updates, the same on desktop and phone: how versions come, the nightly
      versions and a check right now. Only listed where the app has updates.
      When a store or a package manager brings them, one line says so and the
-     rows stay, greyed. -->
+     rows stay, greyed. A phone has no update card, only a mark that opens
+     this page: Later and the list of changes are here instead. -->
 <script lang="ts">
-  import { ANDROID } from '../lib/platform'
+  import { ANDROID, PHONE } from '../lib/platform'
   import { channelSwitch } from '../lib/channelChange.svelte'
   import {
     appUpdates,
+    changelogLabelled,
     channelChoice,
     downloadLine,
     notificationsHere,
@@ -19,6 +21,11 @@
   import Row from './ui/Row.svelte'
 
   const phone = ANDROID
+
+  /** The release's list of changes in English, or its English line. */
+  const details = $derived(
+    PHONE ? appUpdates.ready?.changelog || appUpdates.ready?.notes || '' : '',
+  )
 
   /** Nothing here to change: the switches read off, as the app does not look. */
   const elsewhere = $derived(!!appUpdates.elsewhere)
@@ -94,7 +101,23 @@
             ? t('appUpdate.install')
             : t('appUpdate.restart')}</button
       >
+      {#if PHONE && appUpdates.offered}
+        <button
+          class="btn"
+          aria-haspopup={appUpdates.ready.critical ? undefined : 'menu'}
+          onclick={(e) => appUpdates.later(e.currentTarget)}>{t('appUpdate.later')}</button
+        >
+      {/if}
     </Row>
+    {#if details}
+      <!-- focusable, so the keyboard can scroll long notes -->
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <div class="changelog" tabindex="0" aria-label={t('appUpdate.changes')}>
+        <span class="caption">{t('appUpdate.changes')}</span>
+        {#if changelogLabelled()}<span class="lang">{t('appUpdate.message.inEnglish')}</span>{/if}
+        <p lang="en">{details}</p>
+      </div>
+    {/if}
   {:else}
     <Row
       label={appUpdates.checking ? t('appUpdate.checking') : t('appUpdate.check')}
@@ -116,6 +139,30 @@
 </Group>
 
 <style>
+  .changelog {
+    max-height: 14em;
+    overflow-y: auto;
+    padding: var(--space-2) var(--space-3) var(--space-3);
+    color: var(--color-text-muted);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+  .changelog p {
+    margin: 0;
+    white-space: pre-line;
+  }
+  .caption {
+    display: block;
+    margin-bottom: var(--space-1);
+    color: var(--color-text);
+    font-weight: 600;
+  }
+  .lang {
+    display: block;
+    margin-bottom: var(--space-1);
+    font-size: 12px;
+    font-weight: 600;
+  }
   .error {
     margin: 0;
     padding: 0 var(--space-3) var(--space-2);
