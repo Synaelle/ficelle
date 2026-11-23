@@ -256,6 +256,12 @@ export function fenceFor(code: string) {
 
 /** The code block, with its language picker and colors. */
 export const LanguageCodeBlock = CodeBlock.extend<LanguageCodeBlockOptions>({
+  // a fence may stand up to three spaces in: upstream only took one at the
+  // line start, and dropped the others with all the code under them
+  parseMarkdown(token, helpers) {
+    const raw = token.raw?.replace(/^ {1,3}(?=```|~~~)/, '')
+    return this.parent?.({ ...token, raw }, helpers) ?? []
+  },
   renderMarkdown: (node, helpers) => {
     const language = (node.attrs?.language as string | null) || ''
     const code = node.content ? helpers.renderChildren(node.content) : ''

@@ -350,6 +350,14 @@ describe('image attribute blocks', () => {
   })
 })
 
+describe('code fences', () => {
+  it('keeps the code under a fence set a few spaces in', () => {
+    const out = roundTrip('Intro\n ```\nHidden line\n')
+    expect(out).toBe('Intro\n\n```\nHidden line\n```')
+    expect(roundTrip('   ~~~sh\nls\n   ~~~\n')).toBe('```sh\nls\n```')
+  })
+})
+
 describe('plain characters', () => {
   it.each(['a -> b', 'x < y & z > w', 'R&D, 5 > 3'])('keeps %s as typed', (md) => {
     expect(roundTrip(md)).toBe(md)
