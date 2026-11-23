@@ -1973,6 +1973,7 @@ storage_blocked = "This browser is blocking storage for this site, or still aski
 storage_private = "This browser keeps no files for sites in a private window. Open this page in a normal window."
 storage_full = "This browser has no room left for this site. Free some space on the device, then try again."
 storage_missing = "This browser cannot keep files for sites. Update it, or use another browser."
+storage_refused = "This browser does not let this site keep any data, so your notes cannot be saved here. Allow this site to keep cookies and site data, then try again."
 storage_busy = "This page still had your notes open from before it reloaded. Wait a moment, then try again."
 
 # The web version's wording where the apps say "this device", see

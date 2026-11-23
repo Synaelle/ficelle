@@ -57,7 +57,9 @@ export function createWebBackend(): Backend {
   let refused = false
   /** Ends the worker and lets go of the notes. */
   let stop: (() => void) | null = null
-  const tabs = new BroadcastChannel(LOCK)
+  /** Made when the notes are first asked for: a browser keeping no data
+   * for the site refuses it, and the page has to start to say so. */
+  let tabs: BroadcastChannel | null = null
   /** Settles once this tab has let go of the notes. */
   let released: Promise<unknown> = Promise.resolve()
   reopen = async () => {
@@ -72,8 +74,9 @@ export function createWebBackend(): Backend {
    * that has them to let go and waits its turn. */
   function start(): Promise<Worker> {
     const takeOver = refused
+    const channel = (tabs ??= new BroadcastChannel(LOCK))
     return new Promise<Worker>((resolve, reject) => {
-      if (takeOver) tabs.postMessage('take')
+      if (takeOver) channel.postMessage('take')
       released = navigator.locks.request(LOCK, takeOver ? {} : { ifAvailable: true }, (lock) => {
         if (!lock) {
           refused = true
@@ -101,7 +104,7 @@ export function createWebBackend(): Backend {
             worker = null
             release()
           }
-          tabs.onmessage = ({ data }) => {
+          channel.onmessage = ({ data }) => {
             if (data !== 'take') return
             // the other tab waits for the lock, so it has to come free
             void beforeHandOver().finally(() => {

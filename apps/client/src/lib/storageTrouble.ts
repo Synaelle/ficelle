@@ -4,8 +4,9 @@
 // missing, refused in a private window, full, or blocked for this site. A
 // browser asking for permission to store keeps it blocked until it is given.
 // Or busy: the page before a reload still has the notes open for a moment.
+// Refused is told as the page starts (webStorage.ts), never here.
 
-export type StorageTrouble = 'busy' | 'missing' | 'private' | 'full' | 'blocked'
+export type StorageTrouble = 'busy' | 'missing' | 'private' | 'full' | 'blocked' | 'refused'
 
 /** Less room than this left for the site counts as full. */
 const ROOM = 1024 * 1024

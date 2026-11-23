@@ -15,6 +15,7 @@
   import { backend, type VaultStatus } from './lib/backend'
   import { reopenNotes } from './lib/backend/web'
   import { storageTrouble, type StorageTrouble } from './lib/storageTrouble'
+  import { storageRefused } from './lib/webStorage'
   import { applyDyslexicFont } from './lib/dyslexicFont'
   import { catchErrors, errorCatch } from './lib/errorCatch.svelte'
   import ErrorReport from './lib/ErrorReport.svelte'
@@ -81,6 +82,12 @@
   const BUSY_WAITS = [250, 500, 1000, 2000, 3000]
 
   async function start(tries = 0) {
+    // the browser keeps nothing for this site: no notes could last a reload
+    if (WEB && storageRefused) {
+      trouble = 'refused'
+      failCode = 'STORAGE-REFUSED'
+      return (stage = 'failed')
+    }
     try {
       status = await backend.vaultStatus()
     } catch (err) {
@@ -142,6 +149,8 @@
    * since. */
   async function retry() {
     if (!WEB) return void firstLaunch()
+    // what the browser allows is read as the page loads
+    if (storageRefused) return location.reload()
     trouble = null
     failCode = ''
     stage = 'loading'
