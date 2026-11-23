@@ -11,6 +11,9 @@ use super::files_tests::{content, sha, upload};
 use super::tests::{admin_on, call, person, server_with, token};
 use crate::config::{Config, StorageConfig};
 
+// a server runs one backup at a time, process wide, so these tests take turns
+static ONE_AT_A_TIME: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 async fn set_up(
     app: &axum::Router,
     admin: &str,
@@ -36,6 +39,7 @@ async fn set_up(
 #[tokio::test(flavor = "multi_thread")]
 #[expect(clippy::too_many_lines, reason = "one story, read top to bottom")]
 async fn an_instance_is_backed_up_test_restored_and_restored_whole() {
+    let _turn = ONE_AT_A_TIME.lock().await;
     let data = tempfile::tempdir().unwrap();
     let place = tempfile::tempdir().unwrap();
     let config = Config {
@@ -182,6 +186,7 @@ async fn an_instance_is_backed_up_test_restored_and_restored_whole() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_backup_that_cannot_be_made_says_why_and_is_logged() {
+    let _turn = ONE_AT_A_TIME.lock().await;
     let data = tempfile::tempdir().unwrap();
     let place = tempfile::tempdir().unwrap();
     let config = Config {
