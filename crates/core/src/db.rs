@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 
 use crate::crypto::DatabaseKey;
 use crate::error::{Error, Result};
@@ -130,6 +130,37 @@ const MIGRATIONS: &[Migration] = &[
 /// an encrypted file is opened without a key.
 pub fn open(path: &Path, key: Option<&DatabaseKey>) -> Result<Connection> {
     let conn = Connection::open(path)?;
+    unlock(&conn, key)?;
+    configure(&conn)?;
+    migrate(&conn)?;
+    Ok(conn)
+}
+
+/// Opens the database of an existing vault, never creating it: a missing or
+/// empty file there is damage, and a new database in its place hid that the
+/// notes were gone.
+///
+/// # Errors
+///
+/// [`Error::NotesMissing`] for a missing or empty file, else as [`open`].
+pub fn open_existing(path: &Path, key: Option<&DatabaseKey>) -> Result<Connection> {
+    let flags = OpenFlags::default().difference(OpenFlags::SQLITE_OPEN_CREATE);
+    let conn =
+        Connection::open_with_flags(path, flags).map_err(|err| match err.sqlite_error_code() {
+            Some(rusqlite::ErrorCode::CannotOpen) if !path.exists() => Error::NotesMissing,
+            _ => Error::Db(err),
+        })?;
+    // SQLite reads an empty file as an empty database
+    if unlock(&conn, key)? == 0 {
+        return Err(Error::NotesMissing);
+    }
+    configure(&conn)?;
+    migrate(&conn)?;
+    Ok(conn)
+}
+
+/// Gives the key, then reads the schema: how many entries it has.
+fn unlock(conn: &Connection, key: Option<&DatabaseKey>) -> Result<i64> {
     // SQLCipher writes its own errors to stderr, for example on a wrong key.
     // Those cases already come back as typed errors, so the logs are only noise.
     conn.pragma_update(None, "cipher_log_level", "NONE")?;
@@ -147,10 +178,7 @@ pub fn open(path: &Path, key: Option<&DatabaseKey>) -> Result<Connection> {
             Error::WrongKey
         }
         other => Error::Db(other),
-    })?;
-    configure(&conn)?;
-    migrate(&conn)?;
-    Ok(conn)
+    })
 }
 
 fn configure(conn: &Connection) -> Result<()> {

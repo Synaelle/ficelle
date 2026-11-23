@@ -37,6 +37,10 @@ pub enum Error {
     #[error("secure storage error: {0}")]
     KeyStore(String),
 
+    /// The vault's database file is not there, or holds nothing.
+    #[error("the notes database is missing or empty")]
+    NotesMissing,
+
     /// Data on disk does not have the expected shape.
     #[error("damaged data: {0}")]
     Corrupt(String),
@@ -70,6 +74,7 @@ impl Error {
             Self::NotFound(_) => "notFound",
             Self::Invalid(_) => "invalid",
             Self::KeyStore(_) => "keyStore",
+            Self::NotesMissing => "notesMissing",
             Self::Corrupt(_) => "corrupt",
             Self::NotBackup => "notBackup",
             Self::Cancelled => "cancelled",

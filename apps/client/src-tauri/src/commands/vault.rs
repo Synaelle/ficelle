@@ -101,6 +101,13 @@ pub async fn vault_status(state: State<'_, AppState>) -> CommandResult<VaultStat
         }
         Err(e) => return Err(e.into()),
     };
+    // said before any password is asked, and nothing is made in its place
+    if !unlocked && vault.notes_missing() {
+        return Err(CommandError::new(
+            "notesMissing",
+            state.dir.display().to_string(),
+        ));
+    }
     if !unlocked && !writable(&state.dir) {
         return Err(CommandError::new(
             "readOnly",

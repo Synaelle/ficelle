@@ -52,7 +52,16 @@
 
   type Stage = 'loading' | 'failed' | 'elsewhere' | 'unlock' | 'upgrade' | 'welcome' | 'ready'
   /** Why the notes cannot be opened, when it is known, and their folder. */
-  let cannotOpen = $state<{ kind: 'readOnly' | 'vaultDamaged'; folder: string } | null>(null)
+  let cannotOpen = $state<{ kind: CannotOpen; folder: string } | null>(null)
+  /** What keeps the notes from opening, with its help text. */
+  const CANNOT_OPEN = {
+    readOnly: 'unlock.readOnlyHelp',
+    vaultDamaged: 'unlock.damagedHelp',
+    notesMissing: 'unlock.notesMissingHelp',
+  }
+  type CannotOpen = keyof typeof CANNOT_OPEN
+  const cannotOpenKind = (kind: string | undefined): kind is CannotOpen =>
+    !!kind && Object.hasOwn(CANNOT_OPEN, kind)
   let stage = $state<Stage>('loading')
   /** In the web version, what kept the browser's storage from the notes. */
   let trouble = $state<StorageTrouble | null>(null)
@@ -105,8 +114,9 @@
       const { kind, message } = err as { kind?: string; message?: string }
       // another copy of the app has the notes: this one leaves them alone
       if (kind === 'openElsewhere') return (stage = 'elsewhere')
-      // a folder that cannot be written or a damaged vault.json: said as such
-      if (kind === 'readOnly' || kind === 'vaultDamaged') {
+      // a folder that cannot be written, a damaged vault.json or a missing
+      // notes.db: said as such
+      if (cannotOpenKind(kind)) {
         cannotOpen = { kind, folder: message ?? '' }
         return (stage = 'failed')
       }
@@ -235,9 +245,7 @@
   <main class="failed">
     <h1>{t('unlock.failedTitle')}</h1>
     <p role="alert">
-      {cannotOpen.kind === 'readOnly'
-        ? t('unlock.readOnlyHelp', { app: brand.displayName })
-        : t('unlock.damagedHelp')}
+      {t(CANNOT_OPEN[cannotOpen.kind], { app: brand.displayName })}
     </p>
     <p class="folder">{cannotOpen.folder}</p>
     <p class="code">{t('common.errorCode', { code: errorCode('START', cannotOpen.kind) })}</p>

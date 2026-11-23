@@ -240,6 +240,13 @@ impl Vault {
         self.meta.wrapped_key.is_some()
     }
 
+    /// Whether the database file is gone or empty: damage, never a first
+    /// start, since `vault.json` is written after it.
+    pub fn notes_missing(&self) -> bool {
+        let path = self.db_path();
+        !self.disk.exists(&path) || self.disk.len(&path).is_ok_and(|len| len == 0)
+    }
+
     /// Path of the database file.
     pub fn db_path(&self) -> PathBuf {
         self.dir.join(DB_FILE)
@@ -275,7 +282,7 @@ impl Vault {
                 "this vault is encrypted, a password is needed".into(),
             ));
         }
-        Ok(Store::new(db::open(&self.db_path(), None)?))
+        Ok(Store::new(db::open_existing(&self.db_path(), None)?))
     }
 
     /// Opens an encrypted vault with its password.
@@ -285,7 +292,7 @@ impl Vault {
     /// [`Error::WrongPassword`] when the password does not match.
     pub fn unlock_with_password(&self, password: &str) -> Result<Store> {
         let key = self.key_from_password(password)?;
-        Ok(Store::new(db::open(&self.db_path(), Some(&key))?))
+        Ok(Store::new(db::open_existing(&self.db_path(), Some(&key))?))
     }
 
     /// Opens an encrypted vault with the key remembered on this device.
@@ -298,7 +305,7 @@ impl Vault {
             .get(&self.device_key_name())?
             .ok_or(Error::NotRemembered)?;
         let key = DatabaseKey::from_bytes(&bytes)?;
-        match db::open(&self.db_path(), Some(&key)) {
+        match db::open_existing(&self.db_path(), Some(&key)) {
             Err(Error::WrongKey) => Err(Error::NotRemembered),
             other => Ok(Store::new(other?)),
         }
@@ -346,7 +353,7 @@ impl Vault {
 
     /// Fails unless `key` opens the database.
     fn check(&self, key: &DatabaseKey) -> Result<()> {
-        db::open(&self.db_path(), Some(key)).map(drop)
+        db::open_existing(&self.db_path(), Some(key)).map(drop)
     }
 
     /// Opens with the key in hand, however it was had.
@@ -355,7 +362,7 @@ impl Vault {
     ///
     /// [`Error::WrongKey`] or database errors.
     pub fn unlock_with_key(&self, key: &DatabaseKey) -> Result<Store> {
-        Ok(Store::new(db::open(&self.db_path(), Some(key))?))
+        Ok(Store::new(db::open_existing(&self.db_path(), Some(key))?))
     }
 
     /// Keeps `key` in `keys` for this vault, after checking it opens it.
@@ -626,7 +633,7 @@ impl Vault {
             .as_ref()
             .ok_or_else(|| Error::Invalid("this vault has no recovery key".into()))?
             .unwrap(&recovery::normalize(code)?)?;
-        let store = Store::new(db::open(&self.db_path(), Some(&key))?);
+        let store = Store::new(db::open_existing(&self.db_path(), Some(&key))?);
         self.meta.wrapped_key = Some(WrappedKey::wrap(&key, new_password, kdf)?);
         self.write_meta()?;
         Ok(store)
@@ -1422,6 +1429,42 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn a_missing_or_empty_database_is_never_made_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let (_, mut store) = Vault::create(dir.path(), Encryption::Off).unwrap();
+        note(&mut store, "Order more cedar posts");
+        drop(store);
+        let db = dir.path().join(DB_FILE);
+        fs::remove_file(&db).unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        assert!(vault.notes_missing());
+        assert!(matches!(vault.unlock_plain(), Err(Error::NotesMissing)));
+        assert!(!db.exists());
+        fs::write(&db, b"").unwrap();
+        assert!(vault.notes_missing());
+        assert!(matches!(vault.unlock_plain(), Err(Error::NotesMissing)));
+        assert_eq!(fs::metadata(&db).unwrap().len(), 0);
+
+        let dir = tempfile::tempdir().unwrap();
+        let (vault, store) = Vault::create(dir.path(), on("pw")).unwrap();
+        drop(store);
+        assert!(!vault.notes_missing());
+        let db = dir.path().join(DB_FILE);
+        fs::write(&db, b"").unwrap();
+        assert!(matches!(
+            vault.unlock_with_password("pw"),
+            Err(Error::NotesMissing)
+        ));
+        assert_eq!(fs::metadata(&db).unwrap().len(), 0);
+        fs::remove_file(&db).unwrap();
+        assert!(matches!(
+            vault.unlock_with_password("pw"),
+            Err(Error::NotesMissing)
+        ));
+        assert!(!db.exists());
     }
 
     #[test]
