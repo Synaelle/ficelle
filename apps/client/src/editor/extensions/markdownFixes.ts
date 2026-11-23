@@ -362,6 +362,10 @@ type LinkNode = { attrs?: { href?: string | null; title?: string | null } }
 interface RenderSpec {
   renderMarkdown?: (node: LinkNode, helpers: { renderChildren(node: unknown): string }) => string
 }
+type LinkToken = { href?: string; tokens?: { type: string; raw: string; text: string }[] }
+interface ParseSpec {
+  parseMarkdown?: (token: LinkToken, helpers: unknown) => unknown
+}
 /** The letters and digits of `text`, in order. */
 const lettersOf = (text: string) => (text.match(/[\p{L}\p{N}]/gu) ?? []).join('')
 
@@ -393,6 +397,7 @@ interface TextEncoding {
   parseFallbackToken(token: { type?: string; raw?: string }, ...rest: unknown[]): unknown
   parse(markdown: string): { type: 'doc'; content: JSONContent[] }
   nodeTypeRegistry: Map<string, RenderSpec[]>
+  registry: Map<string, ParseSpec[]>
   escapeMarkdownSyntax(text: string): string
   encodeTextForMarkdown(text: string, node: JSONLike, parent?: JSONLike): string
   renderNodesWithMarkBoundaries(nodes: JSONLike[], ...rest: unknown[]): string
@@ -438,6 +443,20 @@ export const ReadableMarkdown = Markdown.extend({
       token.type === 'def'
         ? manager.htmlAsLiteralText(token.raw ?? '', true)
         : fallback(token, ...rest)
+    // a link with no text has nothing to carry it and was dropped with its
+    // address: it shows the address instead
+    for (const spec of manager.registry.get('link') ?? []) {
+      const parseLink = spec.parseMarkdown
+      if (!parseLink) continue
+      spec.parseMarkdown = (token, helpers) => {
+        const href = token.href ?? ''
+        const text = [{ type: 'text', raw: href, text: href }]
+        return parseLink(
+          token.tokens?.length || !href ? token : { ...token, tokens: text },
+          helpers,
+        )
+      }
+    }
     if (initial) {
       const json = manager.parse(options.content as string)
       if (json.content.length) options.content = json

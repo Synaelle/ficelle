@@ -255,6 +255,13 @@ describe('link addresses', () => {
     )
   })
 
+  it('keeps a link with no text, showing its address', () => {
+    expect(roundTrip('A link with no text [](https://example.org/important) here\n')).toBe(
+      'A link with no text <https://example.org/important> here',
+    )
+    expect(roundTrip('[](notes/plan.md)\n')).toBe('[notes/plan.md](notes/plan.md)')
+  })
+
   it('keeps addresses with spaces, brackets and parentheses as links', () => {
     for (const href of ['My file.pdf', 'Note.md#Some Heading', 'https://x.y/a)b', 'a<b>.md']) {
       const editor = new Editor({
