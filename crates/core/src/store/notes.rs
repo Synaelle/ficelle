@@ -568,4 +568,64 @@ mod tests {
         let (mut store, _) = store();
         assert!(store.set_pinned(crate::id::NoteId::new(), true).is_err());
     }
+
+    /// The note list of a vault the size of a busy phone's, debug build:
+    /// `cargo test -p app-core list_of_3000 -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "measurement, run by hand"]
+    fn list_of_3000_notes_timed() {
+        let (mut store, _) = store();
+        let words = [
+            "garden", "tomato", "meeting", "budget", "train", "letter", "recipe",
+        ];
+        let sentence = |i: usize| {
+            let mut s: Vec<&str> = (0..11).map(|k| words[(i * 7 + k) % words.len()]).collect();
+            s.push(".");
+            s.join(" ")
+        };
+        let para = |i: usize| {
+            (0..5)
+                .map(|k| sentence(i + k))
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        for i in 0..3000 {
+            let long = i % 12 == 5;
+            let body = if long {
+                (0..60)
+                    .map(|k| {
+                        format!(
+                            "## Part {k}\n\n{}\n\n- {}\n- {}",
+                            para(i + k),
+                            sentence(k),
+                            sentence(i)
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n\n")
+            } else {
+                format!(
+                    "{}\n\n- [ ] {}\n- [x] {}\n\n{}",
+                    para(i),
+                    sentence(i),
+                    sentence(i + 1),
+                    para(i + 2)
+                )
+            };
+            store
+                .create_note(&NewNote {
+                    title: format!("Note {i}"),
+                    body,
+                    ..NewNote::default()
+                })
+                .unwrap();
+        }
+        for _ in 0..3 {
+            let t = std::time::Instant::now();
+            let notes = store
+                .list_notes(NoteScope::All, NoteSort::UpdatedDesc)
+                .unwrap();
+            println!("{} notes listed in {:?}", notes.len(), t.elapsed());
+        }
+    }
 }

@@ -275,42 +275,38 @@ fn is_link_only(line: &str) -> bool {
 }
 
 /// Text lines of a body for its summary, code left out unless `with_code`.
-fn text_lines(body: &str, with_code: bool) -> Vec<String> {
+/// Read as they are asked for: a list of thousands of notes needs one or
+/// two lines of each, and a long note took far longer to clean whole.
+fn text_lines(body: &str, with_code: bool) -> impl Iterator<Item = String> + '_ {
     let mut in_code = false;
-    body.lines()
-        .filter_map(|line| {
-            let start = line.trim_start();
-            if start.starts_with("```") || start.starts_with("~~~") {
-                in_code = !in_code;
-                return None;
-            }
-            if (in_code && !with_code) || is_rule(line) || (!in_code && is_link_only(line)) {
-                return None;
-            }
-            let text = strip_inline(strip_line_start(line)).replace('|', " ");
-            let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
-            (!text.is_empty()).then_some(text)
-        })
-        .collect()
+    body.lines().filter_map(move |line| {
+        let start = line.trim_start();
+        if start.starts_with("```") || start.starts_with("~~~") {
+            in_code = !in_code;
+            return None;
+        }
+        if (in_code && !with_code) || is_rule(line) || (!in_code && is_link_only(line)) {
+            return None;
+        }
+        let text = strip_inline(strip_line_start(line)).replace('|', " ");
+        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        (!text.is_empty()).then_some(text)
+    })
 }
 
 /// The first line of a note's text for its summary, at most `max`
 /// characters. Code, link or image only lines, rules and a first line that
 /// repeats the title are left out. A note with nothing else shows its code.
 pub fn preview(title: &str, body: &str, max: usize) -> String {
-    let mut lines = text_lines(body, false);
-    if lines.is_empty() {
-        lines = text_lines(body, true);
+    let mut lines = text_lines(body, false).peekable();
+    if lines.peek().is_none() {
+        lines = text_lines(body, true).peekable();
     }
     let title = title.trim().to_lowercase();
-    if !title.is_empty()
-        && lines
-            .first()
-            .is_some_and(|first| first.to_lowercase() == title)
-    {
-        lines.remove(0);
+    let mut first = lines.next().unwrap_or_default();
+    if !title.is_empty() && first.to_lowercase() == title {
+        first = lines.next().unwrap_or_default();
     }
-    let first = lines.into_iter().next().unwrap_or_default();
     match first.char_indices().nth(max) {
         Some((cut, _)) => format!("{}…", &first[..cut]),
         None => first,
