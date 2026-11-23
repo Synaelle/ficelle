@@ -297,7 +297,7 @@
       </button>
       <button
         class="icon-btn"
-        aria-label={t('note.more')}
+        aria-label={t('note.options')}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         onclick={(e) => noteMenu(e.currentTarget)}
