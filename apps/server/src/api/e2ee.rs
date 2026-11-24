@@ -409,58 +409,6 @@ fn same_recovery(stored: &KeyBundle, new: &KeyBundle) -> Result<(), Error> {
     }
 }
 
-/// `POST /api/v1/me/e2ee/password`
-pub async fn change_password(
-    State(state): State<AppState>,
-    ip: ClientIp,
-    CurrentUser(me): CurrentUser,
-    Body(req): Body<E2eePasswordRequest>,
-) -> Result<StatusCode, Error> {
-    if me.user.kind != AccountKind::E2ee {
-        return Err(not_e2ee());
-    }
-    if !spend_proof(&state, &me.user.id, &req.proof).await? {
-        return Err(Error::new(
-            StatusCode::FORBIDDEN,
-            error_code::CONFIRM_NEEDED,
-            "confirm the current password first",
-        ));
-    }
-    let record = Setup::record(&req.upload).map_err(|e| malformed(&e))?;
-    let stretch = ksf(req.ksf)?;
-    let now = state.clock.now();
-    let ip_text = ip.0.to_string();
-    state
-        .db
-        .call(move |c| {
-            let tx = c.transaction()?;
-            let Some(stored) = e2ee::keys(&tx, &me.user.id)? else {
-                return Ok(Err(not_e2ee()));
-            };
-            if let Err(e) = same_recovery(&stored, &req.keys) {
-                return Ok(Err(e));
-            }
-            e2ee::set_password(&tx, &me.user.id, &record, stretch, &req.keys)?;
-            let others = store::revoke_other_devices(&tx, &me.user.id, Some(&me.device_id), now)?;
-            let detail = format!("{others} other devices signed out");
-            store::audit(
-                &tx,
-                now,
-                &Event {
-                    name: "password_changed",
-                    user_id: Some(&me.user.id),
-                    device_id: Some(&me.device_id),
-                    ip: Some(&ip_text),
-                    detail: Some(&detail),
-                },
-            )?;
-            tx.commit()?;
-            Ok(Ok(()))
-        })
-        .await??;
-    Ok(StatusCode::NO_CONTENT)
-}
-
 /// `POST /api/v1/me/e2ee/strengthen`: the same password registered again
 /// with stronger stretching, by an app that just signed in with it. Needs
 /// a proof of the password like a change, signs nobody out, and only ever

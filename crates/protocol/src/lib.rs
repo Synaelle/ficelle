@@ -118,8 +118,6 @@ pub mod error_code {
     /// An admin made or reset from the command line adds a passkey or an
     /// authenticator app before the admin pages answer it.
     pub const SECOND_FACTOR_REQUIRED: &str = "secondFactorRequired";
-    /// The mail server refused or could not be reached, the message says why.
-    pub const MAIL_FAILED: &str = "mailFailed";
     /// The second factor is wrong, or the challenge expired or was used up.
     pub const SECOND_FACTOR_INVALID: &str = "secondFactorInvalid";
     /// The code from the authenticator app is wrong.

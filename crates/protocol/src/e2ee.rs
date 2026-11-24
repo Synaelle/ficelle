@@ -161,10 +161,8 @@ pub struct AccountKeys {
     pub keys: KeyBundle,
 }
 
-/// `POST /api/v1/me/e2ee/password`: a new password for a signed in e2ee
-/// account. Signs out every other device. Also `/api/v1/me/e2ee/strengthen`:
-/// the same password registered again with stronger stretching, which
-/// signs nobody out.
+/// `POST /api/v1/me/e2ee/strengthen`: the same password registered again
+/// with stronger stretching, which signs nobody out.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct E2eePasswordRequest {

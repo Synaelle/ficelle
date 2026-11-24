@@ -46,6 +46,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/025_sign_in_locks.sql"),
     include_str!("../migrations/026_link_networks.sql"),
     include_str!("../migrations/027_one_person.sql"),
+    include_str!("../migrations/028_leftovers.sql"),
 ];
 
 /// The feedback database's migrations.
@@ -286,7 +287,7 @@ mod tests {
             }
         }
         drop(old);
-        let db = Db::open(dir.path()).unwrap();
+        let db = Db::open_file(dir.path(), DB_FILE, &MIGRATIONS[..=before]).unwrap();
         let kinds: Vec<String> = db
             .conn
             .lock()
@@ -304,7 +305,11 @@ mod tests {
     fn what_only_several_people_used_goes_and_the_owner_s_notes_stay() {
         let dir = tempfile::tempdir().unwrap();
         // main before servers were for one person in code too
-        let old = Db::open_file(dir.path(), DB_FILE, &MIGRATIONS[..MIGRATIONS.len() - 1]).unwrap();
+        let before = MIGRATIONS
+            .iter()
+            .position(|m| m.contains("DROP TABLE invites;"))
+            .unwrap();
+        let old = Db::open_file(dir.path(), DB_FILE, &MIGRATIONS[..before]).unwrap();
         old.conn
             .lock()
             .unwrap()
@@ -381,5 +386,65 @@ mod tests {
             .map(Result::unwrap)
             .collect();
         assert!(problems.is_empty(), "{problems:?}");
+    }
+
+    #[test]
+    fn leftovers_of_sharing_go_and_the_instance_policy_stays() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = Db::open_file(dir.path(), DB_FILE, &MIGRATIONS[..MIGRATIONS.len() - 1]).unwrap();
+        old.conn
+            .lock()
+            .unwrap()
+            .execute_batch(
+                "INSERT INTO users (id, username, display_name, password_hash, role, created_at, share_public)
+                     VALUES ('o', 'owner', 'Owner', 'h', 'admin', 1, 'pk');
+                 INSERT INTO sync_spaces (id, owner_id, created_at, shared, epoch) VALUES ('o', 'o', 1, 1, 3);
+                 INSERT INTO sync_changes (space_id, doc_id, change_id, bytes, size, created_at)
+                     VALUES ('o', 'space', 'c1', x'01', 1, 1);
+                 INSERT INTO extensions (kind, id, name, meta, content, sha256, preinstall, uploaded_at)
+                     VALUES ('theme', 'x', 'X', '{}', x'00', '00', 0, 0);
+                 INSERT INTO policies (scope, target, settings, updated_at)
+                     VALUES ('instance', '', '{\"max_file_mb\":5}', 1);",
+            )
+            .unwrap();
+        drop(old);
+        let db = Db::open(dir.path()).unwrap();
+        let conn = db.conn.lock().unwrap();
+        let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        assert_eq!(
+            count("SELECT count(*) FROM sqlite_master WHERE name = 'extensions'"),
+            0
+        );
+        assert_eq!(
+            count(
+                "SELECT count(*) FROM pragma_table_info('sync_spaces') WHERE name IN ('shared', 'epoch')"
+            ),
+            0
+        );
+        assert_eq!(
+            count("SELECT count(*) FROM pragma_table_info('users') WHERE name LIKE 'share_%'"),
+            0
+        );
+        assert_eq!(
+            count("SELECT count(*) FROM sync_changes"),
+            1,
+            "the notes stay"
+        );
+        let settings: String = conn
+            .query_row(
+                "SELECT settings FROM policies WHERE scope = 'instance'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(settings, r#"{"max_file_mb":5}"#);
+        assert!(
+            conn.execute(
+                "INSERT INTO policies (scope, target, settings, updated_at) VALUES ('user', 'o', '{}', 1)",
+                [],
+            )
+            .is_err(),
+            "only the instance has a policy"
+        );
     }
 }

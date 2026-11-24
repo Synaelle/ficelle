@@ -20,6 +20,8 @@ const PASSWORD: &str = "admin password";
 /// A device: a vault of its own, signed in to the account.
 struct Device {
     store: Store,
+    /// Its id on the server.
+    id: String,
     token: String,
     cursor: i64,
     _dir: tempfile::TempDir,
@@ -32,6 +34,7 @@ async fn device_of(app: &Router, username: &str, password: &str) -> Device {
     assert_eq!(status, StatusCode::OK, "{session}");
     Device {
         store,
+        id: session["deviceId"].as_str().unwrap().into(),
         token: session["accessToken"].as_str().unwrap().into(),
         cursor: 0,
         _dir: dir,
@@ -906,24 +909,12 @@ async fn live_sockets_hear_of_other_devices_changes_and_the_admin_setting() {
     assert_eq!(status, StatusCode::FORBIDDEN, "admins only");
 
     // the device is signed out elsewhere: the socket closes for it
-    let (_, devices) = call(&app, "GET", "/me/devices", Some(&phone.token), None).await;
-    let laptop_id = devices
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|d| d["current"] == false)
-        .map(|d| d["id"].as_str().unwrap().to_owned())
-        .max()
+    let (laptop_id, now) = (laptop.id.clone(), state.clock.now());
+    state
+        .db
+        .call(move |c| crate::accounts::store::revoke_device(c, &laptop_id, now))
+        .await
         .unwrap();
-    let (status, _) = call(
-        &app,
-        "DELETE",
-        &format!("/me/devices/{laptop_id}"),
-        Some(&phone.token),
-        None,
-    )
-    .await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
     let closed = next_message(&mut socket, second).await.unwrap();
     assert_eq!(closed, Err(Some(4401)), "closed with sign in again");
 }

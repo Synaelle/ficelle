@@ -84,21 +84,6 @@ pub struct Authed {
     pub device_id: String,
 }
 
-/// A signed in device.
-#[derive(Debug, Clone)]
-pub struct DeviceRow {
-    /// Id.
-    pub id: String,
-    /// Name.
-    pub name: String,
-    /// Platform.
-    pub platform: String,
-    /// First sign-in.
-    pub created_at: i64,
-    /// Last request.
-    pub last_seen_at: i64,
-}
-
 /// A refresh token with its device: device id, user id, expiry, use time
 /// and the device's sign-out time.
 type RefreshRow = (String, String, i64, Option<i64>, Option<i64>);
@@ -649,41 +634,6 @@ pub fn revoke_other_devices(
     Ok(count)
 }
 
-/// Signed in devices of an account, latest first.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn list_devices(conn: &Connection, user_id: &str) -> Result<Vec<DeviceRow>, DbError> {
-    let mut stmt = conn.prepare(
-        "SELECT id, name, platform, created_at, last_seen_at FROM devices
-         WHERE user_id = ?1 AND revoked_at IS NULL ORDER BY last_seen_at DESC",
-    )?;
-    let rows = stmt.query_map([user_id], |r| {
-        Ok(DeviceRow {
-            id: r.get(0)?,
-            name: r.get(1)?,
-            platform: r.get(2)?,
-            created_at: r.get(3)?,
-            last_seen_at: r.get(4)?,
-        })
-    })?;
-    Ok(rows.collect::<rusqlite::Result<_>>()?)
-}
-
-/// Whether this device belongs to the account and is signed in.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn owns_device(conn: &Connection, user_id: &str, device_id: &str) -> Result<bool, DbError> {
-    Ok(conn.query_row(
-        "SELECT EXISTS (SELECT 1 FROM devices WHERE id = ?1 AND user_id = ?2 AND revoked_at IS NULL)",
-        params![device_id, user_id],
-        |r| r.get(0),
-    )?)
-}
-
 /// One security event in the audit log.
 #[derive(Debug, Default)]
 pub struct Event<'a> {
@@ -740,6 +690,16 @@ pub fn cleanup(conn: &Connection, now: i64) -> Result<usize, DbError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The ids of an account's signed in devices, latest first.
+    fn list_devices(conn: &Connection, user_id: &str) -> Result<Vec<String>, DbError> {
+        let mut stmt = conn.prepare(
+            "SELECT id FROM devices WHERE user_id = ?1 AND revoked_at IS NULL
+             ORDER BY last_seen_at DESC",
+        )?;
+        let ids = stmt.query_map([user_id], |r| r.get(0))?;
+        Ok(ids.collect::<rusqlite::Result<_>>()?)
+    }
     use crate::db::Db;
 
     fn auth() -> AuthConfig {
@@ -771,14 +731,7 @@ mod tests {
         let devices = db.clone();
         let list = |user: String| {
             let db = devices.clone();
-            async move {
-                db.call(move |c| list_devices(c, &user))
-                    .await
-                    .unwrap()
-                    .into_iter()
-                    .map(|d| d.id)
-                    .collect::<Vec<_>>()
-            }
+            async move { db.call(move |c| list_devices(c, &user)).await.unwrap() }
         };
         let (id, bob) = (
             anna.id.clone(),

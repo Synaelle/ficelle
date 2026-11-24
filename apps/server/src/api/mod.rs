@@ -41,7 +41,6 @@ pub fn router() -> Router<AppState> {
         .route("/setup/checks", post(setup::checks))
         .route("/setup/upload", post(setup::upload))
         .route("/setup/socket", get(setup::socket))
-        .route("/admin/mail/test", post(admin::mail_test))
         .route("/admin/updates", get(updates::get).put(updates::set))
         .route("/admin/updates/check", post(updates::check))
         .route("/admin/checklist", get(updates::checklist))
@@ -59,7 +58,6 @@ pub fn router() -> Router<AppState> {
         .route("/me/confirm/start", post(e2ee::confirm_start))
         .route("/me/confirm/finish", post(e2ee::confirm_finish))
         .route("/me/keys", get(e2ee::keys))
-        .route("/me/e2ee/password", post(e2ee::change_password))
         .route("/me/e2ee/strengthen", post(e2ee::strengthen))
         .route(
             "/me/email",
@@ -76,7 +74,6 @@ pub fn router() -> Router<AppState> {
         .route("/auth/logout", post(auth::logout))
         .route("/me", get(me::me))
         .route("/me/password", post(me::change_password))
-        .route("/me/devices", get(me::devices))
         .route("/me/security", get(security::security))
         .route("/me/totp/setup", post(security::totp_setup))
         .route("/me/totp/confirm", post(security::totp_confirm))
@@ -90,7 +87,6 @@ pub fn router() -> Router<AppState> {
         .route("/me/passkeys/start", post(passkeys::add_start))
         .route("/me/passkeys/finish", post(passkeys::add_finish))
         .route("/me/passkeys/{id}", delete(passkeys::remove))
-        .route("/me/devices/{id}", delete(me::revoke_device))
         .route("/admin/overview", get(admin::overview))
         .route("/admin/audit", get(admin::audit))
         .route("/admin/coediting", put(admin::set_coediting))

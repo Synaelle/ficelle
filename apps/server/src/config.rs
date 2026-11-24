@@ -438,15 +438,15 @@ pub struct PrivacyConfig {
     pub notice: String,
 }
 
-/// `[files]`: the starting policy for every account. The admin page can
-/// change it for the instance, a group or a person, see `files::policy`.
+/// `[files]`: the starting policy. The admin page can change it, see
+/// `files::policy`.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FilesConfig {
     /// Largest file in megabytes, 0 for no limit.
     pub max_file_mb: u32,
-    /// Storage per account in megabytes (its files and notes, and the
-    /// spaces it shares), 0 for no limit. 10 GB by default: room for years
+    /// Storage per account in megabytes (its files and notes), 0 for no
+    /// limit. 10 GB by default: room for years
     /// of notes and attachments, yet one account cannot fill the disk.
     pub quota_mb: u32,
     /// Types allowed: extensions (`.pdf`) and MIME patterns (`image/*`).

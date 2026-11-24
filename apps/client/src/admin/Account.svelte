@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- The signed in admin's own sign-in: authenticator app, recovery codes,
-     passkeys and single sign-on. Changes ask for the password again. -->
+<!-- The signed in admin's own sign-in: password, authenticator app,
+     recovery codes and passkeys. Changes ask for the password again. -->
 <script lang="ts">
   import { COPIED_MS } from '../lib/clipboard'
   import PasswordField from '../lib/PasswordField.svelte'
@@ -37,6 +37,8 @@
   /** Recovery codes just made, shown once. */
   let codes: string[] = $state([])
   let copied = $state(false)
+  let currentPassword = $state('')
+  let newPassword = $state('')
 
   async function run(action: () => Promise<unknown>, done = '') {
     problem = ''
@@ -118,6 +120,16 @@
     } catch (err) {
       problem = errorText(err)
       return null
+    }
+  }
+
+  /** Signs out every other device, this one stays. */
+  async function changePassword(event: SubmitEvent) {
+    event.preventDefault()
+    const body = { current: currentPassword, new: newPassword }
+    if (await run(() => api('POST', '/me/password', body), t('admin.account.passwordChanged'))) {
+      currentPassword = ''
+      newPassword = ''
     }
   }
 
@@ -279,6 +291,35 @@
 {#if security}
   <h2 class="group">{t('admin.account.signInGroup')}</h2>
   <div class="list">
+    {#if security.hasPassword && !e2ee}
+      <details class="item">
+        {@render head('lock', t('admin.account.passwordTitle'), '')}
+        <div class="body">
+          <form class="change" onsubmit={changePassword}>
+            <label>
+              {t('admin.account.currentPassword')}
+              <PasswordField
+                class="field"
+                autocomplete="current-password"
+                required
+                bind:value={currentPassword}
+              />
+            </label>
+            <label>
+              {t('admin.account.newPassword')}
+              <PasswordField
+                class="field"
+                autocomplete="new-password"
+                required
+                bind:value={newPassword}
+              />
+            </label>
+            <button class="btn primary" type="submit">{t('admin.account.changePassword')}</button>
+          </form>
+        </div>
+      </details>
+    {/if}
+
     <details class="item" open={!!setup}>
       {@render head(
         'timer',
@@ -557,6 +598,15 @@
   .qr {
     border-radius: var(--radius-control);
     background: #fff;
+  }
+  .change {
+    display: grid;
+    gap: var(--space-3);
+    justify-items: start;
+    width: min(100%, 360px);
+  }
+  .change label {
+    width: 100%;
   }
   .steps {
     display: grid;

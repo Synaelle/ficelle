@@ -181,42 +181,6 @@ impl Mailer {
         }
     }
 
-    /// Sends and waits for the mail server's answer, for a test mail the
-    /// admin asked for. The error says what went wrong, worded by the mail
-    /// library.
-    ///
-    /// # Errors
-    ///
-    /// Mail off, a bad address, or the mail server refusing or out of reach
-    /// within 30 seconds.
-    pub async fn send_now(&self, to: &str, subject: String, body: String) -> Result<(), String> {
-        match self {
-            Self::Off => Err("email is not set up".into()),
-            Self::Smtp { transport, from } => {
-                let to = to.parse::<Mailbox>().map_err(|e| e.to_string())?;
-                let message = Message::builder()
-                    .from(from.clone())
-                    .to(to)
-                    .subject(subject)
-                    .header(ContentType::TEXT_PLAIN)
-                    .body(body)
-                    .map_err(|e| e.to_string())?;
-                let sent = tokio::time::timeout(
-                    std::time::Duration::from_secs(30),
-                    transport.send(message),
-                )
-                .await
-                .map_err(|_| "the mail server did not answer within 30 seconds".to_owned())?;
-                sent.map(|_| ()).map_err(|e| e.to_string())
-            }
-            #[cfg(test)]
-            Self::Memory(_) => {
-                self.send(to, subject, body);
-                Ok(())
-            }
-        }
-    }
-
     /// What was sent, for tests.
     #[cfg(test)]
     pub fn sent(&self) -> Vec<Sent> {

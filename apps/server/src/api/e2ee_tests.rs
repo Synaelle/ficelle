@@ -325,58 +325,6 @@ async fn sensitive_changes_need_a_proof_of_the_password() {
 }
 
 #[tokio::test]
-async fn a_new_password_keeps_the_keys_and_signs_out_other_devices() {
-    let (state, app, _) = open_server().await;
-    let (_, _, account) = sign_up(&state, &app, "zoe").await;
-    let account = account.unwrap();
-    let ((_, other), _) = opaque_login(&app, "zoe", PASSWORD).await;
-    let other = other["accessToken"].as_str().unwrap().to_owned();
-
-    let master = AccountKeys::open_with_password(&account.bundle, &account.export_key).unwrap();
-    let (upload, export2) = register_password(&app, "zoe", "new horse staple").await;
-    let bundle2 = AccountKeys::rewrap_password(&account.bundle, &master, &export2);
-    let (_, body) = proof(&app, &account.token, "zoe", PASSWORD).await;
-
-    let mut tampered = bundle2.clone();
-    tampered.by_recovery = bundle2.by_password.clone();
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/me/e2ee/password",
-        Some(&account.token),
-        Some(json!({ "ksf": 2, "upload": upload, "keys": tampered, "proof": body["proof"] })),
-    )
-    .await;
-    assert_eq!(
-        status,
-        StatusCode::BAD_REQUEST,
-        "the recovery wrapping stays"
-    );
-
-    let (_, body) = proof(&app, &account.token, "zoe", PASSWORD).await;
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/me/e2ee/password",
-        Some(&account.token),
-        Some(json!({ "ksf": 2, "upload": upload, "keys": bundle2, "proof": body["proof"] })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-    let (status, _) = call(&app, "GET", "/me", Some(&other), None).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "other devices signed out");
-    let (status, _) = call(&app, "GET", "/me", Some(&account.token), None).await;
-    assert_eq!(status, StatusCode::OK, "this one stays");
-
-    let ((status, _), _) = opaque_login(&app, "zoe", PASSWORD).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "the old password is gone");
-    let ((status, _), export) = opaque_login(&app, "zoe", "new horse staple").await;
-    assert_eq!(status, StatusCode::OK);
-    let reopened = AccountKeys::open_with_password(&bundle2, &export.unwrap()).unwrap();
-    assert_eq!(reopened.as_bytes(), master.as_bytes());
-}
-
-#[tokio::test]
 async fn the_recovery_code_sets_a_new_password() {
     let (state, app, _) = open_server().await;
     let (_, _, account) = sign_up(&state, &app, "zoe").await;
@@ -478,10 +426,28 @@ async fn an_old_record_is_strengthened_and_keeps_its_keys() {
 
     // registered again with the same password, the master key rewrapped
     let master = AccountKeys::open_with_password(&account.bundle, &export_key).unwrap();
-    let (status, confirmed) = proof(&app, &token, "olga", PASSWORD).await;
-    assert_eq!(status, StatusCode::OK, "{confirmed}");
     let (upload, strong_key) = register_password(&app, "olga", PASSWORD).await;
     let keys = AccountKeys::rewrap_password(&account.bundle, &master, &strong_key);
+    let mut tampered = keys.clone();
+    tampered.by_recovery = keys.by_password.clone();
+    let (_, confirmed) = proof(&app, &token, "olga", PASSWORD).await;
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/me/e2ee/strengthen",
+        Some(&token),
+        Some(json!({ "upload": upload, "keys": tampered, "proof": confirmed["proof"], "ksf": 2 })),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "the recovery wrapping stays"
+    );
+    // past the sign-in rate limit the confirmations count towards
+    state.clock.advance(MINUTE);
+    let (status, confirmed) = proof(&app, &token, "olga", PASSWORD).await;
+    assert_eq!(status, StatusCode::OK, "{confirmed}");
     let (status, body) = call(
         &app,
         "POST",

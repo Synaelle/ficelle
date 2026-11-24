@@ -358,11 +358,6 @@ async fn changing_the_password_signs_out_the_other_devices() {
     let (_, app, laptop) = with_admin().await;
     let (_, phone) = login(&app, "admin", "admin password").await;
     let phone = phone["accessToken"].as_str().unwrap().to_owned();
-    let (_, devices) = call(&app, "GET", "/me/devices", Some(&laptop), None).await;
-    let devices = devices.as_array().unwrap().clone();
-    assert_eq!(devices.len(), 2);
-    assert_eq!(devices.iter().filter(|d| d["current"] == true).count(), 1);
-
     let (status, body) = call(
         &app,
         "POST",
@@ -393,37 +388,6 @@ async fn changing_the_password_signs_out_the_other_devices() {
         StatusCode::OK
     );
     assert_eq!(login(&app, "admin", "new password").await.0, StatusCode::OK);
-}
-
-#[tokio::test]
-async fn a_device_can_be_signed_out_from_another() {
-    let (_, app, laptop) = with_admin().await;
-    let (_, phone) = login(&app, "admin", "admin password").await;
-    let phone_id = phone["deviceId"].as_str().unwrap();
-    let (status, _) = call(
-        &app,
-        "DELETE",
-        &format!("/me/devices/{phone_id}"),
-        Some(&laptop),
-        None,
-    )
-    .await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-    assert_eq!(
-        call(&app, "GET", "/me", phone["accessToken"].as_str(), None)
-            .await
-            .0,
-        StatusCode::UNAUTHORIZED
-    );
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/auth/refresh",
-        None,
-        Some(json!({ "refreshToken": phone["refreshToken"] })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]

@@ -467,63 +467,6 @@ async fn the_checks_say_what_the_server_sees_behind_the_proxy() {
 }
 
 #[tokio::test]
-async fn a_test_mail_goes_out_at_once() {
-    let (state, app) = fresh(false, "https://notes.example.org");
-    let session = session(&state, &app).await;
-    let secret = totp_secret(&app, &session).await;
-    let code = totp::code_now(&secret, state.clock.now());
-    let (_, done) = finish(&app, &session, &json!({ "type": "totp", "code": code })).await;
-    let token = done["session"]["accessToken"].as_str().unwrap();
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/admin/mail/test",
-        Some(token),
-        Some(json!({ "to": "me@example.org" })),
-    )
-    .await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::NOT_FOUND, Some("mailOff"))
-    );
-
-    let mut config = state.config.as_ref().clone();
-    config.smtp.host = crate::mail::TEST_HOST.into();
-    config.smtp.from = "Notes <notes@example.org>".into();
-    let mailing = AppState::for_tests(config, state.db.clone());
-    let app = router(mailing.clone());
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/admin/mail/test",
-        Some(token),
-        Some(json!({ "to": "not an address" })),
-    )
-    .await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::BAD_REQUEST, Some("emailInvalid"))
-    );
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/admin/mail/test",
-        Some(token),
-        Some(json!({ "to": "Me@Example.org" })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-    let sent = mailing.mailer.sent();
-    assert_eq!(sent.len(), 1);
-    assert_eq!(sent[0].to, "Me@example.org");
-    assert!(
-        sent[0].body.contains("notes.example.org"),
-        "{}",
-        sent[0].body
-    );
-}
-
-#[tokio::test]
 async fn a_command_line_admin_adds_a_factor_before_acting() {
     let (state, app) = fresh(false, "");
     let config = state.config.as_ref().clone();

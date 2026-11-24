@@ -146,15 +146,6 @@ pub struct StorageOverview {
     pub note_bytes: u64,
 }
 
-/// `POST /api/v1/admin/mail/test`: a test mail, sent at once so the answer
-/// says whether the mail server took it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MailTestRequest {
-    /// Where it goes.
-    pub to: String,
-}
-
 /// `GET /api/v1/admin/checklist`: the security checklist on the dashboard.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

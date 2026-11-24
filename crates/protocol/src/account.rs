@@ -290,21 +290,3 @@ pub struct ChangePasswordRequest {
     /// New password.
     pub new: String,
 }
-
-/// One signed in device.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Device {
-    /// Id.
-    pub id: String,
-    /// Name given at sign-in.
-    pub name: String,
-    /// Platform given at sign-in.
-    pub platform: String,
-    /// First sign-in.
-    pub created_at: i64,
-    /// Last request, to the nearest few minutes.
-    pub last_seen_at: i64,
-    /// The device making this request.
-    pub current: bool,
-}
