@@ -21,6 +21,9 @@ On Android, Ficelle is also in [my F-Droid repository](https://github.com/Synael
 - Local sync between devices on the same network, with no account or server.
 - Server sync from anywhere, through [your own server](docs/self-hosting-docker.md).
 
+> [!WARNING]
+> Server sync is changing a lot before 1.0, and things may break until then. Your notes stay on your devices and are not lost. If you can, wait for 1.0 before setting up a server.
+
 # Building and contributing
 
 See [Building Ficelle](docs/building.md) and [Contributing](CONTRIBUTING.md).

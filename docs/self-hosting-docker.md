@@ -1,5 +1,8 @@
 # Self-hosting with Docker
 
+> [!WARNING]
+> Server sync is changing a lot before 1.0, and things may break until then. Your notes stay on your devices and are not lost. If you can, wait for 1.0 before setting up a server.
+
 The recommended setup is one container behind an HTTPS reverse proxy.
 
 ## Install
