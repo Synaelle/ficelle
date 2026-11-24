@@ -34,6 +34,7 @@
   import { patchMarkdown, REMOTE } from './patch'
   import { looksLikeMarkdown } from './pasteMarkdown'
   import { ATTACHMENTS_CHANGED, setImageLayout, WRAPS, type Wrap } from './extensions/image'
+  import { findKey, setFindCurrent, setFindQuery, type FindState } from './extensions/find'
   import type { SuggestEvent } from './extensions/wikiLink'
   import TableTools from './TableTools.svelte'
   import Toolbar from './Toolbar.svelte'
@@ -49,6 +50,8 @@
     onpending,
     onopenlink,
     loose = false,
+    find = '',
+    onfound,
   }: {
     noteId: string
     markdown: string
@@ -60,6 +63,11 @@
     /** A file opened with the app, outside the notes: nothing here reads or
      * writes the notes (no attachments, no links to notes). */
     loose?: boolean
+    /** Words to find in the note, every match marked; empty finds nothing. */
+    find?: string
+    /** The number of matches and the one shown (from 0, -1 for none),
+     * whenever either changes: new words, another match, an edit. */
+    onfound?: (count: number, current: number) => void
   } = $props()
 
   /** Idle time before the document is turned back into markdown. */
@@ -411,6 +419,34 @@
 
   /** Whether the person placed the caret in this note since it opened. */
   let placed = false
+
+  /** The find as onfound last told it. */
+  let reported: FindState | undefined
+
+  $effect(() => {
+    const words = find
+    if (editor && words !== findKey.getState(editor.state)?.query)
+      editor.view.dispatch(setFindQuery(editor.state.tr, words))
+  })
+
+  /** Shows the next match (1) or the one before (-1), going round. */
+  export function findStep(by: 1 | -1) {
+    const state = editor && findKey.getState(editor.state)
+    if (!editor || !state || state.found.length === 0) return
+    const count = state.found.length
+    editor.view.dispatch(setFindCurrent(editor.state.tr, (state.current + by + count) % count))
+  }
+
+  /** Stops finding, the match shown selected and the typing back in the note. */
+  export function findEnd() {
+    if (!editor) return
+    const shown = findKey.getState(editor.state)
+    const match = shown?.found[shown.current]
+    const tr = setFindQuery(editor.state.tr, '')
+    if (match) tr.setSelection(TextSelection.create(tr.doc, match.from, match.to))
+    editor.view.dispatch(tr)
+    editor.view.focus()
+  }
 
   /** Passes on typing still waiting for its pause. */
   export function flush() {
@@ -850,8 +886,13 @@
       onUpdate: ({ transaction }) => {
         if (!transaction.getMeta(REMOTE)) scheduleSave()
       },
-      onTransaction: ({ transaction }) => {
+      onTransaction: ({ editor: current, transaction }) => {
         if (destroyed) return
+        const finding = findKey.getState(current.state)
+        if (finding && finding !== reported) {
+          reported = finding
+          onfound?.(finding.found.length, finding.current)
+        }
         // focus moving elsewhere (a screen drawn in its place focusing its
         // field) blurs the editor while Svelte draws: count it just after
         if (transaction.getMeta('blur') || transaction.getMeta('focus')) {

@@ -108,6 +108,8 @@
   const actions: Partial<Record<ActionId, () => void>> = {
     newNote: () => void workspace.create(),
     search: () => (searchFocus += 1),
+    // an open note finds in itself (NoteView), with none the list searches
+    findInNote: () => !workspace.current && (searchFocus += 1),
     pin: () =>
       workspace.current &&
       void workspace.togglePin(workspace.current.id, !workspace.current.pinned),

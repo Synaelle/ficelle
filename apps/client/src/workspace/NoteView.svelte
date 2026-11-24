@@ -4,6 +4,8 @@
   import { tick, untrack } from 'svelte'
   import NoteFiles from './NoteFiles.svelte'
   import RawView from './RawView.svelte'
+  import FindBar from './FindBar.svelte'
+  import { findAll, nearest } from '../editor/findText'
   import { hour12 } from '../lib/clock.svelte'
   import Editor from '../editor/Editor.svelte'
   import ConflictBanner from './ConflictBanner.svelte'
@@ -18,7 +20,7 @@
   import { overlay, SEPARATOR } from '../lib/overlay.svelte'
   import Knot from '@app/ui/Knot.svelte'
   import { prefs, shortcutFor } from '../lib/prefs.svelte'
-  import { displayBinding } from '../lib/shortcuts'
+  import { bindingOf, displayBinding } from '../lib/shortcuts'
   import type { MenuItem } from '../lib/overlay.svelte'
   import { HANDHELD } from '../lib/platform'
   import { noteWindowsSupported, windowKind } from '../lib/windows'
@@ -156,9 +158,77 @@
     titleInput.focus()
   })
 
+  /** The find bar is open over the note. */
+  let finding = $state(false)
+  let findQuery = $state('')
+  /** Bumped to put the typing in the find bar. */
+  let findFocus = $state(0)
+  /** What the formatted view found, as it says. */
+  let editorFound = $state({ count: 0, current: -1 })
+  /** The match shown in the Raw view, which finds here in the Markdown. */
+  let rawCurrent = $state(-1)
+  const rawFound = $derived(finding && source && note ? findAll(note.body, findQuery) : [])
+  const found = $derived(
+    source
+      ? { count: rawFound.length, current: Math.min(rawCurrent, rawFound.length - 1) }
+      : editorFound,
+  )
+
+  function openFind() {
+    finding = true
+    findFocus += 1
+  }
+
+  /** The match shown scrolled to the middle of the note, unless it is well
+   * inside it already. At once, as a page's own find jumps. */
+  async function reveal() {
+    await tick()
+    const match = scroller?.querySelector('.find-current')
+    const box = scroller?.getBoundingClientRect()
+    if (!match || !box) return
+    const at = match.getBoundingClientRect()
+    const margin = Math.min(96, box.height / 4)
+    if (at.top < box.top + margin || at.bottom > box.bottom - margin)
+      match.scrollIntoView({ block: 'center' })
+  }
+
+  // new words, or the other view: the match shown is the first after the caret
+  $effect(() => {
+    if (!finding) return
+    void findQuery
+    void source
+    untrack(() => {
+      if (source) rawCurrent = nearest(rawFound, sourceArea?.selectionStart ?? 0)
+      void reveal()
+    })
+  })
+
+  function stepFind(by: 1 | -1) {
+    if (found.count === 0) return
+    if (source) rawCurrent = (found.current + by + found.count) % found.count
+    else editorRef?.findStep(by)
+    void reveal()
+  }
+
+  /** Closes the bar, the caret on the match it was on. */
+  function closeFind() {
+    const match = rawFound[found.current]
+    finding = false
+    if (!source) return editorRef?.findEnd()
+    sourceArea?.focus()
+    if (match) sourceArea?.setSelectionRange(match.from, match.to)
+  }
+
+  function findShortcut(event: KeyboardEvent) {
+    if (!note || bindingOf(event) !== shortcutFor('findInNote')) return
+    event.preventDefault()
+    openFind()
+  }
+
   $effect(() => {
     const id = note?.id
     source = false
+    finding = false
     versions = null
     backlinks = []
     if (id) void backend.backlinks(id).then((list) => (backlinks = list))
@@ -200,6 +270,7 @@
             SEPARATOR,
           ]
         : []),
+      { label: t('find.label'), icon: 'search', run: openFind },
       { label: t('note.history'), icon: 'history', run: () => void showHistory() },
       { label: t('note.duplicate'), icon: 'copy', run: () => void workspace.duplicate(id) },
       { label: t('note.exportMarkdown'), icon: 'export', run: () => void workspace.exportNote(id) },
@@ -255,6 +326,8 @@
     })
 </script>
 
+<svelte:window onkeydown={findShortcut} />
+
 <section class="view" class:narrow aria-label={t('note.label')} inert={workspace.making}>
   {#if note}
     <header>
@@ -308,6 +381,17 @@
         <Icon name="more" />
       </button>
     </header>
+
+    {#if finding}
+      <FindBar
+        bind:query={findQuery}
+        count={found.count}
+        current={found.current}
+        focus={findFocus}
+        onstep={stepFind}
+        onclose={closeFind}
+      />
+    {/if}
 
     <!-- files dropped beside or under the text, which the editor leaves:
          the page gets them where the window does not take drops (Windows) -->
@@ -413,6 +497,8 @@
             label={t('note.rawLabel')}
             value={note.body}
             oninput={(body) => workspace.edit({ body })}
+            found={rawFound}
+            current={found.current}
           />
         {:else}
           {#key editorKey}
@@ -423,6 +509,8 @@
               onchange={(body) => ((typing = false), workspace.edit({ body }))}
               onpending={(pending) => (typing = pending)}
               onopenlink={(title, heading) => workspace.openByTitle(title, heading)}
+              find={finding ? findQuery : ''}
+              onfound={(count, current) => (editorFound = { count, current })}
             />
           {/key}
         {/if}
@@ -659,7 +747,8 @@
     }
     /* while typing, the keyboard and the editor's bar take the room: the
        files come back once the text is left */
-    .view:has(.scroll :global(:is(input, textarea, [contenteditable='true']):focus)) .files-bar {
+    .view:has(.scroll :global(:is(input, textarea, [contenteditable='true']):focus)) .files-bar,
+    .view:has(:global(.find input:focus)) .files-bar {
       display: none;
     }
   }

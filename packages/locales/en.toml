@@ -627,6 +627,7 @@ empty = "No notes yet."
 [shortcuts]
 newNote = "New note"
 search = "Search"
+findInNote = "Find in note"
 pin = "Pin or unpin"
 trash = "Move to trash"
 back = "Back to the previous note"
@@ -639,6 +640,14 @@ code = "Inline code"
 link = "Link"
 checklist = "Checklist"
 deleteLine = "Delete the line"
+
+[find]
+label = "Find in note"
+placeholder = "Find"
+count = "{current} of {count}"
+none = "No matches"
+previous = "Previous match"
+next = "Next match"
 
 [editor]
 codeLanguage = "Code language"

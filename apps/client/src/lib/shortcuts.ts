@@ -11,6 +11,7 @@ export const isMac = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test
 export const ACTIONS = [
   'newNote',
   'search',
+  'findInNote',
   'pin',
   'trash',
   'back',
@@ -30,7 +31,10 @@ export type ActionId = (typeof ACTIONS)[number]
 export const DEFAULT_SHORTCUTS: Record<ActionId, string> = {
   // a browser keeps Ctrl+N for a new window, a page never gets it
   newNote: WEB ? 'Alt+N' : 'Mod+N',
-  search: 'Mod+F',
+  // Ctrl+F finds in the open note as it finds in a page, the list search
+  // takes the Shift with it as in editors searching a whole project
+  search: 'Mod+Shift+F',
+  findInNote: 'Mod+F',
   pin: 'Mod+Shift+P',
   trash: 'Mod+Backspace',
   // Alt+Left moves by a word in a Mac's text, where back is Cmd+[

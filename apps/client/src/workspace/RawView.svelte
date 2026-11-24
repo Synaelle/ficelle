@@ -9,17 +9,24 @@
   import { keepCaret } from '../lib/caret'
   import { LEADING, prefs, shortcutFor } from '../lib/prefs.svelte'
   import { bindingOf } from '../lib/shortcuts'
+  import type { Found } from '../editor/findText'
 
   let {
     value,
     label,
     oninput,
     field = $bindable(),
+    found = [],
+    current = -1,
   }: {
     value: string
     label: string
     oninput: (value: string) => void
     field?: HTMLTextAreaElement
+    /** Matches of the find bar in `value`, marked in the text. */
+    found?: Found[]
+    /** The match shown, marked more strongly. */
+    current?: number
   } = $props()
 
   // text from another device: the caret stays on the same words
@@ -81,6 +88,38 @@
       return parts(line)
     })
   })
+
+  /** The parts again, each cut where a match of the find starts or ends:
+   * `match` is the match's number, -1 outside one. */
+  const shown = $derived.by(() => {
+    let at = 0
+    let first = 0
+    return lines.map((line) => {
+      const out = line.map((part) => {
+        const start = at
+        const end = (at += part.text.length)
+        while (first < found.length && (found[first]?.to ?? 0) <= start) first++
+        const pieces: { text: string; match: number }[] = []
+        let from = start
+        for (let index = first; index < found.length; index++) {
+          const match = found[index]
+          if (!match || match.from >= end) break
+          const begin = Math.max(match.from, start)
+          if (begin > from)
+            pieces.push({ text: part.text.slice(from - start, begin - start), match: -1 })
+          const stop = Math.min(match.to, end)
+          pieces.push({ text: part.text.slice(begin - start, stop - start), match: index })
+          from = stop
+        }
+        if (from < end || pieces.length === 0)
+          pieces.push({ text: part.text.slice(from - start), match: -1 })
+        return { mark: part.mark, pieces }
+      })
+      // the line's newline
+      at += 1
+      return out
+    })
+  })
 </script>
 
 <!-- the margin is as wide as the last line's number -->
@@ -90,9 +129,14 @@
   style:--leading={LEADING[prefs.lineSpacing]}
 >
   <div class="copy" aria-hidden="true">
-    {#each lines as line, index (index)}
+    {#each shown as line, index (index)}
       <div class="line">
-        {#each line as part, at (at)}<span class:mark={part.mark}>{part.text}</span>{/each}
+        {#each line as part, at (at)}<span class:mark={part.mark}
+            >{#each part.pieces as piece, p (p)}{#if piece.match < 0}{piece.text}{:else}<mark
+                  class="find-match"
+                  class:find-current={piece.match === current}>{piece.text}</mark
+                >{/if}{/each}</span
+          >{/each}
       </div>
     {/each}
   </div>

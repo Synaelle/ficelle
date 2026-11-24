@@ -18,6 +18,7 @@ import { TypedArrows } from './arrows'
 import { Callout, CalloutKeys } from './callout'
 import { Details, DetailsSummary } from './details'
 import { EmojiShortcode, EmojiTyping } from './emoji'
+import { FindInNote } from './find'
 import { FootnoteDef, FootnoteRef } from './footnote'
 import { LanguageCodeBlock } from './codeBlock'
 import { LayoutImage } from './image'
@@ -130,6 +131,7 @@ export function createExtensions(setup: EditorSetup = {}): AnyExtension[] {
       addKeyboardShortcuts: () => setup.keys ?? {},
     }),
     ...(setup.placeholder ? [emptyNoteHint(setup.placeholder)] : []),
+    FindInNote,
     TypedHere,
   ]
 }
