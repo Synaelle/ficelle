@@ -24,7 +24,7 @@ docker compose up -d
 curl http://127.0.0.1:8080/health
 ```
 
-Put it behind a reverse proxy from [`deploy/`](../deploy). Then open the one-time setup link from the log to create the admin.
+Put it behind a reverse proxy from [`deploy/`](../deploy). Then open the one-time setup link from the log to create the admin, a standard or an end-to-end encrypted account.
 
 ```bash
 docker compose logs server | grep setup
