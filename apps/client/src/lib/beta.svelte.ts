@@ -4,6 +4,7 @@
 // 0.4.0-beta.2. The browser dev server can pretend with ?beta, builds for
 // people cannot.
 
+import { NIGHTLY } from './platform'
 import { prefs } from './prefs.svelte'
 
 const pretend = import.meta.env.DEV ? new URLSearchParams(location.search) : null
@@ -13,9 +14,6 @@ const pretend = import.meta.env.DEV ? new URLSearchParams(location.search) : nul
  * ever checked, downloaded or installed. Read once at start, the switch
  * reloads the page. Never in a release build. */
 export const pretendRelease = __APP_DEV_TOOLS__ && prefs.pretendBeta
-
-/** A nightly's name, `.2` and on for a fix the same day. */
-export const NIGHTLY = /^nightly-\d{4}-\d{2}-\d{2}(\.\d+)?$/
 
 export const isBeta =
   /-beta\.\d+$/.test(__APP_VERSION__) ||

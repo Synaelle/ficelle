@@ -28,9 +28,9 @@
 import { brand } from '@app/brand'
 import { appUpdates, isBigJump, thisVersion } from './appUpdate.svelte'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
-import { NIGHTLY, pretendRelease } from './beta.svelte'
+import { pretendRelease } from './beta.svelte'
 import { shownError, type ShownError } from './errors'
-import { ANDROID } from './platform'
+import { ANDROID, NIGHTLY } from './platform'
 import { prefs } from './prefs.svelte'
 import { sync, type SyncState } from './sync.svelte'
 
@@ -205,6 +205,8 @@ class ChannelSwitch {
         return
       }
       await backend.appUpdateInstall()
+      // pacman installs and the app keeps running: into the stable version
+      if (appUpdates.pacman) await backend.appUpdateRestart()
     } catch (err) {
       this.error = shownError(err, 'STABLE')
       this.step = 'failed'

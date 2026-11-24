@@ -18,7 +18,8 @@ docker=${DOCKER:-docker}
 image=archlinux:base-devel@sha256:949ecb1661609ab7e8f6854ba03efd62792e7a796313738e94b040c095c20d91
 name="$(jq -r .displayName "$root/packages/brand/brand.json" | tr ' ' '-')_${version}_x86_64.pkg.tar.zst"
 
-[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release version: $version" >&2; exit 1; }
+# a nightly's has its build number after the release's: 0.8.7.800802
+[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || { echo "not a release version: $version" >&2; exit 1; }
 for path in usr/bin/ficelle usr/share/applications/Ficelle.desktop usr/share/icons; do
   [ -e "$files/$path" ] || { echo "missing in $files: $path" >&2; exit 1; }
 done

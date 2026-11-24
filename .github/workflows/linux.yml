@@ -9,10 +9,10 @@ name: linux
 # run builds an unsigned AppImage of the chosen branch, kept as an artifact
 # for a week.
 #
-# A release, or a manual run, also makes the Arch Linux package from the
-# x86_64 AppImage's own program, desktop entry and icons (tools/arch). It is
-# signed like the AppImage, the app updates it with pacman. Never a
-# nightly's: packages come only from stable releases.
+# Each run also makes the Arch Linux package from the x86_64 AppImage's own
+# program, desktop entry and icons (tools/arch). It is signed like the
+# AppImage, the app updates it with pacman. A nightly's package numbers
+# between its release and the next one: 0.8.7.800802 after 0.8.7.
 
 on:
   workflow_call:
@@ -110,7 +110,7 @@ jobs:
             target/release/bundle/appimage/*.AppImage.sig
           retention-days: 7
       - name: the arch package's files
-        if: matrix.arch == 'amd64' && inputs.nightly == ''
+        if: matrix.arch == 'amd64'
         run: |
           set -eu
           from=$(ls -d target/release/bundle/appimage/*.AppDir/usr | head -1)
@@ -118,7 +118,7 @@ jobs:
           cp -r "$from/bin" target/arch-files/usr/
           cp -r "$from/share/applications" "$from/share/icons" target/arch-files/usr/share/
           find target/arch-files -type f
-      - if: matrix.arch == 'amd64' && inputs.nightly == ''
+      - if: matrix.arch == 'amd64'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: arch-files
@@ -129,7 +129,6 @@ jobs:
   # the runner, where the Tauri CLI is
   arch:
     needs: appimage
-    if: inputs.nightly == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -139,10 +138,19 @@ jobs:
           path: target/arch-files
       - name: the package
         timeout-minutes: 15
+        env:
+          NIGHTLY: ${{ inputs.nightly }}
+          BUILD: ${{ inputs.build }}
         run: |
           set -eu
           version=$(APP_RELEASE=1 node tools/version.mjs | cut -d' ' -f1)
-          tools/arch/build.sh target/arch-files "$version"
+          if [ -n "$NIGHTLY" ]; then
+            tools/arch/build.sh target/arch-files "$version.$BUILD"
+            # named like the nightly's AppImage
+            mv target/arch/*.pkg.tar.zst "target/arch/$(jq -r .displayName packages/brand/brand.json | tr ' ' '-')_${NIGHTLY}_x86_64.pkg.tar.zst"
+          else
+            tools/arch/build.sh target/arch-files "$version"
+          fi
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         if: inputs.signed
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -155,6 +163,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          NIGHTLY: ${{ inputs.nightly }}
         run: |
           set -eu
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
@@ -163,7 +172,11 @@ jobs:
           fi
           pnpm install --frozen-lockfile
           package=$(ls "$PWD"/target/arch/*.pkg.tar.zst)
-          pnpm --filter @app/client tauri signer sign "$package"
+          if [ -n "$NIGHTLY" ]; then
+            pnpm --filter @app/client tauri signer sign --app-version "$NIGHTLY" "$package"
+          else
+            pnpm --filter @app/client tauri signer sign "$package"
+          fi
           test -f "$package.sig"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

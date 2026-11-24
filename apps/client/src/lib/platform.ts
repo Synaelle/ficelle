@@ -25,3 +25,6 @@ export const WINDOWS = PLATFORM === 'windows'
 export const LINUX = PLATFORM === 'linux'
 /** Windows or Linux. */
 export const DESKTOP = WINDOWS || LINUX
+
+/** A nightly's name, `.2` and on for a fix the same day. */
+export const NIGHTLY = /^nightly-\d{4}-\d{2}-\d{2}(\.\d+)?$/

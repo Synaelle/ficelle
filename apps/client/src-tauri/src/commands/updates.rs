@@ -88,12 +88,12 @@ impl AppUpdate {
 
 /// See [`AppUpdate::go_back`].
 fn can_go_back() -> bool {
-    // packages come only from stable releases, an older one is never listed
-    if page_only() || pacman() {
+    // pacman installs an older package too, with a warning
+    if page_only() {
         return false;
     }
     cfg!(any(windows, target_os = "android"))
-        || (cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_some())
+        || (cfg!(target_os = "linux") && (pacman() || std::env::var_os("APPIMAGE").is_some()))
 }
 
 /// Which list the app follows, chosen in About.
@@ -137,7 +137,7 @@ fn page_only() -> bool {
 /// once, from the program the app started as (tauri keeps it), so an update
 /// that replaced the file meanwhile changes nothing. An `APPIMAGE` in the
 /// environment, passed on by an AppImage that started it, never counts.
-fn pacman() -> bool {
+pub(crate) fn pacman() -> bool {
     static PACMAN: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
         cfg!(target_os = "linux")
             && tauri::utils::platform::current_exe()
@@ -1005,8 +1005,8 @@ pub fn app_update_page_only() -> bool {
     page_only()
 }
 
-/// This build is the Arch package, see [`pacman`]: it follows Stable only,
-/// and installs without restarting.
+/// This build is the Arch package, see [`pacman`]: it installs without
+/// restarting.
 #[tauri::command]
 #[must_use]
 pub fn app_update_pacman() -> bool {
@@ -1021,11 +1021,6 @@ pub fn app_update_pacman() -> bool {
 )]
 pub fn app_update_restart(app: tauri::AppHandle) {
     app.restart()
-}
-
-/// The list this build reads: packages come only from stable releases.
-fn followed(channel: Channel) -> Channel {
-    if pacman() { Channel::Stable } else { channel }
 }
 
 /// Looks for a newer version and downloads it, when the person asks for
@@ -1043,7 +1038,6 @@ pub async fn app_update_check(
         return Ok(None);
     }
     let allow_older = allow_older.unwrap_or(false);
-    let channel = followed(channel);
     #[cfg(desktop)]
     if page_only() {
         return tauri::async_runtime::spawn_blocking(move || page::check(channel))
@@ -1069,7 +1063,6 @@ pub async fn app_update_latest(
         return Ok(None);
     }
     let allow_older = allow_older.unwrap_or(false);
-    let channel = followed(channel);
     tauri::async_runtime::spawn_blocking(move || {
         let latest = list::latest(channel)?;
         let shown = list::newer(&latest, list::here())

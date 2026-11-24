@@ -75,8 +75,7 @@
       onclick={() => (prefs.updatesOnMobileData = !prefs.updatesOnMobileData)}
     />
   {/if}
-  <!-- the Arch package comes only from stable releases -->
-  {#if channelChoice && !appUpdates.pacman}
+  {#if channelChoice}
     <Row
       label={t('appUpdate.nightlyVersions')}
       icon="flask"

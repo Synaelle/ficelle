@@ -17,10 +17,10 @@
 import { brand } from '@app/brand'
 import { listen } from '@tauri-apps/api/event'
 import { backend, type AppUpdate, type UpdateChannel } from './backend'
-import { NIGHTLY, pretendRelease, resetBetaWelcome } from './beta.svelte'
+import { pretendRelease, resetBetaWelcome } from './beta.svelte'
 import { namedError, shownError, type ShownError } from './errors'
 import { currentLocale, t } from './i18n.svelte'
-import { ANDROID, LINUX, PLATFORM } from './platform'
+import { ANDROID, LINUX, NIGHTLY, PLATFORM } from './platform'
 import { prefs } from './prefs.svelte'
 import { lastNotified, rememberNotified, worthNotifying } from './updateNotify'
 import { overlay } from './overlay.svelte'
@@ -99,10 +99,9 @@ export const channelChoice = ANDROID || LINUX
  * has no installed identity for Windows to show them under. */
 export const notificationsHere = updatesHere && !__APP_PORTABLE__
 
-/** The list this device follows. The Arch package comes only from stable
- * releases. */
+/** The list this device follows. */
 export function channel(): UpdateChannel {
-  return channelChoice && !appUpdates.pacman ? prefs.channel : 'stable'
+  return channelChoice ? prefs.channel : 'stable'
 }
 
 /** `major.minor.micro` and a beta's number, null for anything else. */

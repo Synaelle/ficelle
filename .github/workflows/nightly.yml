@@ -1,10 +1,11 @@
 name: nightly
 
-# A nightly: the Linux AppImage and the Android APK of main as it is when the
-# run starts, signed like a release, for the people who chose Nightly in the
-# app, and the server image of the same commit, tagged nightly (image.yml). Published apart from the releases, on the one pre-release tagged
-# `nightly`, whose latest.json the apps on Nightly read and whose files each
-# nightly replaces.
+# A nightly: the Linux AppImage, the Arch package and the Android APK of
+# main as it is when the run starts, signed like a release, for the people
+# who chose Nightly in the app, and the server image of the same commit,
+# tagged nightly (image.yml). Published apart from the releases, on the one
+# pre-release tagged `nightly`, whose latest.json the apps on Nightly read
+# and whose files each nightly replaces.
 #
 # Named by the date, nightly-2026-11-16; a second one the same day, run by
 # hand for a serious bug or a security problem, is nightly-2026-11-16.2. Its
@@ -151,8 +152,9 @@ jobs:
         run: |
           set -eu
           appimage=$(find out -name '*_amd64.AppImage' | head -1)
+          package=$(find out -name '*.pkg.tar.zst' | head -1)
           apk=$(find out -name '*.apk' | head -1)
-          for file in "$appimage" "$apk"; do test -f "$file" && test -f "$file.sig"; done
+          for file in "$appimage" "$package" "$apk"; do test -f "$file" && test -f "$file.sig"; done
           if ! gh release view nightly > /dev/null 2>&1; then
             gh release create nightly --prerelease --latest=false --target "$SHA" --title "Nightly" \
               --notes "A build of each night's changes, for the app's Nightly channel. Not a release."
@@ -176,10 +178,11 @@ jobs:
           jq -n --arg version "$NAME" --argjson build "$BUILD" --arg changelog "$changelog" \
             --argjson schema "$schema" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --argjson linux "$(entry "$appimage")" \
+            --argjson pacman "$(entry "$package")" \
             --argjson android "$(entry "$apk")" \
             '{version: $version, build: $build, notes: "", messages: [], changelog: $changelog,
               critical: false, schema: $schema, pub_date: $date, platforms: {
-              "linux-x86_64": $linux, "android-aarch64": $android }}' \
+              "linux-x86_64": $linux, "linux-x86_64-pacman": $pacman, "android-aarch64": $android }}' \
             > latest.json
           jq -n --arg name "$NAME" --arg release "$RELEASE" --argjson n "$N" --arg commit "$SHA" \
             --argjson build "$BUILD" '{name: $name, release: $release, n: $n, commit: $commit, build: $build}' \
@@ -187,10 +190,10 @@ jobs:
           cat latest.json nightly.json
           # the files first, the lists last: an app never reads a list whose
           # files are not there yet
-          gh release upload nightly "$appimage" "$apk" --clobber
+          gh release upload nightly "$appimage" "$package" "$apk" --clobber
           gh release upload nightly latest.json nightly.json --clobber
           # last night's files go, the ones just added stay
-          keep="$(basename "$appimage")|$(basename "$apk")|latest.json|nightly.json|releases.json"
+          keep="$(basename "$appimage")|$(basename "$package")|$(basename "$apk")|latest.json|nightly.json|releases.json"
           gh release view nightly --json assets --jq '.assets[].name' | grep -Ev "^($keep)$" \
             | while read -r old; do gh release delete-asset nightly "$old" --yes; done
           {
