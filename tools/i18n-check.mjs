@@ -47,7 +47,8 @@ for (const file of sourceFiles(srcDir)) {
   }
   for (const m of code.matchAll(/['"`]([\w-]+\.[\w.-]+)['"`]/g)) {
     const key = m[1]
-    const known = (texts) => key in texts || `${key}.other` in texts
+    const known = (/** @type {Record<string, string>} */ texts) =>
+      key in texts || `${key}.other` in texts
     if (known(english) || known(server)) used.add(key)
   }
   for (const m of code.matchAll(/`([\w-]+\.[\w.-]*)\$\{/g)) prefixes.add(m[1])
