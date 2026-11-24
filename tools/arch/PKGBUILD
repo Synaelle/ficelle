@@ -19,7 +19,8 @@ options=('!strip' '!debug')
 package() {
   cd "$startdir/usr"
   install -Dm755 bin/ficelle "$pkgdir/usr/bin/ficelle"
-  install -Dm644 share/applications/Ficelle.desktop "$pkgdir/usr/share/applications/Ficelle.desktop"
+  # named for the app id: Wayland finds the window's icon by it
+  install -Dm644 share/applications/Ficelle.desktop "$pkgdir/usr/share/applications/com.synaelle.ficelle.desktop"
   # one by one: the AppImage's folders are private (700)
   find share/icons -type f -exec install -Dm644 {} "$pkgdir/usr/{}" \;
   echo 'Installed by the Arch package, which updates through pacman.' |

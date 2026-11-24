@@ -3,7 +3,9 @@
 //! How the desktop knows the app on Linux. Wayland has no window icons: a
 //! compositor shows the icon of the desktop entry named like the window's app
 //! id, which GTK takes from the program name. The AppImage installs nothing, so
-//! it writes that entry and its icon itself, in the user's own folders.
+//! it writes that entry and its icon itself, in the user's own folders. The
+//! Arch package installs the entry under the same name, and removes the one
+//! an AppImage left, which would come first and start the AppImage.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -46,10 +48,13 @@ pub fn save_on_term(app: &tauri::AppHandle) {
 /// only when they change (the AppImage moved, a new icon). Before the first
 /// window: the desktop looks its icon up once, when it maps.
 pub fn integrate(icon: Option<&Image<'_>>) {
-    let Some(appimage) = std::env::var_os("APPIMAGE").map(PathBuf::from) else {
+    let Some(data) = data_home() else {
         return;
     };
-    let Some(data) = data_home() else {
+    let Some(appimage) = std::env::var_os("APPIMAGE").map(PathBuf::from) else {
+        if crate::commands::updates::pacman() {
+            remove_appimage_entry(&data);
+        }
         return;
     };
     // every size the AppImage carries, sharp in a taskbar or a dock; the
@@ -140,6 +145,31 @@ fn encode_png(rgba: &[u8], width: u32, height: u32) -> Option<Vec<u8>> {
     Some(out)
 }
 
+/// The entry and icons an AppImage wrote under `data`: only an entry this
+/// file wrote, whose `Exec` is a quoted path, never one the person made.
+fn remove_appimage_entry(data: &Path) {
+    let entry = data
+        .join("applications")
+        .join(format!("{}.desktop", app_brand::IDENTIFIER));
+    let ours = fs::read_to_string(&entry).is_ok_and(|text| {
+        text.lines().any(|line| line.starts_with("Exec=\""))
+            && text.contains(&format!("StartupWMClass={}\n", app_brand::IDENTIFIER))
+    });
+    if !ours {
+        return;
+    }
+    let _ = fs::remove_file(&entry);
+    let Ok(sizes) = fs::read_dir(data.join("icons/hicolor")) else {
+        return;
+    };
+    for size in sizes.flatten() {
+        let _ = fs::remove_file(
+            size.path()
+                .join(format!("apps/{}.png", app_brand::IDENTIFIER)),
+        );
+    }
+}
+
 /// Best effort: a desktop entry that cannot be written only costs the icon.
 fn write_if_changed(path: &Path, bytes: &[u8]) {
     if fs::read(path).is_ok_and(|old| old == bytes) {
@@ -163,6 +193,26 @@ mod tests {
         );
         assert_eq!(quote_exec("/x/a b$c\"d"), "\"/x/a b\\$c\\\"d\"");
         assert_eq!(quote_exec("/x/100%"), "\"/x/100%%\"");
+    }
+
+    #[test]
+    fn the_appimage_entry_goes_and_others_stay() {
+        let data = std::env::temp_dir().join(format!("desktop-entry-{}", std::process::id()));
+        let entry = data
+            .join("applications")
+            .join(format!("{}.desktop", app_brand::IDENTIFIER));
+        let icon = data.join(format!("icons/hicolor/128x128/apps/{}.png", app_brand::IDENTIFIER));
+        let other = data.join("icons/hicolor/128x128/apps/other.png");
+        write_if_changed(&icon, b"png");
+        write_if_changed(&other, b"png");
+        // one the person wrote stays, with the icons
+        write_if_changed(&entry, b"[Desktop Entry]\nExec=ficelle\n");
+        remove_appimage_entry(&data);
+        assert!(entry.exists() && icon.exists());
+        write_if_changed(&entry, desktop_entry(Path::new("/opt/F.AppImage")).as_bytes());
+        remove_appimage_entry(&data);
+        assert!(!entry.exists() && !icon.exists() && other.exists());
+        let _ = fs::remove_dir_all(&data);
     }
 
     #[test]
