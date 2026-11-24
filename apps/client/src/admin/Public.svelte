@@ -183,8 +183,11 @@
 {/if}
 
 <style>
+  /* the page itself never scrolls (app.css): the screen does */
   .screen {
-    min-height: 100%;
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
     display: grid;
     place-items: center;
     padding: var(--space-4);
@@ -201,8 +204,11 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-window);
   }
+  /* the page itself never scrolls (app.css): the screen does */
   .page {
-    min-height: 100%;
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
     padding: var(--space-5) var(--space-4) var(--space-6);
   }
   .privacy {

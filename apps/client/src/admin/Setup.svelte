@@ -656,8 +656,11 @@
 </main>
 
 <style>
+  /* the page itself never scrolls (app.css): the screen does */
   .screen {
-    min-height: 100%;
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
     display: grid;
     place-items: start center;
     padding: var(--space-5) var(--space-4);

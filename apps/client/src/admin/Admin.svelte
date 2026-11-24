@@ -82,10 +82,13 @@
 <Overlays />
 
 <style>
+  /* the page itself never scrolls (app.css): the screen does */
   .center {
-    min-height: 100%;
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
     display: grid;
-    place-content: center;
+    place-content: safe center;
     justify-items: center;
     gap: var(--space-3);
     padding: var(--space-4);
