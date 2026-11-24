@@ -44,7 +44,8 @@ use crate::id::NoteId;
 pub const SPACE: &str = "space";
 
 /// Where a document of a space is stored: the personal space's keep their
-/// bare id, a shared space's are `<space id>/<document id>`.
+/// bare id, a shared space's, which older versions synced, are
+/// `<space id>/<document id>`.
 pub fn doc_key(space: &str, doc: &str) -> String {
     if space.is_empty() {
         doc.to_owned()
@@ -56,15 +57,6 @@ pub fn doc_key(space: &str, doc: &str) -> String {
 /// A stored key back to its space and document.
 pub fn split_key(key: &str) -> (&str, &str) {
     key.split_once('/').unwrap_or(("", key))
-}
-
-/// The spaces this vault holds: the personal one, then the shared ones.
-pub(crate) fn spaces_here(conn: &Connection) -> Result<Vec<String>> {
-    let mut stmt = conn.prepare("SELECT id FROM spaces ORDER BY id")?;
-    let shared = stmt
-        .query_map([], |row| row.get::<_, String>(0))?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(std::iter::once(String::new()).chain(shared).collect())
 }
 
 /// Changes kept apart before they are folded into the stored snapshot.
@@ -88,9 +80,6 @@ struct Open {
 #[derive(Default)]
 pub struct Docs {
     peer: Option<u64>,
-    /// Shared spaces this vault dropped and holds again write under a peer
-    /// id of their own, see [`Docs::peer_for`].
-    space_peers: HashMap<String, Option<u64>>,
     open: HashMap<String, Open>,
 }
 
@@ -153,39 +142,6 @@ impl Docs {
         Ok(peer)
     }
 
-    /// The peer id a document is written under. A shared space this vault
-    /// dropped (removed, refused, left) was forgotten with this device's
-    /// own changes in it: written again under the same id, new changes
-    /// would reuse numbers the server already holds for other content.
-    /// Dropping a space gives it a fresh id here for good.
-    fn peer_for(&mut self, conn: &Connection, id: &str) -> Result<u64> {
-        let Some((space, _)) = id.split_once('/') else {
-            return self.peer(conn);
-        };
-        if !self.space_peers.contains_key(space) {
-            let stored: Option<Vec<u8>> = conn
-                .query_row(
-                    "SELECT value FROM vault_meta WHERE key = ?1",
-                    [format!("peer:{space}")],
-                    |row| row.get(0),
-                )
-                .optional()?;
-            let peer = stored
-                .map(|bytes| {
-                    bytes
-                        .try_into()
-                        .map(u64::from_le_bytes)
-                        .map_err(|_| Error::Corrupt("space peer id".into()))
-                })
-                .transpose()?;
-            self.space_peers.insert(space.to_owned(), peer);
-        }
-        match self.space_peers.get(space).copied().flatten() {
-            Some(peer) => Ok(peer),
-            None => self.peer(conn),
-        }
-    }
-
     /// The document, loaded from its snapshot and later changes if needed,
     /// empty if it was never stored. Loro documents are shared handles, the
     /// clone edits the same document.
@@ -193,7 +149,7 @@ impl Docs {
         if let Some(open) = self.open.get(id) {
             return Ok(open.doc.clone());
         }
-        let peer = self.peer_for(conn, id)?;
+        let peer = self.peer(conn)?;
         let doc = LoroDoc::new();
         doc.set_peer_id(peer).map_err(sync_error)?;
         let snapshot: Option<Vec<u8>> = conn
@@ -300,7 +256,6 @@ impl Docs {
     /// when a transaction fails after documents were changed in memory.
     pub(crate) fn forget(&mut self) {
         self.open.clear();
-        self.space_peers.clear();
     }
 
     /// Whether anything is stored for a document.
@@ -424,19 +379,6 @@ pub(crate) fn flush(conn: &Connection, docs: &mut Docs, now: Timestamp) -> Resul
         return Ok(());
     }
     conn.execute("DELETE FROM sync_touched", [])?;
-    // a space shared with this account read only takes no change from here
-    for (_, space, _) in &touched {
-        let role: Option<String> = conn
-            .query_row("SELECT role FROM spaces WHERE id = ?1", [space], |row| {
-                row.get(0)
-            })
-            .optional()?;
-        if role.as_deref() == Some("read") {
-            return Err(Error::Invalid(
-                "this is shared with you to read only".into(),
-            ));
-        }
-    }
     let mut spaces: Vec<&str> = Vec::new();
     let mut folders_in: Vec<&str> = Vec::new();
     let mut tags_changed = false;
@@ -557,8 +499,7 @@ pub(crate) fn bootstrap(conn: &Connection) -> Result<()> {
 }
 
 /// Records the attachments a vault already holds, once, when they start to
-/// sync. Spaces shared read only are left out: their owner's devices
-/// describe their files.
+/// sync.
 ///
 /// # Errors
 ///
@@ -566,8 +507,7 @@ pub(crate) fn bootstrap(conn: &Connection) -> Result<()> {
 pub(crate) fn bootstrap_files(conn: &Connection) -> Result<()> {
     conn.execute(
         "INSERT OR IGNORE INTO sync_touched (kind, space, id)
-         SELECT DISTINCT 'note', n.space_id, n.id FROM notes n JOIN attachments a ON a.note_id = n.id
-         WHERE n.space_id NOT IN (SELECT id FROM spaces WHERE role = 'read')",
+         SELECT DISTINCT 'note', n.space_id, n.id FROM notes n JOIN attachments a ON a.note_id = n.id",
         [],
     )?;
     let now = crate::clock::Clock::now(&crate::clock::SystemClock);
@@ -839,14 +779,13 @@ pub(crate) fn deletion_arrived(
     Ok(())
 }
 
-/// Where a space's sync stands: its cursor on the server.
-pub(crate) fn cursor_of(conn: &Connection, space: &str) -> Result<Option<i64>> {
-    let sql = if space.is_empty() {
-        "SELECT cursor FROM sync_link WHERE id = 1 AND ?1 = ''"
-    } else {
-        "SELECT cursor FROM spaces WHERE id = ?1"
-    };
-    Ok(conn.query_row(sql, [space], |row| row.get(0)).optional()?)
+/// Where sync stands: the cursor on the server, `None` when not linked.
+pub(crate) fn cursor_of(conn: &Connection) -> Result<Option<i64>> {
+    Ok(conn
+        .query_row("SELECT cursor FROM sync_link WHERE id = 1", [], |row| {
+            row.get(0)
+        })
+        .optional()?)
 }
 
 /// Forgets the documents of notes deleted for good long enough ago: here,
@@ -864,17 +803,16 @@ pub(crate) fn forget_deleted(conn: &Connection, docs: &mut Docs, now: Timestamp)
         stmt.query_map([now - FORGET_DELETED_AFTER], |row| row.get::<_, String>(0))?
             .collect::<rusqlite::Result<Vec<_>>>()?
     };
+    let cursor = cursor_of(conn)?;
     let mut forgotten = 0;
     for id in due {
-        let (space, note) = split_key(&id);
-        let cursor = cursor_of(conn, space)?;
         conn.execute(
             "DELETE FROM trash_arrived WHERE kind = 'purged' AND id = ?1",
             [&id],
         )?;
         let back: bool = conn.query_row(
-            "SELECT EXISTS (SELECT 1 FROM notes WHERE id = ?1 AND space_id = ?2)",
-            params![note, space],
+            "SELECT EXISTS (SELECT 1 FROM notes WHERE id = ?1)",
+            [&id],
             |row| row.get(0),
         )?;
         let waiting: bool = conn.query_row(
@@ -932,33 +870,21 @@ fn settle_waiting(conn: &Connection, doc: &LoroDoc, doc_id: &str) -> Result<()> 
 /// # Errors
 ///
 /// Database errors.
-pub(crate) fn outbox(
-    conn: &Connection,
-    docs: &mut Docs,
-    space: Option<&str>,
-    limit: usize,
-) -> Result<Vec<Outgoing>> {
+pub(crate) fn outbox(conn: &Connection, docs: &mut Docs, limit: usize) -> Result<Vec<Outgoing>> {
     let peer = docs.peer(conn)?;
-    // every space, or one: the personal space's keys hold no '/'
-    let mut stmt = conn.prepare(
-        "SELECT seq, doc_id, bytes, compacts FROM sync_outbox
-         WHERE ?2 IS NULL OR (?2 = '' AND instr(doc_id, '/') = 0) OR doc_id LIKE ?2 || '/%'
-         ORDER BY seq LIMIT ?1",
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT seq, doc_id, bytes, compacts FROM sync_outbox ORDER BY seq LIMIT ?1")?;
     let rows = stmt
-        .query_map(
-            params![i64::try_from(limit).unwrap_or(i64::MAX), space],
-            |row| {
-                let seq: i64 = row.get(0)?;
-                Ok(Outgoing {
-                    seq,
-                    id: format!("{peer:x}-{seq}"),
-                    doc_id: row.get(1)?,
-                    bytes: row.get(2)?,
-                    compacts: row.get(3)?,
-                })
-            },
-        )?
+        .query_map(params![i64::try_from(limit).unwrap_or(i64::MAX)], |row| {
+            let seq: i64 = row.get(0)?;
+            Ok(Outgoing {
+                seq,
+                id: format!("{peer:x}-{seq}"),
+                doc_id: row.get(1)?,
+                bytes: row.get(2)?,
+                compacts: row.get(3)?,
+            })
+        })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
 }
@@ -970,34 +896,17 @@ pub(crate) fn outbox(
 /// # Errors
 ///
 /// Database errors, a stored document that does not read.
-pub(crate) fn requeue_all(
-    conn: &Connection,
-    docs: &mut Docs,
-    space: &str,
-    now: Timestamp,
-) -> Result<()> {
-    let in_space = "(?1 = '' AND instr(k, '/') = 0) OR k LIKE ?1 || '/%'";
+pub(crate) fn requeue_all(conn: &Connection, docs: &mut Docs, now: Timestamp) -> Result<()> {
     let ids = {
-        let mut stmt = conn.prepare(&format!(
-            "SELECT k FROM (SELECT id AS k FROM sync_docs UNION SELECT doc_id FROM sync_updates)
-             WHERE {in_space} ORDER BY 1"
-        ))?;
-        stmt.query_map([space], |row| row.get::<_, String>(0))?
+        let mut stmt = conn
+            .prepare("SELECT id FROM sync_docs UNION SELECT doc_id FROM sync_updates ORDER BY 1")?;
+        stmt.query_map([], |row| row.get::<_, String>(0))?
             .collect::<rusqlite::Result<Vec<_>>>()?
     };
-    conn.execute(
-        &format!(
-            "DELETE FROM sync_outbox WHERE seq IN
-                 (SELECT seq FROM (SELECT seq, doc_id AS k FROM sync_outbox) WHERE {in_space})"
-        ),
-        [space],
-    )?;
+    conn.execute("DELETE FROM sync_outbox", [])?;
     // the space first: a device taking the notes in already knows where
     // they sit
-    let space_doc = doc_key(space, SPACE);
-    for id in
-        std::iter::once(space_doc.clone()).chain(ids.into_iter().filter(|id| *id != space_doc))
-    {
+    for id in std::iter::once(SPACE.to_owned()).chain(ids.into_iter().filter(|id| id != SPACE)) {
         if !docs.stored(conn, &id)? {
             continue;
         }
@@ -1015,12 +924,8 @@ pub(crate) fn requeue_all(
 /// # Errors
 ///
 /// Database errors.
-pub(crate) fn ack(conn: &Connection, space: Option<&str>, up_to: i64) -> Result<()> {
-    conn.execute(
-        "DELETE FROM sync_outbox WHERE seq <= ?1
-             AND (?2 IS NULL OR (?2 = '' AND instr(doc_id, '/') = 0) OR doc_id LIKE ?2 || '/%')",
-        params![up_to, space],
-    )?;
+pub(crate) fn ack(conn: &Connection, up_to: i64) -> Result<()> {
+    conn.execute("DELETE FROM sync_outbox WHERE seq <= ?1", [up_to])?;
     Ok(())
 }
 

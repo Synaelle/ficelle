@@ -119,6 +119,11 @@ const MIGRATIONS: &[Migration] = &[
         sql: include_str!("db/023_file_backups.sql"),
         then: Some(crate::auto_backup::from_snapshot_folder),
     },
+    // shared spaces become the person's own, once
+    Migration {
+        sql: include_str!("db/024_no_sharing.sql"),
+        then: Some(crate::store::fold_shared_spaces),
+    },
 ];
 
 /// Opens or creates the database at `path`. With a key the file is encrypted
@@ -204,7 +209,7 @@ fn migrate(conn: &Connection) -> Result<()> {
 /// 8 alone, it read attachment columns that step 10 adds, and every older
 /// vault with notes failed to open. Anything failing leaves
 /// the database as it was.
-fn migrate_to(conn: &Connection, target: usize) -> Result<()> {
+pub(crate) fn migrate_to(conn: &Connection, target: usize) -> Result<()> {
     let current: usize = conn
         .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
         .map(|v| usize::try_from(v).unwrap_or(0))?;
@@ -244,6 +249,47 @@ pub(crate) fn open_in_memory() -> Connection {
         .expect("pragma");
     migrate(&conn).expect("migrations");
     conn
+}
+
+/// Fills a row with what each column's type takes, so the same code writes
+/// a note or a file into the schema of any version, for tests building old
+/// vaults.
+#[cfg(test)]
+pub(crate) fn insert_any(conn: &Connection, table: &str, values: &[(&str, &str)]) {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({table})"))
+        .unwrap();
+    let columns: Vec<(String, String, bool)> = stmt
+        .query_map([], |r| Ok((r.get(1)?, r.get(2)?, r.get::<_, i64>(3)? == 1)))
+        .unwrap()
+        .map(|row| row.unwrap())
+        .collect();
+    let (names, cells): (Vec<String>, Vec<String>) = columns
+        .iter()
+        .filter_map(|(name, kind, not_null)| {
+            let given = values
+                .iter()
+                .find(|(n, _)| n == name)
+                .map(|(_, v)| format!("'{v}'"));
+            let filler = (*not_null).then(|| {
+                if kind.contains("INT") {
+                    "0".into()
+                } else {
+                    "''".into()
+                }
+            });
+            given.or(filler).map(|v| (name.clone(), v))
+        })
+        .unzip();
+    conn.execute(
+        &format!(
+            "INSERT INTO {table} ({}) VALUES ({})",
+            names.join(", "),
+            cells.join(", ")
+        ),
+        [],
+    )
+    .unwrap();
 }
 
 /// Number of schema steps this build knows.
@@ -289,45 +335,6 @@ mod tests {
         let other = DatabaseKey::generate().unwrap();
         assert!(matches!(open(&path, Some(&other)), Err(Error::WrongKey)));
         open(&path, Some(&key)).unwrap();
-    }
-
-    /// Fills a row with what each column's type takes, so the same code
-    /// writes a note or a file into the schema of any version.
-    fn insert_any(conn: &Connection, table: &str, values: &[(&str, &str)]) {
-        let mut stmt = conn
-            .prepare(&format!("PRAGMA table_info({table})"))
-            .unwrap();
-        let columns: Vec<(String, String, bool)> = stmt
-            .query_map([], |r| Ok((r.get(1)?, r.get(2)?, r.get::<_, i64>(3)? == 1)))
-            .unwrap()
-            .map(|row| row.unwrap())
-            .collect();
-        let (names, cells): (Vec<String>, Vec<String>) = columns
-            .iter()
-            .filter_map(|(name, kind, not_null)| {
-                let given = values
-                    .iter()
-                    .find(|(n, _)| n == name)
-                    .map(|(_, v)| format!("'{v}'"));
-                let filler = (*not_null).then(|| {
-                    if kind.contains("INT") {
-                        "0".into()
-                    } else {
-                        "''".into()
-                    }
-                });
-                given.or(filler).map(|v| (name.clone(), v))
-            })
-            .unzip();
-        conn.execute(
-            &format!(
-                "INSERT INTO {table} ({}) VALUES ({})",
-                names.join(", "),
-                cells.join(", ")
-            ),
-            [],
-        )
-        .unwrap();
     }
 
     #[test]
@@ -535,7 +542,7 @@ mod tests {
     }
 
     #[test]
-    fn a_vault_reading_a_shared_space_still_takes_the_nested_tags() {
+    fn a_vault_reading_a_shared_space_takes_the_nested_tags_and_keeps_the_shared_note() {
         let [own_folder, shared_folder, ab, _, _, mine, theirs, tagged] = FOLDER_IDS;
         // spaces came with step 8
         for from in 8..19 {
@@ -584,10 +591,16 @@ mod tests {
             let conn = open(&path, None).unwrap_or_else(|e| panic!("from version {from}: {e}"));
             let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
             assert_eq!(
-                count("SELECT count(*) FROM notes"),
+                count("SELECT count(*) FROM notes WHERE space_id = ''"),
                 3,
-                "from {from}: every note is there"
+                "from {from}: every note is there, the shared one the person's own"
             );
+            let kept: String = conn
+                .query_row("SELECT id FROM notes WHERE title = 'Shared'", [], |r| {
+                    r.get(0)
+                })
+                .unwrap();
+            assert_ne!(kept, theirs, "from {from}: a copy with an id of its own");
             let tags_of = |note: &str| -> Vec<String> {
                 let mut stmt = conn
                     .prepare(
@@ -601,9 +614,10 @@ mod tests {
                     .collect()
             };
             assert_eq!(tags_of(mine), ["Mine"], "from {from}");
-            assert!(
-                tags_of(theirs).is_empty(),
-                "from {from}: the sharer's to tag"
+            assert_eq!(
+                tags_of(&kept),
+                ["Theirs"],
+                "from {from}: its folder as a tag"
             );
             assert_eq!(tags_of(tagged), ["a/b"], "from {from}");
             assert_eq!(

@@ -639,18 +639,9 @@ impl Wire<'_> {
     }
 }
 
-/// `space=` for a shared space's calls, nothing for the personal space.
-fn in_space(space: Option<&str>, sep: char) -> String {
-    space.map_or_default(|s| format!("{sep}space={s}"))
-}
-
 impl Remote for Wire<'_> {
-    fn heavy(
-        &mut self,
-        space: Option<&str>,
-        min: i64,
-    ) -> Result<app_protocol::sync::HeavyDocs, RemoteError> {
-        let path = format!("/sync/heavy?min={min}{}", in_space(space, '&'));
+    fn heavy(&mut self, min: i64) -> Result<app_protocol::sync::HeavyDocs, RemoteError> {
+        let path = format!("/sync/heavy?min={min}");
         match self.call(|api, token| api.get(&path, Some(token))) {
             Ok(answer) => answer
                 .parse()
@@ -661,38 +652,17 @@ impl Remote for Wire<'_> {
         }
     }
 
-    fn push(
-        &mut self,
-        space: Option<&str>,
-        request: &PushRequest,
-    ) -> Result<PushAnswer, RemoteError> {
-        let path = format!("/sync/push{}", in_space(space, '?'));
-        self.call(|api, token| api.post(&path, Some(token), request))?
+    fn push(&mut self, request: &PushRequest) -> Result<PushAnswer, RemoteError> {
+        self.call(|api, token| api.post("/sync/push", Some(token), request))?
             .parse()
             .map_err(|e| RemoteError::Refused(e.to_string()))
     }
 
-    fn pull(
-        &mut self,
-        space: Option<&str>,
-        after: i64,
-        limit: usize,
-    ) -> Result<PullAnswer, RemoteError> {
-        let path = format!(
-            "/sync/changes?after={after}&limit={limit}{}",
-            in_space(space, '&')
-        );
+    fn pull(&mut self, after: i64, limit: usize) -> Result<PullAnswer, RemoteError> {
+        let path = format!("/sync/changes?after={after}&limit={limit}");
         self.call(|api, token| api.get(&path, Some(token)))?
             .parse()
             .map_err(|e| RemoteError::Refused(e.to_string()))
-    }
-
-    /// Sharing left the apps: this device follows no shared space, what it
-    /// still holds of one becomes the person's own (`sync_set_spaces`).
-    fn spaces(&mut self) -> Result<Option<app_protocol::sync::SharedSpaces>, RemoteError> {
-        Ok(Some(app_protocol::sync::SharedSpaces {
-            spaces: Vec::new(),
-        }))
     }
 
     fn files_info(&mut self) -> Result<Option<app_protocol::files::FilesInfo>, RemoteError> {
@@ -710,34 +680,25 @@ impl Remote for Wire<'_> {
         Ok(info)
     }
 
-    fn file_state(
-        &mut self,
-        space: Option<&str>,
-        address: &str,
-    ) -> Result<app_protocol::files::FileState, FileError> {
-        let path = format!("/sync/files/{address}/state{}", in_space(space, '?'));
+    fn file_state(&mut self, address: &str) -> Result<app_protocol::files::FileState, FileError> {
+        let path = format!("/sync/files/{address}/state");
         files::answer(self.file_call(|api, token| api.get(&path, Some(token))))
     }
 
     fn put_file(
         &mut self,
-        space: Option<&str>,
         address: &str,
         part: FilePart<'_>,
     ) -> Result<app_protocol::files::FileState, FileError> {
-        let path = format!("/sync/files/{address}{}", in_space(space, '?'));
+        let path = format!("/sync/files/{address}");
         let headers = files::part_headers(&part);
         files::answer(
             self.file_call(|api, token| api.put_bytes(&path, token, &headers, part.bytes)),
         )
     }
 
-    fn get_file(
-        &mut self,
-        space: Option<&str>,
-        address: &str,
-    ) -> Result<Box<dyn std::io::Read + Send>, FileError> {
-        let path = format!("/sync/files/{address}{}", in_space(space, '?'));
+    fn get_file(&mut self, address: &str) -> Result<Box<dyn std::io::Read + Send>, FileError> {
+        let path = format!("/sync/files/{address}");
         match self.api.get_stream(&path, &self.tokens.access) {
             Err(HttpError::Api { status: 401, .. }) => {
                 self.refresh()?;
@@ -749,20 +710,15 @@ impl Remote for Wire<'_> {
         }
     }
 
-    fn keep_file(&mut self, space: Option<&str>, address: &str) -> Result<(), FileError> {
-        let path = format!("/sync/files/{address}/keep{}", in_space(space, '?'));
+    fn keep_file(&mut self, address: &str) -> Result<(), FileError> {
+        let path = format!("/sync/files/{address}/keep");
         self.file_call(|api, token| api.post(&path, Some(token), &()))
             .map(drop)
             .map_err(files::file_error)
     }
 
-    fn release_file(
-        &mut self,
-        space: Option<&str>,
-        address: &str,
-        head: i64,
-    ) -> Result<bool, FileError> {
-        let path = format!("/sync/files/{address}?head={head}{}", in_space(space, '&'));
+    fn release_file(&mut self, address: &str, head: i64) -> Result<bool, FileError> {
+        let path = format!("/sync/files/{address}?head={head}");
         match self.file_call(|api, token| api.delete(&path, Some(token))) {
             Ok(_) => Ok(true),
             Err(HttpError::Api { status: 409, .. }) => Ok(false),

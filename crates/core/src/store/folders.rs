@@ -237,27 +237,13 @@ impl Store {
     }
 
     /// Moves a folder under another one, or to the top level with `None`.
-    /// It goes to the end of its new parent. Into a folder of another
-    /// space it moves to that space with a new id: returns the folder's id
-    /// after the move.
+    /// It goes to the end of its new parent.
     ///
     /// # Errors
     ///
     /// Fails when the move would put a folder inside itself, or the target is
     /// missing or in the trash.
-    pub fn move_folder(&mut self, id: FolderId, parent: Option<FolderId>) -> Result<FolderId> {
-        // into a folder of another space: it moves to that space, with a
-        // new id there
-        if let Some(target) = parent {
-            let to = space_of(&self.conn, target)?;
-            if to != space_of(&self.conn, id)? {
-                let moved: FolderId = self
-                    .move_to_space(super::Item::Folder(id), &to)?
-                    .parse()
-                    .map_err(|_| Error::Corrupt("moved folder id".into()))?;
-                return self.move_folder(moved, parent);
-            }
-        }
+    pub fn move_folder(&mut self, id: FolderId, parent: Option<FolderId>) -> Result<()> {
         let now = self.now();
         let tx = self.conn.transaction()?;
         load(&tx, id)?;
@@ -278,8 +264,7 @@ impl Store {
             "UPDATE folders SET parent_id = ?2, position = ?3, updated_at = ?4 WHERE id = ?1",
             params![id, parent, position, now],
         )?;
-        crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
-        Ok(id)
+        crate::sync::finish(tx, &mut self.docs, self.clock.now())
     }
 
     /// Sets the order of a parent's children. Folders not listed keep their

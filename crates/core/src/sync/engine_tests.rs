@@ -12,48 +12,17 @@ use std::sync::Mutex;
 
 use app_e2ee::MasterKey;
 use app_protocol::e2ee::AccountKind;
-use app_protocol::sync::{
-    GiveGrants, GrantWanted, IncomingChange, PullAnswer, PushAnswer, PushRequest, SharedSpace,
-    SharedSpaces, SpaceGrant, SpaceRole,
-};
+use app_protocol::sync::{IncomingChange, PullAnswer, PushAnswer, PushRequest};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 
 use std::io::Read as _;
 
-use super::engine::{Access, Backoff, Remote, RemoteError, Round, SyncError, run as engine_run};
+use super::engine::{Access, Backoff, Remote, RemoteError, run};
 use super::files::{FileError, FilePart};
 use crate::id::NoteId;
 use crate::store::{NewLink, NewNote, NoteChange, Store, Tokens};
 use crate::testing::{Rng, random_change, view};
-
-/// A sync round. The owner added its spaces' members on its own devices,
-/// as the share dialog does, so they are let in first: an e2ee owner seals
-/// keys for nobody else.
-fn run(store: &impl Access, server: &mut Server) -> Result<Round, SyncError> {
-    let owned: Vec<(String, Vec<String>)> = server
-        .world
-        .borrow()
-        .spaces
-        .iter()
-        .filter(|(_, shared)| shared.owner == server.account)
-        .map(|(id, shared)| {
-            let members = shared.members.keys().filter(|m| **m != shared.owner);
-            (id.clone(), members.cloned().collect())
-        })
-        .collect();
-    store.with(|s| {
-        for (space, members) in &owned {
-            for member in members {
-                if !s.space_trusted(space, member)? {
-                    s.space_trust(space, member, None)?;
-                }
-            }
-        }
-        Ok(())
-    })?;
-    engine_run(store, server)
-}
 
 /// One account's log of changes.
 #[derive(Default)]
@@ -97,100 +66,18 @@ struct Faults {
     cut: bool,
 }
 
-/// A shared space on the server in memory.
-struct SharedState {
-    log: Rc<RefCell<Log>>,
-    kind: AccountKind,
-    owner: String,
-    /// Members by account id, the owner included.
-    members: HashMap<String, SpaceRole>,
-    /// E2ee: the latest key epoch, and the keys sealed for each member.
-    epoch: u32,
-    grants: HashMap<(String, u32), String>,
-}
-
-/// The server's shared spaces, seen by every account of a test.
-#[derive(Default)]
-struct World {
-    spaces: HashMap<String, SharedState>,
-    /// E2ee accounts' published keys.
-    public_keys: HashMap<String, String>,
-}
-
-impl World {
-    fn share(world: &Rc<RefCell<World>>, id: &str, owner: &str, kind: AccountKind) {
-        world.borrow_mut().spaces.insert(
-            id.into(),
-            SharedState {
-                log: Rc::default(),
-                kind,
-                owner: owner.into(),
-                members: HashMap::from([(owner.to_owned(), SpaceRole::Owner)]),
-                epoch: u32::from(kind == AccountKind::E2ee),
-                grants: HashMap::new(),
-            },
-        );
-    }
-
-    fn add(world: &Rc<RefCell<World>>, space: &str, member: &str, role: SpaceRole) {
-        world
-            .borrow_mut()
-            .spaces
-            .get_mut(space)
-            .unwrap()
-            .members
-            .insert(member.into(), role);
-    }
-
-    fn remove(world: &Rc<RefCell<World>>, space: &str, member: &str) {
-        let mut world = world.borrow_mut();
-        let shared = world.spaces.get_mut(space).unwrap();
-        shared.members.remove(member);
-        // e2ee: what is written from now on uses a key they never get
-        if shared.kind == AccountKind::E2ee {
-            shared.epoch += 1;
-        }
-    }
-}
-
 struct Server {
     log: Rc<RefCell<Log>>,
-    world: Rc<RefCell<World>>,
-    account: String,
     device: String,
     faults: Faults,
 }
 
-impl Server {
-    /// The log a call names, if this account may use it that way.
-    fn log_for(&self, space: Option<&str>, write: bool) -> Result<Rc<RefCell<Log>>, RemoteError> {
-        let Some(space) = space else {
-            return Ok(self.log.clone());
-        };
-        let world = self.world.borrow();
-        let shared = world
-            .spaces
-            .get(space)
-            .ok_or_else(|| RemoteError::Refused("404 no such space".into()))?;
-        match shared.members.get(&self.account) {
-            None => Err(RemoteError::Refused("403 not a member".into())),
-            Some(SpaceRole::Read) if write => Err(RemoteError::Refused("403 read only".into())),
-            Some(_) => Ok(shared.log.clone()),
-        }
-    }
-}
-
 impl Remote for Server {
-    fn push(
-        &mut self,
-        space: Option<&str>,
-        request: &PushRequest,
-    ) -> Result<PushAnswer, RemoteError> {
+    fn push(&mut self, request: &PushRequest) -> Result<PushAnswer, RemoteError> {
         if self.faults.offline {
             return Err(RemoteError::Offline("no network".into()));
         }
-        let log = self.log_for(space, true)?;
-        let mut log = log.borrow_mut();
+        let mut log = self.log.borrow_mut();
         let mut accepted = 0;
         for change in &request.changes {
             if log.ids.insert(change.id.clone()) {
@@ -224,17 +111,11 @@ impl Remote for Server {
         })
     }
 
-    fn pull(
-        &mut self,
-        space: Option<&str>,
-        after: i64,
-        limit: usize,
-    ) -> Result<PullAnswer, RemoteError> {
+    fn pull(&mut self, after: i64, limit: usize) -> Result<PullAnswer, RemoteError> {
         if self.faults.offline {
             return Err(RemoteError::Offline("no network".into()));
         }
-        let log = self.log_for(space, false)?;
-        let log = log.borrow();
+        let log = self.log.borrow();
         let start = usize::try_from(after).unwrap().min(log.changes.len());
         let mut end = start;
         let mut page = Vec::new();
@@ -264,16 +145,11 @@ impl Remote for Server {
         })
     }
 
-    fn heavy(
-        &mut self,
-        space: Option<&str>,
-        min: i64,
-    ) -> Result<app_protocol::sync::HeavyDocs, RemoteError> {
+    fn heavy(&mut self, min: i64) -> Result<app_protocol::sync::HeavyDocs, RemoteError> {
         if self.faults.offline {
             return Err(RemoteError::Offline("no network".into()));
         }
-        let log = self.log_for(space, false)?;
-        let log = log.borrow();
+        let log = self.log.borrow();
         let mut docs: Vec<String> = log.changes.iter().map(|c| c.doc.clone()).collect();
         docs.sort();
         docs.dedup();
@@ -287,65 +163,6 @@ impl Remote for Server {
                 .filter(|d| d.changes >= min)
                 .collect(),
         })
-    }
-
-    fn spaces(&mut self) -> Result<Option<SharedSpaces>, RemoteError> {
-        if self.faults.offline {
-            return Err(RemoteError::Offline("no network".into()));
-        }
-        let world = self.world.borrow();
-        let mut spaces: Vec<SharedSpace> = world
-            .spaces
-            .iter()
-            .filter_map(|(id, shared)| {
-                shared.members.get(&self.account).map(|role| {
-                    let grants = shared
-                        .grants
-                        .iter()
-                        .filter(|((user, _), _)| *user == self.account)
-                        .map(|((_, epoch), grant)| SpaceGrant {
-                            epoch: *epoch,
-                            grant: grant.clone(),
-                        })
-                        .collect();
-                    let mut wanted = Vec::new();
-                    if *role == SpaceRole::Owner {
-                        for member in shared.members.keys() {
-                            let Some(public_key) = world.public_keys.get(member) else {
-                                continue;
-                            };
-                            for epoch in 1..=shared.epoch {
-                                if !shared.grants.contains_key(&(member.clone(), epoch)) {
-                                    wanted.push(GrantWanted {
-                                        user_id: member.clone(),
-                                        public_key: public_key.clone(),
-                                        epoch,
-                                        name: member.clone(),
-                                    });
-                                }
-                            }
-                        }
-                    }
-                    SharedSpace {
-                        id: id.clone(),
-                        role: *role,
-                        kind: shared.kind,
-                        owner: shared.owner.clone(),
-                        owner_key: world
-                            .public_keys
-                            .get(&shared.owner)
-                            .cloned()
-                            .unwrap_or_default(),
-                        head: i64::try_from(shared.log.borrow().changes.len()).unwrap(),
-                        epoch: shared.epoch,
-                        grants,
-                        grants_wanted: wanted,
-                    }
-                })
-            })
-            .collect();
-        spaces.sort_by(|a, b| a.id.cmp(&b.id));
-        Ok(Some(SharedSpaces { spaces }))
     }
 
     fn files_info(&mut self) -> Result<Option<app_protocol::files::FilesInfo>, RemoteError> {
@@ -374,17 +191,12 @@ impl Remote for Server {
         }))
     }
 
-    fn file_state(
-        &mut self,
-        space: Option<&str>,
-        address: &str,
-    ) -> Result<app_protocol::files::FileState, FileError> {
+    fn file_state(&mut self, address: &str) -> Result<app_protocol::files::FileState, FileError> {
         use app_protocol::files::{FileState, FileStatus};
         if self.faults.offline {
             return Err(RemoteError::Offline("no network".into()).into());
         }
-        let log = self.log_for(space, false)?;
-        let log = log.borrow();
+        let log = self.log.borrow();
         Ok(match log.files.get(address) {
             None => FileState {
                 status: FileStatus::None,
@@ -405,16 +217,14 @@ impl Remote for Server {
 
     fn put_file(
         &mut self,
-        space: Option<&str>,
         address: &str,
         part: FilePart<'_>,
     ) -> Result<app_protocol::files::FileState, FileError> {
         if self.faults.offline {
             return Err(RemoteError::Offline("no network".into()).into());
         }
-        let log = self.log_for(space, true)?;
         {
-            let mut log = log.borrow_mut();
+            let mut log = self.log.borrow_mut();
             let file = log.files.entry(address.to_owned()).or_default();
             if !file.complete || file.released {
                 if part.start == 0 {
@@ -438,19 +248,14 @@ impl Remote for Server {
         if self.faults.lose_answer {
             return Err(RemoteError::Offline("answer lost".into()).into());
         }
-        self.file_state(space, address)
+        self.file_state(address)
     }
 
-    fn get_file(
-        &mut self,
-        space: Option<&str>,
-        address: &str,
-    ) -> Result<Box<dyn std::io::Read + Send>, FileError> {
+    fn get_file(&mut self, address: &str) -> Result<Box<dyn std::io::Read + Send>, FileError> {
         if self.faults.offline {
             return Err(RemoteError::Offline("no network".into()).into());
         }
-        let log = self.log_for(space, false)?;
-        let log = log.borrow();
+        let log = self.log.borrow();
         let file = log
             .files
             .get(address)
@@ -466,12 +271,11 @@ impl Remote for Server {
         Ok(Box::new(std::io::Cursor::new(data)))
     }
 
-    fn keep_file(&mut self, space: Option<&str>, address: &str) -> Result<(), FileError> {
+    fn keep_file(&mut self, address: &str) -> Result<(), FileError> {
         if self.faults.offline {
             return Err(RemoteError::Offline("no network".into()).into());
         }
-        let log = self.log_for(space, true)?;
-        let mut log = log.borrow_mut();
+        let mut log = self.log.borrow_mut();
         let file = log
             .files
             .get_mut(address)
@@ -481,17 +285,11 @@ impl Remote for Server {
         Ok(())
     }
 
-    fn release_file(
-        &mut self,
-        space: Option<&str>,
-        address: &str,
-        head: i64,
-    ) -> Result<bool, FileError> {
+    fn release_file(&mut self, address: &str, head: i64) -> Result<bool, FileError> {
         if self.faults.offline {
             return Err(RemoteError::Offline("no network".into()).into());
         }
-        let log = self.log_for(space, true)?;
-        let mut log = log.borrow_mut();
+        let mut log = self.log.borrow_mut();
         if i64::try_from(log.changes.len()).unwrap() != head {
             return Ok(false);
         }
@@ -502,28 +300,6 @@ impl Remote for Server {
             return Err(RemoteError::Offline("answer lost".into()).into());
         }
         Ok(true)
-    }
-
-    fn give_grants(&mut self, space: &str, given: &GiveGrants) -> Result<(), RemoteError> {
-        if self.faults.offline {
-            return Err(RemoteError::Offline("no network".into()));
-        }
-        let mut world = self.world.borrow_mut();
-        let shared = world
-            .spaces
-            .get_mut(space)
-            .ok_or_else(|| RemoteError::Refused("404".into()))?;
-        if shared.members.get(&self.account) != Some(&SpaceRole::Owner) {
-            return Err(RemoteError::Refused("403 owners only".into()));
-        }
-        for grant in &given.grants {
-            // the first key sealed for a member and epoch stays
-            shared
-                .grants
-                .entry((grant.user_id.clone(), given.epoch))
-                .or_insert_with(|| grant.grant.clone());
-        }
-        Ok(())
     }
 }
 
@@ -560,38 +336,19 @@ fn tokens() -> Tokens {
     }
 }
 
-/// The account: its log, the server's shared spaces and, for e2ee, its
-/// key bytes.
+/// The account: its log and, for e2ee, its key bytes.
 struct Account {
     id: String,
     log: Rc<RefCell<Log>>,
-    world: Rc<RefCell<World>>,
     key: Option<[u8; 32]>,
-    /// E2ee: the key pair's halves, every device of the account gets it.
-    pair: Option<(String, [u8; 32])>,
 }
 
 impl Account {
     fn new(id: &str, kind: AccountKind) -> Self {
-        Self::on(id, kind, &Rc::default())
-    }
-
-    /// Another account on the same server as others.
-    fn on(id: &str, kind: AccountKind, world: &Rc<RefCell<World>>) -> Self {
-        let pair = (kind == AccountKind::E2ee).then(|| {
-            let pair = app_e2ee::new_key_pair();
-            world
-                .borrow_mut()
-                .public_keys
-                .insert(id.into(), pair.public_text());
-            (pair.public_text(), *pair.private())
-        });
         Self {
             id: id.into(),
             log: Rc::default(),
-            world: world.clone(),
             key: (kind == AccountKind::E2ee).then(|| *MasterKey::generate().as_bytes()),
-            pair,
         }
     }
 
@@ -611,11 +368,6 @@ impl Account {
                 tokens: tokens(),
             })
             .unwrap();
-        if let Some((public, private)) = &self.pair {
-            store
-                .sync_set_key_pair(&app_e2ee::KeyPair::from_parts(public, private).unwrap())
-                .unwrap();
-        }
     }
 
     fn device(&self, name: &str) -> Device {
@@ -629,8 +381,6 @@ impl Account {
             store: Mutex::new(store),
             server: Server {
                 log: self.log.clone(),
-                world: self.world.clone(),
-                account: self.id.clone(),
                 device: name.into(),
                 faults: Faults::default(),
             },
@@ -745,8 +495,6 @@ fn a_device_with_the_wrong_key_sets_changes_aside_and_goes_on() {
     let stranger = Account {
         id: "acct".into(),
         log: account.log.clone(),
-        world: account.world.clone(),
-        pair: None,
         key: Some(*MasterKey::generate().as_bytes()),
     };
     let mut odd = stranger.device("odd");
@@ -828,10 +576,10 @@ fn a_page_taken_twice_changes_nothing() {
         a.note(&format!("n{i}"), "x");
     }
     a.sync();
-    let page = a.server.pull(None, 0, 1000).unwrap();
-    let first = b.s().sync_take_page("", &page).unwrap();
+    let page = a.server.pull(0, 1000).unwrap();
+    let first = b.s().sync_take_page(&page).unwrap();
     let before = b.view();
-    let again = b.s().sync_take_page("", &page).unwrap();
+    let again = b.s().sync_take_page(&page).unwrap();
     assert!(first.applied > 0);
     assert_eq!(again, crate::store::Taken::default());
     assert_eq!(b.view(), before);
@@ -1112,29 +860,24 @@ fn a_device_that_cannot_vouch_for_a_document_does_not_compact_it() {
     let stranger = Account {
         id: "acct".into(),
         log: account.log.clone(),
-        world: account.world.clone(),
-        pair: None,
         key: None,
     };
     let mut b = stranger.device("b");
     b.sync();
     b.s()
-        .sync_take_page(
-            "",
-            &app_protocol::sync::PullAnswer {
-                changes: vec![IncomingChange {
-                    seq: 1000,
-                    id: "bad".into(),
-                    doc: id.to_string(),
-                    data: STANDARD.encode(b"not loro"),
-                    device: Some("other".into()),
-                }],
-                keys: vec![],
-                head: 1000,
-                more: false,
-                anchor: None,
-            },
-        )
+        .sync_take_page(&app_protocol::sync::PullAnswer {
+            changes: vec![IncomingChange {
+                seq: 1000,
+                id: "bad".into(),
+                doc: id.to_string(),
+                data: STANDARD.encode(b"not loro"),
+                device: Some("other".into()),
+            }],
+            keys: vec![],
+            head: 1000,
+            more: false,
+            anchor: None,
+        })
         .unwrap();
     assert!(!b.s().sync_queue_compaction(&id.to_string()).unwrap());
 }
@@ -1297,852 +1040,379 @@ fn notes_deleted_for_good_a_month_ago_are_forgotten_here_and_on_the_server() {
     assert!(c.s().note(gone).is_err());
 }
 
-mod sharing {
+/// Vaults written by versions that still shared notes, with a space
+/// shared to edit, one shared to read, an e2ee space this account owns
+/// with a member it let in and one waiting, and an e2ee space whose key
+/// never came. Every note is kept when they open, then syncs as any other.
+mod old_vaults {
+    use std::path::Path;
+
+    use rusqlite::Connection;
+
     use super::*;
+    use crate::db::{insert_any, migrate_to, schema_version};
     use crate::model::{NoteScope, NoteSort};
-    use crate::store::Item;
-    use crate::testing::space_view;
 
-    const SPACE_ID: &str = "11111111-2222-3333-4444-555555555555";
+    const EDIT: &str = "11111111-2222-3333-4444-555555555555";
+    const READ: &str = "22222222-2222-3333-4444-555555555555";
+    const TRUSTED: &str = "33333333-2222-3333-4444-555555555555";
+    const WAITING: &str = "44444444-2222-3333-4444-555555555555";
 
-    /// Sam shares a folder with Alex (`role`): the server's space, both
-    /// accounts on it, Sam's laptop with the folder and two notes in it.
-    fn shared_folder(role: SpaceRole) -> (Account, Device, Device, crate::id::FolderId) {
-        let world: Rc<RefCell<World>> = Rc::default();
-        let sam = Account::on("sam", AccountKind::Standard, &world);
-        let alex = Account::on("alex", AccountKind::Standard, &world);
-        let mut laptop = sam.device("laptop");
-        let folder = laptop.s().create_folder(None, "Trip").unwrap();
-        for title in ["Tickets", "Packing"] {
-            let id = laptop.note(title, "to do");
-            laptop.s().move_note(id, Some(folder.id)).unwrap();
-        }
-        laptop.note("Private", "only mine");
-        laptop.sync();
-        World::share(&world, SPACE_ID, "sam", AccountKind::Standard);
-        World::add(&world, SPACE_ID, "alex", role);
-        laptop.sync();
-        let moved = laptop
-            .s()
-            .move_to_space(Item::Folder(folder.id), SPACE_ID)
-            .unwrap();
-        laptop.sync();
-        let phone = alex.device("phone");
-        (sam, laptop, phone, moved.parse().unwrap())
+    const PLAN: &str = "01a16bcd-5fea-73a0-9044-6dbdccb22870";
+    const SEEDS: &str = "01a16bcd-5fea-73a0-9044-6dbdccb22871";
+    const TOMATOES: &str = "01a16bcd-5fea-73a0-9044-6dbdccb22872";
+    const VARIETIES: &str = "01a16bcd-5fea-73a0-9044-6dbdccb22873";
+    const MEETING: &str = "01a16bcd-5fea-73a0-9044-6dbdccb22874";
+    const SOUPS: &str = "01a16bcd-5fea-73a0-9044-6dbdccb22875";
+    const LEEK: &str = "01a16bcd-5fea-73a0-9044-6dbdccb22876";
+    const BUDGET: &str = "01a16bcd-5fea-73a0-9044-6dbdccb22877";
+    const FILE: &str = "01a16bcd-5fea-73a0-9044-6dbdccb22878";
+    const TAG: &str = "01a16bcd-5fea-73a0-9044-6dbdccb22879";
+
+    /// Every note of the vault, as the person reads it.
+    const TITLES: [&str; 5] = [
+        "Budget 2027",
+        "Club meeting",
+        "Leek soup",
+        "Tomato varieties",
+        "Weekly plan",
+    ];
+
+    fn has_table(conn: &Connection, name: &str) -> bool {
+        conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+            [name],
+            |r| r.get(0),
+        )
+        .unwrap()
     }
 
-    fn note_in(device: &Device, folder: crate::id::FolderId, title: &str) -> NoteId {
-        device
-            .s()
-            .list_notes(NoteScope::Folder(Some(folder)), NoteSort::TitleAsc)
-            .unwrap()
-            .into_iter()
-            .find(|n| n.title == title)
-            .unwrap()
-            .id
-    }
-
-    #[test]
-    fn a_shared_folder_reaches_the_member_and_their_edits_come_back() {
-        let (_, mut laptop, mut phone, folder) = shared_folder(SpaceRole::Edit);
-        phone.sync();
-        assert!(phone.view().contains("Tickets") && phone.view().contains("Packing"));
-        assert!(!phone.view().contains("Private"), "only what was shared");
-        assert_eq!(
-            space_view(&laptop.s(), SPACE_ID),
-            space_view(&phone.s(), SPACE_ID)
-        );
-        // on sam's side the folder left the personal space
-        assert!(!space_view(&laptop.s(), "").contains("Trip"));
-        let roots = phone.s().space_roots(SPACE_ID).unwrap();
-        assert_eq!((roots.folders, roots.notes.len()), (vec![folder], 0));
-        let folders = laptop.s().list_folders().unwrap();
-        assert!(
-            folders
-                .iter()
-                .any(|f| f.id == folder && f.space_id == SPACE_ID)
-        );
-
-        // alex edits and adds a note in it, sam sees both
-        let tickets = note_in(&phone, folder, "Tickets");
-        phone
-            .s()
-            .update_note(
-                tickets,
-                NoteChange {
-                    body: Some("train booked".into()),
-                    ..NoteChange::default()
-                },
-            )
-            .unwrap();
-        let added = phone
-            .s()
-            .create_note(&NewNote {
-                title: "Hotel".into(),
-                body: "two nights".into(),
-                folder_id: Some(folder),
-                ..NewNote::default()
-            })
-            .unwrap();
-        assert_eq!(
-            added.space_id, SPACE_ID,
-            "a note made in a shared folder is shared"
-        );
-        phone.sync();
-        laptop.sync();
-        assert_eq!(
-            space_view(&laptop.s(), SPACE_ID),
-            space_view(&phone.s(), SPACE_ID)
-        );
-        assert!(laptop.view().contains("train booked") && laptop.view().contains("two nights"));
-    }
-
-    #[test]
-    fn the_owners_other_devices_follow_the_move() {
-        let (sam, mut laptop, _, _) = shared_folder(SpaceRole::Read);
-        let mut desk = sam.device("desk");
-        desk.sync();
-        same(&laptop, &desk);
-        laptop.sync();
-        same(&laptop, &desk);
-        assert!(desk.view().contains(&format!("space={SPACE_ID:?}")));
-    }
-
-    #[test]
-    fn a_reader_cannot_change_anything_and_the_server_would_refuse_it() {
-        let (_, _, mut phone, folder) = shared_folder(SpaceRole::Read);
-        phone.sync();
-        let note = note_in(&phone, folder, "Tickets");
-        let refused = phone.s().update_note(
-            note,
-            NoteChange {
-                body: Some("no".into()),
-                ..NoteChange::default()
-            },
-        );
-        assert!(matches!(refused, Err(crate::Error::Invalid(_))));
-        assert!(phone.s().set_pinned(note, true).is_err());
-        assert!(phone.s().trash_note(note).is_err());
-        assert!(
-            phone
-                .s()
-                .create_note(&NewNote {
-                    folder_id: Some(folder),
-                    ..NewNote::default()
-                })
-                .is_err()
-        );
-        assert!(
-            phone.s().move_to_space(Item::Note(note), "").is_err(),
-            "not out of it either"
-        );
-        assert!(!phone.view().contains("\"no\""), "nothing changed here");
-        assert_eq!(phone.s().sync_counts().unwrap().pending, 0);
-        // and the server says no to a reader's push all the same
-        let request = PushRequest { changes: vec![] };
-        assert!(phone.server.push(Some(SPACE_ID), &request).is_err());
-    }
-
-    #[test]
-    fn a_removed_member_keeps_every_note_as_their_own() {
-        let (_, mut laptop, mut phone, _) = shared_folder(SpaceRole::Edit);
-        phone.sync();
-        let before = phone.view();
-        assert!(before.contains("Tickets") && before.contains("Packing"));
-        World::remove(&laptop.server.world, SPACE_ID, "alex");
-        phone.sync();
-        // no longer shared: nothing of the space is left to follow
-        assert!(phone.s().shared_spaces().unwrap().is_empty());
-        assert!(!phone.s().doc_stored_for_tests(&format!("{SPACE_ID}/space")));
-        // and nothing was lost, the notes and their folder are in the person's own
-        let mine = space_view(&phone.s(), "");
-        assert!(
-            mine.contains("Tickets") && mine.contains("Packing") && mine.contains("Trip"),
-            "{mine}"
-        );
-        // they sync as the person's own notes, once, nothing left waiting
-        phone.sync();
-        assert_eq!(phone.s().sync_counts().unwrap().pending, 0);
-        assert_eq!(phone.s().sync_rejected().unwrap(), 0);
-        assert_eq!(space_view(&phone.s(), ""), mine, "no second copy");
-        let note = phone.s().space_roots("").unwrap().notes.len();
-        assert_eq!(note, 0, "the notes stay in their folder, not at the top");
-        laptop.sync();
-        assert!(laptop.view().contains("Tickets"), "the owner keeps it");
-    }
-
-    #[test]
-    fn stopping_sharing_brings_everything_back_to_the_owner() {
-        let (_, mut laptop, mut phone, folder) = shared_folder(SpaceRole::Edit);
-        phone.sync();
-        let back = laptop.s().move_to_space(Item::Folder(folder), "").unwrap();
-        laptop.sync();
-        laptop.server.world.borrow_mut().spaces.remove(SPACE_ID);
-        laptop.sync();
-        phone.sync();
-        assert!(phone.s().shared_spaces().unwrap().is_empty());
-        assert!(
-            space_view(&phone.s(), "").contains("Tickets"),
-            "the member keeps a copy of what was shared"
-        );
-        let mine = space_view(&laptop.s(), "");
-        assert!(mine.contains("Tickets") && mine.contains("Packing") && mine.contains("Trip"));
-        assert!(
-            laptop
-                .s()
-                .list_folders()
-                .unwrap()
-                .iter()
-                .any(|f| f.id.to_string() == back)
-        );
-        assert!(laptop.s().shared_spaces().unwrap().is_empty());
-    }
-
-    #[test]
-    fn an_edit_made_before_the_move_was_seen_is_kept() {
-        let world: Rc<RefCell<World>> = Rc::default();
-        let sam = Account::on("sam", AccountKind::Standard, &world);
-        let mut laptop = sam.device("laptop");
-        let mut desk = sam.device("desk");
-        let id = laptop.note("Plan", "first");
-        laptop.sync();
-        desk.sync();
-        World::share(&world, SPACE_ID, "sam", AccountKind::Standard);
-        laptop.sync();
-        desk.sync();
-        // the desk edits while the laptop moves the note into the share
-        desk.s()
-            .update_note(
-                id,
-                NoteChange {
-                    body: Some("first, then more".into()),
-                    ..NoteChange::default()
-                },
-            )
-            .unwrap();
-        laptop.s().move_to_space(Item::Note(id), SPACE_ID).unwrap();
-        laptop.sync();
-        desk.sync();
-        laptop.sync();
-        same(&laptop, &desk);
-        // the shared copy and the original with the edit, nothing lost
-        let all = laptop.view();
-        assert!(all.contains("first, then more"), "{all}");
-        assert!(space_view(&laptop.s(), SPACE_ID).contains("\"first\""));
-        assert_eq!(
-            laptop.s().note_conflict(id).unwrap().map(|c| c.kind),
-            Some("editedAfterDelete")
-        );
-    }
-
-    #[test]
-    fn history_tags_and_versions_go_with_a_moved_note() {
-        let world: Rc<RefCell<World>> = Rc::default();
-        let sam = Account::on("sam", AccountKind::Standard, &world);
-        let mut laptop = sam.device("laptop");
-        World::share(&world, SPACE_ID, "sam", AccountKind::Standard);
-        laptop.sync();
-        let id = laptop.note("Recipe", "flour");
-        laptop.s().set_note_tags(id, &["Baking".into()]).unwrap();
-        laptop.s().set_pinned(id, true).unwrap();
-        laptop
-            .s()
-            .update_note(
-                id,
-                NoteChange {
-                    body: Some("flour, eggs".into()),
-                    ..NoteChange::default()
-                },
-            )
-            .unwrap();
-        let versions = laptop.s().list_versions(id).unwrap().len();
-        let moved: NoteId = laptop
-            .s()
-            .move_to_space(Item::Note(id), SPACE_ID)
-            .unwrap()
-            .parse()
-            .unwrap();
-        let note = laptop.s().note(moved).unwrap();
-        assert_eq!(note.body, "flour, eggs");
-        assert!(note.pinned);
-        assert_eq!(note.tags, vec!["Baking".to_owned()]);
-        assert_eq!(laptop.s().list_versions(moved).unwrap().len(), versions);
-        assert!(laptop.s().note(id).is_err(), "the original is gone");
-    }
-}
-
-mod e2ee_sharing {
-    use super::*;
-    use crate::model::{NoteScope, NoteSort};
-    use crate::store::Item;
-    use crate::testing::space_view;
-
-    const SPACE_ID: &str = "aaaaaaaa-2222-3333-4444-555555555555";
-
-    fn readable(log: &Log, words: &[&str]) -> bool {
-        log.changes.iter().any(|c| {
-            let bytes = STANDARD.decode(&c.data).unwrap();
-            words
-                .iter()
-                .any(|w| bytes.windows(w.len()).any(|x| x == w.as_bytes()))
-        })
-    }
-
-    #[test]
-    fn an_e2ee_share_is_read_by_its_members_only_and_never_by_the_server() {
-        let world: Rc<RefCell<World>> = Rc::default();
-        let sam = Account::on("sam", AccountKind::E2ee, &world);
-        let alex = Account::on("alex", AccountKind::E2ee, &world);
-        let mut laptop = sam.device("laptop");
-        let folder = laptop.s().create_folder(None, "Secret trip").unwrap();
-        let id = laptop.note("Passports", "numbers in the safe");
-        laptop.s().move_note(id, Some(folder.id)).unwrap();
-        World::share(&world, SPACE_ID, "sam", AccountKind::E2ee);
-        World::add(&world, SPACE_ID, "alex", SpaceRole::Edit);
-        laptop.sync();
-        assert_eq!(laptop.s().space_key_epochs(SPACE_ID).unwrap(), vec![1]);
-        laptop
-            .s()
-            .move_to_space(Item::Folder(folder.id), SPACE_ID)
-            .unwrap();
-        laptop.sync();
-
-        let mut phone = alex.device("phone");
-        phone.sync();
-        assert_eq!(
-            space_view(&laptop.s(), SPACE_ID),
-            space_view(&phone.s(), SPACE_ID)
-        );
-        assert!(phone.view().contains("numbers in the safe"));
-        let log = world.borrow().spaces[SPACE_ID].log.clone();
-        assert!(
-            !readable(
-                &log.borrow(),
-                &["numbers in the safe", "Secret trip", "Passports"]
-            ),
-            "the server reads nothing of it"
-        );
-
-        // sam's other device opens the key from its own grant
-        let mut desk = sam.device("desk");
-        desk.sync();
-        same(&laptop, &desk);
-    }
-
-    #[test]
-    fn a_removed_member_cannot_read_what_comes_after_and_a_new_one_reads_everything() {
-        let world: Rc<RefCell<World>> = Rc::default();
-        let sam = Account::on("sam", AccountKind::E2ee, &world);
-        let alex = Account::on("alex", AccountKind::E2ee, &world);
-        let kim = Account::on("kim", AccountKind::E2ee, &world);
-        let mut laptop = sam.device("laptop");
-        World::share(&world, SPACE_ID, "sam", AccountKind::E2ee);
-        World::add(&world, SPACE_ID, "alex", SpaceRole::Read);
-        laptop.sync();
-        let id = laptop.note("Plan", "before alex left");
-        laptop.s().move_to_space(Item::Note(id), SPACE_ID).unwrap();
-        laptop.sync();
-        let mut phone = alex.device("phone");
-        phone.sync();
-        assert!(phone.view().contains("before alex left"));
-
-        World::remove(&world, SPACE_ID, "alex");
-        laptop.sync();
-        assert_eq!(
-            laptop.s().space_key_epochs(SPACE_ID).unwrap(),
-            vec![1, 2],
-            "a new key"
-        );
-        let shared = laptop
-            .s()
-            .list_notes(NoteScope::All, NoteSort::TitleAsc)
-            .unwrap()[0]
-            .id;
-        laptop
-            .s()
-            .update_note(
-                shared,
-                NoteChange {
-                    body: Some("after alex left".into()),
-                    ..NoteChange::default()
-                },
-            )
-            .unwrap();
-        laptop.sync();
-        // alex's device kept the old key: the new change does not open with it
-        let after = world.borrow().spaces[SPACE_ID]
-            .log
-            .borrow()
-            .changes
-            .last()
-            .unwrap()
-            .clone();
-        let bytes = STANDARD.decode(&after.data).unwrap();
-        assert_eq!(&bytes[..4], &2u32.to_be_bytes(), "sealed with epoch 2");
-        phone.sync();
-        assert!(
-            !phone.view().contains("after alex left"),
-            "and alex is out anyway"
-        );
-
-        // kim joins later and reads the whole note, old changes included
-        World::add(&world, SPACE_ID, "kim", SpaceRole::Edit);
-        laptop.sync();
-        let mut tablet = kim.device("tablet");
-        tablet.sync();
-        assert_eq!(tablet.s().space_key_epochs(SPACE_ID).unwrap(), vec![1, 2]);
-        assert!(tablet.view().contains("after alex left"));
-        assert_eq!(tablet.s().sync_rejected().unwrap(), 0);
-        assert_eq!(
-            space_view(&laptop.s(), SPACE_ID),
-            space_view(&tablet.s(), SPACE_ID)
-        );
-    }
-
-    #[test]
-    fn a_member_waits_for_the_owner_s_device_before_reading() {
-        let world: Rc<RefCell<World>> = Rc::default();
-        let sam = Account::on("sam", AccountKind::E2ee, &world);
-        let alex = Account::on("alex", AccountKind::E2ee, &world);
-        let mut laptop = sam.device("laptop");
-        World::share(&world, SPACE_ID, "sam", AccountKind::E2ee);
-        laptop.sync();
-        let id = laptop.note("Plan", "shared");
-        laptop.s().move_to_space(Item::Note(id), SPACE_ID).unwrap();
-        laptop.sync();
-        // alex is added while sam's devices are away
-        World::add(&world, SPACE_ID, "alex", SpaceRole::Edit);
-        let mut phone = alex.device("phone");
-        phone.sync();
-        assert!(!phone.view().contains("shared"), "no key yet");
-        assert_eq!(
-            phone.s().sync_rejected().unwrap(),
-            0,
-            "nothing set aside meanwhile"
-        );
-        laptop.sync();
-        phone.sync();
-        assert!(phone.view().contains("shared"));
-    }
-
-    /// A server listing someone the owner did
-    /// not add, or a new key for a member, gets no space key; both wait for
-    /// the owner, who can still let them in on purpose.
-    #[test]
-    fn a_server_listing_a_stranger_or_a_swapped_key_gets_no_space_key() {
-        let world: Rc<RefCell<World>> = Rc::default();
-        let sam = Account::on("sam", AccountKind::E2ee, &world);
-        let _alex = Account::on("alex", AccountKind::E2ee, &world);
-        let mut laptop = sam.device("laptop");
-        World::share(&world, SPACE_ID, "sam", AccountKind::E2ee);
-        World::add(&world, SPACE_ID, "alex", SpaceRole::Edit);
-        laptop.sync();
-
-        let mut space = laptop.server.spaces().unwrap().unwrap().spaces[0].clone();
-        let server_key = app_e2ee::new_key_pair().public_text();
-        let wanted = |user: &str| GrantWanted {
-            user_id: user.into(),
-            public_key: server_key.clone(),
-            epoch: 1,
-            name: user.into(),
+    /// A vault as the version at schema step `from` wrote it. With
+    /// `documents` its sync documents are built too, as a vault that synced
+    /// has them; without, the rows came in quietly and have none.
+    #[expect(clippy::too_many_lines, reason = "the whole vault, read top to bottom")]
+    fn old_vault(path: &Path, from: usize, documents: bool) {
+        let conn = Connection::open(path).unwrap();
+        migrate_to(&conn, from).unwrap();
+        let note = |id: &str, title: &str, body: &str, rest: &[(&str, &str)]| {
+            let mut values = vec![
+                ("id", id),
+                ("title", title),
+                ("body", body),
+                ("created_at", "1700000000000"),
+                ("updated_at", "1700000000000"),
+            ];
+            values.extend_from_slice(rest);
+            insert_any(&conn, "notes", &values);
         };
-        space.grants_wanted = vec![wanted("mallory"), wanted("alex")];
-        let given = laptop.s().sync_grants_to_give(&space).unwrap();
-        assert!(given.iter().all(|g| g.grants.is_empty()), "{given:?}");
-        let waiting = laptop.s().space_waiting(SPACE_ID).unwrap();
-        assert_eq!(
-            waiting
-                .iter()
-                .map(|w| (w.user_id.as_str(), w.changed))
-                .collect::<Vec<_>>(),
-            vec![("alex", true), ("mallory", false)]
-        );
-
-        // the owner compared and lets mallory in on purpose
-        laptop
-            .s()
-            .space_trust(SPACE_ID, "mallory", Some(&server_key))
-            .unwrap();
-        let given = laptop.s().sync_grants_to_give(&space).unwrap();
-        let to: Vec<&str> = given
-            .iter()
-            .flat_map(|g| g.grants.iter().map(|grant| grant.user_id.as_str()))
-            .collect();
-        assert_eq!(to, vec!["mallory"]);
-    }
-
-    /// A grant the server makes with a key of
-    /// its own, for an epoch far ahead or under a swapped owner key, is not
-    /// taken by a member who already reads the space.
-    #[test]
-    fn a_member_takes_space_keys_from_the_owner_only() {
-        let world: Rc<RefCell<World>> = Rc::default();
-        let sam = Account::on("sam", AccountKind::E2ee, &world);
-        let alex = Account::on("alex", AccountKind::E2ee, &world);
-        let mut laptop = sam.device("laptop");
-        World::share(&world, SPACE_ID, "sam", AccountKind::E2ee);
-        World::add(&world, SPACE_ID, "alex", SpaceRole::Edit);
-        let mut phone = alex.device("phone");
-        phone.sync();
-        laptop.sync();
-        phone.sync();
-        let id = laptop.note("Plan", "shared");
-        laptop.s().move_to_space(Item::Note(id), SPACE_ID).unwrap();
-        laptop.sync();
-        phone.sync();
-        assert!(phone.view().contains("shared"));
-
-        let alex_key = world.borrow().public_keys["alex"].clone();
-        let server = app_e2ee::new_key_pair();
-        let planted = app_e2ee::new_space_key();
-        let mut space = phone.server.spaces().unwrap().unwrap().spaces[0].clone();
-        for epoch in [2, u32::MAX] {
-            let grant = app_e2ee::grant(SPACE_ID, epoch, &planted, &alex_key, &server).unwrap();
-            space.grants.push(SpaceGrant { epoch, grant });
+        note(PLAN, "Weekly plan", "Order more cedar posts", &[]);
+        for (id, role, kind) in [
+            (EDIT, "edit", "standard"),
+            (READ, "read", "standard"),
+            (TRUSTED, "owner", "e2ee"),
+            (WAITING, "edit", "e2ee"),
+        ] {
+            insert_any(
+                &conn,
+                "spaces",
+                &[
+                    ("id", id),
+                    ("role", role),
+                    ("kind", kind),
+                    ("owner_name", "alex"),
+                    ("cursor", "12"),
+                ],
+            );
         }
-        assert_eq!(phone.s().sync_accept_grants(&space).unwrap(), 0);
-        // the server now names its own key as the owner's
-        space.owner_key = server.public_text();
-        assert_eq!(phone.s().sync_accept_grants(&space).unwrap(), 0);
-        assert_eq!(phone.s().space_key_epochs(SPACE_ID).unwrap(), vec![1]);
+        insert_any(
+            &conn,
+            "space_keys",
+            &[
+                ("space_id", TRUSTED),
+                ("epoch", "1"),
+                ("key", "a space key"),
+            ],
+        );
+        if has_table(&conn, "space_trust") {
+            insert_any(
+                &conn,
+                "space_trust",
+                &[
+                    ("space_id", TRUSTED),
+                    ("user_id", "sam"),
+                    ("public_key", "c2Ftcw"),
+                ],
+            );
+            insert_any(
+                &conn,
+                "space_waiting",
+                &[
+                    ("space_id", TRUSTED),
+                    ("user_id", "robin"),
+                    ("name", "robin"),
+                    ("public_key", "cm9iaW4"),
+                ],
+            );
+        }
+        insert_any(
+            &conn,
+            "folders",
+            &[("id", SEEDS), ("name", "Seeds"), ("space_id", EDIT)],
+        );
+        insert_any(
+            &conn,
+            "folders",
+            &[
+                ("id", TOMATOES),
+                ("parent_id", SEEDS),
+                ("name", "Tomatoes"),
+                ("space_id", EDIT),
+            ],
+        );
+        note(
+            VARIETIES,
+            "Tomato varieties",
+            "Black Krim, San Marzano",
+            &[("folder_id", TOMATOES), ("space_id", EDIT)],
+        );
+        note(
+            MEETING,
+            "Club meeting",
+            "Bring the seed trays",
+            &[("space_id", EDIT), ("trashed_at", "5")],
+        );
+        insert_any(&conn, "tags", &[("id", TAG), ("name", "club")]);
+        insert_any(&conn, "note_tags", &[("note_id", MEETING), ("tag_id", TAG)]);
+        insert_any(
+            &conn,
+            "folders",
+            &[("id", SOUPS), ("name", "Soups"), ("space_id", READ)],
+        );
+        note(
+            LEEK,
+            "Leek soup",
+            "Two leeks, one potato",
+            &[("folder_id", SOUPS), ("space_id", READ)],
+        );
+        note(
+            BUDGET,
+            "Budget 2027",
+            "Seeds 40, tools 120",
+            &[("space_id", TRUSTED), ("pinned", "1")],
+        );
+        if has_table(&conn, "attachments") {
+            insert_any(
+                &conn,
+                "attachments",
+                &[
+                    ("id", FILE),
+                    ("note_id", VARIETIES),
+                    ("file_name", "beds.png"),
+                    ("mime_type", "image/png"),
+                    ("size", "4"),
+                    ("sha256", &"0".repeat(64)),
+                    ("epoch", "1"),
+                ],
+            );
+        }
+        // a change of the waiting space set aside: its key never came
+        let waiting_doc = format!("{WAITING}/space");
+        insert_any(
+            &conn,
+            "sync_rejected",
+            &[
+                ("seq", "3"),
+                ("doc_id", &waiting_doc),
+                ("reason", "no key for epoch 1"),
+            ],
+        );
+        if documents {
+            let now = crate::clock::Clock::now(&crate::clock::SystemClock);
+            crate::sync::flush(&conn, &mut crate::sync::Docs::default(), now).unwrap();
+        } else {
+            conn.execute("DELETE FROM sync_touched", []).unwrap();
+        }
     }
 
-    #[test]
-    fn two_owner_devices_never_seal_with_different_keys() {
-        let world: Rc<RefCell<World>> = Rc::default();
-        let sam = Account::on("sam", AccountKind::E2ee, &world);
-        let mut laptop = sam.device("laptop");
-        let mut desk = sam.device("desk");
-        World::share(&world, SPACE_ID, "sam", AccountKind::E2ee);
-        // both see the space with no key at once: only one key wins
-        let listed = laptop.server.spaces().unwrap().unwrap();
-        let from_desk = desk.s().sync_grants_to_give(&listed.spaces[0]).unwrap();
-        desk.server.give_grants(SPACE_ID, &from_desk[0]).unwrap();
-        laptop.sync();
-        desk.sync();
-        let id = laptop.note("x", "y");
-        laptop.s().move_to_space(Item::Note(id), SPACE_ID).unwrap();
-        laptop.sync();
-        desk.sync();
-        same(&laptop, &desk);
-        assert_eq!(desk.s().sync_rejected().unwrap(), 0);
+    fn opened(path: &Path) -> Store {
+        Store::with_clock(
+            crate::db::open(path, None).unwrap(),
+            std::sync::Arc::new(crate::clock::SystemClock),
+        )
     }
-}
 
-mod sharing_deep {
-    use super::*;
-    use crate::model::{NoteScope, NoteSort};
-    use crate::store::Item;
-    use crate::testing::space_view;
-
-    const S1: &str = "11111111-aaaa-3333-4444-555555555555";
-    const S2: &str = "22222222-bbbb-3333-4444-555555555555";
-
-    fn titles(device: &Device) -> Vec<String> {
-        let mut titles: Vec<String> = device
-            .s()
+    fn titles(store: &Store) -> Vec<String> {
+        let mut notes = store
             .list_notes(NoteScope::All, NoteSort::TitleAsc)
-            .unwrap()
-            .into_iter()
-            .map(|n| format!("{}:{}", n.space_id.is_empty(), n.title))
-            .collect();
+            .unwrap();
+        notes.extend(
+            store
+                .list_notes(NoteScope::Trash, NoteSort::TitleAsc)
+                .unwrap(),
+        );
+        let mut titles: Vec<String> = notes.into_iter().map(|n| n.title).collect();
         titles.sort();
         titles
     }
 
-    /// Sam shares a folder holding "Plan" with Alex, who edits it.
-    fn shared(kind: AccountKind) -> (Rc<RefCell<World>>, Device, Device, NoteId) {
-        let world: Rc<RefCell<World>> = Rc::default();
-        let sam = Account::on("sam", kind, &world);
-        let alex = Account::on("alex", kind, &world);
-        let mut laptop = sam.device("laptop");
-        World::share(&world, S1, "sam", kind);
-        World::add(&world, S1, "alex", SpaceRole::Edit);
-        laptop.sync();
-        let id = laptop.note("Plan", "first");
-        laptop.s().move_to_space(Item::Note(id), S1).unwrap();
-        laptop.sync();
-        let mut phone = alex.device("phone");
-        phone.sync();
-        let shared = phone
-            .s()
+    fn by_title(store: &Store, title: &str) -> crate::model::Note {
+        let mut notes = store
             .list_notes(NoteScope::All, NoteSort::TitleAsc)
-            .unwrap()[0]
-            .id;
-        (world, laptop, phone, shared)
-    }
-
-    fn edit(device: &Device, id: NoteId, body: &str) {
-        device
-            .s()
-            .update_note(
-                id,
-                NoteChange {
-                    body: Some(body.into()),
-                    ..NoteChange::default()
-                },
-            )
             .unwrap();
+        notes.extend(
+            store
+                .list_notes(NoteScope::Trash, NoteSort::TitleAsc)
+                .unwrap(),
+        );
+        let id = notes.into_iter().find(|n| n.title == title).unwrap().id;
+        store.note(id).unwrap()
+    }
+
+    /// The vaults to build: from the step that brought spaces to the last
+    /// one before they went, without documents and, for the last, with.
+    fn versions() -> Vec<(usize, bool)> {
+        let last = schema_version() - 1;
+        (8..=last)
+            .map(|from| (from, false))
+            .chain([(last, true)])
+            .collect()
     }
 
     #[test]
-    fn a_member_back_in_a_space_writes_to_it_before_reading_it_again() {
-        both_kinds(|kind| {
-            let (world, mut laptop, mut phone, shared_note) = shared(kind);
-            // alex's own changes to the space are on the server
-            phone.s().set_pinned(shared_note, true).unwrap();
-            phone.sync();
-            World::remove(&world, S1, "alex");
-            phone.sync();
-            World::add(&world, S1, "alex", SpaceRole::Edit);
-            if kind == AccountKind::E2ee {
-                // the owner hands the new epoch's key first
-                laptop.sync();
+    fn every_note_of_a_vault_with_shared_spaces_is_kept_when_it_opens() {
+        for (from, documents) in versions() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("old.db");
+            old_vault(&path, from, documents);
+            let mut store = opened(&path);
+            let at = format!("from {from}, documents {documents}");
+            assert_eq!(titles(&store), TITLES, "{at}");
+
+            let plan = by_title(&store, "Weekly plan");
+            assert_eq!(
+                plan.id.to_string(),
+                PLAN,
+                "{at}: the person's own note stays as is"
+            );
+            assert_eq!(plan.body, "Order more cedar posts", "{at}");
+            let varieties = by_title(&store, "Tomato varieties");
+            assert_eq!(varieties.body, "Black Krim, San Marzano", "{at}");
+            assert_eq!(
+                varieties.tags,
+                ["Seeds/Tomatoes"],
+                "{at}: its folders as a tag"
+            );
+            let folder = store.folder(varieties.folder_id.unwrap()).unwrap();
+            assert_eq!(folder.name, "Tomatoes", "{at}");
+            let parent = store.folder(folder.parent_id.unwrap()).unwrap();
+            assert_eq!(parent.name, "Seeds", "{at}: folders as they were");
+            let leek = by_title(&store, "Leek soup");
+            assert_eq!(leek.tags, ["Soups"], "{at}: read only, it had no tag");
+            assert!(by_title(&store, "Budget 2027").pinned, "{at}");
+            let meeting = by_title(&store, "Club meeting");
+            assert_eq!(meeting.tags, ["club"], "{at}");
+            assert!(meeting.trashed_at.is_some(), "{at}: still in the trash");
+            if from >= 10 {
+                let files = store.list_attachments(varieties.id).unwrap();
+                assert_eq!(files.len(), 1, "{at}: the attachment goes with its note");
+                assert_eq!(files[0].file_name, "beds.png", "{at}");
             }
-            // the space is listed again, nothing of it read yet, and alex
-            // moves a note into it: written from an empty document
-            let listed = phone.server.spaces().unwrap().unwrap();
-            phone.s().sync_set_spaces(&listed.spaces).unwrap();
-            for space in &listed.spaces {
-                phone.s().sync_accept_grants(space).unwrap();
+            for note in [&varieties, &leek, &meeting] {
+                assert_eq!(note.space_id, "", "{at}: the person's own now");
             }
-            let mine = phone.note("Alex adds", "to the share");
-            phone.s().move_to_space(Item::Note(mine), S1).unwrap();
-            phone.sync();
-            laptop.sync();
-            assert_eq!(
-                laptop.s().sync_rejected().unwrap(),
-                0,
-                "{kind:?}: set aside"
-            );
-            assert!(laptop.view().contains("to the share"), "{kind:?}");
-            assert_eq!(space_view(&laptop.s(), S1), space_view(&phone.s(), S1));
-        });
-    }
 
-    #[test]
-    fn a_member_removed_with_unsent_edits_keeps_them_as_their_own_notes() {
-        both_kinds(|kind| {
-            let (world, mut laptop, mut phone, shared) = shared(kind);
-            edit(&phone, shared, "first, then alex offline");
-            World::remove(&world, S1, "alex");
-            let round = phone.sync();
-            assert_eq!(
-                titles(&phone),
-                ["true:Plan"],
-                "a personal copy, the space gone"
-            );
-            assert!(phone.view().contains("first, then alex offline"));
-            assert_eq!(round.kept, 0, "lost from the list, not refused");
-            assert_eq!(phone.s().sync_counts().unwrap().pending, 0);
-            laptop.sync();
-            assert!(!laptop.view().contains("alex offline"), "sam never got it");
-        });
-    }
+            // the trash counts from the opening for what was in a space's
+            assert_eq!(store.purge_expired_trash().unwrap(), 0, "{at}");
+            assert_eq!(titles(&store), TITLES, "{at}");
+            assert_eq!(store.sync_rejected().unwrap(), 0, "{at}");
+            drop(store);
 
-    #[test]
-    fn a_member_made_a_reader_with_unsent_edits_keeps_them_and_reads_on() {
-        both_kinds(|kind| {
-            let (world, mut laptop, mut phone, shared) = shared(kind);
-            edit(&phone, shared, "first, alex wrote this");
-            // the role changes between the list and the push
-            let listed = phone.server.spaces().unwrap().unwrap();
-            phone.s().sync_set_spaces(&listed.spaces).unwrap();
-            World::add(&world, S1, "alex", SpaceRole::Read);
-            let round = phone.sync();
-            assert_eq!(round.kept, 1, "{round:?}");
-            phone.sync();
-            assert_eq!(titles(&phone), ["false:Plan", "true:Plan"]);
-            assert!(phone.view().contains("alex wrote this"), "kept");
-            assert_eq!(phone.s().sync_counts().unwrap().pending, 0);
-            assert_eq!(phone.s().sync_rejected().unwrap(), 0);
-            laptop.sync();
-            assert_eq!(
-                space_view(&laptop.s(), S1),
-                space_view(&phone.s(), S1),
-                "the space came back whole, as sam has it"
-            );
-            let note = laptop.s().space_roots(S1).unwrap().notes[0].id;
-            edit(&laptop, note, "sam again");
-            laptop.sync();
-            phone.sync();
-            assert_eq!(space_view(&laptop.s(), S1), space_view(&phone.s(), S1));
-        });
-    }
-
-    #[test]
-    fn people_sharing_with_random_edits_roles_and_faults_end_the_same() {
-        let runs: u64 = std::env::var("SHARE_FUZZ_RUNS")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(12);
-        let first_seed: u64 = std::env::var("SHARE_FUZZ_SEED")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(1);
-        for seed in first_seed..first_seed + runs {
-            one_run(seed);
-        }
-    }
-
-    /// A view with tags in lower case: each vault keeps one spelling per
-    /// tag, two people may spell the same tag differently.
-    fn tags_folded(view: &str) -> String {
-        view.lines()
-            .map(|line| match line.split_once(" tags=") {
-                Some((head, rest)) => {
-                    let (tags, tail) = rest.split_once(" trashed=").unwrap_or((rest, ""));
-                    format!("{head} tags={} trashed={tail}", tags.to_lowercase())
-                }
-                None => line.to_owned(),
-            })
-            .collect::<Vec<_>>()
-            .join(
-                "
-",
-            )
-    }
-
-    /// Each account's devices alike, each space alike for everyone in it
-    /// and empty for the others, nothing left to send or set aside.
-    fn check_end(seed: u64, kind: AccountKind, world: &Rc<RefCell<World>>, devices: &[Device]) {
-        let account_of = |d: usize| if d < 2 { "sam" } else { "alex" };
-        for (i, d) in devices.iter().enumerate() {
-            let left: Vec<String> = d
-                .s()
-                .sync_outbox(10)
-                .unwrap()
-                .into_iter()
-                .map(|o| o.doc_id)
-                .collect();
-            assert!(
-                left.is_empty(),
-                "seed {seed} device {i} has to send {left:?}"
-            );
-            let rejected = d.s().rejected_for_tests();
-            assert!(
-                rejected.is_empty(),
-                "seed {seed} device {i} set aside {rejected:?}"
-            );
-        }
-        for (a, b) in [(0, 1), (2, 3)] {
-            assert_eq!(
-                devices[a].view(),
-                devices[b].view(),
-                "seed {seed} ({kind:?}): {} differs",
-                account_of(a)
-            );
-        }
-        for space in [S1, S2] {
-            let members: Vec<String> = world.borrow().spaces[space]
-                .members
-                .keys()
-                .cloned()
-                .collect();
-            let holding: Vec<usize> = (0..devices.len())
-                .filter(|d| members.iter().any(|m| m == account_of(*d)))
-                .collect();
-            for d in 0..devices.len() {
-                let here = tags_folded(&space_view(&devices[d].s(), space));
-                if holding.contains(&d) {
-                    assert_eq!(
-                        here,
-                        tags_folded(&space_view(&devices[holding[0]].s(), space)),
-                        "seed {seed} ({kind:?}): {space} differs on device {d}"
-                    );
-                } else {
-                    assert!(here.is_empty(), "seed {seed}: device {d} is not in {space}");
-                }
+            let conn = Connection::open(&path).unwrap();
+            for table in ["spaces", "space_keys", "space_trust", "space_waiting"] {
+                assert!(!has_table(&conn, table), "{at}: {table} is gone");
             }
-        }
-    }
-
-    fn one_run(seed: u64) {
-        let mut rng = Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1);
-        let kind = if seed.is_multiple_of(2) {
-            AccountKind::E2ee
-        } else {
-            AccountKind::Standard
-        };
-        let world: Rc<RefCell<World>> = Rc::default();
-        let sam = Account::on("sam", kind, &world);
-        let alex = Account::on("alex", kind, &world);
-        let mut devices = vec![
-            sam.device("laptop"),
-            sam.device("desk"),
-            alex.device("phone"),
-            alex.device("tablet"),
-        ];
-        World::share(&world, S1, "sam", kind);
-        World::add(&world, S1, "alex", SpaceRole::Edit);
-        World::share(&world, S2, "alex", kind);
-        World::add(&world, S2, "sam", SpaceRole::Read);
-        for (d, space, name) in [(0, S1, "sam's"), (2, S2, "alex's")] {
-            devices[d].sync();
-            let folder = devices[d].s().create_folder(None, name).unwrap();
-            let id = devices[d].note("start", "a");
-            devices[d].s().move_note(id, Some(folder.id)).unwrap();
-            devices[d]
-                .s()
-                .move_to_space(Item::Folder(folder.id), space)
+            let left: i64 = conn
+                .query_row(
+                    "SELECT (SELECT count(*) FROM sync_docs WHERE id LIKE '%/%')
+                          + (SELECT count(*) FROM sync_updates WHERE doc_id LIKE '%/%')
+                          + (SELECT count(*) FROM sync_outbox WHERE doc_id LIKE '%/%')
+                          + (SELECT count(*) FROM folders WHERE space_id <> '')",
+                    [],
+                    |r| r.get(0),
+                )
                 .unwrap();
+            assert_eq!(left, 0, "{at}: nothing of the spaces is left");
+            drop(conn);
+            // opening again changes nothing
+            assert_eq!(titles(&opened(&path)), TITLES, "{at}");
         }
+    }
+
+    #[test]
+    fn a_vault_with_shared_spaces_syncs_every_note_through_a_server() {
+        both_kinds(|kind| {
+            for (from, documents) in [(8, false), (schema_version() - 1, true)] {
+                let dir = tempfile::tempdir().unwrap();
+                let path = dir.path().join("old.db");
+                old_vault(&path, from, documents);
+                let account = Account::new("sam", kind);
+                let mut store = opened(&path);
+                account.link(&mut store, "laptop");
+                let mut laptop = account.device_with(store, "laptop");
+                laptop.sync();
+                assert!(
+                    account
+                        .log
+                        .borrow()
+                        .changes
+                        .iter()
+                        .all(|c| !c.doc.contains('/')),
+                    "from {from}: only the account's own documents go"
+                );
+                let mut phone = account.device("phone");
+                phone.sync();
+                same(&laptop, &phone);
+                assert_eq!(titles(&phone.s()), TITLES, "from {from} ({kind:?})");
+                assert_eq!(
+                    by_title(&phone.s(), "Tomato varieties").body,
+                    "Black Krim, San Marzano"
+                );
+                // and back: an edit on the new device reaches the old vault
+                let leek = by_title(&phone.s(), "Leek soup").id;
+                phone
+                    .s()
+                    .update_note(
+                        leek,
+                        NoteChange {
+                            body: Some("Two leeks, one potato, thyme".into()),
+                            ..NoteChange::default()
+                        },
+                    )
+                    .unwrap();
+                phone.sync();
+                laptop.sync();
+                same(&laptop, &phone);
+            }
+        });
+    }
+
+    #[test]
+    fn a_vault_with_shared_spaces_syncs_every_note_with_a_device_nearby() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("old.db");
+        old_vault(&path, schema_version() - 1, true);
+        let mut old = opened(&path);
+        let mut new = fresh();
         for _ in 0..2 {
-            for d in &mut devices {
-                d.sync();
-            }
+            let versions = new.peer_versions().unwrap();
+            let changes = old.peer_changes(&versions).unwrap();
+            new.peer_take(&changes).unwrap();
+            let versions = old.peer_versions().unwrap();
+            let changes = new.peer_changes(&versions).unwrap();
+            old.peer_take(&changes).unwrap();
         }
-        for _ in 0..80 {
-            let d = rng.below(devices.len());
-            match rng.below(12) {
-                0 => {
-                    devices[d].server.faults = Faults {
-                        offline: rng.below(3) == 0,
-                        lose_answer: rng.below(3) == 0,
-                        cut: false,
-                    };
-                    let device = &mut devices[d];
-                    let _ = run(&device.store, &mut device.server);
-                    device.server.faults = Faults::default();
-                }
-                1 | 2 => {
-                    let _ = devices[d].sync();
-                }
-                3 => {
-                    // the owners change who is in and how
-                    let role = if rng.below(2) == 0 {
-                        SpaceRole::Edit
-                    } else {
-                        SpaceRole::Read
-                    };
-                    match rng.below(4) {
-                        0 => World::add(&world, S1, "alex", role),
-                        1 => World::add(&world, S2, "sam", role),
-                        2 => World::remove(&world, S1, "alex"),
-                        _ => World::remove(&world, S2, "sam"),
-                    }
-                }
-                4 => {
-                    // a note goes into one of the shared spaces
-                    let notes = devices[d]
-                        .s()
-                        .list_notes(NoteScope::All, NoteSort::TitleAsc)
-                        .unwrap();
-                    let space = if rng.below(2) == 0 { S1 } else { S2 };
-                    if let Some(note) = rng.pick(&notes.iter().map(|n| n.id).collect::<Vec<_>>()) {
-                        let _ = devices[d].s().move_to_space(Item::Note(note), space);
-                    }
-                }
-                _ => random_change(&mut devices[d].s(), &mut rng),
-            }
-        }
-        // owners first, so e2ee members find their keys
-        for _ in 0..3 {
-            for d in &mut devices {
-                d.sync();
-            }
-        }
-        check_end(seed, kind, &world, &devices);
+        assert_eq!(view(&old), view(&new));
+        assert_eq!(titles(&new), TITLES);
     }
 }
 
@@ -2150,17 +1420,13 @@ mod files_deep {
     use super::*;
     use crate::blobs::BlobStore;
     use crate::model::{NoteScope, NoteSort};
-    use crate::store::{FileKeying, Item};
+    use crate::store::FileKeying;
     use crate::sync::files::transfer;
-    use crate::testing::space_view;
-
-    const S1: &str = "33333333-cccc-3333-4444-555555555555";
 
     /// A device with its files folder.
     struct Holder {
         device: Device,
         blobs: BlobStore,
-        account: &'static str,
         _dir: tempfile::TempDir,
     }
 
@@ -2170,7 +1436,7 @@ mod files_deep {
             std::sync::Arc::new(crate::clock::ManualClock::new(1_800_000_000_000));
     }
 
-    fn holder(account: &Account, name: &str, who: &'static str) -> Holder {
+    fn holder(account: &Account, name: &str) -> Holder {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::with_clock(crate::db::open_in_memory(), CLOCK.with(Clone::clone));
         account.link(&mut store, name);
@@ -2184,7 +1450,6 @@ mod files_deep {
         Holder {
             device: account.device_with(store, name),
             blobs,
-            account: who,
             _dir: dir,
         }
     }
@@ -2204,13 +1469,13 @@ mod files_deep {
         transfer(&h.device.store, &h.blobs, &mut h.device.server, u64::MAX).unwrap();
     }
 
-    fn notes(h: &Holder) -> Vec<(NoteId, String)> {
+    fn notes(h: &Holder) -> Vec<NoteId> {
         h.device
             .s()
             .list_notes(NoteScope::All, NoteSort::TitleAsc)
             .unwrap()
             .into_iter()
-            .map(|n| (n.id, n.space_id))
+            .map(|n| n.id)
             .collect()
     }
 
@@ -2224,16 +1489,10 @@ mod files_deep {
             .collect()
     }
 
-    #[expect(
-        clippy::too_many_lines,
-        reason = "every end condition, with what to show when one fails"
-    )]
     fn check_end(
         seed: u64,
         kind: AccountKind,
-        world: &Rc<RefCell<World>>,
         sam: &Account,
-        alex: &Account,
         holders: &[Holder],
         made: &HashMap<String, Vec<u8>>,
     ) {
@@ -2246,160 +1505,34 @@ mod files_deep {
             assert_eq!(h.device.s().sync_rejected().unwrap(), 0, "seed {seed}");
         }
         let (va, vb) = (holders[0].device.view(), holders[1].device.view());
-        if va != vb {
-            let only = |x: &str, y: &str| {
-                x.lines()
-                    .filter(|l| !y.lines().any(|m| m == *l))
-                    .map(str::to_owned)
-                    .collect::<Vec<_>>()
-                    .join(
-                        "
-",
-                    )
-            };
-            let note = only(&va, &vb)
-                .split("note=")
-                .nth(1)
-                .map_or_default(|n| n[..36].to_owned());
-            let waiting = (
-                holders[0].device.s().waiting_for_tests(),
-                holders[1].device.s().waiting_for_tests(),
-            );
-            let docs = (
-                holders[0].device.s().debug_files_for_tests(S1, &note),
-                holders[1].device.s().debug_files_for_tests(S1, &note),
-            );
-            let changes = world.borrow().spaces[S1].log.borrow().changes.len();
-            panic!(
-                "seed {seed} ({kind:?}): sam's devices differ (waiting {waiting:?}, server S1 changes {changes})
-laptop only:
-{}
-phone only:
-{}
-laptop doc {}
-phone doc {}",
-                only(&va, &vb),
-                only(&vb, &va),
-                docs.0,
-                docs.1,
-            );
-        }
-        if world.borrow().spaces[S1].members.contains_key("alex") {
-            // two people may spell a tag differently (accepted, see the
-            // sharing tests): compared without case
-            let (va, vb) = (
-                space_view(&holders[0].device.s(), S1).to_lowercase(),
-                space_view(&holders[2].device.s(), S1).to_lowercase(),
-            );
-            if va != vb {
-                let only = |x: &str, y: &str| {
-                    x.lines()
-                        .filter(|l| !y.lines().any(|m| m == *l))
-                        .map(str::to_owned)
-                        .collect::<Vec<_>>()
-                        .join(
-                            "
-",
-                        )
-                };
-                // the server's log of the space document, as a reader sees it
-                let server = loro::LoroDoc::new();
-                for c in &world.borrow().spaces[S1].log.borrow().changes {
-                    if c.doc == "space" {
-                        let _ = server.import(&STANDARD.decode(&c.data).unwrap());
-                    }
-                }
-                let docs = (
-                    holders[0].device.s().debug_files_for_tests(S1, "x"),
-                    holders[2].device.s().debug_files_for_tests(S1, "x"),
-                );
-                panic!(
-                    "seed {seed} ({kind:?}): the shared space differs
-sam only:
-{}
-alex only:
-{}
-sam {}
-alex {}
-server vv {:?}",
-                    only(&va, &vb),
-                    only(&vb, &va),
-                    docs.0,
-                    docs.1,
-                    server.oplog_vv()
-                );
-            }
-        }
-        let holding = |sha: &str| -> Vec<usize> {
-            holders
-                .iter()
-                .enumerate()
-                .filter(|(_, h)| h.blobs.has(sha).unwrap())
-                .map(|(i, _)| i)
-                .collect()
-        };
+        assert_eq!(
+            va, vb,
+            "seed {seed} ({kind:?}): the devices differ\n--- laptop\n{va}\n--- phone\n{vb}"
+        );
         for (i, h) in holders.iter().enumerate() {
             let uses = h.device.s().files_in_use().unwrap();
+            let keying = h.device.s().file_keying().unwrap();
             for file in uses.iter().filter(|f| made.contains_key(&f.sha256)) {
                 // every file a note here uses is here, and is what was attached
                 let here = h.blobs.get(&file.sha256).unwrap();
                 assert!(
                     here.as_deref() == Some(made[&file.sha256].as_slice()),
-                    "seed {seed} ({kind:?}) device {i}: {} missing or wrong, held by {:?}, server {:?}, {:?} space {:?} epoch {:?}, keys {:?}",
+                    "seed {seed} ({kind:?}) device {i}: {} missing or wrong",
                     file.sha256,
-                    holding(&file.sha256),
-                    {
-                        let keying = h.device.s().file_keying(&file.space, file.epoch).unwrap();
-                        let address = match &keying {
-                            FileKeying::Plain => file.sha256.clone(),
-                            FileKeying::Sealed(key) => app_e2ee::file_address(key, &file.sha256),
-                            FileKeying::Waiting => String::new(),
-                        };
-                        let log = if file.space.is_empty() {
-                            if h.account == "sam" {
-                                sam.log.clone()
-                            } else {
-                                alex.log.clone()
-                            }
-                        } else {
-                            world.borrow().spaces[&file.space].log.clone()
-                        };
-                        let log = log.borrow();
-                        log.files
-                            .get(&address)
-                            .map(|f| (f.complete, f.released, f.data.len()))
-                    },
-                    here.map(|h| h.len()),
-                    file.space,
-                    file.epoch,
-                    h.device.s().space_key_epochs(S1).unwrap(),
                 );
-                // and the server holds it for the space, not let go
-                let keying = h.device.s().file_keying(&file.space, file.epoch).unwrap();
+                // and the server holds it, not let go
                 let address = match &keying {
                     FileKeying::Plain => file.sha256.clone(),
                     FileKeying::Sealed(key) => app_e2ee::file_address(key, &file.sha256),
-                    FileKeying::Waiting => panic!("seed {seed}: no key for a file"),
                 };
-                let log = if file.space.is_empty() {
-                    if h.account == "sam" {
-                        sam.log.clone()
-                    } else {
-                        alex.log.clone()
-                    }
-                } else {
-                    world.borrow().spaces[&file.space].log.clone()
-                };
-                let log = log.borrow();
+                let log = sam.log.borrow();
                 let stored = log.files.get(&address).unwrap_or_else(|| {
                     panic!("seed {seed} ({kind:?}) device {i}: not on the server")
                 });
                 assert!(
                     stored.complete && !stored.released,
-                    "seed {seed} device {i}: let go {} {} {:?}",
+                    "seed {seed} device {i}: let go {}",
                     &file.sha256[..6],
-                    &address[..8],
-                    file.space
                 );
                 if kind == AccountKind::E2ee && !made[&file.sha256].is_empty() {
                     assert_ne!(stored.data, made[&file.sha256], "seed {seed}: sealed");
@@ -2411,7 +1544,7 @@ server vv {:?}",
 
     #[test]
     #[expect(clippy::too_many_lines, reason = "one random run, read top to bottom")]
-    fn people_attaching_moving_and_removing_files_with_faults_end_with_every_file() {
+    fn devices_attaching_and_removing_files_with_faults_end_with_every_file() {
         let runs: u64 = std::env::var("FILES_FUZZ_RUNS")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -2427,19 +1560,8 @@ server vv {:?}",
             } else {
                 AccountKind::Standard
             };
-            let world: Rc<RefCell<World>> = Rc::default();
-            let sam = Account::on("sam", kind, &world);
-            let alex = Account::on("alex", kind, &world);
-            let mut holders = vec![
-                holder(&sam, "laptop", "sam"),
-                holder(&sam, "phone", "sam"),
-                holder(&alex, "tablet", "alex"),
-            ];
-            World::share(&world, S1, "sam", kind);
-            World::add(&world, S1, "alex", SpaceRole::Edit);
-            for h in &mut holders {
-                clean(h);
-            }
+            let sam = Account::new("sam", kind);
+            let mut holders = vec![holder(&sam, "laptop"), holder(&sam, "phone")];
             for h in &mut holders {
                 clean(h);
             }
@@ -2447,8 +1569,8 @@ server vv {:?}",
             for _ in 0..70 {
                 CLOCK.with(|c| c.advance(i64::try_from(rng.below(5)).unwrap()));
                 let d = rng.below(holders.len());
-                let op = rng.below(12);
-                if op == 8 {
+                let op = rng.below(11);
+                if op == 7 {
                     // removed files forgotten, as after the retention time:
                     // by then every device has long synced
                     for _ in 0..2 {
@@ -2477,7 +1599,7 @@ server vv {:?}",
                     2 => round(h, Faults::default()),
                     3..=5 => {
                         let list = notes(h);
-                        let Some(&(note, _)) = list.get(rng.below(list.len().max(1))) else {
+                        let Some(&note) = list.get(rng.below(list.len().max(1))) else {
                             h.device.note("Holder", "");
                             continue;
                         };
@@ -2501,17 +1623,10 @@ server vv {:?}",
                     6 => {
                         let files: Vec<_> = notes(h)
                             .into_iter()
-                            .flat_map(|(n, _)| h.device.s().list_attachments(n).unwrap())
+                            .flat_map(|n| h.device.s().list_attachments(n).unwrap())
                             .collect();
                         if let Some(a) = files.get(rng.below(files.len().max(1))) {
                             let _ = h.device.s().remove_attachment(a.id);
-                        }
-                    }
-                    7 => {
-                        let list = notes(h);
-                        if let Some((note, space)) = list.get(rng.below(list.len().max(1))) {
-                            let to = if space.is_empty() { S1 } else { "" };
-                            let _ = h.device.s().move_to_space(Item::Note(*note), to);
                         }
                     }
                     _ => random_change(&mut h.device.s(), &mut rng),
@@ -2524,8 +1639,8 @@ server vv {:?}",
                     );
                 }
             }
-            // until a whole pass sends nothing: what a round writes (an
-            // epoch, a name settled) goes with the next one
+            // until a whole pass sends nothing: what a round writes (a name
+            // settled) goes with the next one
             let mut passes = 0;
             loop {
                 let mut sent = 0;
@@ -2543,7 +1658,7 @@ server vv {:?}",
                     "seed {seed} ({kind:?}): devices keep writing, they never settle"
                 );
             }
-            check_end(seed, kind, &world, &sam, &alex, &holders, &made);
+            check_end(seed, kind, &sam, &holders, &made);
         }
     }
 }

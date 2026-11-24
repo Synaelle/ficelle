@@ -2,15 +2,15 @@
 
 //! Attachment files with the server, after the notes' round: upload what
 //! this device attached, fetch what its notes use and it lacks, let go of
-//! what nothing uses any more. A file in a personal e2ee space or an e2ee
-//! shared space is sealed here (see [`app_e2ee::seal_file`]), a standard
-//! one goes as it is and the server seals it.
+//! what nothing uses any more. A file of an e2ee account is sealed here
+//! (see [`app_e2ee::seal_file`]), a standard one goes as it is and the
+//! server seals it.
 //!
 //! Uploads resume where the server says they stand: sealing is
 //! deterministic, so the bytes past that point are the same. Downloads are
 //! checked against the file's hash before they are kept. A file is only let
-//! go when everything of its space is on the server, and the server refuses
-//! if the space moved on meanwhile (another device may use the file).
+//! go when everything here is on the server, and the server refuses if the
+//! space moved on meanwhile (another device may use the file).
 
 use std::io::Read;
 
@@ -63,7 +63,7 @@ pub struct FilesRound {
     pub released: u32,
     /// Files the server refused (too large, a type not allowed).
     pub refused: u32,
-    /// A space's owner has no room left.
+    /// The account has no room left.
     pub quota_full: bool,
 }
 
@@ -214,21 +214,16 @@ impl<R: Read> Read for Opening<R> {
     }
 }
 
-/// Where a file lives on the server for its space, and how it travels.
-fn address(keying: &FileKeying, sha256: &str) -> Option<String> {
+/// Where a file lives on the server.
+fn address(keying: &FileKeying, sha256: &str) -> String {
     match keying {
-        FileKeying::Plain => Some(sha256.to_owned()),
-        FileKeying::Sealed(files) => Some(app_e2ee::file_address(files, sha256)),
-        FileKeying::Waiting => None,
+        FileKeying::Plain => sha256.to_owned(),
+        FileKeying::Sealed(files) => app_e2ee::file_address(files, sha256),
     }
 }
 
-fn space_of(space: &str) -> Option<&str> {
-    (!space.is_empty()).then_some(space)
-}
-
 /// Sends one file, from where the server says it stands. Returns whether
-/// any bytes went: a file the space holds, or takes back, sends none.
+/// any bytes went: a file the server holds, or takes back, sends none.
 fn upload(
     remote: &mut impl Remote,
     blobs: &BlobStore,
@@ -237,19 +232,18 @@ fn upload(
     address: &str,
     part_bytes: u64,
 ) -> Result<bool, FileError> {
-    let space = space_of(&file.space);
     let fail = |e: &dyn std::fmt::Display| FileError::Refused(format!("local: {e}"));
     let Some(plain) = blobs.size(&file.sha256).map_err(|e| fail(&e))? else {
         return Ok(false);
     };
     let total = match keying {
         FileKeying::Sealed(_) => app_e2ee::sealed_size(plain),
-        _ => plain,
+        FileKeying::Plain => plain,
     };
-    let state: FileState = remote.file_state(space, address)?;
+    let state: FileState = remote.file_state(address)?;
     let mut start = match state.status {
         FileStatus::Complete => return Ok(false),
-        FileStatus::Kept => return remote.keep_file(space, address).map(|()| false),
+        FileStatus::Kept => return remote.keep_file(address).map(|()| false),
         FileStatus::Partial if state.size == total => state.received,
         _ => 0,
     };
@@ -259,7 +253,7 @@ fn upload(
         .ok_or(FileError::Missing)?;
     let mut reader: Box<dyn Read> = match keying {
         FileKeying::Sealed(files) => Box::new(Sealing::new(source, files, &file.sha256)),
-        _ => Box::new(source),
+        FileKeying::Plain => Box::new(source),
     };
     std::io::copy(&mut (&mut reader).take(start), &mut std::io::sink()).map_err(|e| fail(&e))?;
     let declared =
@@ -271,7 +265,6 @@ fn upload(
             return Err(fail(&"the file changed while it was sent"));
         }
         let answer = remote.put_file(
-            space,
             address,
             FilePart {
                 start,
@@ -287,78 +280,25 @@ fn upload(
     }
 }
 
-/// Fetches one file into the vault.
+/// Fetches one file into the vault. Not marked as held: the next upload
+/// pass asks the server, which takes back a file let go meanwhile.
 fn fetch_one(
+    store: &impl Access,
     remote: &mut impl Remote,
     blobs: &BlobStore,
-    space: &str,
     sha256: &str,
-    keying: FileKeying,
-    address: &str,
 ) -> Result<(), FileError> {
-    let source = remote.get_file(space_of(space), address)?;
+    let keying = store
+        .with(|s| s.file_keying())
+        .map_err(|e| FileError::Refused(format!("local: {e}")))?;
+    let source = remote.get_file(&address(&keying, sha256))?;
     let mut reader: Box<dyn Read> = match keying {
         FileKeying::Sealed(files) => Box::new(Opening::new(source, files, sha256)),
-        _ => source,
+        FileKeying::Plain => source,
     };
     blobs
         .put_known(sha256, &mut reader)
         .map_err(|e| FileError::Refused(format!("local: {e}")))
-}
-
-/// Fetches a file from its own space, else from the spaces notes moved
-/// from held it in (it stays there for the retention time). Returns where
-/// it came from.
-fn fetch_somewhere(
-    store: &impl Access,
-    remote: &mut impl Remote,
-    blobs: &BlobStore,
-    file: &FileUse,
-) -> Result<(), FileError> {
-    let local = |e: Error| FileError::Refused(format!("local: {e}"));
-    let keying = store
-        .with(|s| s.file_keying(&file.space, file.epoch))
-        .map_err(local)?;
-    let mut last = FileError::Missing;
-    if let Some(address) = address(&keying, &file.sha256) {
-        match fetch_one(remote, blobs, &file.space, &file.sha256, keying, &address) {
-            // not marked as held: the next upload pass asks the server,
-            // which takes back a file let go meanwhile
-            Ok(()) => {
-                store
-                    .with(|s| s.file_arrived(&file.sha256))
-                    .map_err(local)?;
-                return Ok(());
-            }
-            Err(FileError::Remote(e)) => return Err(FileError::Remote(e)),
-            Err(e) => last = e,
-        }
-    }
-    for (space, epoch) in store
-        .with(|s| s.file_sources(&file.sha256))
-        .map_err(local)?
-    {
-        if space == file.space {
-            continue;
-        }
-        let Ok(keying) = store.with(|s| s.file_keying(&space, epoch)) else {
-            continue;
-        };
-        let Some(address) = address(&keying, &file.sha256) else {
-            continue;
-        };
-        match fetch_one(remote, blobs, &space, &file.sha256, keying, &address) {
-            Ok(()) => {
-                store
-                    .with(|s| s.file_arrived(&file.sha256))
-                    .map_err(local)?;
-                return Ok(());
-            }
-            Err(FileError::Remote(e)) => return Err(FileError::Remote(e)),
-            Err(e) => last = e,
-        }
-    }
-    Err(last)
 }
 
 /// Fetches a file a note uses, now: a large one the round left for later,
@@ -378,21 +318,15 @@ pub fn fetch(
         return Ok(());
     }
     let refused = |e: Error| FileError::Refused(format!("local: {e}"));
-    let uses: Vec<FileUse> = store
+    let used = store
         .with(|s| s.files_in_use())
         .map_err(refused)?
-        .into_iter()
-        .filter(|f| f.sha256 == sha256)
-        .collect();
-    let mut last = FileError::Missing;
-    for file in uses {
-        match fetch_somewhere(store, remote, blobs, &file) {
-            Ok(()) => return Ok(()),
-            Err(FileError::Remote(e)) => return Err(FileError::Remote(e)),
-            Err(e) => last = e,
-        }
+        .iter()
+        .any(|f| f.sha256 == sha256);
+    if !used {
+        return Err(FileError::Missing);
     }
-    Err(last)
+    fetch_one(store, remote, blobs, sha256)
 }
 
 /// A files round: uploads, fetches of files up to `fetch_up_to` bytes
@@ -413,19 +347,15 @@ pub fn transfer(
     let Some(info) = remote.files_info()? else {
         return Ok(round);
     };
-    store.with(crate::store::Store::assign_file_epochs)?;
-    let mut full: Vec<String> = Vec::new();
+    let keying = store.with(|s| s.file_keying())?;
     for file in store.with(|s| s.files_to_upload())? {
-        if full.contains(&file.space) || !blobs.has(&file.sha256)? {
+        if round.quota_full || !blobs.has(&file.sha256)? {
             continue;
         }
-        let keying = store.with(|s| s.file_keying(&file.space, file.epoch))?;
-        let Some(address) = address(&keying, &file.sha256) else {
-            continue;
-        };
+        let address = address(&keying, &file.sha256);
         match upload(remote, blobs, &file, &keying, &address, info.part_bytes) {
             Ok(sent) => {
-                store.with(|s| s.file_on_server(&file.space, &file.sha256, &address))?;
+                store.with(|s| s.file_on_server(&file.sha256, &address))?;
                 round.uploaded += u32::from(sent);
             }
             Err(FileError::Remote(e)) => return Err(e.into()),
@@ -434,10 +364,9 @@ pub fn transfer(
             Err(FileError::Refused(code)) if code == error_code::UPLOAD_MOVED => {}
             Err(FileError::Refused(code)) if code == error_code::QUOTA_FULL => {
                 round.quota_full = true;
-                full.push(file.space.clone());
             }
             Err(FileError::Refused(code)) => {
-                store.with(|s| s.file_refused(&file.space, &file.sha256, &code))?;
+                store.with(|s| s.file_refused(&file.sha256, &code))?;
                 round.refused += 1;
             }
             // another device's upload was let go meanwhile: next round
@@ -451,7 +380,7 @@ pub fn transfer(
         if !wanted || blobs.has(&file.sha256)? {
             continue;
         }
-        match fetch_somewhere(store, remote, blobs, &file) {
+        match fetch_one(store, remote, blobs, &file.sha256) {
             Ok(()) => round.fetched += 1,
             Err(FileError::Remote(e)) => return Err(e.into()),
             // not uploaded yet, or damaged on the way: next round
@@ -459,17 +388,17 @@ pub fn transfer(
         }
     }
     for gone in store.with(|s| s.files_to_release())? {
-        if store.with(|s| s.sync_pending(&gone.space))? {
+        if store.with(|s| s.sync_pending())? {
             continue;
         }
         let Some(address) = gone.address.clone() else {
-            store.with(|s| s.file_released(&gone.space, &gone.sha256))?;
+            store.with(|s| s.file_released(&gone.sha256))?;
             continue;
         };
-        let (head, _) = store.with(|s| s.sync_cursor(&gone.space))?;
-        match remote.release_file(space_of(&gone.space), &address, head) {
+        let (head, _) = store.with(|s| s.sync_cursor())?;
+        match remote.release_file(&address, head) {
             Ok(true) | Err(FileError::Missing) => {
-                store.with(|s| s.file_released(&gone.space, &gone.sha256))?;
+                store.with(|s| s.file_released(&gone.sha256))?;
                 round.released += 1;
             }
             // the space moved on, or another refusal: the next round sees

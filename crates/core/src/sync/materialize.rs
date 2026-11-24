@@ -616,10 +616,7 @@ pub(super) fn registry(
 /// the same spelling, the first in plain sort order among those in use.
 pub(super) fn tag_spellings(conn: &Connection, docs: &mut Docs) -> Result<()> {
     let mut best: HashMap<String, String> = HashMap::new();
-    for space_id in super::spaces_here(conn)? {
-        let space = docs.get(conn, &doc_key(&space_id, SPACE))?;
-        spellings_in(&space, &mut best);
-    }
+    spellings_in(&docs.get(conn, SPACE)?, &mut best);
     let existing = {
         let mut stmt = conn.prepare("SELECT id, name FROM tags")?;
         stmt.query_map([], |row| {

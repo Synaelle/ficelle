@@ -206,7 +206,7 @@ impl<H: Host> Session<'_, H> {
                 let small = file
                     .size
                     .is_none_or(|n| u64::try_from(n).unwrap_or(u64::MAX) <= limit);
-                if file.space.is_empty() && small && !blobs.has(&file.sha256)? {
+                if small && !blobs.has(&file.sha256)? {
                     wanted.push(file.sha256);
                 }
             }

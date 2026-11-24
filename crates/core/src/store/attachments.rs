@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Attachment descriptions, which note uses which file. The files are kept
-//! by content hash in [`crate::blobs`]. Descriptions sync with the note's
-//! space, the files go to the server separately: this module also keeps
-//! track of which files the server holds for each space.
+//! by content hash in [`crate::blobs`]. Descriptions sync with the note,
+//! the files go to the server separately: this module also keeps track of
+//! which files the server holds.
 
 use std::collections::HashSet;
 
@@ -80,9 +80,8 @@ pub(crate) fn file_rows(conn: &Connection, note: NoteId) -> Result<Vec<FileRow>>
 pub(crate) fn replace_file_rows(conn: &Connection, note: NoteId, rows: &[FileRow]) -> Result<()> {
     for row in rows.iter().filter(|r| r.removed_at.is_none()) {
         conn.execute(
-            "DELETE FROM files_on_server
-             WHERE space = (SELECT space_id FROM notes WHERE id = ?1) AND sha256 IN (?2, ?3)",
-            params![note, row.sha256, row.thumb_sha256],
+            "DELETE FROM files_on_server WHERE sha256 IN (?1, ?2)",
+            params![row.sha256, row.thumb_sha256],
         )?;
     }
     for row in rows {
@@ -128,11 +127,9 @@ pub(crate) fn free_name(name: &str, taken: &HashSet<String>) -> String {
     candidate
 }
 
-/// A file the notes of a space use, see [`Store::files_in_use`].
+/// A file the notes use, see [`Store::files_in_use`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileUse {
-    /// The space, '' for the personal one.
-    pub space: String,
     /// Hex SHA-256 of the content.
     pub sha256: String,
     /// Its size when known (thumbnails do not say theirs).
@@ -142,30 +139,24 @@ pub struct FileUse {
     pub name: String,
     /// See `name`.
     pub mime: String,
-    /// E2ee shared spaces: the epoch whose key seals it.
-    pub epoch: Option<i64>,
 }
 
-/// A file the server holds for a space that no note there uses.
+/// A file the server holds that no note uses.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Released {
-    /// The space.
-    pub space: String,
     /// Hex SHA-256 of the content.
     pub sha256: String,
     /// Its address on the server, when known.
     pub address: Option<String>,
 }
 
-/// How a space's files travel.
+/// How the files travel.
 #[derive(Debug)]
 pub enum FileKeying {
     /// As they are: the server encrypts them.
     Plain,
     /// Sealed with this files key.
     Sealed(app_e2ee::FilesKey),
-    /// Not yet: the key of that epoch is not on this device.
-    Waiting,
 }
 
 impl Store {
@@ -399,40 +390,38 @@ impl Store {
         Ok(gone)
     }
 
-    /// Every file the notes of the linked spaces use and are attached to,
-    /// trashed notes included, thumbnails too. What is not on this device
-    /// waits to be fetched, what is not on the server to be uploaded.
+    /// Every file the notes use and are attached to, trashed notes
+    /// included, thumbnails too. What is not on this device waits to be
+    /// fetched, what is not on the server to be uploaded.
     ///
     /// # Errors
     ///
     /// Database errors.
     pub fn files_in_use(&self) -> Result<Vec<FileUse>> {
         let mut stmt = self.conn.prepare(
-            "SELECT n.space_id, a.sha256, MAX(a.size), MIN(a.file_name), MIN(a.mime_type), MAX(a.epoch)
+            "SELECT a.sha256, MAX(a.size), MIN(a.file_name), MIN(a.mime_type)
              FROM attachments a JOIN notes n ON n.id = a.note_id
-             WHERE a.removed_at IS NULL GROUP BY n.space_id, a.sha256
+             WHERE a.removed_at IS NULL GROUP BY a.sha256
              UNION
-             SELECT n.space_id, a.thumb_sha256, NULL, 'thumbnail.webp', 'image/webp', MAX(a.epoch)
+             SELECT a.thumb_sha256, NULL, 'thumbnail.webp', 'image/webp'
              FROM attachments a JOIN notes n ON n.id = a.note_id
              WHERE a.removed_at IS NULL AND a.thumb_sha256 IS NOT NULL
-             GROUP BY n.space_id, a.thumb_sha256
-             ORDER BY 1, 2",
+             GROUP BY a.thumb_sha256
+             ORDER BY 1",
         )?;
         let mut uses: Vec<FileUse> = stmt
             .query_map([], |row| {
                 Ok(FileUse {
-                    space: row.get(0)?,
-                    sha256: row.get(1)?,
-                    size: row.get(2)?,
-                    name: row.get(3)?,
-                    mime: row.get(4)?,
-                    epoch: row.get(5)?,
+                    sha256: row.get(0)?,
+                    size: row.get(1)?,
+                    name: row.get(2)?,
+                    mime: row.get(3)?,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         // a file that is also some note's thumbnail keeps its known size
         uses.dedup_by(|b, a| {
-            let same = a.space == b.space && a.sha256 == b.sha256;
+            let same = a.sha256 == b.sha256;
             if same && a.size.is_none() {
                 a.size = b.size;
                 a.name.clone_from(&b.name);
@@ -443,7 +432,7 @@ impl Store {
         Ok(uses)
     }
 
-    /// Files a space uses that the server does not hold for it yet.
+    /// Files the notes use that the server does not hold yet.
     ///
     /// # Errors
     ///
@@ -452,42 +441,31 @@ impl Store {
         let sent = self.files_on_server()?;
         // a refusal is tried again after a day: the rules may have changed
         let since = self.now().saturating_sub(crate::clock::DAY);
-        let refused: HashSet<(String, String)> = {
+        let refused: HashSet<String> = {
             let mut stmt = self
                 .conn
-                .prepare("SELECT space, sha256 FROM files_refused WHERE at > ?1")?;
-            stmt.query_map([since], |row| Ok((row.get(0)?, row.get(1)?)))?
-                .collect::<rusqlite::Result<_>>()?
-        };
-        // spaces shared read only take no files from here
-        let readers: HashSet<String> = {
-            let mut stmt = self
-                .conn
-                .prepare("SELECT id FROM spaces WHERE role = 'read'")?;
-            stmt.query_map([], |row| row.get(0))?
+                .prepare("SELECT sha256 FROM files_refused WHERE at > ?1")?;
+            stmt.query_map([since], |row| row.get(0))?
                 .collect::<rusqlite::Result<_>>()?
         };
         Ok(self
             .files_in_use()?
             .into_iter()
-            .filter(|f| {
-                let key = (f.space.clone(), f.sha256.clone());
-                !sent.contains(&key) && !refused.contains(&key) && !readers.contains(&f.space)
-            })
+            .filter(|f| !sent.contains(&f.sha256) && !refused.contains(&f.sha256))
             .collect())
     }
 
-    /// Notes that the server refused a file for a space, with its reason
-    /// (an error code such as `fileTooLarge`).
+    /// Notes that the server refused a file, with its reason (an error code
+    /// such as `fileTooLarge`).
     ///
     /// # Errors
     ///
     /// Database errors.
-    pub fn file_refused(&mut self, space: &str, sha256: &str, code: &str) -> Result<()> {
+    pub fn file_refused(&mut self, sha256: &str, code: &str) -> Result<()> {
         let now = self.now();
         self.conn.execute(
-            "INSERT OR REPLACE INTO files_refused (space, sha256, code, at) VALUES (?1, ?2, ?3, ?4)",
-            params![space, sha256, code, now],
+            "INSERT OR REPLACE INTO files_refused (space, sha256, code, at) VALUES ('', ?1, ?2, ?3)",
+            params![sha256, code, now],
         )?;
         Ok(())
     }
@@ -518,7 +496,7 @@ impl Store {
         let mut stmt = self.conn.prepare(
             "SELECT a.file_name, n.title, r.code FROM files_refused r
              JOIN attachments a ON a.sha256 = r.sha256 AND a.removed_at IS NULL
-             JOIN notes n ON n.id = a.note_id AND n.space_id = r.space
+             JOIN notes n ON n.id = a.note_id
              ORDER BY n.title, a.file_name",
         )?;
         let rows = stmt
@@ -527,192 +505,85 @@ impl Store {
         Ok(rows)
     }
 
-    /// Gives the files of e2ee shared spaces their epoch: the one the same
-    /// file already has in that space, else the latest key here. One epoch
-    /// per file and space keeps one address for it. Returns how many.
-    ///
-    /// # Errors
-    ///
-    /// Database errors.
-    pub fn assign_file_epochs(&mut self) -> Result<usize> {
-        let now = self.now();
-        let tx = self.conn.transaction()?;
-        let changed = tx.execute(
-            "UPDATE attachments SET epoch = coalesce(
-                 (SELECT MAX(o.epoch) FROM attachments o JOIN notes m ON m.id = o.note_id
-                  WHERE o.sha256 = attachments.sha256 AND o.epoch IS NOT NULL
-                    AND m.space_id = (SELECT space_id FROM notes WHERE id = attachments.note_id)),
-                 (SELECT MAX(k.epoch) FROM space_keys k
-                  WHERE k.space_id = (SELECT space_id FROM notes WHERE id = attachments.note_id)))
-             WHERE epoch IS NULL AND removed_at IS NULL
-               AND note_id IN (SELECT n.id FROM notes n JOIN spaces s ON s.id = n.space_id
-                               WHERE s.kind = 'e2ee' AND s.role != 'read')
-               AND EXISTS (SELECT 1 FROM space_keys k
-                           WHERE k.space_id = (SELECT space_id FROM notes WHERE id = attachments.note_id))",
-            [],
-        )?;
-        crate::sync::finish(tx, &mut self.docs, now)?;
-        Ok(changed)
-    }
-
-    /// How the files of a space travel, for a file of the given epoch.
+    /// How the files travel: sealed for an e2ee account.
     ///
     /// # Errors
     ///
     /// Database errors, a stored key that does not read.
-    pub fn file_keying(&self, space: &str, epoch: Option<i64>) -> Result<FileKeying> {
-        use rusqlite::OptionalExtension;
-        if space.is_empty() {
-            return Ok(match self.sync_master_key()? {
-                Some(master) => FileKeying::Sealed(app_e2ee::files_key(&master)),
-                None => FileKeying::Plain,
-            });
-        }
-        let kind: Option<String> = self
-            .conn
-            .query_row("SELECT kind FROM spaces WHERE id = ?1", [space], |row| {
-                row.get(0)
-            })
-            .optional()?;
-        if kind.as_deref() != Some("e2ee") {
-            return Ok(FileKeying::Plain);
-        }
-        let Some(epoch) = epoch else {
-            return Ok(FileKeying::Waiting);
-        };
-        let key: Option<Vec<u8>> = self
-            .conn
-            .query_row(
-                "SELECT key FROM space_keys WHERE space_id = ?1 AND epoch = ?2",
-                params![space, epoch],
-                |row| row.get(0),
-            )
-            .optional()?;
-        Ok(match key {
-            Some(bytes) => {
-                let key: [u8; 32] = bytes
-                    .as_slice()
-                    .try_into()
-                    .map_err(|_| Error::Corrupt("space key has the wrong length".into()))?;
-                FileKeying::Sealed(app_e2ee::space_files_key(&Zeroizing::new(key)))
-            }
-            None => FileKeying::Waiting,
+    pub fn file_keying(&self) -> Result<FileKeying> {
+        Ok(match self.sync_master_key()? {
+            Some(master) => FileKeying::Sealed(app_e2ee::files_key(&master)),
+            None => FileKeying::Plain,
         })
     }
 
-    /// Other spaces a file may be fetched from: where notes moved from
-    /// held it, with the epoch it had there.
+    /// Whether changes wait to be sent: files are only let go once
+    /// everything here is on the server.
     ///
     /// # Errors
     ///
     /// Database errors.
-    pub fn file_sources(&self, sha256: &str) -> Result<Vec<(String, Option<i64>)>> {
-        let mut stmt = self
+    pub fn sync_pending(&self) -> Result<bool> {
+        Ok(self
             .conn
-            .prepare("SELECT space, epoch FROM file_sources WHERE sha256 = ?1 ORDER BY space")?;
-        let rows = stmt
-            .query_map([sha256], |row| Ok((row.get(0)?, row.get(1)?)))?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        Ok(rows)
+            .query_row("SELECT EXISTS (SELECT 1 FROM sync_outbox)", [], |row| {
+                row.get(0)
+            })?)
     }
 
-    /// Forgets where a file came from, once it is here.
-    ///
-    /// # Errors
-    ///
-    /// Database errors.
-    pub fn file_arrived(&mut self, sha256: &str) -> Result<()> {
-        self.conn
-            .execute("DELETE FROM file_sources WHERE sha256 = ?1", [sha256])?;
-        Ok(())
-    }
-
-    /// Whether a space has changes waiting to be sent: files are only let
-    /// go once everything here is on the server.
-    ///
-    /// # Errors
-    ///
-    /// Database errors.
-    pub fn sync_pending(&self, space: &str) -> Result<bool> {
-        let pending: bool = if space.is_empty() {
-            self.conn.query_row(
-                "SELECT EXISTS (SELECT 1 FROM sync_outbox WHERE doc_id NOT LIKE '%/%')",
-                [],
-                |row| row.get(0),
-            )?
-        } else {
-            self.conn.query_row(
-                "SELECT EXISTS (SELECT 1 FROM sync_outbox WHERE doc_id LIKE ?1)",
-                [format!("{space}/%")],
-                |row| row.get(0),
-            )?
-        };
-        Ok(pending)
-    }
-
-    /// Files the server holds for a space and no note there uses anymore.
+    /// Files the server holds and no note uses anymore.
     ///
     /// # Errors
     ///
     /// Database errors.
     pub fn files_to_release(&self) -> Result<Vec<Released>> {
-        let used: HashSet<(String, String)> = self
-            .files_in_use()?
-            .into_iter()
-            .map(|f| (f.space, f.sha256))
-            .collect();
+        let used: HashSet<String> = self.files_in_use()?.into_iter().map(|f| f.sha256).collect();
         let mut stmt = self
             .conn
-            .prepare("SELECT space, sha256, address FROM files_on_server ORDER BY space, sha256")?;
+            .prepare("SELECT sha256, address FROM files_on_server ORDER BY sha256")?;
         let rows = stmt
             .query_map([], |row| {
                 Ok(Released {
-                    space: row.get(0)?,
-                    sha256: row.get(1)?,
-                    address: row.get::<_, Option<String>>(2)?,
+                    sha256: row.get(0)?,
+                    address: row.get::<_, Option<String>>(1)?,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows
             .into_iter()
-            .filter(|r| !used.contains(&(r.space.clone(), r.sha256.clone())))
+            .filter(|r| !used.contains(&r.sha256))
             .collect())
     }
 
-    fn files_on_server(&self) -> Result<HashSet<(String, String)>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT space, sha256 FROM files_on_server")?;
+    fn files_on_server(&self) -> Result<HashSet<String>> {
+        let mut stmt = self.conn.prepare("SELECT sha256 FROM files_on_server")?;
         let set = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .query_map([], |row| row.get(0))?
             .collect::<rusqlite::Result<HashSet<_>>>()?;
         Ok(set)
     }
 
-    /// Notes that the server holds a file for a space, after an upload or a
-    /// download.
+    /// Notes that the server holds a file, after an upload or a download.
     ///
     /// # Errors
     ///
     /// Database errors.
-    pub fn file_on_server(&mut self, space: &str, sha256: &str, address: &str) -> Result<()> {
+    pub fn file_on_server(&mut self, sha256: &str, address: &str) -> Result<()> {
         self.conn.execute(
-            "INSERT OR REPLACE INTO files_on_server (space, sha256, address) VALUES (?1, ?2, ?3)",
-            params![space, sha256, address],
+            "INSERT OR REPLACE INTO files_on_server (space, sha256, address) VALUES ('', ?1, ?2)",
+            params![sha256, address],
         )?;
         Ok(())
     }
 
-    /// Notes that the server let go of a file for a space.
+    /// Notes that the server let go of a file.
     ///
     /// # Errors
     ///
     /// Database errors.
-    pub fn file_released(&mut self, space: &str, sha256: &str) -> Result<()> {
-        self.conn.execute(
-            "DELETE FROM files_on_server WHERE space = ?1 AND sha256 = ?2",
-            params![space, sha256],
-        )?;
+    pub fn file_released(&mut self, sha256: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM files_on_server WHERE sha256 = ?1", [sha256])?;
         Ok(())
     }
 }
@@ -875,8 +746,8 @@ mod tests {
             wanted,
             vec![(OTHER.to_owned(), None), (HASH.to_owned(), Some(5))]
         );
-        store.file_on_server("", HASH, HASH).unwrap();
-        store.file_on_server("", OTHER, OTHER).unwrap();
+        store.file_on_server(HASH, HASH).unwrap();
+        store.file_on_server(OTHER, OTHER).unwrap();
         assert!(store.files_to_upload().unwrap().is_empty());
         assert!(store.files_to_release().unwrap().is_empty());
         // still used while the note is in the trash
@@ -885,7 +756,7 @@ mod tests {
         store.restore_note(note.id).unwrap();
         store.remove_attachment(a.id).unwrap();
         assert_eq!(store.files_to_release().unwrap().len(), 2);
-        store.file_released("", HASH).unwrap();
+        store.file_released(HASH).unwrap();
         let left: Vec<_> = store
             .files_to_release()
             .unwrap()

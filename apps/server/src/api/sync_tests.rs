@@ -512,12 +512,11 @@ impl Wire {
 impl app_core::sync::engine::Remote for Wire {
     fn push(
         &mut self,
-        space: Option<&str>,
         request: &app_protocol::sync::PushRequest,
     ) -> Result<app_protocol::sync::PushAnswer, app_core::sync::engine::RemoteError> {
         let answer = self.call(
             "POST",
-            &format!("/sync/push{}", in_space(space, '?')),
+            "/sync/push",
             Some(serde_json::to_value(request).unwrap()),
         )?;
         Ok(serde_json::from_value(answer).unwrap())
@@ -525,16 +524,12 @@ impl app_core::sync::engine::Remote for Wire {
 
     fn pull(
         &mut self,
-        space: Option<&str>,
         after: i64,
         limit: usize,
     ) -> Result<app_protocol::sync::PullAnswer, app_core::sync::engine::RemoteError> {
         let answer = self.call(
             "GET",
-            &format!(
-                "/sync/changes?after={after}&limit={limit}{}",
-                in_space(space, '&')
-            ),
+            &format!("/sync/changes?after={after}&limit={limit}"),
             None,
         )?;
         Ok(serde_json::from_value(answer).unwrap())
@@ -542,24 +537,10 @@ impl app_core::sync::engine::Remote for Wire {
 
     fn heavy(
         &mut self,
-        space: Option<&str>,
         min: i64,
     ) -> Result<app_protocol::sync::HeavyDocs, app_core::sync::engine::RemoteError> {
-        let answer = self.call(
-            "GET",
-            &format!("/sync/heavy?min={min}{}", in_space(space, '&')),
-            None,
-        )?;
+        let answer = self.call("GET", &format!("/sync/heavy?min={min}"), None)?;
         Ok(serde_json::from_value(answer).unwrap())
-    }
-
-    /// As the apps since sharing left them: no shared space.
-    fn spaces(
-        &mut self,
-    ) -> Result<Option<app_protocol::sync::SharedSpaces>, app_core::sync::engine::RemoteError> {
-        Ok(Some(app_protocol::sync::SharedSpaces {
-            spaces: Vec::new(),
-        }))
     }
 
     fn files_info(
@@ -571,17 +552,15 @@ impl app_core::sync::engine::Remote for Wire {
 
     fn file_state(
         &mut self,
-        space: Option<&str>,
         address: &str,
     ) -> Result<app_protocol::files::FileState, app_core::sync::files::FileError> {
-        let path = format!("/sync/files/{address}/state{}", in_space(space, '?'));
+        let path = format!("/sync/files/{address}/state");
         let (status, body) = self.raw("GET", &path, &[], Vec::new());
         Self::file_answer(status, &body)
     }
 
     fn put_file(
         &mut self,
-        space: Option<&str>,
         address: &str,
         part: app_core::sync::files::FilePart<'_>,
     ) -> Result<app_protocol::files::FileState, app_core::sync::files::FileError> {
@@ -600,17 +579,16 @@ impl app_core::sync::engine::Remote for Wire {
             headers.push(("x-file-name", app_protocol::files::encode_name(name)));
             headers.push(("x-file-type", mime.to_owned()));
         }
-        let path = format!("/sync/files/{address}{}", in_space(space, '?'));
+        let path = format!("/sync/files/{address}");
         let (status, body) = self.raw("PUT", &path, &headers, part.bytes.to_vec());
         Self::file_answer(status, &body)
     }
 
     fn get_file(
         &mut self,
-        space: Option<&str>,
         address: &str,
     ) -> Result<Box<dyn std::io::Read + Send>, app_core::sync::files::FileError> {
-        let path = format!("/sync/files/{address}{}", in_space(space, '?'));
+        let path = format!("/sync/files/{address}");
         let (status, body) = self.raw("GET", &path, &[], Vec::new());
         if status == StatusCode::OK {
             return Ok(Box::new(std::io::Cursor::new(body)));
@@ -618,12 +596,8 @@ impl app_core::sync::engine::Remote for Wire {
         Self::file_answer::<Value>(status, &body).map(|_| unreachable!())
     }
 
-    fn keep_file(
-        &mut self,
-        space: Option<&str>,
-        address: &str,
-    ) -> Result<(), app_core::sync::files::FileError> {
-        let path = format!("/sync/files/{address}/keep{}", in_space(space, '?'));
+    fn keep_file(&mut self, address: &str) -> Result<(), app_core::sync::files::FileError> {
+        let path = format!("/sync/files/{address}/keep");
         let (status, body) = self.raw("POST", &path, &[], Vec::new());
         if status == StatusCode::NO_CONTENT {
             return Ok(());
@@ -633,11 +607,10 @@ impl app_core::sync::engine::Remote for Wire {
 
     fn release_file(
         &mut self,
-        space: Option<&str>,
         address: &str,
         head: i64,
     ) -> Result<bool, app_core::sync::files::FileError> {
-        let path = format!("/sync/files/{address}?head={head}{}", in_space(space, '&'));
+        let path = format!("/sync/files/{address}?head={head}");
         let (status, body) = self.raw("DELETE", &path, &[], Vec::new());
         match status {
             StatusCode::NO_CONTENT => Ok(true),
@@ -645,11 +618,6 @@ impl app_core::sync::engine::Remote for Wire {
             _ => Self::file_answer::<Value>(status, &body).map(|_| false),
         }
     }
-}
-
-/// `space=` for a shared space's calls, nothing for the personal space.
-fn in_space(space: Option<&str>, sep: char) -> String {
-    space.map_or_default(|s| format!("{sep}space={s}"))
 }
 
 /// A vault linked from a sign-in answer, and its wire.

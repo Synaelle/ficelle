@@ -47,7 +47,7 @@ pub(crate) use links::rebuild_link_index;
 pub use notes::{NewNote, NoteChange};
 pub use peers::{DEVICES_PAIRED, PeerDevice, SERVER_LINKED};
 pub(crate) use reindex as reindex_note;
-pub use spaces::{Item, LocalSpace, RootNote, SpaceRoots, WaitingMember};
+pub(crate) use spaces::fold_shared_spaces;
 pub use sync::{NewLink, SyncLink, Taken, Tokens};
 pub use tags::TAG_COLORS;
 pub(crate) use tags::replace_note_tags as replace_tags;
@@ -121,7 +121,7 @@ impl Store {
     ///
     /// Database errors.
     pub fn sync_outbox(&mut self, limit: usize) -> Result<Vec<crate::sync::Outgoing>> {
-        crate::sync::outbox(&self.conn, &mut self.docs, None, limit)
+        crate::sync::outbox(&self.conn, &mut self.docs, limit)
     }
 
     /// Documents and changes waiting for the server.
@@ -139,16 +139,7 @@ impl Store {
     ///
     /// Database errors.
     pub fn sync_ack(&mut self, up_to: i64) -> Result<()> {
-        crate::sync::ack(&self.conn, None, up_to)
-    }
-
-    /// Forgets one space's outbox entries up to `seq`, the server has them.
-    ///
-    /// # Errors
-    ///
-    /// Database errors.
-    pub fn sync_ack_space(&mut self, space: &str, up_to: i64) -> Result<()> {
-        crate::sync::ack(&self.conn, Some(space), up_to)
+        crate::sync::ack(&self.conn, up_to)
     }
 
     /// Takes a change made on another device and updates the notes, folders
@@ -351,47 +342,9 @@ tags table: {tags:?}"
         )
     }
 
-    /// Changes set aside, with why.
-    pub(crate) fn rejected_for_tests(&self) -> Vec<String> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT seq, doc_id, reason FROM sync_rejected")
-            .unwrap();
-        stmt.query_map([], |r| {
-            Ok(format!(
-                "{} {} {}",
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?
-            ))
-        })
-        .unwrap()
-        .collect::<rusqlite::Result<Vec<_>>>()
-        .unwrap()
-    }
-
     /// Documents holding changes not written to the database.
     pub(crate) fn unsaved_docs_for_tests(&self) -> Vec<String> {
         self.docs.unsaved()
-    }
-
-    /// A note's file entries in a space's document.
-    pub(crate) fn debug_files_for_tests(&mut self, space: &str, note: &str) -> String {
-        let doc = self
-            .docs
-            .get(&self.conn, &crate::sync::doc_key(space, crate::sync::SPACE))
-            .unwrap();
-        let notes = doc.get_map("notes").get_deep_value();
-        let loro::LoroValue::Map(map) = notes else {
-            return String::new();
-        };
-        format!(
-            "peer {} vv {:?} {:?}",
-            doc.peer_id(),
-            doc.oplog_vv(),
-            map.get(note)
-                .map(|v| format!("{v:?}").chars().take(200).collect::<String>())
-        )
     }
 
     /// Drops the loaded documents, they reload from the database.

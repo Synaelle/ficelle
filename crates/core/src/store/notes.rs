@@ -210,26 +210,12 @@ impl Store {
         crate::sync::finish(tx, &mut self.docs, now)
     }
 
-    /// Moves a note to a folder, or to the top level of its space with
-    /// `None`. Into a folder of another space it moves to that space and
-    /// gets a new id there: returns the note's id after the move.
+    /// Moves a note to a folder, or to the top level with `None`.
     ///
     /// # Errors
     ///
     /// Fails if the note or folder does not exist, or the folder is in the trash.
-    pub fn move_note(&mut self, id: NoteId, folder: Option<FolderId>) -> Result<NoteId> {
-        // into a folder of another space: it moves to that space, with a
-        // new id there
-        if let Some(target) = folder {
-            let to = folders::space_of(&self.conn, target)?;
-            if to != load_note(&self.conn, id)?.space_id {
-                let moved: NoteId = self
-                    .move_to_space(super::Item::Note(id), &to)?
-                    .parse()
-                    .map_err(|_| Error::Corrupt("moved note id".into()))?;
-                return self.move_note(moved, folder);
-            }
-        }
+    pub fn move_note(&mut self, id: NoteId, folder: Option<FolderId>) -> Result<()> {
         let now = self.now();
         let tx = self.conn.transaction()?;
         if let Some(folder) = folder {
@@ -242,8 +228,7 @@ impl Store {
         if changed == 0 {
             return Err(Error::NotFound("note"));
         }
-        crate::sync::finish(tx, &mut self.docs, self.clock.now())?;
-        Ok(id)
+        crate::sync::finish(tx, &mut self.docs, self.clock.now())
     }
 
     /// Lists notes, pinned first, then in the requested order.

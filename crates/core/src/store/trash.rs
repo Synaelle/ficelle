@@ -37,8 +37,7 @@ fn parent_is_trashed(conn: &Connection, parent: Option<FolderId>) -> Result<bool
 /// was made was kept once, say for a tag deleted since). Whitespace alone counts
 /// as nothing, a pinned note was kept on purpose, and attached files are
 /// something, so are tags given after the note was made (a note made in a
-/// tag's view starts with that tag). Notes in a space shared with this
-/// account read only are the sharer's to change, cleanups leave them be.
+/// tag's view starts with that tag).
 const BLANK_NOTES: &str =
     "SELECT id, EXISTS (SELECT 1 FROM note_versions v WHERE v.note_id = notes.id
          AND (trim(v.title, char(32, 9, 10, 13)) <> '' OR trim(v.body, char(32, 9, 10, 13)) <> ''))
@@ -47,8 +46,7 @@ const BLANK_NOTES: &str =
      AND trim(title, char(32, 9, 10, 13)) = '' AND trim(body, char(32, 9, 10, 13)) = ''
      AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.note_id = notes.id)
      AND NOT (updated_at > created_at
-              AND EXISTS (SELECT 1 FROM note_tags t WHERE t.note_id = notes.id))
-     AND space_id NOT IN (SELECT id FROM spaces WHERE role = 'read')";
+              AND EXISTS (SELECT 1 FROM note_tags t WHERE t.note_id = notes.id))";
 
 /// Deletes the blank notes that never held anything and moves the emptied
 /// ones to the trash. Returns how many left the notes.
@@ -255,8 +253,7 @@ impl Store {
         let tx = self.conn.transaction()?;
         let notes = {
             let mut stmt = tx.prepare(&format!(
-                "SELECT id FROM notes t WHERE t.trashed_at IS NOT NULL AND {} <= ?1
-                 AND t.space_id NOT IN (SELECT id FROM spaces WHERE role = 'read')",
+                "SELECT id FROM notes t WHERE t.trashed_at IS NOT NULL AND {} <= ?1",
                 since("note")
             ))?;
             stmt.query_map([cutoff], |row| row.get(0))?
@@ -264,8 +261,7 @@ impl Store {
         };
         let folders = {
             let mut stmt = tx.prepare(&format!(
-                "SELECT id FROM folders t WHERE t.trashed_at IS NOT NULL AND {} <= ?1
-                 AND t.space_id NOT IN (SELECT id FROM spaces WHERE role = 'read')",
+                "SELECT id FROM folders t WHERE t.trashed_at IS NOT NULL AND {} <= ?1",
                 since("folder")
             ))?;
             stmt.query_map([cutoff], |row| row.get(0))?
@@ -627,31 +623,6 @@ mod tests {
         store.set_note_tags(note.id, &[]).unwrap();
         assert_eq!(store.discard_blank_notes().unwrap(), 1);
         assert!(store.note(note.id).unwrap().trashed_at.is_some());
-    }
-
-    #[test]
-    fn startup_cleanups_leave_a_space_shared_read_only_alone() {
-        let (mut store, clock) = store();
-        let blank = store.create_note(&NewNote::default()).unwrap();
-        let old = store.create_note(&NewNote::default()).unwrap();
-        store.trash_note(old.id).unwrap();
-        // both arrived from a space someone shares with this account to read
-        let conn = store.conn();
-        conn.execute(
-            "INSERT INTO spaces (id, role, kind) VALUES ('shared', 'read', 'standard')",
-            [],
-        )
-        .unwrap();
-        conn.execute("INSERT INTO sync_quiet VALUES (1)", [])
-            .unwrap();
-        conn.execute("UPDATE notes SET space_id = 'shared'", [])
-            .unwrap();
-        conn.execute("DELETE FROM sync_quiet", []).unwrap();
-        conn.execute("DELETE FROM sync_touched", []).unwrap();
-        clock.advance(40 * DAY);
-        assert_eq!(store.discard_blank_notes().unwrap(), 0);
-        assert_eq!(store.purge_expired_trash().unwrap(), 0);
-        assert!(store.note(blank.id).is_ok() && store.note(old.id).is_ok());
     }
 
     #[test]

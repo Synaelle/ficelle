@@ -9,9 +9,7 @@
 use std::sync::Mutex;
 use std::time::Duration;
 
-use app_protocol::sync::{
-    GiveGrants, HeavyDocs, PullAnswer, PushAnswer, PushRequest, SharedSpaces,
-};
+use app_protocol::sync::{HeavyDocs, PullAnswer, PushAnswer, PushRequest};
 
 use super::files::{FileError, FilePart};
 use crate::error::Error;
@@ -41,31 +39,21 @@ pub enum RemoteError {
     Refused(String),
 }
 
-/// The server, as a sync round needs it. `space` is `None` for the
-/// account's personal space, else a shared space's id.
+/// The server, as a sync round needs it: the account's space there.
 pub trait Remote {
     /// Sends changes.
     ///
     /// # Errors
     ///
     /// See [`RemoteError`].
-    fn push(
-        &mut self,
-        space: Option<&str>,
-        request: &PushRequest,
-    ) -> Result<PushAnswer, RemoteError>;
+    fn push(&mut self, request: &PushRequest) -> Result<PushAnswer, RemoteError>;
 
     /// Changes after `after`, at most `limit`.
     ///
     /// # Errors
     ///
     /// See [`RemoteError`].
-    fn pull(
-        &mut self,
-        space: Option<&str>,
-        after: i64,
-        limit: usize,
-    ) -> Result<PullAnswer, RemoteError>;
+    fn pull(&mut self, after: i64, limit: usize) -> Result<PullAnswer, RemoteError>;
 
     /// Documents with at least `min` changes on the server. A server that
     /// cannot tell has none.
@@ -73,30 +61,9 @@ pub trait Remote {
     /// # Errors
     ///
     /// See [`RemoteError`].
-    fn heavy(&mut self, space: Option<&str>, min: i64) -> Result<HeavyDocs, RemoteError> {
-        let _ = (space, min);
+    fn heavy(&mut self, min: i64) -> Result<HeavyDocs, RemoteError> {
+        let _ = min;
         Ok(HeavyDocs { docs: Vec::new() })
-    }
-
-    /// The shared spaces this account belongs to, `None` from a server
-    /// that has no sharing: the vault's list stays as it is then.
-    ///
-    /// # Errors
-    ///
-    /// See [`RemoteError`].
-    fn spaces(&mut self) -> Result<Option<SharedSpaces>, RemoteError> {
-        Ok(None)
-    }
-
-    /// Hands the server keys sealed for members of an e2ee space this
-    /// account owns.
-    ///
-    /// # Errors
-    ///
-    /// See [`RemoteError`].
-    fn give_grants(&mut self, space: &str, grants: &GiveGrants) -> Result<(), RemoteError> {
-        let _ = (space, grants);
-        Ok(())
     }
 
     /// The account's files policy and usage, `None` from a server that
@@ -109,13 +76,13 @@ pub trait Remote {
         Ok(None)
     }
 
-    /// Where a file stands on the server for a space.
+    /// Where a file stands on the server.
     ///
     /// # Errors
     ///
     /// See [`FileError`].
-    fn file_state(&mut self, space: Option<&str>, address: &str) -> Result<FileState, FileError> {
-        let _ = (space, address);
+    fn file_state(&mut self, address: &str) -> Result<FileState, FileError> {
+        let _ = address;
         Err(FileError::Missing)
     }
 
@@ -124,13 +91,8 @@ pub trait Remote {
     /// # Errors
     ///
     /// See [`FileError`].
-    fn put_file(
-        &mut self,
-        space: Option<&str>,
-        address: &str,
-        part: FilePart<'_>,
-    ) -> Result<FileState, FileError> {
-        let _ = (space, address, part);
+    fn put_file(&mut self, address: &str, part: FilePart<'_>) -> Result<FileState, FileError> {
+        let _ = (address, part);
         Err(FileError::Missing)
     }
 
@@ -139,12 +101,8 @@ pub trait Remote {
     /// # Errors
     ///
     /// See [`FileError`].
-    fn get_file(
-        &mut self,
-        space: Option<&str>,
-        address: &str,
-    ) -> Result<Box<dyn std::io::Read + Send>, FileError> {
-        let _ = (space, address);
+    fn get_file(&mut self, address: &str) -> Result<Box<dyn std::io::Read + Send>, FileError> {
+        let _ = address;
         Err(FileError::Missing)
     }
 
@@ -153,8 +111,8 @@ pub trait Remote {
     /// # Errors
     ///
     /// See [`FileError`].
-    fn keep_file(&mut self, space: Option<&str>, address: &str) -> Result<(), FileError> {
-        let _ = (space, address);
+    fn keep_file(&mut self, address: &str) -> Result<(), FileError> {
+        let _ = address;
         Err(FileError::Missing)
     }
 
@@ -164,13 +122,8 @@ pub trait Remote {
     /// # Errors
     ///
     /// See [`FileError`].
-    fn release_file(
-        &mut self,
-        space: Option<&str>,
-        address: &str,
-        head: i64,
-    ) -> Result<bool, FileError> {
-        let _ = (space, address, head);
+    fn release_file(&mut self, address: &str, head: i64) -> Result<bool, FileError> {
+        let _ = (address, head);
         Err(FileError::Missing)
     }
 }
@@ -190,13 +143,9 @@ pub const COMPACT_AFTER: i64 = 200;
 pub fn compact(store: &impl Access, remote: &mut impl Remote, min: i64) -> Result<u32, SyncError> {
     // notes deleted for good long ago go first, as empty documents
     let mut queued = store.with(Store::sync_forget_deleted)?;
-    for space in spaces(store)? {
-        let heavy = remote.heavy(as_remote(&space), min)?;
-        for doc in heavy.docs {
-            let key = crate::sync::doc_key(&space, &doc.doc);
-            if store.with(|s| s.sync_queue_compaction(&key))? {
-                queued += 1;
-            }
+    for doc in remote.heavy(min)?.docs {
+        if store.with(|s| s.sync_queue_compaction(&doc.doc))? {
+            queued += 1;
         }
     }
     Ok(queued)
@@ -240,25 +189,10 @@ pub struct Round {
     pub taken: Taken,
     /// The server had lost changes, everything was sent again.
     pub resent: bool,
-    /// Notes with edits a shared space refused, kept as personal copies.
-    pub kept: u32,
 }
 
-fn as_remote(space: &str) -> Option<&str> {
-    (!space.is_empty()).then_some(space)
-}
-
-/// The personal space, then each shared one.
-fn spaces(store: &impl Access) -> Result<Vec<String>, SyncError> {
-    let shared = store.with(|s| s.shared_spaces())?;
-    Ok(std::iter::once(String::new())
-        .chain(shared.into_iter().map(|s| s.id))
-        .collect())
-}
-
-/// Brings the shared spaces in line with the server's list, then pushes
-/// everything waiting and pulls until the server has nothing more, for each
-/// space. Safe to stop anywhere: an unacknowledged push is sent again and
+/// Pushes everything waiting, then pulls until the server has nothing
+/// more. Safe to stop anywhere: an unacknowledged push is sent again and
 /// kept once, a page not taken in is pulled again.
 ///
 /// # Errors
@@ -266,72 +200,30 @@ fn spaces(store: &impl Access) -> Result<Vec<String>, SyncError> {
 /// The first failure, see [`SyncError`]. What was done before it stays.
 pub fn run(store: &impl Access, remote: &mut impl Remote) -> Result<Round, SyncError> {
     let mut round = Round::default();
-    if let Some(listed) = remote.spaces()? {
-        store.with(|s| s.sync_set_spaces(&listed.spaces))?;
-        let mut gave = false;
-        for space in &listed.spaces {
-            store.with(|s| s.sync_accept_grants(space))?;
-            for grants in store.with(|s| s.sync_grants_to_give(space))? {
-                remote.give_grants(&space.id, &grants)?;
-                gave = true;
-            }
-        }
-        // a key this device just made comes back as its own grant
-        if gave && let Some(listed) = remote.spaces()? {
-            for space in &listed.spaces {
-                store.with(|s| s.sync_accept_grants(space))?;
-            }
-        }
-    }
-    for space in spaces(store)? {
-        // an e2ee space without its key yet: nothing can be read or sealed,
-        // it waits for the owner's device to hand one
-        if store.with(|s| s.space_ready(&space))? {
-            run_space(store, remote, &space, &mut round)?;
-        }
-    }
-    Ok(round)
-}
-
-fn run_space(
-    store: &impl Access,
-    remote: &mut impl Remote,
-    space: &str,
-    round: &mut Round,
-) -> Result<(), SyncError> {
     let mut resent = false;
     'round: loop {
         while let Some((request, up_to)) =
-            store.with(|s| s.sync_push_batch(space, PUSH_CHANGES, PUSH_BYTES))?
+            store.with(|s| s.sync_push_batch(PUSH_CHANGES, PUSH_BYTES))?
         {
-            match remote.push(as_remote(space), &request) {
-                Ok(_) => {}
-                // made a reader or removed since: what was written here
-                // stays as personal notes, the space starts over
-                Err(RemoteError::Refused(_)) if !space.is_empty() => {
-                    round.kept += store.with(|s| s.sync_lose_space(space))?;
-                    return Ok(());
-                }
-                Err(other) => return Err(other.into()),
-            }
-            store.with(|s| s.sync_ack_space(space, up_to))?;
+            remote.push(&request)?;
+            store.with(|s| s.sync_ack(up_to))?;
             round.pushed += u32::try_from(request.changes.len()).unwrap_or(u32::MAX);
         }
         loop {
-            let (cursor, cursor_id) = store.with(|s| s.sync_cursor(space))?;
-            let page = remote.pull(as_remote(space), cursor, PULL_PAGE)?;
+            let (cursor, cursor_id) = store.with(|s| s.sync_cursor())?;
+            let page = remote.pull(cursor, PULL_PAGE)?;
             let diverged = cursor > 0
                 && (page.head < cursor || (cursor_id.is_some() && page.anchor != cursor_id));
             if diverged && !resent {
                 // the server's log is not the one this device followed: it
                 // was restored from an older backup or started over. What
                 // it lost comes back from every device that still has it
-                store.with(|s| s.sync_resend_all(space))?;
+                store.with(Store::sync_resend_all)?;
                 resent = true;
                 round.resent = true;
                 continue 'round;
             }
-            let taken = store.with(|s| s.sync_take_page(space, &page))?;
+            let taken = store.with(|s| s.sync_take_page(&page))?;
             round.taken.applied += taken.applied;
             round.taken.own += taken.own;
             round.taken.rejected += taken.rejected;
@@ -340,7 +232,7 @@ fn run_space(
             }
         }
     }
-    Ok(())
+    Ok(round)
 }
 
 /// Waits between failed rounds: doubling from 2 seconds up to 5 minutes

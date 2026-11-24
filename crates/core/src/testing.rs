@@ -151,9 +151,7 @@ pub fn random_change(s: &mut Store, rng: &mut Rng) {
             None => Ok(()),
         },
         9 => match rng.pick(&notes) {
-            Some(id) => s
-                .move_note(id, rng.pick(&folders).filter(|_| rng.below(3) != 0))
-                .map(|_| ()),
+            Some(id) => s.move_note(id, rng.pick(&folders).filter(|_| rng.below(3) != 0)),
             None => Ok(()),
         },
         10 => match rng.pick(&notes) {
@@ -182,9 +180,7 @@ pub fn random_change(s: &mut Store, rng: &mut Rng) {
             None => Ok(()),
         },
         15 => match rng.pick(&folders) {
-            Some(f) => s
-                .move_folder(f, rng.pick(&folders).filter(|_| rng.below(3) != 0))
-                .map(|_| ()),
+            Some(f) => s.move_folder(f, rng.pick(&folders).filter(|_| rng.below(3) != 0)),
             None => Ok(()),
         },
         16 => match rng.pick(&folders) {
@@ -312,15 +308,4 @@ pub fn view(s: &Store) -> String {
     tags.sort();
     lines.extend(tags);
     lines.join("\n")
-}
-
-/// The notes and folders of one space, as [`view`] shows them, for comparing
-/// a shared space between the accounts in it.
-pub fn space_view(s: &Store, space: &str) -> String {
-    let wanted = format!("space={space:?}");
-    view(s)
-        .lines()
-        .filter(|l| l.contains(&wanted))
-        .collect::<Vec<_>>()
-        .join("\n")
 }

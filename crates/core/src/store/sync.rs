@@ -97,26 +97,16 @@ pub struct Taken {
 enum Cipher {
     Standard,
     E2ee(MasterKey),
-    /// An e2ee shared space: its keys by epoch, the newest seals. A sealed
-    /// change starts with the epoch it was sealed in.
-    Shared(Vec<(u32, Zeroizing<[u8; 32]>)>),
 }
 
 impl Cipher {
-    fn seal(&self, doc: &str, bytes: &[u8]) -> Result<Vec<u8>> {
-        Ok(match self {
+    fn seal(&self, doc: &str, bytes: &[u8]) -> Vec<u8> {
+        match self {
             Self::Standard => bytes.to_vec(),
             Self::E2ee(master) => {
                 app_e2ee::seal_change(&app_e2ee::doc_key(master, doc), doc, bytes)
             }
-            Self::Shared(keys) => {
-                let (epoch, key) = keys
-                    .last()
-                    .ok_or_else(|| Error::Invalid("no key for this shared space yet".into()))?;
-                let sealed = app_e2ee::seal_change(&app_e2ee::space_doc_key(key, doc), doc, bytes);
-                [epoch.to_be_bytes().as_slice(), &sealed].concat()
-            }
-        })
+        }
     }
 
     fn open(&self, doc: &str, bytes: Vec<u8>) -> std::result::Result<Zeroizing<Vec<u8>>, String> {
@@ -124,18 +114,6 @@ impl Cipher {
             Self::Standard => Ok(Zeroizing::new(bytes)),
             Self::E2ee(master) => {
                 app_e2ee::open_change(&app_e2ee::doc_key(master, doc), doc, &bytes)
-                    .map_err(|e| e.to_string())
-            }
-            Self::Shared(keys) => {
-                let (epoch, sealed) = bytes
-                    .split_at_checked(4)
-                    .ok_or_else(|| "too short".to_owned())?;
-                let epoch = u32::from_be_bytes(epoch.try_into().map_err(|_| "epoch")?);
-                let (_, key) = keys
-                    .iter()
-                    .find(|(e, _)| *e == epoch)
-                    .ok_or_else(|| format!("no key for epoch {epoch}"))?;
-                app_e2ee::open_change(&app_e2ee::space_doc_key(key, doc), doc, sealed)
                     .map_err(|e| e.to_string())
             }
         }
@@ -151,6 +129,16 @@ fn kind_text(kind: AccountKind) -> &'static str {
 
 fn link_key(server: &str, account: &str) -> String {
     format!("{server}\n{account}")
+}
+
+/// The `vault_meta` key for an e2ee account: the server without a trailing
+/// slash, the username lowercased as servers compare them.
+fn e2ee_key(server: &str, username: &str) -> String {
+    format!(
+        "e2ee:{}|{}",
+        server.trim().trim_end_matches('/').to_ascii_lowercase(),
+        username.trim().to_lowercase()
+    )
 }
 
 impl Store {
@@ -237,18 +225,9 @@ impl Store {
             .optional()?
             .unwrap_or((0, None))
         } else {
-            crate::sync::requeue_all(&tx, &mut self.docs, "", now)?;
+            crate::sync::requeue_all(&tx, &mut self.docs, now)?;
             tx.execute("DELETE FROM sync_rejected", [])?;
             tx.execute("DELETE FROM files_on_server", [])?;
-            // the shared spaces were the other account's
-            let shared = {
-                let mut stmt = tx.prepare("SELECT id FROM spaces")?;
-                stmt.query_map([], |row| row.get::<_, String>(0))?
-                    .collect::<rusqlite::Result<Vec<_>>>()?
-            };
-            for space in shared {
-                super::spaces::drop_space(&tx, &space)?;
-            }
             tx.execute(
                 "INSERT INTO vault_meta (key, value) VALUES ('sync_account', ?1)
                  ON CONFLICT (key) DO UPDATE SET value = excluded.value",
@@ -288,38 +267,33 @@ impl Store {
     /// # Errors
     ///
     /// Database errors, a stored document that does not read.
-    pub fn sync_resend_all(&mut self, space: &str) -> Result<()> {
+    pub fn sync_resend_all(&mut self) -> Result<()> {
         let now = self.now();
         let tx = self.conn.transaction()?;
-        crate::sync::requeue_all(&tx, &mut self.docs, space, now)?;
+        crate::sync::requeue_all(&tx, &mut self.docs, now)?;
         tx.execute(
-            if space.is_empty() {
-                "UPDATE sync_link SET cursor = 0, cursor_id = NULL WHERE id = 1 AND ?1 = ''"
-            } else {
-                "UPDATE spaces SET cursor = 0, cursor_id = NULL WHERE id = ?1"
-            },
-            [space],
+            "UPDATE sync_link SET cursor = 0, cursor_id = NULL WHERE id = 1",
+            [],
         )?;
         // a server that lost changes may have lost files too
-        tx.execute("DELETE FROM files_on_server WHERE space = ?1", [space])?;
+        tx.execute("DELETE FROM files_on_server", [])?;
         tx.commit()?;
         Ok(())
     }
 
-    /// Where a space's sync stands: the number and name of the last change
-    /// taken from the server.
+    /// Where sync stands: the number and name of the last change taken from
+    /// the server.
     ///
     /// # Errors
     ///
-    /// Database errors, a space or link this vault does not have.
-    pub fn sync_cursor(&self, space: &str) -> Result<(i64, Option<String>)> {
-        let sql = if space.is_empty() {
-            "SELECT cursor, cursor_id FROM sync_link WHERE id = 1 AND ?1 = ''"
-        } else {
-            "SELECT cursor, cursor_id FROM spaces WHERE id = ?1"
-        };
+    /// Database errors, a vault that is not linked.
+    pub fn sync_cursor(&self) -> Result<(i64, Option<String>)> {
         self.conn
-            .query_row(sql, [space], |row| Ok((row.get(0)?, row.get(1)?)))
+            .query_row(
+                "SELECT cursor, cursor_id FROM sync_link WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
             .optional()?
             .ok_or_else(|| Error::Invalid("this vault is not linked to an account".into()))
     }
@@ -386,35 +360,54 @@ impl Store {
             .query_row("SELECT count(*) FROM sync_rejected", [], |row| row.get(0))?)
     }
 
-    fn cipher(&self, space: &str) -> Result<Cipher> {
-        if !space.is_empty() {
-            let kind: String = self
-                .conn
-                .query_row("SELECT kind FROM spaces WHERE id = ?1", [space], |row| {
-                    row.get(0)
-                })
-                .optional()?
-                .ok_or(Error::NotFound("space"))?;
-            if kind != "e2ee" {
-                return Ok(Cipher::Standard);
-            }
-            let mut stmt = self
-                .conn
-                .prepare("SELECT epoch, key FROM space_keys WHERE space_id = ?1 ORDER BY epoch")?;
-            let keys = stmt
-                .query_map([space], |row| {
-                    Ok((row.get::<_, u32>(0)?, row.get::<_, Vec<u8>>(1)?))
-                })?
-                .collect::<rusqlite::Result<Vec<_>>>()?
-                .into_iter()
-                .filter_map(|(e, k)| {
-                    <[u8; 32]>::try_from(k.as_slice())
-                        .ok()
-                        .map(|k| (e, Zeroizing::new(k)))
-                })
-                .collect();
-            return Ok(Cipher::Shared(keys));
-        }
+    /// Whether this vault ever signed in to `username` on `server` as an
+    /// e2ee account. Kept past signing out: a server that later calls the
+    /// account standard is not believed.
+    ///
+    /// # Errors
+    ///
+    /// Database errors.
+    pub fn e2ee_seen(&self, server: &str, username: &str) -> Result<bool> {
+        Ok(self.conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM vault_meta WHERE key = ?1)",
+            [e2ee_key(server, username)],
+            |row| row.get(0),
+        )?)
+    }
+
+    /// Remembers that `username` on `server` is an e2ee account.
+    ///
+    /// # Errors
+    ///
+    /// Database errors.
+    pub fn remember_e2ee(&mut self, server: &str, username: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO vault_meta (key, value) VALUES (?1, x'01')",
+            [e2ee_key(server, username)],
+        )?;
+        Ok(())
+    }
+
+    /// This account's master key, e2ee accounts only.
+    ///
+    /// # Errors
+    ///
+    /// Database errors, a stored key that does not read.
+    pub fn sync_master_key(&self) -> Result<Option<MasterKey>> {
+        let key: Option<Option<Vec<u8>>> = self
+            .conn
+            .query_row("SELECT master_key FROM sync_link WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+            .optional()?;
+        key.flatten()
+            .map(|bytes| {
+                MasterKey::from_slice(&bytes).map_err(|_| Error::Corrupt("account key".into()))
+            })
+            .transpose()
+    }
+
+    fn cipher(&self) -> Result<Cipher> {
         let key: Option<Option<Vec<u8>>> = self
             .conn
             .query_row("SELECT master_key FROM sync_link WHERE id = 1", [], |row| {
@@ -441,12 +434,11 @@ impl Store {
     /// Database errors, a vault that is not linked.
     pub fn sync_push_batch(
         &mut self,
-        space: &str,
         max_changes: usize,
         max_bytes: usize,
     ) -> Result<Option<(PushRequest, i64)>> {
-        let cipher = self.cipher(space)?;
-        let outgoing = crate::sync::outbox(&self.conn, &mut self.docs, Some(space), max_changes)?;
+        let cipher = self.cipher()?;
+        let outgoing = crate::sync::outbox(&self.conn, &mut self.docs, max_changes)?;
         let mut changes = Vec::new();
         let mut size = 0;
         let mut up_to = None;
@@ -455,11 +447,10 @@ impl Store {
                 break;
             }
             size += change.bytes.len();
-            let doc = crate::sync::split_key(&change.doc_id).1.to_owned();
             changes.push(OutgoingChange {
                 id: change.id,
-                data: STANDARD.encode(cipher.seal(&doc, &change.bytes)?),
-                doc,
+                data: STANDARD.encode(cipher.seal(&change.doc_id, &change.bytes)),
+                doc: change.doc_id,
                 key: None,
                 compacts: change.compacts,
             });
@@ -478,7 +469,7 @@ impl Store {
     /// Database errors, a vault that is not linked.
     pub fn sync_queue_compaction(&mut self, doc_id: &str) -> Result<bool> {
         let now = self.now();
-        let cursor: i64 = crate::sync::cursor_of(&self.conn, crate::sync::split_key(doc_id).0)?
+        let cursor: i64 = crate::sync::cursor_of(&self.conn)?
             .ok_or_else(|| Error::Invalid("this vault is not linked to an account".into()))?;
         let blocked: bool = self.conn.query_row(
             "SELECT EXISTS (SELECT 1 FROM sync_waiting WHERE doc_id = ?1)
@@ -521,21 +512,15 @@ impl Store {
     /// # Errors
     ///
     /// Database errors, a vault that is not linked. Nothing is taken then.
-    pub fn sync_take_page(&mut self, space: &str, page: &PullAnswer) -> Result<Taken> {
-        let cipher = self.cipher(space)?;
+    pub fn sync_take_page(&mut self, page: &PullAnswer) -> Result<Taken> {
+        let cipher = self.cipher()?;
         let now = self.now();
         let device: String =
             self.conn
                 .query_row("SELECT device_id FROM sync_link WHERE id = 1", [], |row| {
                     row.get(0)
                 })?;
-        let (cursor, _) = self.sync_cursor(space)?;
-        let rejoin = format!("rejoin:{space}");
-        let take_own: bool = self.conn.query_row(
-            "SELECT EXISTS (SELECT 1 FROM vault_meta WHERE key = ?1)",
-            [&rejoin],
-            |row| row.get(0),
-        )?;
+        let (cursor, _) = self.sync_cursor()?;
         let mut taken = Taken::default();
         let mut last = cursor;
         let mut last_id: Option<&str> = None;
@@ -548,7 +533,7 @@ impl Store {
                 }
                 last = change.seq;
                 last_id = Some(&change.id);
-                if !take_own && change.device.as_deref() == Some(device.as_str()) {
+                if change.device.as_deref() == Some(device.as_str()) {
                     taken.own += 1;
                     continue;
                 }
@@ -565,7 +550,7 @@ impl Store {
                         match crate::sync::import_remote(
                             &tx,
                             &mut self.docs,
-                            &crate::sync::doc_key(space, &change.doc),
+                            &change.doc,
                             &bytes,
                             &mut touched,
                         ) {
@@ -584,35 +569,18 @@ impl Store {
                         tx.execute(
                             "INSERT OR REPLACE INTO sync_rejected (seq, doc_id, reason, bytes, at)
                              VALUES (?1, ?2, ?3, ?4, ?5)",
-                            params![
-                                change.seq,
-                                crate::sync::doc_key(space, &change.doc),
-                                why,
-                                raw,
-                                now
-                            ],
+                            params![change.seq, change.doc, why, raw, now],
                         )?;
                         taken.rejected += 1;
                     }
                 }
             }
             crate::sync::rebuild(&tx, &mut self.docs, std::mem::take(&mut touched), now)?;
-            if take_own && !page.more {
-                // caught up: the device's own changes are all here again
-                tx.execute("DELETE FROM vault_meta WHERE key = ?1", [&rejoin])?;
-            }
             if let Some(id) = last_id {
-                if space.is_empty() {
-                    tx.execute(
-                        "UPDATE sync_link SET cursor = ?1, cursor_id = ?2 WHERE id = 1",
-                        params![last, id],
-                    )?;
-                } else {
-                    tx.execute(
-                        "UPDATE spaces SET cursor = ?1, cursor_id = ?2 WHERE id = ?3",
-                        params![last, id, space],
-                    )?;
-                }
+                tx.execute(
+                    "UPDATE sync_link SET cursor = ?1, cursor_id = ?2 WHERE id = 1",
+                    params![last, id],
+                )?;
             }
             Ok(())
         })();
