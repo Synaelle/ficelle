@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The first start through the full router: the link, setup pending, the
-//! https rule, the mandatory second factor and the lock.
+//! https rule, the mandatory second factor, the standard or end-to-end
+//! encrypted admin and the lock.
 
 use std::net::SocketAddr;
 
@@ -10,6 +11,7 @@ use axum::Router;
 use axum::body::{Body, to_bytes};
 use axum::extract::ConnectInfo;
 use axum::http::{Request, StatusCode};
+use base64::Engine;
 use serde_json::{Value, json};
 use tower::ServiceExt;
 use webauthn_authenticator_rs::WebauthnAuthenticator;
@@ -18,6 +20,7 @@ use webauthn_rs::prelude::Url;
 
 use super::tests::{call, device, events, login};
 use crate::accounts::totp;
+use crate::clock::MINUTE;
 use crate::config::{AuthConfig, Config};
 use crate::db::Db;
 use crate::routes::{AppState, router};
@@ -568,4 +571,337 @@ async fn an_admin_without_a_second_step_when_chosen() {
         log.iter().any(|e| e == "admin_second_step_changed"),
         "{log:?}"
     );
+}
+
+/// The browser's part of an end-to-end encrypted admin: the OPAQUE
+/// registration through setup and the account keys. The `e2ee` field of
+/// the finish request, and the keys as the browser keeps them.
+async fn e2ee_made(app: &Router, session: &str) -> (Value, app_e2ee::NewAccount) {
+    let start = app_e2ee::registration_start(PASSWORD).unwrap();
+    let (status, answer) = call(
+        app,
+        "POST",
+        "/setup/registration",
+        None,
+        Some(json!({ "session": session, "username": "Root", "request": start.request })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{answer}");
+    let finish = app_e2ee::registration_finish(
+        &start.state,
+        PASSWORD,
+        answer["response"].as_str().unwrap(),
+        "Root",
+        app_e2ee::Ksf::CURRENT,
+    )
+    .unwrap();
+    let account = app_e2ee::new_account(&finish.export_key);
+    let e2ee = json!({
+        "upload": finish.upload,
+        "ksf": app_e2ee::Ksf::CURRENT.number(),
+        "keys": account.bundle,
+        "recoveryVerifier": account.recovery_verifier,
+    });
+    (e2ee, account)
+}
+
+/// Finishes setup as an end-to-end encrypted admin: no password sent.
+async fn finish_e2ee(
+    app: &Router,
+    session: &str,
+    factor: &Value,
+    e2ee: &Value,
+) -> (StatusCode, Value) {
+    let mut body = finish_body(session, factor);
+    body.as_object_mut().unwrap().remove("password");
+    body["e2ee"] = e2ee.clone();
+    call(app, "POST", "/setup/finish", None, Some(body)).await
+}
+
+/// Signs in over OPAQUE as an app does: the finish answer and the export
+/// key.
+async fn opaque_sign_in(app: &Router) -> (StatusCode, Value, Vec<u8>) {
+    let start = app_e2ee::login_start(PASSWORD).unwrap();
+    let (status, started) = call(
+        app,
+        "POST",
+        "/auth/opaque/login/start",
+        None,
+        Some(json!({ "username": "root", "request": start.request })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{started}");
+    let done = app_e2ee::login_finish(
+        &start.state,
+        PASSWORD,
+        started["response"].as_str().unwrap(),
+        "root",
+        super::tests::ksf(&started),
+    )
+    .unwrap();
+    let (status, answer) = call(
+        app,
+        "POST",
+        "/auth/opaque/login/finish",
+        None,
+        Some(json!({ "challenge": started["challenge"], "finalization": done.finalization, "device": device("phone") })),
+    )
+    .await;
+    (status, answer, done.export_key.to_vec())
+}
+
+/// An OPAQUE sign-in with its authenticator code, a fresh one each time:
+/// the session and the export key.
+async fn e2ee_sign_in(state: &AppState, app: &Router, secret: &str) -> (Value, Vec<u8>) {
+    state.clock.advance(MINUTE);
+    let (status, needed, export_key) = opaque_sign_in(app).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{needed}");
+    let code = totp::code_now(secret, state.clock.now());
+    let (status, session) = call(
+        app,
+        "POST",
+        "/auth/second-factor",
+        None,
+        Some(json!({ "challenge": needed["challenge"], "method": "totp", "code": code })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{session}");
+    (session, export_key)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_end_to_end_encrypted_admin_signs_in_and_syncs_sealed_notes() {
+    let (state, app) = fresh(false, "");
+    let session = session(&state, &app).await;
+    let secret = totp_secret(&app, &session).await;
+    let (e2ee, account) = e2ee_made(&app, &session).await;
+    let factor = json!({ "type": "totp", "code": totp::code_now(&secret, state.clock.now()) });
+
+    let mut leaky = finish_body(&session, &factor);
+    leaky["e2ee"] = e2ee.clone();
+    let (status, body) = call(&app, "POST", "/setup/finish", None, Some(leaky)).await;
+    assert_eq!(
+        (status, body["error"].as_str()),
+        (StatusCode::BAD_REQUEST, Some("invalid")),
+        "the password never comes with it"
+    );
+
+    let (status, done) = finish_e2ee(&app, &session, &factor, &e2ee).await;
+    assert_eq!(status, StatusCode::CREATED, "{done}");
+    assert_eq!(done["session"]["user"]["kind"], "e2ee");
+    assert_eq!(done["session"]["user"]["username"], "root");
+    assert_eq!(done["session"]["user"]["role"], "admin");
+    assert_eq!(done["recoveryCodes"].as_array().unwrap().len(), 10);
+    let (hash, record): (String, Vec<u8>) = state
+        .db
+        .call(|c| {
+            Ok(c.query_row(
+                "SELECT password_hash, opaque_record FROM users WHERE username = 'root'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert!(hash.is_empty());
+    assert!(!String::from_utf8_lossy(&record).contains(PASSWORD));
+    let log = events(&state).await;
+    assert!(log.iter().any(|e| e == "setup_done"), "{log:?}");
+
+    // the password form never opens it, OPAQUE and the second step do
+    let (status, _) = login(&app, "root", PASSWORD).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (phone_session, export_key) = e2ee_sign_in(&state, &app, &secret).await;
+    let token = phone_session["accessToken"].as_str().unwrap();
+    let (_, keys) = call(&app, "GET", "/me/keys", Some(token), None).await;
+    let bundle: app_e2ee::KeyBundle = serde_json::from_value(keys["keys"].clone()).unwrap();
+    assert_eq!(bundle, account.bundle);
+    let master = app_e2ee::AccountKeys::open_with_password(&bundle, &export_key).unwrap();
+    assert_eq!(master.as_bytes(), account.master.as_bytes());
+
+    // the recovery code shown once in the browser opens the account
+    let verifier = app_e2ee::AccountKeys::recovery_verifier(&account.recovery_code).unwrap();
+    let (status, recovery) = call(
+        &app,
+        "POST",
+        "/auth/recovery/start",
+        None,
+        Some(json!({ "username": "root", "verifier": verifier })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{recovery}");
+
+    // a note sealed on the phone reaches the laptop, the server holds only
+    // what it cannot read
+    let phone = super::sync_tests::linked(&app, &phone_session, Some(&master));
+    phone
+        .0
+        .lock()
+        .unwrap()
+        .create_note(&app_core::store::NewNote {
+            title: "Garden".into(),
+            body: "Order more cedar posts".into(),
+            ..app_core::store::NewNote::default()
+        })
+        .unwrap();
+    let (_, pushed) = super::sync_tests::round(phone).await;
+    assert!(pushed.pushed > 0, "{pushed:?}");
+    let (_, page) = call(&app, "GET", "/sync/changes", Some(token), None).await;
+    let changes = page["changes"].as_array().unwrap();
+    assert!(!changes.is_empty(), "{page}");
+    for change in changes {
+        let data = base64::engine::general_purpose::STANDARD
+            .decode(change["data"].as_str().unwrap())
+            .unwrap();
+        let text = String::from_utf8_lossy(&data);
+        assert!(
+            !text.contains("cedar") && !text.contains("Garden"),
+            "{text}"
+        );
+    }
+
+    let (laptop_session, export_key) = e2ee_sign_in(&state, &app, &secret).await;
+    let opened = app_e2ee::AccountKeys::open_with_password(&bundle, &export_key).unwrap();
+    let laptop = super::sync_tests::linked(&app, &laptop_session, Some(&opened));
+    let (laptop, came) = super::sync_tests::round(laptop).await;
+    assert!(
+        came.taken.applied > 0 && came.taken.rejected == 0,
+        "{came:?}"
+    );
+    assert!(super::sync_tests::view_of(&laptop).contains("Order more cedar posts"));
+}
+
+#[tokio::test]
+async fn an_end_to_end_encrypted_admin_with_a_passkey_signs_in_to_the_admin_page() {
+    let (state, app) = fresh(false, ORIGIN);
+    let session = session(&state, &app).await;
+    let (status, options) = call(
+        &app,
+        "POST",
+        "/setup/passkey",
+        None,
+        Some(json!({ "session": session, "username": "root" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{options}");
+    let mut key = SoftPasskey::new(true);
+    let credential = key
+        .do_registration(
+            Url::parse(ORIGIN).unwrap(),
+            serde_json::from_value(options).unwrap(),
+        )
+        .unwrap();
+    let credential = serde_json::to_value(credential).unwrap();
+    let (e2ee, _) = e2ee_made(&app, &session).await;
+    let factor = json!({ "type": "passkey", "credential": credential, "name": "Laptop" });
+    let (status, done) = finish_e2ee(&app, &session, &factor, &e2ee).await;
+    assert_eq!(status, StatusCode::CREATED, "{done}");
+    let user_id = done["session"]["user"]["id"].as_str().unwrap();
+
+    // the admin page: the passkey alone
+    let (status, signed) =
+        super::passkey_tests::discoverable_sign_in(&app, &mut key, &credential, user_id).await;
+    assert_eq!(status, StatusCode::OK, "{signed}");
+    assert_eq!(signed["user"]["kind"], "e2ee");
+    let token = signed["accessToken"].as_str().unwrap();
+    let (status, overview) = call(&app, "GET", "/admin/overview", Some(token), None).await;
+    assert_eq!(status, StatusCode::OK, "{overview}");
+
+    // an app: the password, then the passkey as its second step
+    let (status, needed, _) = opaque_sign_in(&app).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{needed}");
+    assert!(
+        needed["methods"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("passkey")),
+        "{needed}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_standard_admin_from_setup_signs_in_and_syncs() {
+    let (state, app) = fresh(false, "");
+    let session = session(&state, &app).await;
+    let secret = totp_secret(&app, &session).await;
+    let factor = json!({ "type": "totp", "code": totp::code_now(&secret, state.clock.now()) });
+    let (status, done) = finish(&app, &session, &factor).await;
+    assert_eq!(status, StatusCode::CREATED, "{done}");
+    assert_eq!(done["session"]["user"]["kind"], "standard");
+
+    state.clock.advance(MINUTE);
+    let (status, needed) = login(&app, "root", PASSWORD).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{needed}");
+    let code = totp::code_now(&secret, state.clock.now());
+    let (status, signed) = call(
+        &app,
+        "POST",
+        "/auth/second-factor",
+        None,
+        Some(json!({ "challenge": needed["challenge"], "method": "totp", "code": code })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{signed}");
+    let (_, keys) = call(
+        &app,
+        "GET",
+        "/me/keys",
+        Some(signed["accessToken"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(keys["error"], "invalid", "no keys of its own: {keys}");
+
+    let phone = super::sync_tests::linked(&app, &signed, None);
+    phone
+        .0
+        .lock()
+        .unwrap()
+        .create_note(&app_core::store::NewNote {
+            title: "Garden".into(),
+            ..app_core::store::NewNote::default()
+        })
+        .unwrap();
+    let (_, pushed) = super::sync_tests::round(phone).await;
+    assert!(pushed.pushed > 0, "{pushed:?}");
+}
+
+#[tokio::test]
+async fn setup_is_locked_after_an_end_to_end_encrypted_admin() {
+    let (state, app) = fresh(false, "");
+    let session = session(&state, &app).await;
+    let (e2ee, _) = e2ee_made(&app, &session).await;
+    let (status, done) = finish_e2ee(&app, &session, &json!({ "type": "none" }), &e2ee).await;
+    assert_eq!(status, StatusCode::CREATED, "{done}");
+
+    let (status, _) = start(&app, &link(&state)).await;
+    assert_eq!(status, StatusCode::GONE, "a new link");
+    let start = app_e2ee::registration_start(PASSWORD).unwrap();
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/setup/registration",
+        None,
+        Some(json!({ "session": session, "username": "other", "request": start.request })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::GONE, "another registration");
+    for body in [finish_body(&session, &json!({ "type": "none" })), {
+        let mut again = finish_body(&session, &json!({ "type": "none" }));
+        again.as_object_mut().unwrap().remove("password");
+        again["e2ee"] = e2ee.clone();
+        again
+    }] {
+        let (status, body) = call(&app, "POST", "/setup/finish", None, Some(body)).await;
+        assert_eq!(
+            (status, body["error"].as_str()),
+            (StatusCode::GONE, Some("setupDone"))
+        );
+    }
+    let users: i64 = state
+        .db
+        .call(|c| Ok(c.query_row("SELECT count(*) FROM users", [], |r| r.get(0))?))
+        .await
+        .unwrap();
+    assert_eq!(users, 1);
 }

@@ -36,6 +36,7 @@ pub fn router() -> Router<AppState> {
         .route("/setup/start", post(setup::start))
         .route("/setup/totp", post(setup::totp_setup))
         .route("/setup/passkey", post(setup::passkey_setup))
+        .route("/setup/registration", post(setup::registration))
         .route("/setup/finish", post(setup::finish))
         .route("/setup/checks", post(setup::checks))
         .route("/setup/upload", post(setup::upload))

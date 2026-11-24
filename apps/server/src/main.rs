@@ -56,7 +56,9 @@ const USAGE: &str = "usage: ficelle-server [--config <file>] [--check] [--versio
                    an admin with a password alone, read from --password-file
                    (a Docker secret) or asked twice. At its first sign-in it
                    adds a passkey or an authenticator app before anything
-                   else. The first admin locks setup.
+                   else. The first admin locks setup. It is a standard
+                   account, an end-to-end encrypted admin is made from the
+                   setup link in the browser.
   admin reset <name>
                    for an admin locked out: a new password printed once, its
                    passkeys and authenticator app removed (a new one is due

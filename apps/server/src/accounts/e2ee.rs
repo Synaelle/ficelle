@@ -146,14 +146,12 @@ pub fn verifier_matches(conn: &Connection, user_id: &str, verifier: &str) -> Res
     Ok(stored.is_some_and(|s| s.as_slice() == verifier_hash(verifier)))
 }
 
-/// Makes a freshly inserted account an e2ee one. Only tests make them now:
-/// e2ee accounts came from sign-up, which left with servers for several
-/// people, and the ones made then keep signing in.
+/// Makes a freshly inserted account an e2ee one: the first admin, when
+/// setup in the browser makes it so.
 ///
 /// # Errors
 ///
 /// Database errors, or a bundle that does not serialise.
-#[cfg(test)]
 pub fn make_e2ee(
     conn: &Connection,
     user_id: &str,

@@ -141,6 +141,17 @@ async fn each_session_call(app: &Router, peer: &str, session: &str) -> Vec<(Stri
         .await;
         out.push((path.to_owned(), status));
     }
+    let start = app_e2ee::registration_start("a long admin password").unwrap();
+    let registration = json!({ "session": session, "username": "root", "request": start.request });
+    let (status, _) = send(
+        app,
+        peer,
+        "POST",
+        "/api/v1/setup/registration",
+        Some(&registration),
+    )
+    .await;
+    out.push(("registration".into(), status));
     let finish = json!({
         "session": session,
         "username": "root",

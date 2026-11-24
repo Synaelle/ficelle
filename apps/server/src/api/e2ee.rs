@@ -54,7 +54,7 @@ pub(super) async fn setup(state: &AppState) -> Result<Arc<Setup>, Error> {
         .cloned()
 }
 
-fn malformed(err: &app_e2ee::Error) -> Error {
+pub(super) fn malformed(err: &app_e2ee::Error) -> Error {
     Error::invalid(err.to_string())
 }
 
@@ -109,7 +109,7 @@ pub async fn registration(
 }
 
 /// A stretching number from a request: one this server knows.
-fn ksf(number: u8) -> Result<u8, Error> {
+pub(super) fn ksf(number: u8) -> Result<u8, Error> {
     if (1..=app_protocol::e2ee::KSF_CURRENT).contains(&number) {
         Ok(number)
     } else {
@@ -117,7 +117,7 @@ fn ksf(number: u8) -> Result<u8, Error> {
     }
 }
 
-fn check_bundle(keys: &KeyBundle) -> Result<(), Error> {
+pub(super) fn check_bundle(keys: &KeyBundle) -> Result<(), Error> {
     let fits = |s: &str| !s.is_empty() && s.len() <= 1024;
     if keys.version == 1 && fits(&keys.by_password) && fits(&keys.by_recovery) {
         Ok(())

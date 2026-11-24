@@ -2,13 +2,17 @@
 
 //! `/api/v1/setup`: the first admin, from the link in the log to the lock.
 //! Each call is rate limited per address, refused unless the request passes
-//! the https rule, and answers 410 once setup is locked, for good.
+//! the https rule, and answers 410 once setup is locked, for good. The admin
+//! is a standard account or, registered over OPAQUE from the browser, an
+//! end-to-end encrypted one.
 
+use app_e2ee::server::Setup;
+use app_protocol::e2ee::{KeyBundle, OpaqueRegistrationResponse};
 use app_protocol::error_code;
 use app_protocol::security::TotpSetup;
 use app_protocol::setup::{
-    SetupChecks, SetupFactor, SetupFactorRequest, SetupFinishRequest, SetupFinished,
-    SetupStartRequest, SetupStarted, SetupStatus,
+    SetupChecks, SetupE2ee, SetupFactor, SetupFactorRequest, SetupFinishRequest, SetupFinished,
+    SetupRegistrationRequest, SetupStartRequest, SetupStarted, SetupStatus,
 };
 use axum::Json;
 use axum::extract::State;
@@ -19,7 +23,7 @@ use webauthn_rs::prelude::{PasskeyRegistration, RegisterPublicKeyCredential, Uui
 use super::auth::{hash_password, new_credentials, rate_limit, session};
 use super::extract::{Body, ClientIp, Peer, Secure};
 use crate::accounts::store::{self, Event};
-use crate::accounts::{device_info, display_name, factors, normal_username, totp};
+use crate::accounts::{device_info, display_name, e2ee, factors, normal_username, totp};
 use crate::error::Error;
 use crate::routes::AppState;
 use crate::setup;
@@ -235,8 +239,8 @@ pub async fn socket(
     }))
 }
 
-fn username_of(req: &SetupFactorRequest) -> Result<String, Error> {
-    normal_username(&req.username).ok_or_else(|| {
+fn username_of(raw: &str) -> Result<String, Error> {
+    normal_username(raw).ok_or_else(|| {
         Error::new(
             StatusCode::BAD_REQUEST,
             error_code::USERNAME_INVALID,
@@ -253,7 +257,7 @@ pub async fn totp_setup(
     Body(req): Body<SetupFactorRequest>,
 ) -> Result<Json<TotpSetup>, Error> {
     guard(&state, ip, secure).await?;
-    let username = username_of(&req)?;
+    let username = username_of(&req.username)?;
     let secret = totp::new_secret();
     let kept = secret.clone();
     state
@@ -282,7 +286,7 @@ pub async fn passkey_setup(
 ) -> Result<Json<Value>, Error> {
     guard(&state, ip, secure).await?;
     let webauthn = super::passkeys::relying_party(&state)?;
-    let username = username_of(&req)?;
+    let username = username_of(&req.username)?;
     let display = display_name(req.display_name.as_deref(), &username);
     let now = state.clock.now();
     let user_id = state
@@ -300,6 +304,81 @@ pub async fn passkey_setup(
     let mut options = serde_json::to_value(options).map_err(|e| Error::internal(&e.to_string()))?;
     super::passkeys::discoverable(&mut options);
     Ok(Json(options))
+}
+
+/// `POST /api/v1/setup/registration`: the OPAQUE answer for an end-to-end
+/// encrypted admin. Keeps nothing, like `/auth/opaque/registration` once
+/// setup is done.
+pub async fn registration(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    secure: Secure,
+    Body(req): Body<SetupRegistrationRequest>,
+) -> Result<Json<OpaqueRegistrationResponse>, Error> {
+    guard(&state, ip, secure).await?;
+    live_session(&state, &req.session)?;
+    let username = username_of(&req.username)?;
+    let response = super::e2ee::setup(&state)
+        .await?
+        .registration_response(&req.request, &username)
+        .map_err(|e| super::e2ee::malformed(&e))?;
+    Ok(Json(OpaqueRegistrationResponse { response }))
+}
+
+/// An end-to-end encrypted admin, checked before anything is stored.
+struct E2eeAdmin {
+    record: Vec<u8>,
+    ksf: u8,
+    keys: KeyBundle,
+    verifier: String,
+}
+
+/// The admin's username and, for an end-to-end encrypted one, what makes
+/// it so.
+fn credentials(
+    username: &str,
+    password: &str,
+    e2ee: Option<SetupE2ee>,
+) -> Result<(String, Option<E2eeAdmin>), Error> {
+    let Some(made) = e2ee else {
+        return Ok((new_credentials(username, password)?, None));
+    };
+    // the browser stretches and checks it, the server never sees it
+    if !password.is_empty() {
+        return Err(Error::invalid(
+            "an end-to-end encrypted admin's password stays in the browser",
+        ));
+    }
+    super::e2ee::check_bundle(&made.keys)?;
+    let admin = E2eeAdmin {
+        record: Setup::record(&made.upload).map_err(|e| super::e2ee::malformed(&e))?,
+        ksf: super::e2ee::ksf(made.ksf)?,
+        keys: made.keys,
+        verifier: made.recovery_verifier,
+    };
+    Ok((username_of(username)?, Some(admin)))
+}
+
+/// Makes the new admin end-to-end encrypted when it is: what setup was
+/// for the log.
+fn keep_e2ee(
+    tx: &rusqlite::Connection,
+    user_id: &str,
+    made: Option<&E2eeAdmin>,
+    factor: &str,
+) -> Result<String, crate::db::DbError> {
+    let Some(made) = made else {
+        return Ok(factor.to_owned());
+    };
+    e2ee::make_e2ee(
+        tx,
+        user_id,
+        &made.record,
+        made.ksf,
+        &made.keys,
+        &made.verifier,
+    )?;
+    Ok(format!("{factor}, e2ee"))
 }
 
 /// The second factor checked against the session. `None` when it does not
@@ -398,7 +477,7 @@ pub async fn finish(
             (s.user_id.clone(), s.totp.clone(), s.passkey.clone())
         })
         .ok_or_else(|| no_session(&state))?;
-    let username = new_credentials(&req.username, &req.password)?;
+    let (username, e2ee_made) = credentials(&req.username, &req.password, req.e2ee)?;
     let is_totp = matches!(req.factor, SetupFactor::Totp { .. });
     let no_factor = matches!(req.factor, SetupFactor::None);
     let Some(proven) = prove(&state, req.factor, totp_secret, passkey, now)? else {
@@ -415,7 +494,11 @@ pub async fn finish(
         });
     };
     let display = display_name(req.display_name.as_deref(), &username);
-    let hash = hash_password(&state, req.password).await?;
+    let hash = if e2ee_made.is_some() {
+        String::new()
+    } else {
+        hash_password(&state, req.password).await?
+    };
     let device = device_info(&req.device);
     let auth = state.config.auth.clone();
     let codes = totp::new_recovery_codes();
@@ -443,6 +526,8 @@ pub async fn finish(
                 return Ok(None);
             };
             let factor = keep_factor(&tx, &master, &user.id, proven, &hashes, now)?;
+            let detail = keep_e2ee(&tx, &user.id, e2ee_made.as_ref(), factor)?;
+            let user = store::user_by_id(&tx, &user.id)?.unwrap_or(user);
             setup::lock(&tx)?;
             let tokens = store::create_session(&tx, &user.id, &device, now, &auth)?;
             store::audit(
@@ -453,7 +538,7 @@ pub async fn finish(
                     user_id: Some(&user.id),
                     device_id: Some(&tokens.device_id),
                     ip: Some(&ip_text),
-                    detail: Some(factor),
+                    detail: Some(&detail),
                 },
             )?;
             tx.commit()?;

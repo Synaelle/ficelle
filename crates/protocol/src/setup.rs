@@ -2,12 +2,15 @@
 
 //! The first start of a server: the setup link from the log is traded for a
 //! setup session, the admin sets up a passkey or an authenticator app, and
-//! `finish` makes the admin and locks setup for good.
+//! `finish` makes the admin and locks setup for good. The admin is a
+//! standard account, or an end-to-end encrypted one registered over OPAQUE
+//! from the browser, whose password never reaches the server.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::account::{DeviceInfo, Session};
+use crate::e2ee::KeyBundle;
 
 /// `GET /api/v1/setup`: what the setup page needs before the link is used.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,6 +56,34 @@ pub struct SetupFactorRequest {
     pub display_name: Option<String>,
 }
 
+/// `POST /api/v1/setup/registration`: the first OPAQUE step of an end-to-end
+/// encrypted admin. Answered with an
+/// [`OpaqueRegistrationResponse`](crate::e2ee::OpaqueRegistrationResponse).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetupRegistrationRequest {
+    /// From [`SetupStarted`].
+    pub session: String,
+    /// The admin's username, the password is registered for it.
+    pub username: String,
+    /// OPAQUE registration request.
+    pub request: String,
+}
+
+/// What makes the admin end-to-end encrypted, made in the browser.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetupE2ee {
+    /// OPAQUE registration upload.
+    pub upload: String,
+    /// How the upload's password was stretched.
+    pub ksf: u8,
+    /// The account keys, wrapped.
+    pub keys: KeyBundle,
+    /// Proof of the recovery code, the server keeps its hash.
+    pub recovery_verifier: String,
+}
+
 /// The second factor proven at `finish`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
@@ -88,12 +119,16 @@ pub struct SetupFinishRequest {
     /// Name shown to others, the username when absent.
     #[serde(default)]
     pub display_name: Option<String>,
-    /// Admin password.
+    /// Admin password, empty for an end-to-end encrypted admin.
+    #[serde(default)]
     pub password: String,
     /// The second factor, or none chosen past a warning.
     pub factor: SetupFactor,
     /// This device.
     pub device: DeviceInfo,
+    /// An end-to-end encrypted admin, a standard one when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub e2ee: Option<SetupE2ee>,
 }
 
 /// The admin made and signed in. Recovery codes for a lost factor, shown once.
