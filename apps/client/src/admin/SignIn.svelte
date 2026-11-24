@@ -19,7 +19,7 @@
     type SecondFactorNeeded,
     type Session,
   } from './api.svelte'
-  import { kindOf, signIn as e2eeSignIn, type AppKey } from './e2ee'
+  import { kindOf, secondStepCode, signIn as e2eeSignIn, type AppKey } from './e2ee'
   import { errorText } from './format'
   import { passkeysSupported, usePasskey } from './webauthn'
 
@@ -54,6 +54,8 @@
   let second: SecondFactorNeeded | null = $state(null)
   let factorCode = $state('')
   let recovery = $state(false)
+  /** The account signing in is end-to-end encrypted. */
+  let e2ee = false
 
   /** A passkey first. Not when signing an app in on a server that may hold
    * encrypted accounts: their notes open with the password only, the
@@ -115,13 +117,14 @@
     await attempt(async () => {
       const passkey =
         method === 'passkey' && second?.passkey ? await usePasskey(second.passkey) : undefined
+      const code =
+        method === 'passkey'
+          ? undefined
+          : method === 'recoveryCode' && e2ee
+            ? await secondStepCode(factorCode)
+            : factorCode
       signedIn(
-        await api<Session>('POST', '/auth/second-factor', {
-          challenge,
-          method,
-          code: method === 'passkey' ? undefined : factorCode,
-          passkey,
-        }),
+        await api<Session>('POST', '/auth/second-factor', { challenge, method, code, passkey }),
       )
     })
   }
@@ -151,7 +154,8 @@
       const device = thisDevice()
       {
         let answer: Session | SecondFactorNeeded
-        if ((await kindOf(username)) === 'e2ee') {
+        e2ee = (await kindOf(username)) === 'e2ee'
+        if (e2ee) {
           const signed = await e2eeSignIn(username, password, device, forApp)
           answer = signed.answer as Session | SecondFactorNeeded
           sealed = signed.sealed

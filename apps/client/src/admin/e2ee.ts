@@ -104,6 +104,19 @@ export async function proofOf(username: string, password: string): Promise<strin
   return answer.proof
 }
 
+/** What an e2ee account answers the second step with when asked for a
+ * recovery code: the verifier of its recovery code, which itself opens the
+ * keys and stays here, or a second step code from before as typed. */
+export async function secondStepCode(typed: string): Promise<string> {
+  const wasm = await client()
+  try {
+    return wasm.recoveryVerifier(typed)
+  } catch {
+    // not the shape of an encryption recovery code
+    return typed
+  }
+}
+
 /** What setup sends to make the first admin an e2ee account. */
 export interface SetupE2ee {
   upload: string

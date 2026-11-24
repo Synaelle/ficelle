@@ -7,6 +7,7 @@
 use std::sync::Arc;
 
 use app_protocol::account::Session;
+use app_protocol::e2ee::AccountKind;
 use app_protocol::error_code;
 use app_protocol::security::{
     Confirm, Passkey, PasskeyAddRequest, PasskeyAdded, PasskeyCeremony, PasskeyFinishRequest,
@@ -219,6 +220,7 @@ pub async fn add_finish(
     let codes = totp::new_recovery_codes();
     let hashes: Vec<_> = codes.iter().map(|(_, h)| *h).collect();
     let stored_name = name.clone();
+    let e2ee = me.user.kind == AccountKind::E2ee;
     let added = state
         .db
         .call(move |c| {
@@ -227,7 +229,8 @@ pub async fn add_finish(
             else {
                 return Ok(None);
             };
-            let fresh = factors::recovery_codes_left(&tx, &id)? == 0;
+            // an e2ee account's recovery code stands in for the second step
+            let fresh = !e2ee && factors::recovery_codes_left(&tx, &id)? == 0;
             if fresh {
                 factors::replace_recovery_codes(&tx, &id, &hashes)?;
             }

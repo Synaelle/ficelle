@@ -6,6 +6,7 @@
 //! lock, so a known password does not open endless guessing.
 
 use app_protocol::account::{DeviceInfo, Session};
+use app_protocol::e2ee::AccountKind;
 use app_protocol::error_code;
 use app_protocol::security::{SecondFactor, SecondFactorNeeded, SecondFactorRequest};
 use axum::Json;
@@ -20,7 +21,7 @@ use super::extract::{Body, ClientIp};
 use super::passkeys;
 use crate::accounts::factors::{self, ChallengeKind};
 use crate::accounts::store::{self, Event, UserRow};
-use crate::accounts::{token, totp};
+use crate::accounts::{e2ee, token, totp};
 use crate::clock::MINUTE;
 use crate::db::DbError;
 use crate::error::Error;
@@ -56,6 +57,7 @@ pub(super) async fn ask(
     };
     let (options, check) = started.unzip();
     let id = user.id.clone();
+    let e2ee = user.kind == AccountKind::E2ee;
     let found = state
         .db
         .call(move |c| {
@@ -70,7 +72,9 @@ pub(super) async fn ask(
             if methods.is_empty() {
                 return Ok(None);
             }
-            if factors::recovery_codes_left(c, &id)? > 0 {
+            // an e2ee account's recovery code always stands in, through its
+            // verifier
+            if e2ee || factors::recovery_codes_left(c, &id)? > 0 {
                 methods.push(SecondFactor::RecoveryCode);
             }
             let challenge = factors::create_challenge(
@@ -137,6 +141,8 @@ fn check_answer(
             if factors::use_recovery_code(tx, id, &hash, now)? {
                 let left = factors::recovery_codes_left(tx, id)?;
                 Some(format!("recovery code, {left} left"))
+            } else if e2ee::verifier_matches(tx, id, answer.code)? {
+                Some("encryption recovery code".to_owned())
             } else {
                 None
             }

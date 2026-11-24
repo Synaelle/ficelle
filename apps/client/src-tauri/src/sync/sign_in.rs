@@ -357,6 +357,15 @@ pub fn second_factor(
     method: SecondFactor,
     code: &str,
 ) -> Result<Signed, SignInError> {
+    // an e2ee account's recovery code opens its keys and stays here: the
+    // server checks its verifier. A second step code from before goes as
+    // typed.
+    let code = match (&pending.export_key, method) {
+        (Some(_), SecondFactor::RecoveryCode) => {
+            AccountKeys::recovery_verifier(code).unwrap_or_else(|_| code.trim().to_owned())
+        }
+        _ => code.trim().to_owned(),
+    };
     let session: Session = pending
         .api
         .post(
@@ -365,7 +374,7 @@ pub fn second_factor(
             &SecondFactorRequest {
                 challenge: pending.challenge.clone(),
                 method,
-                code: Some(code.trim().to_owned()),
+                code: Some(code),
                 passkey: None,
             },
         )?

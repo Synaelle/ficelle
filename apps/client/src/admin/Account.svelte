@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The signed in admin's own sign-in: password, authenticator app,
-     recovery codes and passkeys. Changes ask for the password again. -->
+     recovery codes (not for an end-to-end encrypted account) and passkeys.
+     Changes ask for the password again. -->
 <script lang="ts">
   import { COPIED_MS } from '../lib/clipboard'
   import PasswordField from '../lib/PasswordField.svelte'
@@ -385,7 +386,8 @@
       </div>
     </details>
 
-    {#if security.totp || security.passkeys.length}
+    <!-- an e2ee account's recovery code stands in for the second step -->
+    {#if !e2ee && (security.totp || security.passkeys.length)}
       <details class="item">
         {@render head(
           'key',

@@ -15,7 +15,10 @@ use crate::account::DeviceInfo;
 pub enum SecondFactor {
     /// Six digits from an authenticator app.
     Totp,
-    /// One of the recovery codes shown when the app was set up.
+    /// One of the recovery codes shown when the second step was set up.
+    /// For an end-to-end encrypted account, the verifier of its recovery
+    /// code stands in too: the code itself opens the keys and never leaves
+    /// the device.
     RecoveryCode,
     /// A passkey or security key.
     Passkey,

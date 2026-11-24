@@ -291,7 +291,7 @@ async fn sensitive_changes_need_a_proof_of_the_password() {
     let (status, _) = call(
         &app,
         "POST",
-        "/me/recovery-codes",
+        "/me/totp/disable",
         Some(&token),
         Some(json!({ "proof": proof_token })),
     )
@@ -505,4 +505,62 @@ async fn an_old_record_is_strengthened_and_keeps_its_keys() {
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn second_step_codes_an_e2ee_account_already_has_keep_working() {
+    let (state, app, _) = open_server().await;
+    let (_, session, made) = sign_up(&state, &app, "noor").await;
+    let made = made.unwrap();
+    let id = session["user"]["id"].as_str().unwrap().to_owned();
+    let codes = totp::new_recovery_codes();
+    let hashes: Vec<_> = codes.iter().map(|(_, h)| *h).collect();
+    let master = state.master.clone();
+    let secret = totp::new_secret();
+    state
+        .db
+        .call(move |c| {
+            crate::accounts::factors::set_totp_pending(c, &master, &id, &secret)?;
+            crate::accounts::factors::activate_totp(c, &id, 0)?;
+            crate::accounts::factors::replace_recovery_codes(c, &id, &hashes)
+        })
+        .await
+        .unwrap();
+    let (status, security) = call(&app, "GET", "/me/security", Some(&made.token), None).await;
+    assert_eq!(status, StatusCode::OK, "{security}");
+    assert_eq!(security["recoveryCodesLeft"], 10);
+
+    let ((status, needed), _) = opaque_login(&app, "noor", PASSWORD).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{needed}");
+    let (status, signed) = call(
+        &app,
+        "POST",
+        "/auth/second-factor",
+        None,
+        Some(
+            json!({ "challenge": needed["challenge"], "method": "recoveryCode",
+            "code": codes[0].0 }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{signed}");
+
+    // and the encryption recovery code beside them
+    state.clock.advance(MINUTE);
+    let ((_, needed), _) = opaque_login(&app, "noor", PASSWORD).await;
+    let verifier = AccountKeys::recovery_verifier(&made.recovery_code).unwrap();
+    let (status, signed) = call(
+        &app,
+        "POST",
+        "/auth/second-factor",
+        None,
+        Some(
+            json!({ "challenge": needed["challenge"], "method": "recoveryCode",
+            "code": verifier }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{signed}");
+    let (_, security) = call(&app, "GET", "/me/security", Some(&made.token), None).await;
+    assert_eq!(security["recoveryCodesLeft"], 9);
 }

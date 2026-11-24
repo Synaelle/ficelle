@@ -203,6 +203,7 @@ pub async fn totp_confirm(
     let master = state.master.clone();
     let codes = totp::new_recovery_codes();
     let hashes: Vec<_> = codes.iter().map(|(_, h)| *h).collect();
+    let e2ee = me.user.kind == AccountKind::E2ee;
     let issued = state
         .db
         .call(move |c| {
@@ -218,7 +219,8 @@ pub async fn totp_confirm(
             };
             factors::activate_totp(&tx, &id, step)?;
             store::set_factor_required(&tx, &id, false)?;
-            let fresh = factors::recovery_codes_left(&tx, &id)? == 0;
+            // an e2ee account's recovery code stands in for the second step
+            let fresh = !e2ee && factors::recovery_codes_left(&tx, &id)? == 0;
             if fresh {
                 factors::replace_recovery_codes(&tx, &id, &hashes)?;
             }
@@ -272,6 +274,13 @@ pub async fn new_recovery_codes(
     CurrentUser(me): CurrentUser,
     Body(req): Body<Confirm>,
 ) -> Result<Json<RecoveryCodes>, Error> {
+    if me.user.kind == AccountKind::E2ee {
+        return Err(Error::new(
+            StatusCode::CONFLICT,
+            error_code::INVALID,
+            "an end-to-end encrypted account's recovery code stands in for the second step",
+        ));
+    }
     confirm(&state, &me, req, ip).await?;
     let id = me.user.id.clone();
     let codes = totp::new_recovery_codes();

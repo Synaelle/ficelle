@@ -501,7 +501,12 @@ pub async fn finish(
     };
     let device = device_info(&req.device);
     let auth = state.config.auth.clone();
-    let codes = totp::new_recovery_codes();
+    // an e2ee admin's recovery code stands in for the second step too
+    let codes = if no_factor || e2ee_made.is_some() {
+        Vec::new()
+    } else {
+        totp::new_recovery_codes()
+    };
     let hashes: Vec<_> = codes.iter().map(|(_, h)| *h).collect();
     let ip_text = ip.0.to_string();
     let master = state.master.clone();
@@ -551,12 +556,7 @@ pub async fn finish(
         "first admin {} made, setup is locked. Back up the data folder's secrets (master.key and the databases) somewhere apart from this machine",
         user.username
     );
-    // no second step, no recovery codes to stand in for one
-    let recovery_codes = if no_factor {
-        Vec::new()
-    } else {
-        codes.into_iter().map(|(code, _)| code).collect()
-    };
+    let recovery_codes = codes.into_iter().map(|(code, _)| code).collect();
     Ok((
         StatusCode::CREATED,
         Json(SetupFinished {

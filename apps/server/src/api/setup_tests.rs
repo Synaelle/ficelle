@@ -670,6 +670,7 @@ async fn e2ee_sign_in(state: &AppState, app: &Router, secret: &str) -> (Value, V
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[expect(clippy::too_many_lines, reason = "one story, read top to bottom")]
 async fn an_end_to_end_encrypted_admin_signs_in_and_syncs_sealed_notes() {
     let (state, app) = fresh(false, "");
     let session = session(&state, &app).await;
@@ -691,7 +692,11 @@ async fn an_end_to_end_encrypted_admin_signs_in_and_syncs_sealed_notes() {
     assert_eq!(done["session"]["user"]["kind"], "e2ee");
     assert_eq!(done["session"]["user"]["username"], "root");
     assert_eq!(done["session"]["user"]["role"], "admin");
-    assert_eq!(done["recoveryCodes"].as_array().unwrap().len(), 10);
+    assert_eq!(
+        done["recoveryCodes"],
+        json!([]),
+        "the encryption recovery code stands in for the second step"
+    );
     let (hash, record): (String, Vec<u8>) = state
         .db
         .call(|c| {
@@ -730,6 +735,49 @@ async fn an_end_to_end_encrypted_admin_signs_in_and_syncs_sealed_notes() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{recovery}");
+
+    // its verifier is the second step too, as often as needed, while the
+    // code itself never reaches the server
+    for _ in 0..2 {
+        state.clock.advance(MINUTE);
+        let (status, needed, _) = opaque_sign_in(&app).await;
+        assert_eq!(status, StatusCode::ACCEPTED, "{needed}");
+        assert_eq!(needed["methods"], json!(["totp", "recoveryCode"]));
+        let (status, raw) = call(
+            &app,
+            "POST",
+            "/auth/second-factor",
+            None,
+            Some(
+                json!({ "challenge": needed["challenge"], "method": "recoveryCode",
+                "code": account.recovery_code.as_str() }),
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "{raw}");
+        let (status, signed) = call(
+            &app,
+            "POST",
+            "/auth/second-factor",
+            None,
+            Some(
+                json!({ "challenge": needed["challenge"], "method": "recoveryCode",
+                "code": verifier }),
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{signed}");
+    }
+    let token_now = phone_session["accessToken"].as_str().unwrap();
+    let (status, refused) = call(
+        &app,
+        "POST",
+        "/me/recovery-codes",
+        Some(token_now),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{refused}");
 
     // a note sealed on the phone reaches the laptop, the server holds only
     // what it cannot read

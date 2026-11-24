@@ -4,8 +4,9 @@
      address bar. Then: health checks of the way in (https, the proxy's
      headers, WebSocket, upload size, clock), the admin, standard or end-to-end
      encrypted, with a passkey first or an authenticator app, the encrypted
-     account's recovery code, the second step's recovery codes, and the first
-     choices made with the admin's session: files, backups. -->
+     account's recovery code (which stands in for the second step too) or the
+     standard account's second step recovery codes, and the first choices
+     made with the admin's session: files, backups. -->
 <script lang="ts">
   import { COPIED_MS } from '../lib/clipboard'
   import PasswordField from '../lib/PasswordField.svelte'
