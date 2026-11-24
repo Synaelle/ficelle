@@ -201,7 +201,10 @@ mod tests {
         let entry = data
             .join("applications")
             .join(format!("{}.desktop", app_brand::IDENTIFIER));
-        let icon = data.join(format!("icons/hicolor/128x128/apps/{}.png", app_brand::IDENTIFIER));
+        let icon = data.join(format!(
+            "icons/hicolor/128x128/apps/{}.png",
+            app_brand::IDENTIFIER
+        ));
         let other = data.join("icons/hicolor/128x128/apps/other.png");
         write_if_changed(&icon, b"png");
         write_if_changed(&other, b"png");
@@ -209,7 +212,10 @@ mod tests {
         write_if_changed(&entry, b"[Desktop Entry]\nExec=ficelle\n");
         remove_appimage_entry(&data);
         assert!(entry.exists() && icon.exists());
-        write_if_changed(&entry, desktop_entry(Path::new("/opt/F.AppImage")).as_bytes());
+        write_if_changed(
+            &entry,
+            desktop_entry(Path::new("/opt/F.AppImage")).as_bytes(),
+        );
         remove_appimage_entry(&data);
         assert!(!entry.exists() && !icon.exists() && other.exists());
         let _ = fs::remove_dir_all(&data);
