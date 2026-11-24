@@ -527,6 +527,9 @@ impl Vault {
         let enc_blobs = self.dir.join(ENC_BLOBS);
         self.disk.remove(&enc)?;
         self.disk.remove_all(&enc_blobs)?;
+        // the notes' connection never creates files (a missing one is damage)
+        // and ATTACH takes its flags: the new file is made here first
+        drop(rusqlite::Connection::open(&enc)?);
         let conn = store.conn();
         conn.execute(
             "ATTACH DATABASE ?1 AS encrypted KEY ?2",
@@ -1490,6 +1493,26 @@ mod tests {
         let vault = Vault::open(dir.path()).unwrap();
         assert!(vault.unlock_with_password("wrong").is_err());
         let store = vault.unlock_with_password("a long password").unwrap();
+        assert_eq!(store.search("secret", 5).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_vault_opened_again_is_encrypted_too() {
+        let dir = tempfile::tempdir().unwrap();
+        let (_, mut store) = Vault::create(dir.path(), Encryption::Off).unwrap();
+        note(&mut store, "secret plan");
+        drop(store);
+        let mut vault = Vault::open(dir.path()).unwrap();
+        let store = vault.unlock_plain().unwrap();
+        let store = vault
+            .encrypt_with_password(store, "a long password", KDF)
+            .unwrap();
+        assert_eq!(store.search("secret", 5).unwrap().len(), 1);
+        drop(store);
+        let store = Vault::open(dir.path())
+            .unwrap()
+            .unlock_with_password("a long password")
+            .unwrap();
         assert_eq!(store.search("secret", 5).unwrap().len(), 1);
     }
 
