@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://ficelle.synaelle.com"><picture><source media="(prefers-color-scheme: dark)" srcset="packages/ui/brand/badges/download-dark.png"><img src="packages/ui/brand/badges/download-light.png" alt="Download from the website" height="54"></picture></a>
-  <a href="../../releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset="packages/ui/brand/badges/github-dark.png"><img src="packages/ui/brand/badges/github-light.png" alt="All versions on GitHub" height="54"></picture></a>
+  <a href="https://github.com/Synaelle/ficelle/releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset="packages/ui/brand/badges/github-dark.png"><img src="packages/ui/brand/badges/github-light.png" alt="All versions on GitHub" height="54"></picture></a>
   <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/Synaelle/ficelle"><picture><source media="(prefers-color-scheme: dark)" srcset="packages/ui/brand/badges/obtainium-dark.png"><img src="packages/ui/brand/badges/obtainium-light.png" alt="Get it on Obtainium" height="54"></picture></a>
 </p>
 
