@@ -505,6 +505,10 @@
     background: var(--color-surface);
     position: relative;
   }
+  /* pure black means the note too, and its bars and handles drawn on it */
+  :global(:root[data-black='true']) .view {
+    --color-surface: var(--color-bg);
+  }
   header {
     display: flex;
     align-items: center;
