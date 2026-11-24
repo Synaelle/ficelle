@@ -10,7 +10,7 @@
   import { modal } from '../lib/modal'
   import { onMount, untrack } from 'svelte'
   import { biometricMethod } from '../lib/biometric'
-  import { currentLocale, LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
+  import { LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { LINE_SPACINGS, prefs, shortcutFor, showTool } from '../lib/prefs.svelte'
@@ -370,7 +370,7 @@
               {/if}
             </Group>
           {:else if section === 'language'}
-            <Group note={currentLocale() !== 'en' ? t('settings.translatedWith') : undefined}>
+            <Group>
               <Row label={t('settings.language')}>
                 <select
                   class="field compact same-width"
