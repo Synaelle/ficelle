@@ -169,4 +169,10 @@
     padding: 0 var(--space-3) var(--space-2);
     color: var(--color-danger);
   }
+  /* on the phone the rows are flat on the page: the notes and the error
+     line up with the names, right of the icons */
+  :global(.screen) .changelog,
+  :global(.screen) .error {
+    padding-inline: calc(var(--space-4) + var(--space-3) + 30px) var(--space-4);
+  }
 </style>
