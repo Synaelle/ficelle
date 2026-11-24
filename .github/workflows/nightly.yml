@@ -15,8 +15,8 @@ name: nightly
 # place in this list (release.yml), so apps on Nightly get it at once, and
 # the next nightly numbers above it.
 #
-# Nothing is built when main has not changed since the last nightly, when CI
-# did not pass on it, or while main is at a beta version.
+# Nothing is built when main has not changed since the last nightly, or when
+# CI did not pass on it.
 
 on:
   schedule:
@@ -63,7 +63,6 @@ jobs:
           ci=$(gh run list --workflow ci.yml --commit "$tested" --limit 1 --json conclusion --jq '.[0].conclusion // ""')
           [ "$ci" = success ] || skip "CI on ${tested:0:9} is ${ci:-not there}"
           release=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
-          case "$release" in *-*) skip "main is at $release, nightlies follow a release" ;; esac
           last_name="" last_release="" last_n=0 last_commit=""
           if gh release download nightly -p nightly.json -O last.json --clobber 2>/dev/null; then
             last_name=$(jq -r .name last.json)

@@ -100,8 +100,6 @@ title = "Updates"
 
 nightlyVersions = "Nightly versions"
 nightlyWaiting = "This nightly is newer than the latest stable version. Updates come again with the next stable version."
-betasEndedTitle = "Betas have ended"
-betasEnded = "You are back on Stable. For early versions, turn on Nightly versions in Updates."
 
 # What a release is about, shown on the update card in the app's language.
 # Each release picks one or two; the full list of changes stays in English.

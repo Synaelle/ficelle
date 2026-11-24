@@ -73,7 +73,7 @@ export interface Prefs {
   updatesOnMobileData: boolean
   /** Which update list the app follows. */
   channel: UpdateChannel
-  /** The person chose a channel: a beta install no longer follows Beta by itself. */
+  /** The person chose a channel: a nightly install no longer follows Nightly by itself. */
   channelAsked: boolean
   /** The open note follows other devices' edits as they come in. */
   coediting: boolean
@@ -96,8 +96,6 @@ export interface Prefs {
   pretendBeta: boolean
   /** The welcome of a beta build was read, see resetBetaWelcome. */
   betaWelcomed: boolean
-  /** Moved off the Beta channel when betas ended: told once. */
-  betasEnded: boolean
   /** The web version's welcome was read (lib/WebWelcome.svelte). */
   webWelcomed: boolean
 }
@@ -140,12 +138,12 @@ export const DEFAULT_PREFS: Prefs = {
   reportScreenshot: true,
   pretendBeta: false,
   betaWelcomed: false,
-  betasEnded: false,
   webWelcomed: false,
 }
 
 const STORAGE_KEY = 'prefs'
 const SORTS: readonly NoteSort[] = ['folderAsc', 'updatedDesc', 'createdDesc', 'titleAsc']
+const CHANNELS: readonly UpdateChannel[] = ['stable', 'nightly']
 
 /** Shows or hides a formatting button, see hiddenTools. */
 export function showTool(icon: string, on: boolean) {
@@ -167,11 +165,8 @@ function load(): Prefs {
     if (!LINE_SPACINGS.includes(loaded.lineSpacing)) loaded.lineSpacing = DEFAULT_PREFS.lineSpacing
     // a sort order this version does not know (a newer version's) breaks the list
     if (!SORTS.includes(loaded.sort)) loaded.sort = DEFAULT_PREFS.sort
-    // betas ended, nightlies took their place: back on Stable, told once
-    if ((loaded.channel as string) === 'beta') {
-      loaded.channel = 'stable'
-      loaded.betasEnded = true
-    }
+    // a channel this version does not know (Beta, before betas ended) is Stable
+    if (!CHANNELS.includes(loaded.channel)) loaded.channel = DEFAULT_PREFS.channel
     return loaded
   } catch {
     // storage can be unavailable (private mode) or hold broken json
