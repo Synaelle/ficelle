@@ -7,7 +7,7 @@ import type { Mode } from '@app/ui/theme'
 import type { NoteSort, Scope, UpdateChannel } from './backend'
 import { isLocale, type Locale } from './i18n.svelte'
 import { DEFAULT_SHORTCUTS, type ActionId } from './shortcuts'
-import { WEB } from './platform'
+import { NIGHTLY, WEB } from './platform'
 import type { UiSize } from './uiSize'
 
 /** What a typed -> may become, the first leaves it as typed. */
@@ -215,10 +215,11 @@ export function persistPrefs() {
   })
 }
 
-/** What Experimental in Settings holds applies: in the apps, on the
- * nightly channel and in test builds (dev and preview, which have no
- * channel), where that section shows. */
-export const experimenting = () => !WEB && (prefs.channel === 'nightly' || __APP_DEV_TOOLS__)
+/** What Experimental in Settings holds applies: in the apps, when this
+ * build is a nightly or a test build (dev and preview), where that section
+ * shows. The channel chosen does not count: a stable build following Nightly
+ * stays stable until a nightly is installed. */
+export const experimenting = () => !WEB && (NIGHTLY.test(__APP_VERSION__) || __APP_DEV_TOOLS__)
 
 export function shortcutFor(action: ActionId): string {
   return prefs.shortcuts[action] ?? DEFAULT_SHORTCUTS[action]
