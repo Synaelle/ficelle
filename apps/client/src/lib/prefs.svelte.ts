@@ -216,8 +216,9 @@ export function persistPrefs() {
 }
 
 /** What Experimental in Settings holds applies: in the apps, on the
- * nightly channel, where that section shows. */
-export const experimenting = () => !WEB && prefs.channel === 'nightly'
+ * nightly channel and in test builds (dev and preview, which have no
+ * channel), where that section shows. */
+export const experimenting = () => !WEB && (prefs.channel === 'nightly' || __APP_DEV_TOOLS__)
 
 export function shortcutFor(action: ActionId): string {
   return prefs.shortcuts[action] ?? DEFAULT_SHORTCUTS[action]
