@@ -127,7 +127,7 @@ fn after_round(app: &AppHandle, wire: &mut super::Wire<'_>) -> Result<bool, Sync
         &blobs,
         wire,
         AUTO_FETCH,
-        &mut Shown::new(app),
+        &mut Shown::new(app, false),
     )?;
     let clean = {
         let mut shared = state.sync.lock();
@@ -221,7 +221,7 @@ pub async fn fetch_attachment(app: AppHandle, sha256: String) -> CommandResult<(
         }
         let (mut remote, _) =
             wire(&state).map_err(|e| CommandError::new("offline", e.to_string()))?;
-        let mut shown = Shown::new(&worker);
+        let mut shown = Shown::new(&worker, true);
         app_core::sync::files::fetch(&Vault(&state), &blobs, &mut remote, &sha256, &mut shown)
             .map_err(|e| match e {
                 FileError::Missing => {

@@ -5,6 +5,8 @@
 
 #[cfg(target_os = "android")]
 mod android_keystore;
+#[cfg(target_os = "android")]
+mod android_transfer;
 mod biometric;
 mod commands;
 #[cfg(target_os = "android")]
@@ -91,6 +93,7 @@ pub fn run() {
     let builder = builder
         .plugin(tauri_plugin_biometric::init())
         .plugin(android_keystore::pin_key_plugin())
+        .plugin(android_transfer::plugin())
         .plugin(documents::plugin())
         .plugin(sync::local::plugin());
     #[cfg(mobile)]
