@@ -8,6 +8,11 @@ name: linux
 # it. nightly.yml calls it with a nightly's name and build number. A manual
 # run builds an unsigned AppImage of the chosen branch, kept as an artifact
 # for a week.
+#
+# A release, or a manual run, also makes the Arch Linux package from the
+# x86_64 AppImage's own program, desktop entry and icons (tools/arch). It is
+# signed like the AppImage, the app updates it with pacman. Never a
+# nightly's: packages come only from stable releases.
 
 on:
   workflow_call:
@@ -103,4 +108,67 @@ jobs:
           path: |
             target/release/bundle/appimage/*.AppImage
             target/release/bundle/appimage/*.AppImage.sig
+          retention-days: 7
+      - name: the arch package's files
+        if: matrix.arch == 'amd64' && inputs.nightly == ''
+        run: |
+          set -eu
+          from=$(ls -d target/release/bundle/appimage/*.AppDir/usr | head -1)
+          mkdir -p target/arch-files/usr/share
+          cp -r "$from/bin" target/arch-files/usr/
+          cp -r "$from/share/applications" "$from/share/icons" target/arch-files/usr/share/
+          find target/arch-files -type f
+      - if: matrix.arch == 'amd64' && inputs.nightly == ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: arch-files
+          path: target/arch-files/
+          retention-days: 1
+
+  # makepkg runs in an Arch container (tools/arch/build.sh), the signing on
+  # the runner, where the Tauri CLI is
+  arch:
+    needs: appimage
+    if: inputs.nightly == ''
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: arch-files
+          path: target/arch-files
+      - name: the package
+        timeout-minutes: 15
+        run: |
+          set -eu
+          version=$(APP_RELEASE=1 node tools/version.mjs | cut -d' ' -f1)
+          tools/arch/build.sh target/arch-files "$version"
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        if: inputs.signed
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: inputs.signed
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: signed
+        if: inputs.signed
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -eu
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::the TAURI_SIGNING_PRIVATE_KEY secret is missing"
+            exit 1
+          fi
+          pnpm install --frozen-lockfile
+          package=$(ls "$PWD"/target/arch/*.pkg.tar.zst)
+          pnpm --filter @app/client tauri signer sign "$package"
+          test -f "$package.sig"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: arch-package
+          path: |
+            target/arch/*.pkg.tar.zst
+            target/arch/*.pkg.tar.zst.sig
           retention-days: 7

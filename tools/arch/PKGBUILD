@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# The Arch Linux package of a release, made by tools/arch/build.sh from the
+# files of the release's AppImage: the same program, its desktop entry and
+# icons, beside this file in usr/. It uses the system's WebKitGTK. The mark in
+# /usr/lib/ficelle tells the app it was installed by this package, so it
+# updates itself through pacman.
+pkgname=ficelle
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='A lightweight, private notes app for your computer and your phone'
+arch=('x86_64')
+url='https://ficelle.synaelle.com'
+license=('AGPL-3.0-or-later')
+depends=('webkit2gtk-4.1' 'gtk3' 'libsoup3' 'glib2' 'cairo' 'gdk-pixbuf2' 'dbus'
+  'libgcc' 'glibc' 'hicolor-icon-theme')
+conflicts=('ficelle-bin')
+options=('!strip' '!debug')
+
+package() {
+  cd "$startdir/usr"
+  install -Dm755 bin/ficelle "$pkgdir/usr/bin/ficelle"
+  install -Dm644 share/applications/Ficelle.desktop "$pkgdir/usr/share/applications/Ficelle.desktop"
+  # one by one: the AppImage's folders are private (700)
+  find share/icons -type f -exec install -Dm644 {} "$pkgdir/usr/{}" \;
+  echo 'Installed by the Arch package, which updates through pacman.' |
+    install -Dm644 /dev/stdin "$pkgdir/usr/lib/ficelle/arch-package"
+}
