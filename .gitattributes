@@ -3,3 +3,5 @@
 *.png binary
 *.ico binary
 *.icns binary
+# vaults and backups made by released versions, kept byte for byte
+crates/core/tests/fixtures/** -text

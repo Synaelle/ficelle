@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "id": "01a20ff7-44ec-761d-b926-7d319c3dc4d1",
+  "wrappedKey": {
+    "scheme": "argon2id-xchacha20poly1305",
+    "kdf": {
+      "memory_kib": 65536,
+      "iterations": 3,
+      "parallelism": 1
+    },
+    "salt": "rC18s6OxXwXj9dra1W40Yg==",
+    "nonce": "4YIVakDFTAC+Jz/W3hNhRgXFjDMVaPcG",
+    "ciphertext": "EfpEBFNjGb8GjLAeG8Ki0PjdPQ1PF4CWLmliNUZHZ/W0swiNQntaLC4aK7pUMECN"
+  }
+}
