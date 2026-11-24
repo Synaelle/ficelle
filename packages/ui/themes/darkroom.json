@@ -5,7 +5,7 @@
   "fonts": {
     "ui": "Hanken Grotesk",
     "editor": "Atkinson Hyperlegible Next",
-    "mono": "JetBrains Mono"
+    "mono": "Ubuntu Mono"
   },
   "icons": "lucide",
   "colors": {

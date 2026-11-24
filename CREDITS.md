@@ -82,7 +82,7 @@ Ficelle stands on the work of the projects below, with thanks. Each is listed wi
 - [Atkinson Hyperlegible Next](https://fontsource.org/fonts/atkinson-hyperlegible-next), an easy to read font. OFL-1.1.
 - [Noto Sans Math](https://fontsource.org/fonts/noto-sans-math), the arrows. OFL-1.1.
 - [Noto Sans Symbols 2](https://fontsource.org/fonts/noto-sans-symbols-2), more arrows. OFL-1.1.
-- [JetBrains Mono](https://fontsource.org/fonts/jetbrains-mono), the code font. OFL-1.1.
+- [Ubuntu Mono](https://fontsource.org/fonts/ubuntu-mono), the code font. UFL-1.0.
 - [OpenDyslexic](https://opendyslexic.org/), the dyslexia friendly font, by Abbie Gonzalez. OFL-1.1.
 - [Fontsource](https://fontsource.org/), the font files. Each font under its own license, mostly OFL-1.1.
 - [Lucide](https://lucide.dev/), the icons. ISC.

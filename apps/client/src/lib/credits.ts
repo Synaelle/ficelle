@@ -365,10 +365,10 @@ export const CREDIT_GROUPS: CreditGroup[] = [
         license: 'OFL-1.1',
       },
       {
-        name: 'JetBrains Mono',
-        url: 'https://fontsource.org/fonts/jetbrains-mono',
+        name: 'Ubuntu Mono',
+        url: 'https://fontsource.org/fonts/ubuntu-mono',
         use: 'the code font',
-        license: 'OFL-1.1',
+        license: 'UFL-1.0',
       },
       {
         name: 'OpenDyslexic',
