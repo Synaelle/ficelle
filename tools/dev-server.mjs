@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // A server to try everything by hand, in one command: `pnpm dev:server`.
-// Builds the web pages and the server, then starts, next to it:
-//   - a mail catcher on port 2525, which prints every mail (and its links)
-//     here instead of sending it,
-//   - a pretend single sign-on provider on port 9100, with one person.
+// Builds the web pages and the server, then starts, next to it, a pretend
+// single sign-on provider on port 9100, with one person.
 // Data stays in .dev-data/server between runs, `--fresh` starts over.
 // `--lan` opens it to the home network, for a phone on the same Wi-Fi.
 // Ctrl+C stops everything. For trying things, never for real use.
@@ -12,7 +10,6 @@ import { execSync, spawn } from 'node:child_process'
 import { createHash, createSign, generateKeyPairSync, randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
-import { createServer as createTcpServer } from 'node:net'
 import { networkInterfaces } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -21,7 +18,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const brand = JSON.parse(readFileSync(join(root, 'packages/brand/brand.json'), 'utf8'))
 const data = join(root, '.dev-data', 'server')
 const PORT = 8080
-const MAIL_PORT = 2525
 const SSO_PORT = 9100
 
 /** This computer's address on the home network, for `--lan`. */
@@ -51,61 +47,6 @@ function build(what, command) {
 }
 build('the admin page', 'pnpm --filter @app/client build:admin')
 build('the server', 'cargo build -q -p server')
-
-// mail catcher: just enough SMTP for the server to hand a message over
-createTcpServer((socket) => {
-  socket.setEncoding('utf8')
-  let inData = false
-  /** @type {string[]} */
-  let lines = []
-  let buffer = ''
-  /** @param {string} line */
-  const say = (line) => socket.write(line + '\r\n')
-  say('220 dev mail catcher')
-  socket.on('data', (chunk) => {
-    buffer += chunk
-    let at
-    while ((at = buffer.indexOf('\r\n')) >= 0) {
-      const line = buffer.slice(0, at)
-      buffer = buffer.slice(at + 2)
-      if (inData) {
-        if (line === '.') {
-          inData = false
-          showMail(lines.join('\n'))
-          lines = []
-          say('250 kept')
-        } else lines.push(line.startsWith('..') ? line.slice(1) : line)
-        continue
-      }
-      const verb = line.slice(0, 4).toUpperCase()
-      if (verb === 'DATA') {
-        inData = true
-        say('354 go on')
-      } else if (verb === 'QUIT') {
-        say('221 bye')
-        socket.end()
-      } else say('250 ok')
-    }
-  })
-}).listen(MAIL_PORT, '127.0.0.1')
-
-/** Prints a caught mail, decoding the quoted-printable body. @param {string} raw */
-function showMail(raw) {
-  const [head, ...rest] = raw.split('\n\n')
-  const header = (/** @type {string} */ name) =>
-    new RegExp(`^${name}: (.*)$`, 'mi').exec(head)?.[1] ?? ''
-  const subject = header('Subject').replace(/=\?utf-8\?b\?([^?]+)\?=/gi, (_, b64) =>
-    Buffer.from(b64, 'base64').toString('utf8'),
-  )
-  const body = Buffer.from(
-    rest
-      .join('\n\n')
-      .replace(/=\n/g, '')
-      .replace(/=([0-9A-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16))),
-    'latin1',
-  ).toString('utf8')
-  console.log(`\n${bold('mail to ' + header('To'))}  ${subject}\n${body.trim()}\n`)
-}
 
 // pretend sign-on provider: discovery, keys, a sign-in page, signed tokens
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
@@ -203,12 +144,6 @@ data_dir = "${data.replace(/\\/g, '/')}"
 argon2_memory_kib = 1024
 argon2_iterations = 1
 
-[smtp]
-host = "127.0.0.1"
-port = ${MAIL_PORT}
-security = "none"
-from = "${brand.displayName} <notes@example.org>"
-
 [sso]
 issuer = "${issuer}"
 client_id = "dev"
@@ -249,7 +184,6 @@ server.on('exit', (code) => {
 
 console.log(`
 ${bold(`${brand.displayName} test server`)}  ${site}/admin
-  mails are printed here, links included
   single sign-on: the "Test sign-on" button, signs in as Zoé
   privacy page: ${site}/privacy
   data: ${data}  (pnpm dev:server --fresh to start over)
