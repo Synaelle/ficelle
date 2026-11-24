@@ -90,8 +90,10 @@ export function readabilityProblems(palette: Palette): string[] {
 }
 
 /** A dark palette on pure black, for OLED screens: the background turns
- * black and the surfaces and borders come closer to it, in the same order,
- * so panels still stand apart. Text only gains contrast. */
+ * black and the surfaces and hairlines come closer to it, in the same order,
+ * so panels still stand apart. Text only gains contrast. The surfaces nearly
+ * vanish on black, so the edges of controls carry them: the strong border
+ * goes a step lighter instead, toward the muted text. */
 export function pureBlack(palette: Palette): Palette {
   const black = '#000000'
   return {
@@ -100,7 +102,7 @@ export function pureBlack(palette: Palette): Palette {
     surface: mix(black, palette.surface, 0.55),
     surface2: mix(black, palette.surface2, 0.7),
     border: mix(black, palette.border, 0.85),
-    borderStrong: mix(black, palette.borderStrong, 0.95),
+    borderStrong: mix(palette.borderStrong, palette.textMuted, 0.2),
     selection: mix(black, palette.selection, 0.85),
   }
 }

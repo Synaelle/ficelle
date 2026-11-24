@@ -66,6 +66,13 @@ describe('pure black', () => {
     expect(lift(black.surface)).toBeGreaterThan(1)
     expect(lift(black.surface2)).toBeGreaterThan(lift(black.surface))
   })
+
+  it('draws the edges of controls at 3:1 on every surface', () => {
+    const black = pureBlack(darkroom.colors.dark)
+    for (const surface of ['bg', 'surface', 'surface2'] as const) {
+      expect(contrastRatio(black.borderStrong, black[surface])).toBeGreaterThanOrEqual(3)
+    }
+  })
 })
 
 describe('the light palette', () => {
