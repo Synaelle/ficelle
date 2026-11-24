@@ -856,7 +856,7 @@
   }
   /* pure black means black: what would be a shade of grey is an outline */
   :global(:root[data-black='true']) .search {
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border-strong);
     background: transparent;
   }
   :global(:root[data-black='true']) .tile,
@@ -932,6 +932,28 @@
   .screen :global(.field-row + .settings-row)::before {
     left: var(--space-4);
     right: var(--space-4);
+  }
+  /* on pure black a field among the flat rows is lost in the black: it
+     takes its own edge, and the hairlines beside it would only double it */
+  :global(:root[data-black='true']) .screen :global(.field-row > .field),
+  :global(:root[data-black='true']) .screen :global(.field-row > * > .field) {
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-control);
+  }
+  :global(:root[data-black='true']) .screen :global(.field-row textarea.field) {
+    padding: var(--space-2) var(--space-3);
+  }
+  :global(:root[data-black='true']) .screen :global(.field-row .field:focus) {
+    border-color: var(--color-accent);
+  }
+  :global(:root[data-black='true']) .screen :global(.field-row:has(.field:focus-visible)) {
+    box-shadow: none;
+  }
+  :global(:root[data-black='true']) .screen :global(.field-row + .field-row)::before,
+  :global(:root[data-black='true']) .screen :global(.settings-row + .field-row)::before,
+  :global(:root[data-black='true']) .screen :global(.field-row + .settings-row)::before {
+    content: none;
   }
   /* a control too wide beside the name goes under it, not under the icon */
   .screen :global(.settings-row > .main) {
