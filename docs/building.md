@@ -17,6 +17,8 @@ Files land in `target/docker`. Caches and the APK's debug key stay in the `ficel
 
 Rust from rustup, Node 24 and pnpm 12.15.0, then `pnpm install --frozen-lockfile`.
 
+`pnpm lint`, `pnpm test` and `pnpm dev:web` also build parts of Ficelle as WebAssembly. They need clang, the `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`) and `wasm-bindgen-cli` at the version in `Cargo.lock`. `tools/wasm.mjs` names what is missing.
+
 ## Desktop
 
 ```bash
