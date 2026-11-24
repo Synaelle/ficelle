@@ -1,0 +1,40 @@
+name: mirror
+
+# Copies every branch and tag to gitlab.com/Synaelle/ficelle after each push.
+# Needs the GITLAB_TOKEN secret, a GitLab token allowed to write to that
+# project. Without it the copy is skipped.
+
+on:
+  push:
+    branches: ['**']
+    tags: ['**']
+  delete:
+
+concurrency:
+  group: mirror
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  gitlab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: push to gitlab
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [ -z "$GITLAB_TOKEN" ]; then
+            echo "::warning::no GITLAB_TOKEN secret, mirror skipped"
+            exit 0
+          fi
+          git fetch --prune origin "+refs/heads/*:refs/remotes/origin/*"
+          git update-ref -d refs/remotes/origin/HEAD 2>/dev/null || true
+          git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/Synaelle/ficelle.git"
+          git push --force --prune gitlab \
+            "refs/remotes/origin/*:refs/heads/*" "refs/tags/*:refs/tags/*"
