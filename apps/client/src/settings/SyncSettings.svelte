@@ -623,6 +623,13 @@
   {#if devicesPaired && !linked && sync.available}<p class="aside" role="note">
       <Icon name="info" size={16} />{t('local.devicesInUse')}
     </p>{/if}
+  <div class="notice" role="note">
+    <Icon name="warning" size={18} />
+    <div>
+      <b>{t('sync.changing')}</b>
+      <p>{t('sync.changingHelp')}</p>
+    </div>
+  </div>
   <div
     class="tab-body"
     role="group"
