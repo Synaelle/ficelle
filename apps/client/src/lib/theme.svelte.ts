@@ -5,6 +5,7 @@
 import { themeToCssVars, type Mode, type Theme } from '@app/ui/theme'
 import { builtInThemes, DEFAULT_THEME_ID } from '@app/ui/themes'
 import { ARROWS_FONT } from './fonts'
+import { PHONE } from './platform'
 import { prefs } from './prefs.svelte'
 import { clock, readSystemClock } from './clock.svelte'
 
@@ -45,7 +46,13 @@ export function applyTheme(systemClock24h?: () => Promise<boolean | null>) {
       const stack = vars[name]
       if (stack) vars[name] = stack.replace(/^([^,]+)/, `$1, ${ARROWS_FONT}`)
     }
+    // a phone shows one screen at a time: in dark, the list and settings take
+    // the note's colour so moving between them keeps one background
+    const phoneDark = PHONE && mode === 'dark' && !prefs.pureBlack
+    const surface = vars['--color-surface']
+    if (phoneDark && surface) vars['--color-bg'] = surface
     for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value)
+    root.dataset.phoneDark = String(phoneDark)
     root.dataset.mode = mode
     // for what stays a shade of grey otherwise: phone settings go outlined
     root.dataset.black = String(mode === 'dark' && prefs.pureBlack)

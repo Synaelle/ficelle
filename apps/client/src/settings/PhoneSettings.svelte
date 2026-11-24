@@ -835,6 +835,12 @@
     color: var(--color-text-muted);
     font-size: 14px;
   }
+  /* on a dark phone the page has the cards' colour: they go one step up */
+  :global(:root[data-phone-dark='true']) .hero,
+  :global(:root[data-phone-dark='true']) .screen :global(section.group > .panel),
+  :global(:root[data-phone-dark='true']) .screen :global(.settings-panel) {
+    background: var(--color-surface-2);
+  }
   /* pure black means black: what would be a shade of grey is an outline */
   :global(:root[data-black='true']) .search,
   :global(:root[data-black='true']) .hero,
