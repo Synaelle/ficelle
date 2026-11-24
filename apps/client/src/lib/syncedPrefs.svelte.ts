@@ -8,6 +8,23 @@ import { backend } from './backend'
 import { ARROW_CHOICES, DEFAULT_PREFS, prefs, type Prefs } from './prefs.svelte'
 import { workspace } from './workspace.svelte'
 
+/** The public choices: their names and values travel to other devices,
+ * through the vault's synced_settings and the space document's settings
+ * map, and other versions read them there. A rename or a new kind of value
+ * must keep reading what an older device still sends, and an older device
+ * drops a name or a value it does not know (isSynced, usable). Since 0.6.0
+ * the list only grew, apart from tagMark, which 0.6.0 to 0.8.2 still send
+ * and this version ignores.
+ *
+ * Every other key of Prefs is about this device and never leaves it:
+ * pureBlack, language, uiSize, quickNoteShortcut, lineSpacing, openLastNote,
+ * lastNote, lastScope, updateChecks, updateNotifications,
+ * updatesOnMobileData, channel, channelAsked, syncSettings, autoLockMinutes,
+ * sidebarWidth, listWidth, feedbackInstall, reportFolder, windowsText,
+ * evenSpacing, font, codeFont, reportScreenshot, pretendBeta, betaWelcomed
+ * and webWelcomed. An older or newer version installed over this one still
+ * reads them from localStorage, so a rename of one of those is handled in
+ * load() in prefs.svelte.ts. */
 export const SYNCED = [
   'mode',
   'sort',
