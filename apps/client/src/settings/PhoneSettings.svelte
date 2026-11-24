@@ -31,6 +31,7 @@
   import UpdateCheck from './UpdateCheck.svelte'
   import { MODES } from '../lib/theme.svelte'
   import { HANDHELD, LINUX, MOBILE, WEB } from '../lib/platform'
+  import { TRIAL_FONT_NAMES, TRIAL_FONTS, TRIAL_MONO_NAMES, TRIAL_MONOS } from '../lib/trialFonts'
   import { UI_SIZES } from '../lib/uiSize'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
   import { updatesHere } from '../lib/appUpdate.svelte'
@@ -299,7 +300,7 @@
       : []),
     // what is still being tried, only where it applies and for those who
     // follow the nightlies
-    ...(LINUX && !WEB && prefs.channel === 'nightly'
+    ...(!WEB && prefs.channel === 'nightly'
       ? [
           {
             icon: 'flask' as const,
@@ -735,14 +736,34 @@
       {:else if page === 'testTools'}
         <TestTools />
       {:else if page === 'experimental'}
-        <Group>
-          {@render row({
-            icon: 'textStyle',
-            label: t('settings.windowsText'),
-            on: prefs.windowsText,
-            run: () => (prefs.windowsText = !prefs.windowsText),
-          })}
+        <Group title={t('settings.trialFont')}>
+          {#each TRIAL_FONTS as font (font)}
+            <Row
+              label={font === 'current' ? t('settings.trialFontCurrent') : TRIAL_FONT_NAMES[font]}
+              checked={prefs.trialFont === font}
+              onclick={() => (prefs.trialFont = font)}
+            />
+          {/each}
         </Group>
+        <Group title={t('settings.trialMono')}>
+          {#each TRIAL_MONOS as font (font)}
+            <Row
+              label={font === 'current' ? 'Ubuntu Mono' : TRIAL_MONO_NAMES[font]}
+              checked={prefs.trialMono === font}
+              onclick={() => (prefs.trialMono = font)}
+            />
+          {/each}
+        </Group>
+        {#if LINUX}
+          <Group>
+            {@render row({
+              icon: 'textStyle',
+              label: t('settings.windowsText'),
+              on: prefs.windowsText,
+              run: () => (prefs.windowsText = !prefs.windowsText),
+            })}
+          </Group>
+        {/if}
       {:else if page === 'updates'}
         <UpdateCheck />
       {:else if page === 'about'}

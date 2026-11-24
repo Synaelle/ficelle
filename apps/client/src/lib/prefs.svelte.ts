@@ -7,6 +7,7 @@ import type { Mode } from '@app/ui/theme'
 import type { NoteSort, Scope, UpdateChannel } from './backend'
 import { isLocale, type Locale } from './i18n.svelte'
 import { DEFAULT_SHORTCUTS, type ActionId } from './shortcuts'
+import { TRIAL_FONTS, TRIAL_MONOS, type TrialFont, type TrialMono } from './trialFonts'
 import type { UiSize } from './uiSize'
 
 /** What a typed -> may become, the first leaves it as typed. */
@@ -89,6 +90,10 @@ export interface Prefs {
   reportFolder: string | null
   /** Linux: text drawn as thick as on Windows (App.svelte), experimental. */
   windowsText: boolean
+  /** Nightly: a font tried for the interface and the notes (trialFonts.ts). */
+  trialFont: TrialFont
+  /** Nightly: a code font tried in place of the theme's. */
+  trialMono: TrialMono
   /** Dev and preview builds: a report starts with a screenshot of the app. */
   reportScreenshot: boolean
   /** Dev and preview builds: act as a beta release, nothing downloaded
@@ -135,6 +140,8 @@ export const DEFAULT_PREFS: Prefs = {
   feedbackInstall: '',
   reportFolder: null,
   windowsText: false,
+  trialFont: 'current',
+  trialMono: 'current',
   reportScreenshot: true,
   pretendBeta: false,
   betaWelcomed: false,
@@ -163,6 +170,8 @@ function load(): Prefs {
     if (loaded.mode !== 'light') loaded.mode = 'dark'
     if (!ARROW_CHOICES.includes(loaded.arrow)) loaded.arrow = DEFAULT_PREFS.arrow
     if (!LINE_SPACINGS.includes(loaded.lineSpacing)) loaded.lineSpacing = DEFAULT_PREFS.lineSpacing
+    if (!TRIAL_FONTS.includes(loaded.trialFont)) loaded.trialFont = DEFAULT_PREFS.trialFont
+    if (!TRIAL_MONOS.includes(loaded.trialMono)) loaded.trialMono = DEFAULT_PREFS.trialMono
     // a sort order this version does not know (a newer version's) breaks the list
     if (!SORTS.includes(loaded.sort)) loaded.sort = DEFAULT_PREFS.sort
     // a channel this version does not know (Beta, before betas ended) is Stable

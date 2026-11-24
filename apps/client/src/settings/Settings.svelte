@@ -50,6 +50,7 @@
   import Switch from './ui/Switch.svelte'
   import type ImportScreen from './ImportDialog.svelte'
   import { loadPart } from '../lib/pageParts'
+  import { TRIAL_FONT_NAMES, TRIAL_FONTS, TRIAL_MONO_NAMES, TRIAL_MONOS } from '../lib/trialFonts'
 
   let {
     close,
@@ -87,7 +88,7 @@
     ...(__APP_DEV_TOOLS__ ? (['testTools'] as const) : []),
     // what is still being tried, only where it applies and for those who
     // follow the nightlies
-    ...(LINUX && !WEB && prefs.channel === 'nightly' ? (['experimental'] as const) : []),
+    ...(!WEB && prefs.channel === 'nightly' ? (['experimental'] as const) : []),
     // release builds only, the web version is always the one served
     ...(updatesHere ? (['updates'] as const) : []),
     'about',
@@ -561,9 +562,39 @@
             <TestTools />
           {:else if section === 'experimental'}
             <Group>
-              <Row label={t('settings.windowsText')}>
-                <Switch label={t('settings.windowsText')} bind:checked={prefs.windowsText} />
+              <Row label={t('settings.trialFont')}>
+                <select
+                  class="field compact same-width"
+                  aria-label={t('settings.trialFont')}
+                  bind:value={prefs.trialFont}
+                >
+                  {#each TRIAL_FONTS as font (font)}
+                    <option value={font}
+                      >{font === 'current'
+                        ? t('settings.trialFontCurrent')
+                        : TRIAL_FONT_NAMES[font]}</option
+                    >
+                  {/each}
+                </select>
               </Row>
+              <Row label={t('settings.trialMono')}>
+                <select
+                  class="field compact same-width"
+                  aria-label={t('settings.trialMono')}
+                  bind:value={prefs.trialMono}
+                >
+                  {#each TRIAL_MONOS as font (font)}
+                    <option value={font}
+                      >{font === 'current' ? 'Ubuntu Mono' : TRIAL_MONO_NAMES[font]}</option
+                    >
+                  {/each}
+                </select>
+              </Row>
+              {#if LINUX}
+                <Row label={t('settings.windowsText')}>
+                  <Switch label={t('settings.windowsText')} bind:checked={prefs.windowsText} />
+                </Row>
+              {/if}
             </Group>
           {:else if section === 'feedback'}
             <FeedbackSettings />

@@ -7,6 +7,7 @@ import { builtInThemes, DEFAULT_THEME_ID } from '@app/ui/themes'
 import { ARROWS_FONT } from './fonts'
 import { PHONE } from './platform'
 import { prefs } from './prefs.svelte'
+import { trialFamily, trialMonoFamily } from './trialFonts'
 import { clock, readSystemClock } from './clock.svelte'
 
 export function currentTheme(): Theme {
@@ -40,6 +41,10 @@ export function applyTheme(systemClock24h?: () => Promise<boolean | null>) {
     const mode = currentMode()
     const root = document.documentElement
     const vars = themeToCssVars(theme, mode, prefs.pureBlack)
+    const trial = trialFamily(prefs.trialFont)
+    if (trial) vars['--font-ui'] = vars['--font-editor'] = `"${trial}", system-ui, sans-serif`
+    const trialMono = trialMonoFamily(prefs.trialMono)
+    if (trialMono) vars['--font-mono'] = `"${trialMono}", ui-monospace, monospace`
     // the app's fonts have no arrows: ours come right after the first font,
     // so an arrow it lacks looks the same everywhere (styles/arrows.css)
     for (const name of ['--font-editor', '--font-ui']) {
