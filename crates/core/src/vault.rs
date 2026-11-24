@@ -728,8 +728,7 @@ impl Vault {
     }
 
     /// Deletes the vault in `dir` for good: its database (with SQLite's
-    /// side files), its settings, its files and the imported themes beside
-    /// them. Only those names: anything else the person put in the folder
+    /// side files), its settings and its files. Only those names: anything else the person put in the folder
     /// stays, and the folder with it. Nothing when there is no vault.
     ///
     /// # Errors
@@ -749,9 +748,7 @@ impl Vault {
         for name in [DB_FILE, "notes.db-wal", "notes.db-shm", "notes.db-journal"] {
             disk.remove(&dir.join(name))?;
         }
-        for name in [BLOBS_DIR, "themes"] {
-            disk.remove_all(&dir.join(name))?;
-        }
+        disk.remove_all(&dir.join(BLOBS_DIR))?;
         // a vault.json write a crash cut short
         for path in disk.list(dir)? {
             let name = path.file_name().unwrap_or_default().to_string_lossy();
@@ -771,7 +768,7 @@ impl Vault {
     /// for the day `now` (unix milliseconds), and returns that folder: the
     /// database with SQLite's side files, `vault.json` and the files, so a
     /// new vault can start there while a damaged one stays for a recovery
-    /// tool. The imported themes stay where they are.
+    /// tool.
     ///
     /// # Errors
     ///
@@ -1256,8 +1253,6 @@ mod tests {
         drop(store);
         fs::create_dir_all(vault_dir.join(BLOBS_DIR).join("ab")).unwrap();
         fs::write(vault_dir.join(BLOBS_DIR).join("ab").join("file"), "x").unwrap();
-        fs::create_dir_all(vault_dir.join("themes")).unwrap();
-        fs::write(vault_dir.join("themes").join("mine.json"), "{}").unwrap();
         fs::write(dir.path().join("beside.txt"), "not the vault's").unwrap();
 
         Vault::destroy(&vault_dir).unwrap();
@@ -1690,15 +1685,12 @@ mod tests {
         note(&mut store, "Order more cedar posts");
         let sha = vault.blobs(&mut store).unwrap().put(b"picture").unwrap();
         drop(store);
-        fs::create_dir_all(dir.path().join("themes")).unwrap();
-        fs::write(dir.path().join("themes").join("mine.json"), "{}").unwrap();
         // 2026-11-23
         let now = 1_795_392_000_000;
         let aside = Vault::set_aside_on(&NativeDisk, dir.path(), now).unwrap();
         assert_eq!(aside, dir.path().join("set aside 2026-11-23"));
         assert!(!Vault::exists(dir.path()));
         assert!(!dir.path().join(DB_FILE).exists() && !dir.path().join(BLOBS_DIR).exists());
-        assert!(dir.path().join("themes").join("mine.json").exists());
 
         // the folder set aside opens as the vault it was
         let moved = Vault::open(&aside).unwrap();

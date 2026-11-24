@@ -132,7 +132,7 @@ pub struct SharedSpaces {
 }
 
 /// `GET /api/v1/sync/live`, a WebSocket: what the server tells a device.
-/// The device sends pings and [`LiveRequest`]s.
+/// The device sends only pings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum LiveMessage {
@@ -156,43 +156,6 @@ pub enum LiveMessage {
     Settings {
         /// See [`SpaceInfo::coediting`].
         coediting: bool,
-    },
-    /// Who has a note of a shared space open, sent to everyone in it when
-    /// that changes.
-    Presence {
-        /// The shared space.
-        space: String,
-        /// Everyone viewing one of its notes, this account's devices
-        /// included.
-        viewers: Vec<Viewer>,
-    },
-}
-
-/// Someone with a note of a shared space open.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Viewer {
-    /// Their username.
-    pub name: String,
-    /// Their shown name.
-    pub display_name: String,
-    /// The note they have open.
-    pub note: String,
-}
-
-/// What a device says on its live socket, besides pings.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum LiveRequest {
-    /// The note open on this device, if it is in a shared space: the
-    /// others in the space see it. Both absent when none is.
-    Viewing {
-        /// The shared space.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        space: Option<String>,
-        /// The note.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        note: Option<String>,
     },
 }
 

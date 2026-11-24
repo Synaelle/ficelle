@@ -15,8 +15,6 @@ export interface Note {
   createdAt: Timestamp
   updatedAt: Timestamp
   trashedAt: Timestamp | null
-  /** The space it belongs to: empty for the personal space, else a shared space's id. */
-  spaceId: string
 }
 
 export interface NoteSummary {
@@ -27,8 +25,6 @@ export interface NoteSummary {
   pinned: boolean
   updatedAt: Timestamp
   createdAt: Timestamp
-  /** As `Note.spaceId`. */
-  spaceId: string
   /** Its tags, by name. */
   tags: string[]
 }
@@ -41,8 +37,6 @@ export interface Folder {
   createdAt: Timestamp
   updatedAt: Timestamp
   trashedAt: Timestamp | null
-  /** The space it belongs to, empty for the personal space. */
-  spaceId: string
 }
 
 /** A tag. Its name is its path, a tag holding tags is `projects` above

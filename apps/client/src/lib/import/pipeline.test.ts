@@ -201,7 +201,7 @@ describe('the markdown importer through the pipeline', () => {
 
     const done = await write(prepared, backend, { name: 'Markdown, today' })
     expect(done).toMatchObject({ notes: 3, skipped: 0, cancelled: false })
-    const folders = await backend.listFolders()
+    const folders = [...backend.folders.values()]
     const root = folders.find((f) => f.id === done.root)
     const notesFolder = folders.find((f) => f.name === 'Notes')
     expect(root?.name).toBe('Markdown, today')

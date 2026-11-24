@@ -6,7 +6,6 @@ import type {
   Attachment,
   ExportSummary,
   NoteFile,
-  Folder,
   Id,
   LinkSuggestion,
   NewNote,
@@ -126,8 +125,6 @@ export interface Backend {
   createNote(note: NewNote): Promise<Note>
   updateNote(id: Id, change: NoteChange): Promise<Note>
   setPinned(id: Id, pinned: boolean): Promise<void>
-  /** Returns the note's id, a new one when it moved into another space. */
-  moveNote(id: Id, folder: Id | null): Promise<Id>
   setNoteTags(id: Id, tags: string[]): Promise<void>
   trashNote(id: Id): Promise<void>
   restoreNote(id: Id): Promise<void>
@@ -135,15 +132,6 @@ export interface Backend {
   /** Deletes the note if it has no title, no text and no pin, true when it did. */
   discardIfBlank(id: Id): Promise<boolean>
   emptyTrash(): Promise<number>
-
-  listFolders(): Promise<Folder[]>
-  createFolder(parent: Id | null, name: string): Promise<Folder>
-  renameFolder(id: Id, name: string): Promise<void>
-  moveFolder(id: Id, parent: Id | null): Promise<void>
-  trashFolder(id: Id): Promise<void>
-  /** Folders in the trash that can be restored, those trashed with a parent come with it. */
-  listTrashedFolders(): Promise<Folder[]>
-  restoreFolder(id: Id): Promise<void>
 
   listTags(): Promise<Tag[]>
   /** A tag kept without notes, with every tag above it. */

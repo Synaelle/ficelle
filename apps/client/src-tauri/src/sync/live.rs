@@ -198,9 +198,9 @@ fn take(
                 sync.set_coediting(coediting);
                 emit_status(app);
             }
-            // who views a shared note, from an older server; or a newer
-            // server's message this app does not know
-            Ok(LiveMessage::Presence { .. }) | Err(_) => {}
+            // a message this app does not know, from an older or a newer
+            // server
+            Err(_) => {}
         },
         Message::Close(frame) => {
             // 4401: the token ran out or the device was signed out. A

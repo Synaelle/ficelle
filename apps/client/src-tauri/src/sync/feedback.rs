@@ -12,8 +12,8 @@ use app_protocol::feedback::{Challenge, FeedbackInfo, Report, SendTo};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
+use super::authed::{authed, blocking, failed};
 use super::http::{Api, HttpError};
-use super::sharing::{authed, blocking, failed};
 use super::sign_in::SignInError;
 use crate::state::AppState;
 

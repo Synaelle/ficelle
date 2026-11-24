@@ -26,6 +26,8 @@ import {
 export type MemoryBackend = Backend & {
   /** Feedback reports "sent", for tests. */
   sentFeedback: import('./types').FeedbackDraft[]
+  /** The folders imports made, for tests. */
+  folders: Map<Id, Folder>
 }
 
 const key = (title: string) => title.trim().toLowerCase()
@@ -72,7 +74,7 @@ function preview(title: string, body: string): string {
 }
 
 function summary(note: Note): NoteSummary {
-  const { id, folderId, title, body, pinned, updatedAt, createdAt, spaceId, tags } = note
+  const { id, folderId, title, body, pinned, updatedAt, createdAt, tags } = note
   return {
     tags: [...tags],
     id,
@@ -82,7 +84,6 @@ function summary(note: Note): NoteSummary {
     pinned,
     updatedAt,
     createdAt,
-    spaceId,
   }
 }
 
@@ -106,6 +107,21 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
   const stored = new Map<string, Uint8Array>()
   let importRoot: Id | null = null
   const importFolders = new Map<string, Id>()
+
+  /** A folder for an import to write into. */
+  const createFolder = (parent: Id | null, name: string) => {
+    const folder: Folder = {
+      id: id(),
+      parentId: parent,
+      name: name.trim(),
+      position: [...folders.values()].filter((f) => f.parentId === parent).length,
+      createdAt: now(),
+      updatedAt: now(),
+      trashedAt: null,
+    }
+    folders.set(folder.id, folder)
+    return folder
+  }
 
   const note = (noteId: Id) => {
     const found = notes.get(noteId)
@@ -279,7 +295,6 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
         createdAt: now(),
         updatedAt: now(),
         trashedAt: null,
-        spaceId: '',
       }
       notes.set(created.id, created)
       return structuredClone(created)
@@ -324,10 +339,6 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     setPinned: async (noteId, pinned) => {
       note(noteId).pinned = pinned
     },
-    moveNote: async (noteId, folder) => {
-      note(noteId).folderId = folder
-      return noteId
-    },
     setNoteTags: async (noteId, tags) => {
       const seen = new Map<string, string>()
       for (const t of tags.map(cleanTag).filter(Boolean)) if (!seen.has(key(t))) seen.set(key(t), t)
@@ -355,54 +366,7 @@ export function createMemoryBackend(options: { seed?: boolean } = {}): MemoryBac
     emptyTrash: async () => {
       const gone = [...notes.values()].filter((n) => n.trashedAt !== null)
       gone.forEach((n) => notes.delete(n.id))
-      for (const f of [...folders.values()]) if (f.trashedAt !== null) folders.delete(f.id)
       return gone.length
-    },
-
-    listFolders: async () => [...folders.values()].filter((f) => f.trashedAt === null),
-    createFolder: async (parent, name) => {
-      const folder: Folder = {
-        id: id(),
-        parentId: parent,
-        name: name.trim(),
-        position: [...folders.values()].filter((f) => f.parentId === parent).length,
-        createdAt: now(),
-        updatedAt: now(),
-        trashedAt: null,
-        spaceId: '',
-      }
-      folders.set(folder.id, folder)
-      return folder
-    },
-    renameFolder: async (folderId, name) => {
-      const folder = folders.get(folderId)
-      if (folder) folder.name = name.trim()
-    },
-    moveFolder: async (folderId, parent) => {
-      const folder = folders.get(folderId)
-      if (folder) folder.parentId = parent
-    },
-    trashFolder: async (folderId) => {
-      const when = now()
-      const folder = folders.get(folderId)
-      if (folder) folder.trashedAt = when
-      for (const n of notes.values()) {
-        if (n.folderId === folderId && n.trashedAt === null) n.trashedAt = when
-      }
-    },
-    listTrashedFolders: async () =>
-      [...folders.values()].filter((f) => {
-        if (f.trashedAt === null) return false
-        const parent = f.parentId ? folders.get(f.parentId) : undefined
-        return parent?.trashedAt !== f.trashedAt
-      }),
-    restoreFolder: async (folderId) => {
-      const folder = folders.get(folderId)
-      if (!folder?.trashedAt) return
-      for (const n of notes.values()) {
-        if (n.folderId === folderId && n.trashedAt === folder.trashedAt) n.trashedAt = null
-      }
-      folder.trashedAt = null
     },
 
     listTags: async () => {
@@ -620,7 +584,7 @@ ${k}`)
         return noteId !== undefined && notes.has(noteId)
       }),
     importBegin: async (_source, name) => {
-      importRoot = (await backend.createFolder(null, name)).id
+      importRoot = createFolder(null, name).id
       importFolders.clear()
       return importRoot
     },
@@ -636,10 +600,7 @@ ${k}`)
       const place = (k: string | null) => (k !== null ? importFolders.get(k) : undefined) ?? root
       for (const f of batch.folders) {
         if (!importFolders.has(f.key)) {
-          importFolders.set(
-            f.key,
-            (await backend.createFolder(place(f.parent), f.name || 'Folder')).id,
-          )
+          importFolders.set(f.key, createFolder(place(f.parent), f.name || 'Folder').id)
         }
       }
       const written: [string, Id][] = []
@@ -656,7 +617,6 @@ ${k}`)
           createdAt: created,
           updatedAt: Math.max(input.updated ?? created, created),
           trashedAt: input.trashed ? now() : null,
-          spaceId: '',
         }
         notes.set(made.id, made)
         for (const file of input.sources) {
@@ -691,6 +651,7 @@ ${input.key}`,
     importClose: async () => {},
 
     sentFeedback,
+    folders,
     backupsGet: async () => structuredClone(backups),
     backupsPickFolder: async () => null,
     backupsTurnOn: async (folder, password) => {

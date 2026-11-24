@@ -380,10 +380,6 @@ fn note_command(name: &str, a: &Args) -> Option<CommandResult<Value>> {
             let (id, pinned): (NoteId, bool) = (id()?, a.get("pinned")?);
             with(|s| s.store.set_pinned(id, pinned))
         })(),
-        "move_note" => (|| {
-            let (id, folder): (NoteId, Option<FolderId>) = (id()?, a.get("folder")?);
-            with(|s| s.store.move_note(id, folder))
-        })(),
         "set_note_tags" => (|| {
             let (id, tags): (NoteId, Vec<String>) = (id()?, a.get("tags")?);
             with(|s| s.store.set_note_tags(id, &tags))
@@ -430,26 +426,9 @@ fn note_command(name: &str, a: &Args) -> Option<CommandResult<Value>> {
     })
 }
 
-fn folder_and_tag_command(name: &str, a: &Args) -> Option<CommandResult<Value>> {
-    let folder = || a.get::<FolderId>("id");
+fn tag_command(name: &str, a: &Args) -> Option<CommandResult<Value>> {
     let tag = || a.get::<TagId>("id");
     Some(match name {
-        "list_folders" => with(|s| s.store.list_folders()),
-        "create_folder" => (|| {
-            let (parent, name): (Option<FolderId>, String) = (a.get("parent")?, a.get("name")?);
-            with(|s| s.store.create_folder(parent, &name))
-        })(),
-        "rename_folder" => (|| {
-            let (id, name): (FolderId, String) = (folder()?, a.get("name")?);
-            with(|s| s.store.rename_folder(id, &name))
-        })(),
-        "move_folder" => (|| {
-            let (id, parent): (FolderId, Option<FolderId>) = (folder()?, a.get("parent")?);
-            with(|s| s.store.move_folder(id, parent))
-        })(),
-        "trash_folder" => folder().and_then(|id| with(|s| s.store.trash_folder(id))),
-        "list_trashed_folders" => with(|s| s.store.list_trashed_folders()),
-        "restore_folder" => folder().and_then(|id| with(|s| s.store.restore_folder(id))),
         "list_tags" => with(|s| s.store.list_tags()),
         "create_tag" => a
             .get::<String>("name")
@@ -540,7 +519,7 @@ fn file_command(name: &str, a: &Args, bytes: Option<Vec<u8>>) -> Option<CommandR
 pub fn run(name: &str, a: &Args, bytes: Option<Vec<u8>>) -> CommandResult<Value> {
     if let Some(done) = vault_command(name, a)
         .or_else(|| note_command(name, a))
-        .or_else(|| folder_and_tag_command(name, a))
+        .or_else(|| tag_command(name, a))
     {
         return done;
     }

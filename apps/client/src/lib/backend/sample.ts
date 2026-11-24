@@ -45,7 +45,6 @@ export function sampleData(now: number): { notes: Note[] } {
       createdAt: now - age * DAY,
       updatedAt: now - age * DAY,
       trashedAt: null,
-      spaceId: '',
     }
   }
   const notes = [

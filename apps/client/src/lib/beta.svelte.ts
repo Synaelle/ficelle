@@ -23,9 +23,6 @@ export const isBeta =
   !!pretend?.has('beta') ||
   pretendRelease
 
-/** Phones keep the feedback button in the notes list, not floating over it. */
-export const touchScreen = window.matchMedia('(pointer: coarse)').matches
-
 /** Shows the welcome again at the next start in a nightly, for when someone
  * switches to the Nightly channel. */
 export function resetBetaWelcome() {

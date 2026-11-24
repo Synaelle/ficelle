@@ -2,9 +2,7 @@
 
 //! Sharing between e2ee accounts.
 //!
-//! - Each account has an X25519 key pair. The private key is sealed with a
-//!   key derived from the account master key, so every device of the
-//!   account opens it and the server cannot; the public key is published.
+//! - Each account has an X25519 key pair, its public key published.
 //! - A shared space has a random key per epoch. Its documents' keys derive
 //!   from it as the personal space's derive from the master key
 //!   ([`space_doc_key`]).
@@ -28,14 +26,12 @@ use rand::rngs::OsRng;
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
-use crate::keys::MasterKey;
 use crate::suite::{decode, encode};
-use crate::sync::{DocKey, derive_with, open_sealed, seal_with};
+use crate::sync::DocKey;
 use crate::{Error, Result};
 
 type Kem = X25519HkdfSha256;
 
-const PRIVATE_KEY: &[u8] = b"notes e2ee v1 private key";
 const GRANT_INFO: &[u8] = b"notes e2ee v1 space key";
 const OWNER_GRANT_INFO: &[u8] = b"notes e2ee v2 owner space key";
 
@@ -104,41 +100,6 @@ pub fn new_key_pair() -> KeyPair {
         public: published,
         private: secret,
     }
-}
-
-/// The private key as kept on the server, sealed for the account.
-pub fn seal_key_pair(master: &MasterKey, pair: &KeyPair) -> String {
-    let key = derive_with(master.as_bytes(), PRIVATE_KEY);
-    encode(&seal_with(&key, pair.private.as_slice(), &pair.public))
-}
-
-/// The key pair from its sealed private key and its public key.
-///
-/// # Errors
-///
-/// [`Error::Malformed`] or [`Error::WrongKey`]: another account's, or a
-/// public key that is not this pair's.
-pub fn open_key_pair(master: &MasterKey, public: &str, sealed: &str) -> Result<KeyPair> {
-    let public: [u8; 32] = decode(public, "public key")?
-        .try_into()
-        .map_err(|_| Error::Malformed("public key"))?;
-    let key = derive_with(master.as_bytes(), PRIVATE_KEY);
-    let private = open_sealed(&key, &decode(sealed, "private key")?, &public)?;
-    let private: [u8; 32] = private
-        .as_slice()
-        .try_into()
-        .map_err(|_| Error::Malformed("private key"))?;
-    // the pair must hold together: a public key swapped next to a sealed
-    // private key would leave grants unreadable
-    let derived = <Kem as KemTrait>::PrivateKey::from_bytes(&private)
-        .map_err(|_| Error::Malformed("private key"))?;
-    if <Kem as KemTrait>::sk_to_pk(&derived).to_bytes().as_slice() != public.as_slice() {
-        return Err(Error::WrongKey);
-    }
-    Ok(KeyPair {
-        public,
-        private: Zeroizing::new(private),
-    })
 }
 
 /// A shared space's key for one epoch.
@@ -285,19 +246,8 @@ mod tests {
 
     #[test]
     fn a_grant_opens_for_its_member_space_and_epoch_only() {
-        let master = MasterKey::generate();
         let alice = new_key_pair();
         let bob = new_key_pair();
-        let sealed = seal_key_pair(&master, &alice);
-        let public = encode(&alice.public);
-        let opened = open_key_pair(&master, &public, &sealed).unwrap();
-        assert_eq!(opened.public, alice.public);
-        assert!(open_key_pair(&MasterKey::generate(), &public, &sealed).is_err());
-        assert!(
-            open_key_pair(&master, &encode(&bob.public), &sealed).is_err(),
-            "a public key swapped next to the sealed private key"
-        );
-
         let key = new_space_key();
         let alice_pub = encode(&alice.public);
         let to_bob = grant("s1", 1, &key, &encode(&bob.public), &alice).unwrap();

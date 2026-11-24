@@ -24,12 +24,7 @@
     attachFiles(files: File[]): Promise<void>
   }
 
-  let {
-    noteId,
-    body,
-    editor,
-    readonly = false,
-  }: { noteId: string; body: string; editor?: EditorFiles; readonly?: boolean } = $props()
+  let { noteId, body, editor }: { noteId: string; body: string; editor?: EditorFiles } = $props()
 
   let files: AttachmentFile[] = $state([])
   let picker: HTMLInputElement | undefined = $state()
@@ -119,7 +114,7 @@
             </span>
           </span>
           <span class="actions">
-            {#if editor && !readonly && !mentioned(file)}
+            {#if editor && !mentioned(file)}
               <button class="btn small" onclick={() => editor?.mentionFile(file)}
                 >{t('files.mention')}</button
               >
@@ -132,42 +127,36 @@
               disabled={!backend.native && !WEB}
               onclick={() => saveCopy(file)}>{t('files.saveCopy')}</button
             >
-            {#if !readonly}
-              <button
-                class="icon-btn small danger"
-                aria-label={t('files.remove')}
-                title={t('files.remove')}
-                onclick={() => remove(file)}><Icon name="trash" size={14} /></button
-              >
-            {/if}
+            <button
+              class="icon-btn small danger"
+              aria-label={t('files.remove')}
+              title={t('files.remove')}
+              onclick={() => remove(file)}><Icon name="trash" size={14} /></button
+            >
           </span>
         </li>
       {/each}
     </ul>
-    {#if !readonly}
-      <button class="btn small add" onclick={() => picker?.click()}
-        ><Icon name="plus" size={14} />{t('files.attach')}</button
-      >
-    {/if}
+    <button class="btn small add" onclick={() => picker?.click()}
+      ><Icon name="plus" size={14} />{t('files.attach')}</button
+    >
   </details>
-{:else if !readonly}
+{:else}
   <button class="attach" data-note-attach onclick={() => picker?.click()}
     ><Icon name="attachment" size={14} />{t('files.attach')}</button
   >
 {/if}
 
-{#if !readonly}
-  <input
-    bind:this={picker}
-    type="file"
-    multiple
-    hidden
-    onchange={(e) => {
-      void add([...(e.currentTarget.files ?? [])])
-      e.currentTarget.value = ''
-    }}
-  />
-{/if}
+<input
+  bind:this={picker}
+  type="file"
+  multiple
+  hidden
+  onchange={(e) => {
+    void add([...(e.currentTarget.files ?? [])])
+    e.currentTarget.value = ''
+  }}
+/>
 
 <style>
   summary,

@@ -3,7 +3,7 @@
 //! Notes, folders, tags, trash and history.
 
 use app_core::id::{FolderId, NoteId, TagId, VersionId};
-use app_core::model::{Folder, Note, NoteScope, NoteSort, NoteSummary, NoteVersion, Tag};
+use app_core::model::{Note, NoteScope, NoteSort, NoteSummary, NoteVersion, Tag};
 use app_core::store::{NewNote, NoteChange};
 use serde::Deserialize;
 use tauri::State;
@@ -68,15 +68,6 @@ pub async fn set_pinned(state: State<'_, AppState>, id: NoteId, pinned: bool) ->
 }
 
 #[tauri::command]
-pub async fn move_note(
-    state: State<'_, AppState>,
-    id: NoteId,
-    folder: Option<FolderId>,
-) -> CommandResult<NoteId> {
-    state.with(|s| s.store.move_note(id, folder))
-}
-
-#[tauri::command]
 pub async fn set_note_tags(
     state: State<'_, AppState>,
     id: NoteId,
@@ -112,53 +103,6 @@ pub async fn empty_trash(state: State<'_, AppState>) -> CommandResult<usize> {
         let now = app_core::clock::Clock::now(&app_core::clock::SystemClock);
         s.store.purge_trashed_before(now)
     })
-}
-
-#[tauri::command]
-pub async fn list_folders(state: State<'_, AppState>) -> CommandResult<Vec<Folder>> {
-    state.with(|s| s.store.list_folders())
-}
-
-#[tauri::command]
-pub async fn create_folder(
-    state: State<'_, AppState>,
-    parent: Option<FolderId>,
-    name: String,
-) -> CommandResult<Folder> {
-    state.with(|s| s.store.create_folder(parent, &name))
-}
-
-#[tauri::command]
-pub async fn rename_folder(
-    state: State<'_, AppState>,
-    id: FolderId,
-    name: String,
-) -> CommandResult<()> {
-    state.with(|s| s.store.rename_folder(id, &name))
-}
-
-#[tauri::command]
-pub async fn move_folder(
-    state: State<'_, AppState>,
-    id: FolderId,
-    parent: Option<FolderId>,
-) -> CommandResult<FolderId> {
-    state.with(|s| s.store.move_folder(id, parent))
-}
-
-#[tauri::command]
-pub async fn trash_folder(state: State<'_, AppState>, id: FolderId) -> CommandResult<()> {
-    state.with(|s| s.store.trash_folder(id))
-}
-
-#[tauri::command]
-pub async fn list_trashed_folders(state: State<'_, AppState>) -> CommandResult<Vec<Folder>> {
-    state.with(|s| s.store.list_trashed_folders())
-}
-
-#[tauri::command]
-pub async fn restore_folder(state: State<'_, AppState>, id: FolderId) -> CommandResult<()> {
-    state.with(|s| s.store.restore_folder(id))
 }
 
 #[tauri::command]

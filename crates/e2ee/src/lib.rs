@@ -39,13 +39,11 @@ pub use keys::{AccountKeys, KeyBundle, MasterKey, NewAccount, new_account};
 pub use opaque_ke;
 pub use recovery::{generate as recovery_code, normalize as normalize_recovery_code};
 pub use share::{
-    KeyPair, SpaceKey, accept, accept_unsigned, fingerprint, grant, new_key_pair, new_space_key,
-    open_key_pair, public_key_ok, seal_key_pair, space_doc_key,
+    KeyPair, accept, accept_unsigned, fingerprint, grant, new_key_pair, new_space_key,
+    public_key_ok, space_doc_key,
 };
 pub use suite::{CONTEXT, Ksf, Suite, decode, encode, identifiers, username};
-pub use sync::{
-    DocKey, doc_key, new_doc_key, open_change, seal_change, unwrap_doc_key, wrap_doc_key,
-};
+pub use sync::{DocKey, doc_key, open_change, seal_change};
 
 /// Why an end-to-end operation failed.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
