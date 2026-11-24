@@ -8,8 +8,9 @@
 // text meanwhile), keys no code uses, and keys a language has but English
 // does not.
 //
-// Code usage is found from t('a.b') calls, and tr("a.b") in the server's
-// rust. A template like t(`errors.${kind}`) marks every key under errors. as
+// Code usage is found from any quoted string that is a key, so a key passed
+// through a helper or a ternary counts, and tr("a.b") in the server's
+// rust. A template like `errors.${kind}` marks every key under errors. as
 // used.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -44,7 +45,12 @@ for (const file of sourceFiles(srcDir)) {
     used.add(m[1])
     if (!file.startsWith(adminDir)) usedByApps.add(m[1])
   }
-  for (const m of code.matchAll(/\bt\(\s*`([\w.-]+)\$\{/g)) prefixes.add(m[1])
+  for (const m of code.matchAll(/['"`]([\w-]+\.[\w.-]+)['"`]/g)) {
+    const key = m[1]
+    const known = (texts) => key in texts || `${key}.other` in texts
+    if (known(english) || known(server)) used.add(key)
+  }
+  for (const m of code.matchAll(/`([\w-]+\.[\w.-]*)\$\{/g)) prefixes.add(m[1])
 }
 // the server's emails: tr("mail.reset.subject") in rust
 const serverDir = join(localesDir, '..', '..', 'apps', 'server', 'src')

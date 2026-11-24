@@ -96,7 +96,6 @@ restarting = "Restarting…"
 check = "Check for updates"
 checking = "Checking…"
 upToDate = "This is the latest version."
-title = "Updates"
 
 nightlyVersions = "Nightly versions"
 nightlyWaiting = "This nightly is newer than the latest stable version. Updates come again with the next stable version."
