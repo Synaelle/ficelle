@@ -280,13 +280,6 @@ export const CREDIT_GROUPS: CreditGroup[] = [
         use: 'logs',
         license: 'MIT',
       },
-      { name: 'lettre', url: 'https://lettre.rs/', use: 'sending email', license: 'MIT' },
-      {
-        name: 'openidconnect',
-        url: 'https://github.com/ramosbugs/openidconnect-rs',
-        use: 'signing in with another service',
-        license: 'MIT',
-      },
       {
         name: 'webauthn-rs',
         url: 'https://github.com/kanidm/webauthn-rs',
@@ -296,7 +289,7 @@ export const CREDIT_GROUPS: CreditGroup[] = [
       {
         name: 'reqwest',
         url: 'https://github.com/seanmonstar/reqwest',
-        use: 'update checks, feedback and single sign-on',
+        use: 'update checks and feedback',
         license: DUAL_MIT,
       },
       {
