@@ -14,6 +14,8 @@ crate-type = ["cdylib", "rlib"]
 # browser's private file storage (OPFS)
 [target.'cfg(target_family = "wasm")'.dependencies]
 app-core = { workspace = true, default-features = false }
+# the notes in memory, for the preview of development and the tests
+app-sqlite-memory = { path = "../sqlite-memory" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 # the exact version the wasm-bindgen command line tool must match

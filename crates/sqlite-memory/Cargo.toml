@@ -1,0 +1,17 @@
+[package]
+name = "app-sqlite-memory"
+version.workspace = true
+description = "Reaches the databases SQLite keeps in memory in the browser, the one call the web core needs that is unsafe to make"
+license = "AGPL-3.0-or-later"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# not the workspace's lints: they forbid unsafe code, and SQLite's memory
+# storage is only reached through an unsafe call. Everything here is the one
+# call in src/lib.rs
+[lints.cargo]
+missing_lints_inheritance = "allow"
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+sqlite-wasm-rs = { version = "0.6.3", default-features = false, features = ["wasm-bindgen"] }

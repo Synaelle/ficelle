@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Builds the Rust crates the pages carry as WebAssembly into
 // apps/client/src/generated: the e2ee account client (crates/e2ee-web)
-// always, and with --core the notes core of the web version
-// (crates/core-web), which needs clang able to build for wasm32. Skips a
-// crate when its output is newer than every source, unless the build has
-// a release or preview identity. Fails fast, naming what is missing.
+// always, and with --core the notes core (crates/core-web) of the web
+// version, the browser preview and the tests, which needs clang able to
+// build for wasm32. Skips a crate when its output is newer than every
+// source, unless the build has a release or preview identity. Fails fast,
+// naming what is missing.
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -30,6 +31,7 @@ const crates = [
           sources: [
             'crates/core',
             'crates/core-web',
+            'crates/sqlite-memory',
             'crates/e2ee',
             'crates/protocol',
             'crates/brand',

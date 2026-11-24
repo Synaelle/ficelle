@@ -89,7 +89,22 @@ pub async fn start(scope: &str) -> Result<(), JsError> {
     let pool = install::<WasmOsCallback>(&config, true)
         .await
         .map_err(|e| CommandError::new("storage", e.to_string()))?;
-    disk::start(pool).map_err(CommandError::from)?;
+    disk::start(Box::new(pool)).map_err(CommandError::from)?;
+    Ok(())
+}
+
+/// As [`start`], with the notes in memory, gone when the page goes: for
+/// the preview of development and the tests, which have no private file
+/// storage or keep nothing.
+///
+/// # Errors
+///
+/// SQLite could not start.
+#[wasm_bindgen(js_name = startInMemory)]
+pub fn start_in_memory() -> Result<(), JsError> {
+    let files = app_sqlite_memory::memory_files()
+        .map_err(|e| CommandError::new("storage", e.to_string()))?;
+    disk::start(Box::new(files)).map_err(CommandError::from)?;
     Ok(())
 }
 

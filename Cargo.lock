@@ -162,6 +162,7 @@ name = "app-core-web"
 version = "0.8.6"
 dependencies = [
  "app-core",
+ "app-sqlite-memory",
  "rusqlite",
  "serde",
  "serde_json",
@@ -244,6 +245,13 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "zeroize",
+]
+
+[[package]]
+name = "app-sqlite-memory"
+version = "0.8.6"
+dependencies = [
+ "sqlite-wasm-rs",
 ]
 
 [[package]]

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The vault's files in the browser's private storage (OPFS). The databases
-//! are kept by SQLite in its pool of storage files, every other file is a
-//! row of a database of its own. Paths keep the folder layout.
+//! The vault's files in the browser's private storage (OPFS), or in memory
+//! for the preview of development and the tests. The databases are kept by
+//! SQLite in its pool of storage files, every other file is a row of a
+//! database of its own. Paths keep the folder layout.
 
 use std::cell::RefCell;
 use std::io::{Cursor, Read, Write};
@@ -15,22 +16,65 @@ use app_core::disk::Disk;
 use rusqlite::{Connection, ErrorCode, OptionalExtension, params};
 use sqlite_wasm_rs::vfs::VfsFilesManager;
 use sqlite_wasm_rs::vfs::transfer::DbTransfer;
-use sqlite_wasm_vfs::sahpool::OpfsSAHPoolUtil;
 
 thread_local! {
-    static POOL: RefCell<Option<OpfsSAHPoolUtil>> = const { RefCell::new(None) };
+    static POOL: RefCell<Option<Box<dyn Pool>>> = const { RefCell::new(None) };
     static FILES: RefCell<Option<Connection>> = const { RefCell::new(None) };
 }
 
 /// The database of files that are not databases.
 const FILES_DB: &str = "/files.db";
 
+/// Where SQLite keeps the databases: the browser's storage, or memory.
+pub trait Pool {
+    /// Every database's name.
+    fn names(&self) -> std::io::Result<Vec<String>>;
+    /// Whether a database of this name is kept.
+    fn contains(&self, name: &str) -> std::io::Result<bool>;
+    /// Removes a database, missing or not.
+    fn remove(&self, name: &str) -> std::io::Result<()>;
+    /// A database's bytes.
+    fn export_db(&self, name: &str) -> std::io::Result<Vec<u8>>;
+    /// Keeps `bytes` as a database of this name, which must not be kept yet.
+    fn import_db(&self, name: &str, bytes: &[u8]) -> std::io::Result<()>;
+}
+
+impl<P> Pool for P
+where
+    P: VfsFilesManager + DbTransfer,
+    <P as VfsFilesManager>::Error: std::error::Error + Send + Sync + 'static,
+    <P as DbTransfer>::Error: std::error::Error + Send + Sync + 'static,
+{
+    fn names(&self) -> std::io::Result<Vec<String>> {
+        VfsFilesManager::names(self).map_err(std::io::Error::other)
+    }
+
+    fn contains(&self, name: &str) -> std::io::Result<bool> {
+        VfsFilesManager::contains(self, name).map_err(std::io::Error::other)
+    }
+
+    fn remove(&self, name: &str) -> std::io::Result<()> {
+        VfsFilesManager::remove(self, name)
+            .map(|_| ())
+            .map_err(std::io::Error::other)
+    }
+
+    fn export_db(&self, name: &str) -> std::io::Result<Vec<u8>> {
+        DbTransfer::export_db(self, name).map_err(std::io::Error::other)
+    }
+
+    fn import_db(&self, name: &str, bytes: &[u8]) -> std::io::Result<()> {
+        self.import_db_unchecked(name, bytes)
+            .map_err(std::io::Error::other)
+    }
+}
+
 /// Keeps the pool and opens the database of files, once the pool is SQLite's.
 ///
 /// # Errors
 ///
 /// The database of files cannot be opened.
-pub fn start(pool: OpfsSAHPoolUtil) -> Result<()> {
+pub fn start(pool: Box<dyn Pool>) -> Result<()> {
     let files = Connection::open(FILES_DB)?;
     incremental(&files)?;
     files.execute_batch(
@@ -119,12 +163,8 @@ fn files<T>(f: impl FnOnce(&Connection) -> rusqlite::Result<T>) -> std::io::Resu
     })
 }
 
-fn pool<T, E: std::error::Error + Send + Sync + 'static>(
-    f: impl FnOnce(&OpfsSAHPoolUtil) -> std::result::Result<T, E>,
-) -> std::io::Result<T> {
-    POOL.with_borrow(|pool| {
-        f(pool.as_ref().ok_or_else(not_started)?).map_err(std::io::Error::other)
-    })
+fn pool<T>(f: impl FnOnce(&dyn Pool) -> std::io::Result<T>) -> std::io::Result<T> {
+    POOL.with_borrow(|pool| f(pool.as_deref().ok_or_else(not_started)?))
 }
 
 /// The databases, which SQLite keeps itself: `notes.db` and the files
@@ -145,7 +185,7 @@ fn inside(dir: &Path) -> String {
 
 fn pooled_inside(dir: &Path) -> std::io::Result<Vec<String>> {
     let prefix = inside(dir);
-    Ok(pool(VfsFilesManager::names)?
+    Ok(pool(|p| p.names())?
         .into_iter()
         .filter(|name| name.starts_with(&prefix))
         .collect())
@@ -222,7 +262,7 @@ impl Disk for WebDisk {
             // a database is copied over: its storage has no renaming
             let bytes = pool(|p| p.export_db(&key(from)))?;
             pool(|p| p.remove(&key(to)))?;
-            pool(|p| p.import_db_unchecked(&key(to), &bytes))?;
+            pool(|p| p.import_db(&key(to), &bytes))?;
             pool(|p| p.remove(&key(from)))?;
             return Ok(());
         }
