@@ -127,4 +127,18 @@ describe('offered', () => {
     appUpdates.critical = { version: '0.9.1', notes: '', critical: true }
     expect(appUpdates.offered).toBe(false)
   })
+
+  it('skips the version with the cross, a security fix only until the next start', () => {
+    appUpdates.critical = null
+    appUpdates.dismissed = false
+    appUpdates.shown = true
+    appUpdates.ready = { version: '0.9.2', notes: '' }
+    appUpdates.close()
+    expect(appUpdates.skipped).toBe('0.9.2')
+    expect(appUpdates.offered).toBe(false)
+    appUpdates.ready = { version: '0.9.3', notes: '', critical: true }
+    appUpdates.close()
+    expect(appUpdates.skipped).toBe('0.9.2')
+    expect(appUpdates.dismissed).toBe(true)
+  })
 })

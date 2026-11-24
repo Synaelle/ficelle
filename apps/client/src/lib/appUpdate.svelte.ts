@@ -356,6 +356,13 @@ class AppUpdates {
     ])
   }
 
+  /** The card's cross: skips this version, or for a security fix waits for
+   * the next start. */
+  close() {
+    if (this.ready?.critical) this.dismissed = true
+    else this.skip()
+  }
+
   /** "Skip this version": its card comes back no more, the next version's
    * does. Never for a critical fix, and Settings still offers it. */
   skip() {

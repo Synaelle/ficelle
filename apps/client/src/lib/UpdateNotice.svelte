@@ -3,7 +3,8 @@
      beside the version, the button that downloads it (its progress below,
      the app usable meanwhile) then installs it, what changed behind "What's
      changed". "Later" offers waiting for the next start or
-     skipping this version for the next one (a security fix can only wait). -->
+     skipping this version for the next one, the cross skips it at once
+     (a security fix can only wait). -->
 <script lang="ts">
   import ErrorText from './ErrorText.svelte'
   import { ANDROID, PHONE } from './platform'
@@ -51,6 +52,13 @@
         <strong>{t('appUpdate.cardTitle', { version: appUpdates.ready.version })}</strong>
         <span class="sub">{sub}</span>
       </div>
+      <!-- skips this version; a security fix cannot be skipped, it only waits -->
+      <button
+        class="icon-btn close"
+        aria-label={appUpdates.ready.critical ? t('appUpdate.later') : t('appUpdate.skip')}
+        title={appUpdates.ready.critical ? t('appUpdate.later') : t('appUpdate.skip')}
+        onclick={() => appUpdates.close()}><Icon name="close" size={14} /></button
+      >
     </div>
     {#if lines.length}<p class="lines">{lines.join(' ')}</p>{/if}
     {#if details}
@@ -140,7 +148,11 @@
   }
   .titles {
     display: grid;
+    flex: 1;
     min-width: 0;
+  }
+  .close {
+    align-self: flex-start;
   }
   strong {
     font-size: 15px;
