@@ -1256,3 +1256,108 @@ fn tags_made_alone_and_colour_marks_reach_the_other_device() {
     assert!(tags(&a).is_empty());
     assert_eq!(tags(&a), tags(&b));
 }
+
+/// A change to `from`'s space as a newer version would write it: a format
+/// above this one's, and a tag this version must not take in.
+fn newer_space_change(from: &mut Store) -> Vec<u8> {
+    let doc = loro::LoroDoc::new();
+    doc.import(&from.sync_snapshot(crate::sync::SPACE).unwrap())
+        .unwrap();
+    let known = doc.oplog_vv();
+    doc.set_peer_id(7).unwrap();
+    doc.get_map("formats")
+        .insert(&(crate::sync::FORMAT + 1).to_string(), true)
+        .unwrap();
+    let tag = doc.get_map("tags").ensure_mergeable_map("compost").unwrap();
+    tag.insert("name", "Compost").unwrap();
+    tag.insert("color", loro::LoroValue::Null).unwrap();
+    tag.insert("explicit", true).unwrap();
+    doc.commit();
+    doc.export(loro::ExportMode::updates(&known)).unwrap()
+}
+
+/// The changes a stored space holds, by device.
+fn space_version(snapshot: &[u8]) -> loro::VersionVector {
+    let doc = loro::LoroDoc::new();
+    doc.import(snapshot).unwrap();
+    doc.oplog_vv()
+}
+
+#[test]
+fn a_space_without_a_format_number_merges_as_format_one() {
+    let (mut b, _) = device(1_000_000);
+    // as versions before the format number wrote it
+    let old = loro::LoroDoc::new();
+    old.set_peer_id(5).unwrap();
+    let tag = old.get_map("tags").ensure_mergeable_map("seeds").unwrap();
+    tag.insert("name", "Seeds").unwrap();
+    tag.insert("color", "green").unwrap();
+    tag.insert("explicit", true).unwrap();
+    old.commit();
+    let bytes = old.export(loro::ExportMode::Snapshot).unwrap();
+    b.apply_remote(crate::sync::SPACE, &bytes).unwrap();
+    let tags = b.list_tags().unwrap();
+    assert_eq!(tags.len(), 1);
+    assert_eq!(
+        (tags[0].name.as_str(), tags[0].color.as_deref()),
+        ("Seeds", Some("green"))
+    );
+}
+
+#[test]
+fn a_space_of_the_same_format_merges_and_carries_its_number() {
+    let (mut a, _) = device(1_000_000);
+    let (mut b, _) = device(1_000_000);
+    note_with(&mut a, "Sowing", "radishes in april");
+    sync(&mut a, &mut b);
+    same(&a, &b);
+    let space = loro::LoroDoc::new();
+    space
+        .import(&b.sync_snapshot(crate::sync::SPACE).unwrap())
+        .unwrap();
+    let formats: Vec<String> = space
+        .get_map("formats")
+        .keys()
+        .map(|k| k.to_string())
+        .collect();
+    assert_eq!(formats, [crate::sync::FORMAT.to_string()]);
+}
+
+#[test]
+fn a_space_of_a_newer_format_is_refused_and_nothing_is_written() {
+    let (mut a, _) = device(1_000_000);
+    let (mut b, _) = device(1_000_000);
+    note_with(&mut a, "Sowing", "radishes in april");
+    sync(&mut a, &mut b);
+    let newer = newer_space_change(&mut a);
+    let before = (
+        view(&b),
+        b.sync_snapshot(crate::sync::SPACE).unwrap(),
+        b.sync_counts().unwrap(),
+    );
+
+    let refused = b.apply_remote(crate::sync::SPACE, &newer).unwrap_err();
+    assert_eq!(refused.kind(), "newerFormat");
+    // by the devices on the local network too, with a note in the same batch
+    let id = note_with(&mut a, "Planting", "beans after the frost");
+    let note = a.sync_snapshot(&id.to_string()).unwrap();
+    let batch = [
+        (crate::sync::SPACE.to_owned(), newer.clone()),
+        (id.to_string(), note),
+    ];
+    assert_eq!(b.peer_take(&batch).unwrap_err().kind(), "newerFormat");
+
+    let after = (
+        view(&b),
+        b.sync_snapshot(crate::sync::SPACE).unwrap(),
+        b.sync_counts().unwrap(),
+    );
+    assert_eq!(before.0, after.0);
+    assert_eq!(before.2, after.2);
+    assert_eq!(space_version(&before.1), space_version(&after.1));
+    assert!(b.list_tags().unwrap().is_empty());
+    // the notes here keep working and syncing
+    let kept = b.list_notes(NoteScope::All, NoteSort::TitleAsc).unwrap()[0].id;
+    edit_body(&mut b, kept, "radishes in may");
+    assert!(!b.sync_outbox(usize::MAX).unwrap().is_empty());
+}

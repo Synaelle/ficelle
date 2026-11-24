@@ -673,7 +673,7 @@
               <p class="settings-help detail">
                 {status.error}
                 <span class="error-code"
-                  >{t('common.errorCode', { code: errorCode('SYNC', 'failed') })}</span
+                  >{t('common.errorCode', { code: errorCode('SYNC', status.errorKind ?? 'failed') })}</span
                 >
               </p>
             {/if}

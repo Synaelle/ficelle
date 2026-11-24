@@ -43,6 +43,40 @@ use crate::id::NoteId;
 /// Id of the space document.
 pub const SPACE: &str = "space";
 
+/// Shape of the documents this version writes. It is kept in the space
+/// document, which speaks for every document of the vault, and a space
+/// from a newer format is refused whole. Bump it when an older app would
+/// read the documents wrong, and write the new number before any document
+/// in the new shape goes out. A space without one, from before 0.9, is
+/// format 1.
+pub const FORMAT: u32 = 1;
+
+/// The map of the space holding the formats written into it, each under its
+/// own key: two devices writing different ones at once keep both, where a
+/// single value would keep only one of them.
+const FORMATS: &str = "formats";
+
+/// The newest format written into a space.
+fn format_of(space: &LoroDoc) -> u32 {
+    space
+        .get_map(FORMATS)
+        .keys()
+        .filter_map(|key| key.parse::<u32>().ok())
+        .max()
+        .unwrap_or(1)
+}
+
+/// Writes this version's format into a space that does not hold it yet.
+fn write_format(space: &LoroDoc) -> Result<()> {
+    let map = space.get_map(FORMATS);
+    let key = FORMAT.to_string();
+    if map.get(&key).is_none() {
+        map.insert(&key, true).map_err(sync_error)?;
+        space.commit();
+    }
+    Ok(())
+}
+
 /// Where a document of a space is stored: the personal space's keep their
 /// bare id, a shared space's, which older versions synced, are
 /// `<space id>/<document id>`.
@@ -192,6 +226,13 @@ impl Docs {
             },
         );
         Ok(doc)
+    }
+
+    /// Whether a document holds changes not saved yet.
+    fn changed(&self, id: &str) -> bool {
+        self.open
+            .get(id)
+            .is_some_and(|open| open.doc.oplog_vv() != open.saved)
     }
 
     /// Open documents holding changes not saved, for tests.
@@ -418,7 +459,13 @@ pub(crate) fn flush(conn: &Connection, docs: &mut Docs, now: Timestamp) -> Resul
         }
     }
     for space in &spaces {
-        docs.persist(conn, &doc_key(space, SPACE), true, now)?;
+        let key = doc_key(space, SPACE);
+        // only with a change of the space: a vault with nothing in it yet
+        // has nothing to send
+        if docs.changed(&key) {
+            write_format(&docs.get(conn, &key)?)?;
+        }
+        docs.persist(conn, &key, true, now)?;
     }
     if !spaces.is_empty() {
         // positions and tag spellings follow the documents after local
@@ -551,7 +598,9 @@ struct MergeCheck {
 /// # Errors
 ///
 /// [`Error::Invalid`] for an unknown document or bytes that are not a Loro
-/// update (nothing is changed then), database errors.
+/// update (nothing is changed then), [`Error::NewerFormat`] for a space a
+/// newer version wrote (the documents in memory are dropped then, and the
+/// caller must not commit), database errors.
 pub(crate) fn import_remote(
     tx: &Connection,
     docs: &mut Docs,
@@ -585,6 +634,12 @@ pub(crate) fn import_remote(
         return Ok(());
     }
     settle_waiting(tx, &doc, doc_id)?;
+    if note.is_none() && format_of(&doc) > FORMAT {
+        // the change is already in the document in memory: dropped, the
+        // documents reload from the database, where it never went
+        docs.forget();
+        return Err(Error::NewerFormat);
+    }
     match note {
         Some(note) => {
             let at = if let Some(at) = taken.checks.iter().position(|c| c.doc_id == doc_id) {

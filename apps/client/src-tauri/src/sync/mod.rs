@@ -65,6 +65,9 @@ pub struct SyncStatus {
     pub pending: i64,
     pub last_sync_at: Option<i64>,
     pub error: Option<String>,
+    /// The kind of the vault's own error that stopped the last round, for
+    /// its code. `None` for the server's or the network's.
+    pub error_kind: Option<&'static str>,
     /// Changes from the server that could not be read.
     pub rejected: i64,
     /// Connected live: other devices' changes arrive within a second.
@@ -86,6 +89,7 @@ impl SyncStatus {
             pending: 0,
             last_sync_at: None,
             error: None,
+            error_kind: None,
             rejected: 0,
             live: false,
             coediting: true,
@@ -101,7 +105,8 @@ enum Last {
     None,
     Ok,
     Offline(String),
-    Failed(String),
+    /// Why, and the kind of a vault error.
+    Failed(String, Option<&'static str>),
     /// This device's clock disagrees with the server's, by this many ms.
     ClockOff(i64),
 }
@@ -338,7 +343,10 @@ impl Sync {
                                 Last::Offline(why.clone())
                             }
                             Stop::Clock(by) => Last::ClockOff(*by),
-                            Stop::Sync(other) => Last::Failed(other.to_string()),
+                            Stop::Sync(SyncError::Local(err)) => {
+                                Last::Failed(err.to_string(), Some(err.kind()))
+                            }
+                            Stop::Sync(other) => Last::Failed(other.to_string(), None),
                         };
                     }
                 }
@@ -385,15 +393,19 @@ impl Sync {
         } else {
             match &shared.last {
                 Last::Offline(_) => "offline",
-                Last::Failed(_) | Last::ClockOff(_) => "error",
+                Last::Failed(..) | Last::ClockOff(_) => "error",
                 _ if pending > 0 => "pending",
                 _ => "synced",
             }
         };
         let error = match &shared.last {
-            Last::Offline(why) | Last::Failed(why) => Some(why.clone()),
+            Last::Offline(why) | Last::Failed(why, _) => Some(why.clone()),
             Last::ClockOff(by) => Some(Stop::Clock(*by).to_string()),
             _ => link.last_error.clone(),
+        };
+        let error_kind = match shared.last {
+            Last::Failed(_, kind) => kind,
+            _ => None,
         };
         let clock_off = match shared.last {
             Last::ClockOff(by) => Some(by),
@@ -407,6 +419,7 @@ impl Sync {
             pending,
             last_sync_at: link.last_sync_at,
             error,
+            error_kind,
             rejected,
             live: shared.live,
             coediting: shared.coediting.unwrap_or(true),

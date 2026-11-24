@@ -25,6 +25,9 @@ export interface SyncStatus {
   pending: number
   lastSyncAt: number | null
   error: string | null
+  /** The kind of the vault's own error that stopped the last round, for its
+   * code. Null for the server's or the network's. */
+  errorKind: string | null
   /** Changes from the server that could not be read. */
   rejected: number
   /** Connected live, other devices' changes arrive within a second. */
@@ -107,6 +110,7 @@ const OFF: SyncStatus = {
   pending: 0,
   lastSyncAt: null,
   error: null,
+  errorKind: null,
   rejected: 0,
   live: false,
   coediting: true,

@@ -59,6 +59,11 @@ pub enum Error {
     #[error("not a backup")]
     NotBackup,
 
+    /// A sync document from a newer version of the app, in a shape this
+    /// one cannot read. Nothing of it is taken in.
+    #[error("these notes were synced from a newer version of the app, update this one to sync")]
+    NewerFormat,
+
     /// Something would go over a size limit, in bytes.
     #[error("over the limit of {0} bytes")]
     TooLarge(usize),
@@ -103,6 +108,7 @@ impl Error {
             Self::NotesMissing => "notesMissing",
             Self::Corrupt(_) => "corrupt",
             Self::NotBackup => "notBackup",
+            Self::NewerFormat => "newerFormat",
             Self::Cancelled => "cancelled",
             Self::TooLarge(_) => "tooLarge",
             Self::Crypto => "crypto",

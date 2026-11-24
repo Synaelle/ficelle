@@ -408,6 +408,18 @@ impl<H: Host> Shared<H> {
         if matches!(error, Some(Error::Forgotten)) {
             self.forgotten_by(*key);
         }
+        // its notes are in a newer format than its hello said: this device
+        // has to update, as after a hello with a newer format
+        let newer = if matches!(error, Some(Error::Store(app_core::Error::NewerFormat))) {
+            let devices = store(&*self.host, |s, _| s.peer_devices()).unwrap_or_default();
+            let version = devices
+                .into_iter()
+                .find(|d| d.key.as_slice() == key.as_slice())
+                .map_or_default(|d| d.version);
+            Some(Live::UpdateThis { version })
+        } else {
+            None
+        };
         let mut state = self.lock();
         if state.sessions.get(key).is_some_and(|s| s.id == id) {
             state.sessions.remove(key);
@@ -418,12 +430,10 @@ impl<H: Host> Shared<H> {
                     }
                 }
                 Some(err) => {
-                    state.live.insert(
-                        *key,
-                        Live::Failed {
-                            error: err.to_string(),
-                        },
-                    );
+                    let live = newer.unwrap_or_else(|| Live::Failed {
+                        error: err.to_string(),
+                    });
+                    state.live.insert(*key, live);
                 }
             }
         }

@@ -1675,3 +1675,63 @@ mod files_deep {
         }
     }
 }
+
+#[test]
+fn a_space_from_a_newer_version_stops_the_round_and_loses_nothing() {
+    let account = Account::new("acct", AccountKind::Standard);
+    let mut laptop = account.device("laptop");
+    let mut phone = account.device("phone");
+    laptop.note("Sowing", "radishes in april");
+    laptop.sync();
+    phone.sync();
+
+    // a tablet on a newer version writes the space in a newer format
+    let doc = loro::LoroDoc::new();
+    doc.import(&laptop.s().sync_snapshot(super::SPACE).unwrap())
+        .unwrap();
+    let known = doc.oplog_vv();
+    doc.set_peer_id(7).unwrap();
+    doc.get_map("formats")
+        .insert(&(super::FORMAT + 1).to_string(), true)
+        .unwrap();
+    doc.commit();
+    let newer = doc.export(loro::ExportMode::updates(&known)).unwrap();
+    {
+        let mut log = account.log.borrow_mut();
+        let seq = i64::try_from(log.changes.len()).unwrap() + 1;
+        log.changes.push(IncomingChange {
+            seq,
+            id: format!("tablet-{seq}"),
+            doc: super::SPACE.into(),
+            data: STANDARD.encode(&newer),
+            device: Some("tablet".into()),
+        });
+    }
+
+    let written = phone.note("Planting", "beans after the frost");
+    let before = phone.view();
+    let cursor = phone.s().sync_link().unwrap().unwrap().cursor;
+    for _ in 0..2 {
+        let stopped = run(&phone.store, &mut phone.server).unwrap_err();
+        assert!(
+            matches!(
+                stopped,
+                super::engine::SyncError::Local(crate::Error::NewerFormat)
+            ),
+            "{stopped}"
+        );
+        // its own note went up first, nothing came in or was set aside
+        assert_eq!(phone.s().sync_counts().unwrap().pending, 0);
+        assert_eq!(phone.view(), before);
+        assert_eq!(phone.s().sync_rejected().unwrap(), 0);
+        assert_eq!(phone.s().sync_link().unwrap().unwrap().cursor, cursor);
+    }
+    assert!(
+        account
+            .log
+            .borrow()
+            .changes
+            .iter()
+            .any(|c| c.doc == written.to_string())
+    );
+}
