@@ -7,6 +7,7 @@
   import { onDestroy } from 'svelte'
   import { backend, type VaultStatus } from './lib/backend'
   import { applyDyslexicFont } from './lib/dyslexicFont'
+  import { applyChosenFonts } from './lib/chosenFonts.svelte'
   import { setLocale, systemLocale, t } from './lib/i18n.svelte'
   import Overlays from './lib/Overlays.svelte'
   import { localSync } from './lib/localSync.svelte'
@@ -34,6 +35,7 @@
   $effect(() => void setLocale(prefs.language ?? systemLocale()))
   $effect(() => applyUiSize(prefs.uiSize))
   $effect(() => applyDyslexicFont(prefs.dyslexicFont))
+  applyChosenFonts()
 
   let stage = $state<'loading' | 'unlock' | 'ready'>('loading')
   let status = $state<VaultStatus | null>(null)

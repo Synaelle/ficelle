@@ -364,6 +364,18 @@ export const CREDIT_GROUPS: CreditGroup[] = [
         license: 'UFL-1.0',
       },
       {
+        name: 'Ubuntu',
+        url: 'https://fontsource.org/fonts/ubuntu',
+        use: 'a font to pick in the settings, downloaded when picked',
+        license: 'UFL-1.0',
+      },
+      {
+        name: 'JetBrains Mono',
+        url: 'https://fontsource.org/fonts/jetbrains-mono',
+        use: 'a code font to pick in the settings, downloaded when picked',
+        license: 'OFL-1.1',
+      },
+      {
         name: 'OpenDyslexic',
         url: 'https://opendyslexic.org/',
         use: 'the dyslexia friendly font, by Abbie Gonzalez',

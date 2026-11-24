@@ -18,6 +18,7 @@
   import { storageTrouble, type StorageTrouble } from './lib/storageTrouble'
   import { storageRefused } from './lib/webStorage'
   import { applyDyslexicFont } from './lib/dyslexicFont'
+  import { applyChosenFonts } from './lib/chosenFonts.svelte'
   import { catchErrors, errorCatch } from './lib/errorCatch.svelte'
   import { errorCode, shownError, type ShownError } from './lib/errors'
   import { followPageParts } from './lib/pageParts'
@@ -91,6 +92,7 @@
   $effect(() => void setLocale(prefs.language ?? systemLocale()))
   $effect(() => applyUiSize(prefs.uiSize))
   $effect(() => applyDyslexicFont(prefs.dyslexicFont))
+  applyChosenFonts()
   // Linux's web view draws text thinner than Windows, where the look was
   // made: every stroke 0.2 px thicker gives a paragraph the ink it has there.
   // An experimental setting for now, shown on the nightly channel only

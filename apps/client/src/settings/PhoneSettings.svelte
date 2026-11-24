@@ -4,7 +4,6 @@
      the current value on the right, a short note under groups.
      Every row is one tap from the first screen, details open a page. -->
 <script lang="ts">
-  import { errorCode } from '../lib/errors'
   import ErrorText from '../lib/ErrorText.svelte'
   import { localSync } from '../lib/localSync.svelte'
   import { sync } from '../lib/sync.svelte'
@@ -22,7 +21,7 @@
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { overlay, type MenuItem } from '../lib/overlay.svelte'
-  import { LINE_SPACINGS, prefs, showTool } from '../lib/prefs.svelte'
+  import { CODE_FONTS, LINE_SPACINGS, prefs, showTool, TEXT_FONTS } from '../lib/prefs.svelte'
   import { TOOL_NAMES } from '../editor/toolNames'
   import ArrowPicker from './ArrowPicker.svelte'
   import DataSettings from './DataSettings.svelte'
@@ -32,11 +31,13 @@
   import UpdateCheck from './UpdateCheck.svelte'
   import { MODES } from '../lib/theme.svelte'
   import { HANDHELD, LINUX, MOBILE, WEB } from '../lib/platform'
-  import { TRIAL_FONT_NAMES, TRIAL_FONTS, TRIAL_MONO_NAMES, TRIAL_MONOS } from '../lib/trialFonts'
   import { UI_SIZES } from '../lib/uiSize'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
   import { updatesHere } from '../lib/appUpdate.svelte'
+  import { applyFont, DEFAULT_CODE_FONT, FONT_PACKS, fontStatus } from '../lib/chosenFonts.svelte'
+  import { applyDyslexicFont, OPENDYSLEXIC } from '../lib/dyslexicFont'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
+  import FontLoad from './FontLoad.svelte'
   import {
     LOCK_CHOICES,
     lockLabel,
@@ -568,18 +569,56 @@
             on: prefs.dyslexicFont,
             run: () => (prefs.dyslexicFont = !prefs.dyslexicFont),
           })}
-          {#if prefs.dyslexicFont && dyslexicStatus.loading}
-            <p class="under" role="status">{t('settings.dyslexicFontLoading')}</p>
-          {:else if prefs.dyslexicFont && dyslexicStatus.failed}
-            <p class="under error" role="alert">
-              {t('settings.dyslexicFontFailed')}
-              <span class="error-code"
-                >{t('common.errorCode', { code: errorCode('FONT', 'download') })}</span
-              >
-            </p>
+          {#if prefs.dyslexicFont && (dyslexicStatus.loading || dyslexicStatus.error)}
+            <div class="under">
+              <FontLoad
+                font={OPENDYSLEXIC.family}
+                loading={dyslexicStatus.loading}
+                error={dyslexicStatus.error}
+                onretry={() => applyDyslexicFont(true)}
+              />
+            </div>
           {/if}
         </Group>
       {:else if page === 'editor'}
+        <Group title={t('settings.font')}>
+          {#each TEXT_FONTS as font (font)}
+            <Row
+              label={font === 'default' ? t('settings.fontDefault') : FONT_PACKS[font].family}
+              checked={prefs.font === font}
+              onclick={() => (prefs.font = font)}
+            />
+          {/each}
+          {#if prefs.font !== 'default' && (fontStatus.text.loading || fontStatus.text.error)}
+            <div class="under">
+              <FontLoad
+                font={FONT_PACKS[prefs.font].family}
+                loading={fontStatus.text.loading}
+                error={fontStatus.text.error}
+                onretry={() => applyFont('text', prefs.font)}
+              />
+            </div>
+          {/if}
+        </Group>
+        <Group title={t('settings.codeFont')}>
+          {#each CODE_FONTS as font (font)}
+            <Row
+              label={font === 'default' ? DEFAULT_CODE_FONT : FONT_PACKS[font].family}
+              checked={prefs.codeFont === font}
+              onclick={() => (prefs.codeFont = font)}
+            />
+          {/each}
+          {#if prefs.codeFont !== 'default' && (fontStatus.code.loading || fontStatus.code.error)}
+            <div class="under">
+              <FontLoad
+                font={FONT_PACKS[prefs.codeFont].family}
+                loading={fontStatus.code.loading}
+                error={fontStatus.code.error}
+                onretry={() => applyFont('code', prefs.codeFont)}
+              />
+            </div>
+          {/if}
+        </Group>
         <Group title={t('settings.lineSpacing')}>
           {#each LINE_SPACINGS as spacing (spacing)}
             <Row
@@ -737,24 +776,6 @@
       {:else if page === 'testTools'}
         <TestTools />
       {:else if page === 'experimental'}
-        <Group title={t('settings.trialFont')}>
-          {#each TRIAL_FONTS as font (font)}
-            <Row
-              label={font === 'current' ? t('settings.trialFontCurrent') : TRIAL_FONT_NAMES[font]}
-              checked={prefs.trialFont === font}
-              onclick={() => (prefs.trialFont = font)}
-            />
-          {/each}
-        </Group>
-        <Group title={t('settings.trialMono')}>
-          {#each TRIAL_MONOS as font (font)}
-            <Row
-              label={font === 'current' ? 'Ubuntu Mono' : TRIAL_MONO_NAMES[font]}
-              checked={prefs.trialMono === font}
-              onclick={() => (prefs.trialMono = font)}
-            />
-          {/each}
-        </Group>
         {#if LINUX}
           <Group>
             {@render row({
@@ -975,9 +996,6 @@
     padding: 0 var(--space-4) var(--space-2);
     color: var(--color-text-muted);
     font-size: 13px;
-  }
-  .under.error {
-    color: var(--color-danger);
   }
 
   .row {

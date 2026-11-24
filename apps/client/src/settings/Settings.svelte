@@ -2,7 +2,6 @@
 <!-- Settings dialog. A search box filters sections by their translated text.
      Phones get their own full screen layout, PhoneSettings. -->
 <script lang="ts">
-  import { errorCode } from '../lib/errors'
   import ErrorText from '../lib/ErrorText.svelte'
   import { MIN_PASSWORD } from '../lib/passwords'
   import PasswordField from '../lib/PasswordField.svelte'
@@ -13,7 +12,14 @@
   import { LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
-  import { LINE_SPACINGS, prefs, shortcutFor, showTool } from '../lib/prefs.svelte'
+  import {
+    CODE_FONTS,
+    LINE_SPACINGS,
+    prefs,
+    shortcutFor,
+    showTool,
+    TEXT_FONTS,
+  } from '../lib/prefs.svelte'
   import { TOOL_NAMES } from '../editor/toolNames'
   import { MODES } from '../lib/theme.svelte'
   import { LINUX, WEB } from '../lib/platform'
@@ -37,7 +43,10 @@
   import AboutSettings from './AboutSettings.svelte'
   import UpdateCheck from './UpdateCheck.svelte'
   import { updatesHere } from '../lib/appUpdate.svelte'
+  import { applyDyslexicFont, OPENDYSLEXIC } from '../lib/dyslexicFont'
   import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
+  import { applyFont, DEFAULT_CODE_FONT, FONT_PACKS, fontStatus } from '../lib/chosenFonts.svelte'
+  import FontLoad from './FontLoad.svelte'
   import {
     LOCK_CHOICES,
     lockLabel,
@@ -50,7 +59,6 @@
   import Switch from './ui/Switch.svelte'
   import type ImportScreen from './ImportDialog.svelte'
   import { loadPart } from '../lib/pageParts'
-  import { TRIAL_FONT_NAMES, TRIAL_FONTS, TRIAL_MONO_NAMES, TRIAL_MONOS } from '../lib/trialFonts'
 
   let {
     close,
@@ -273,11 +281,7 @@
               {/if}
             </Group>
           {:else if section === 'accessibility'}
-            <Group
-              note={prefs.dyslexicFont && dyslexicStatus.loading
-                ? t('settings.dyslexicFontLoading')
-                : undefined}
-            >
+            <Group>
               <Row label={t('settings.uiSize')}>
                 <SizePicker />
               </Row>
@@ -285,15 +289,61 @@
                 <Switch label={t('settings.dyslexicFont')} bind:checked={prefs.dyslexicFont} />
               </Row>
             </Group>
-            {#if prefs.dyslexicFont && dyslexicStatus.failed}
-              <p class="settings-help failed" role="alert">
-                {t('settings.dyslexicFontFailed')}
-                <span class="error-code"
-                  >{t('common.errorCode', { code: errorCode('FONT', 'download') })}</span
-                >
-              </p>
+            {#if prefs.dyslexicFont}
+              <FontLoad
+                font={OPENDYSLEXIC.family}
+                loading={dyslexicStatus.loading}
+                error={dyslexicStatus.error}
+                onretry={() => applyDyslexicFont(true)}
+              />
             {/if}
           {:else if section === 'editor'}
+            <Group>
+              <Row label={t('settings.font')}>
+                <select
+                  class="field compact font-pick"
+                  aria-label={t('settings.font')}
+                  bind:value={prefs.font}
+                >
+                  {#each TEXT_FONTS as font (font)}
+                    <option value={font}
+                      >{font === 'default'
+                        ? t('settings.fontDefault')
+                        : FONT_PACKS[font].family}</option
+                    >
+                  {/each}
+                </select>
+              </Row>
+              <Row label={t('settings.codeFont')}>
+                <select
+                  class="field compact font-pick"
+                  aria-label={t('settings.codeFont')}
+                  bind:value={prefs.codeFont}
+                >
+                  {#each CODE_FONTS as font (font)}
+                    <option value={font}
+                      >{font === 'default' ? DEFAULT_CODE_FONT : FONT_PACKS[font].family}</option
+                    >
+                  {/each}
+                </select>
+              </Row>
+            </Group>
+            {#if prefs.font !== 'default'}
+              <FontLoad
+                font={FONT_PACKS[prefs.font].family}
+                loading={fontStatus.text.loading}
+                error={fontStatus.text.error}
+                onretry={() => applyFont('text', prefs.font)}
+              />
+            {/if}
+            {#if prefs.codeFont !== 'default'}
+              <FontLoad
+                font={FONT_PACKS[prefs.codeFont].family}
+                loading={fontStatus.code.loading}
+                error={fontStatus.code.error}
+                onretry={() => applyFont('code', prefs.codeFont)}
+              />
+            {/if}
             <Group>
               <Row label={t('settings.lineSpacing')}>
                 <div class="segmented" role="radiogroup" aria-label={t('settings.lineSpacing')}>
@@ -565,34 +615,6 @@
             <TestTools />
           {:else if section === 'experimental'}
             <Group>
-              <Row label={t('settings.trialFont')}>
-                <select
-                  class="field compact same-width"
-                  aria-label={t('settings.trialFont')}
-                  bind:value={prefs.trialFont}
-                >
-                  {#each TRIAL_FONTS as font (font)}
-                    <option value={font}
-                      >{font === 'current'
-                        ? t('settings.trialFontCurrent')
-                        : TRIAL_FONT_NAMES[font]}</option
-                    >
-                  {/each}
-                </select>
-              </Row>
-              <Row label={t('settings.trialMono')}>
-                <select
-                  class="field compact same-width"
-                  aria-label={t('settings.trialMono')}
-                  bind:value={prefs.trialMono}
-                >
-                  {#each TRIAL_MONOS as font (font)}
-                    <option value={font}
-                      >{font === 'current' ? 'Ubuntu Mono' : TRIAL_MONO_NAMES[font]}</option
-                    >
-                  {/each}
-                </select>
-              </Row>
               {#if LINUX}
                 <Row label={t('settings.windowsText')}>
                   <Switch label={t('settings.windowsText')} bind:checked={prefs.windowsText} />
@@ -711,9 +733,6 @@
     margin: 0;
     font-size: var(--title-dialog);
   }
-  .failed {
-    color: var(--color-danger);
-  }
   /* a menu in a settings row, as wide as its longest choice */
   .content :global(.field.compact) {
     width: auto;
@@ -744,6 +763,11 @@
   }
   .message {
     margin: var(--space-5) 0 0;
+  }
+  /* the font boxes line up, wide enough for the default's two names */
+  .field.compact.font-pick {
+    width: 22rem;
+    max-width: 100%;
   }
   /* the language and time format boxes line up, whatever their options */
   .field.compact.same-width {

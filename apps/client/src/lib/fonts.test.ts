@@ -2,7 +2,9 @@
 
 import { builtInThemes } from '@app/ui/themes'
 import { describe, expect, it } from 'vitest'
+import commands from '../../src-tauri/src/commands/fonts.rs?raw'
 import bundled from '../styles/fonts.css?raw'
+import { FONT_PACKS } from './chosenFonts.svelte'
 import { OPENDYSLEXIC } from './dyslexicFont'
 import { describeFile } from './fonts'
 
@@ -25,8 +27,19 @@ describe('fonts', () => {
 
   it('asks only for files and ids the app accepts', () => {
     // the same rules as commands/fonts.rs
-    expect(OPENDYSLEXIC.id).toMatch(/^[a-z0-9-]+$/)
-    for (const name of OPENDYSLEXIC.files)
-      expect(name).toMatch(/^latin(-ext)?-(400|700)-(normal|italic)$/)
+    for (const pack of [OPENDYSLEXIC, ...Object.values(FONT_PACKS)]) {
+      expect(pack.id).toMatch(/^[a-z0-9-]+$/)
+      for (const name of pack.files)
+        expect(name).toMatch(/^latin(-ext)?-(400|700)-(normal|italic)$/)
+    }
+  })
+
+  it('asks only for files the app knows the hash of, so none is refused', () => {
+    for (const pack of [OPENDYSLEXIC, ...Object.values(FONT_PACKS)]) {
+      for (const name of pack.files) {
+        const entry = new RegExp(`"${pack.id}",\\s*"${name}",\\s*"[0-9a-f]{64}"`)
+        expect(commands, `${pack.id} ${name}`).toMatch(entry)
+      }
+    }
   })
 })

@@ -6,8 +6,9 @@
 //
 //   node tools/fonts-mirror.mjs <folder>
 //
-// The one font apps download is OpenDyslexic (lib/dyslexicFont.ts); the files,
-// those commands/fonts.rs accepts. A file a font does not have is skipped; a font
+// The fonts apps download are OpenDyslexic (lib/dyslexicFont.ts), Ubuntu and
+// JetBrains Mono (lib/chosenFonts.svelte.ts); the files, those
+// commands/fonts.rs accepts. A file a font does not have is skipped; a font
 // whose regular file cannot be had stops the mirror. All are open fonts
 // (SIL Open Font License or similar), free to copy.
 //
@@ -40,7 +41,7 @@ const FILES = [
   'latin-ext-700-italic',
 ]
 
-const ids = ['opendyslexic']
+const ids = ['opendyslexic', 'ubuntu', 'jetbrains-mono']
 
 /**
  * One file, `null` when the font has none. Tried three times.

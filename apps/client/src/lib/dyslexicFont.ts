@@ -16,6 +16,7 @@
 
 import mono from '../styles/opendyslexic/opendyslexic-mono-400-normal.woff2?url'
 import { dyslexicStatus } from './dyslexicStatus.svelte'
+import { shownError, type ShownError } from './errors'
 import { ARROWS_FONT, type FontPack, loadFontPack } from './fonts'
 
 /** OpenDyslexic from Fontsource, regular, bold and their italics. */
@@ -105,7 +106,7 @@ function useFont(on: boolean) {
 
 export function applyDyslexicFont(on: boolean) {
   const call = ++latest
-  dyslexicStatus.failed = false
+  dyslexicStatus.error = null
   if (!on) {
     useFont(false)
     dyslexicStatus.loading = false
@@ -114,15 +115,14 @@ export function applyDyslexicFont(on: boolean) {
   // the page keeps its own fonts until OpenDyslexic is here: a font that
   // never comes leaves them, not the system's fallback
   dyslexicStatus.loading = true
-  loadFontPack(OPENDYSLEXIC, true, dyslexicFamily(suffix))
-    .then(
-      (ok) => ok,
-      () => false,
-    )
-    .then((ok) => {
-      if (call !== latest) return
-      useFont(ok)
-      dyslexicStatus.failed = !ok
-      dyslexicStatus.loading = false
-    })
+  const done = (error: ShownError | null) => {
+    if (call !== latest) return
+    useFont(!error)
+    dyslexicStatus.error = error
+    dyslexicStatus.loading = false
+  }
+  loadFontPack(OPENDYSLEXIC, true, dyslexicFamily(suffix)).then(
+    () => done(null),
+    (err: unknown) => done(shownError(err, 'FONT')),
+  )
 }

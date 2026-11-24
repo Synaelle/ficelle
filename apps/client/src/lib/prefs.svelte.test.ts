@@ -20,4 +20,21 @@ describe('prefs', () => {
       expect(prefs.language).toBeNull()
     }
   })
+
+  it('uses the default font again for one the app no longer offers', () => {
+    storedElsewhere({ font: 'roboto', codeFont: 'firaMono' })
+    expect(prefs.font).toBe('default')
+    expect(prefs.codeFont).toBe('default')
+    storedElsewhere({ font: 'ubuntu', codeFont: 'jetbrainsMono' })
+    expect(prefs.font).toBe('ubuntu')
+    expect(prefs.codeFont).toBe('jetbrainsMono')
+  })
+
+  it('keeps Ubuntu picked while fonts were tried on nightlies, not the others', () => {
+    storedElsewhere({ trialFont: 'ubuntu', trialMono: 'robotoMono' })
+    expect(prefs.font).toBe('ubuntu')
+    expect(prefs.codeFont).toBe('default')
+    storedElsewhere({ trialFont: 'lato' })
+    expect(prefs.font).toBe('default')
+  })
 })

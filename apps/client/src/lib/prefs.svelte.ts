@@ -7,7 +7,6 @@ import type { Mode } from '@app/ui/theme'
 import type { NoteSort, Scope, UpdateChannel } from './backend'
 import { isLocale, type Locale } from './i18n.svelte'
 import { DEFAULT_SHORTCUTS, type ActionId } from './shortcuts'
-import { TRIAL_FONTS, TRIAL_MONOS, type TrialFont, type TrialMono } from './trialFonts'
 import type { UiSize } from './uiSize'
 
 /** What a typed -> may become, the first leaves it as typed. */
@@ -18,6 +17,13 @@ export const LINE_SPACINGS: LineSpacing[] = ['compact', 'normal', 'relaxed']
 /** The line height of each, in notes and their Markdown. Relaxed is what
  * notes had before the choice came. */
 export const LEADING: Record<LineSpacing, number> = { compact: 1.35, normal: 1.5, relaxed: 1.65 }
+
+/** The fonts for the interface and the notes, and for code: the default
+ * comes with the app, the others are downloaded (lib/chosenFonts.svelte.ts). */
+export const TEXT_FONTS = ['default', 'ubuntu'] as const
+export type TextFont = (typeof TEXT_FONTS)[number]
+export const CODE_FONTS = ['default', 'jetbrainsMono'] as const
+export type CodeFont = (typeof CODE_FONTS)[number]
 
 export interface Prefs {
   /** Dark, or the light background chosen in Accessibility. */
@@ -90,10 +96,10 @@ export interface Prefs {
   reportFolder: string | null
   /** Linux: text drawn as thick as on Windows (App.svelte), experimental. */
   windowsText: boolean
-  /** Nightly: a font tried for the interface and the notes (trialFonts.ts). */
-  trialFont: TrialFont
-  /** Nightly: a code font tried in place of the theme's. */
-  trialMono: TrialMono
+  /** The font of the interface and the notes. */
+  font: TextFont
+  /** The font of code. */
+  codeFont: CodeFont
   /** Dev and preview builds: a report starts with a screenshot of the app. */
   reportScreenshot: boolean
   /** Dev and preview builds: act as a beta release, nothing downloaded
@@ -140,8 +146,8 @@ export const DEFAULT_PREFS: Prefs = {
   feedbackInstall: '',
   reportFolder: null,
   windowsText: false,
-  trialFont: 'current',
-  trialMono: 'current',
+  font: 'default',
+  codeFont: 'default',
   reportScreenshot: true,
   pretendBeta: false,
   betaWelcomed: false,
@@ -161,17 +167,19 @@ export function showTool(icon: string, on: boolean) {
 function load(): Prefs {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    const loaded: Prefs = raw
-      ? { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<Prefs>) }
-      : { ...DEFAULT_PREFS }
+    // trialFont: the nightlies tried fonts under that name, Ubuntu stays
+    const saved = (raw ? JSON.parse(raw) : {}) as Partial<Prefs> & { trialFont?: string }
+    const loaded: Prefs = { ...DEFAULT_PREFS, ...saved }
+    if (saved.font === undefined && saved.trialFont === 'ubuntu') loaded.font = 'ubuntu'
     // a language removed since it was chosen goes back to the system's, so English
     if (loaded.language !== null && !isLocale(loaded.language)) loaded.language = null
     // from older versions: following the system is dark now, a custom arrow the default
     if (loaded.mode !== 'light') loaded.mode = 'dark'
     if (!ARROW_CHOICES.includes(loaded.arrow)) loaded.arrow = DEFAULT_PREFS.arrow
     if (!LINE_SPACINGS.includes(loaded.lineSpacing)) loaded.lineSpacing = DEFAULT_PREFS.lineSpacing
-    if (!TRIAL_FONTS.includes(loaded.trialFont)) loaded.trialFont = DEFAULT_PREFS.trialFont
-    if (!TRIAL_MONOS.includes(loaded.trialMono)) loaded.trialMono = DEFAULT_PREFS.trialMono
+    // a font removed since it was picked is the default again
+    if (!TEXT_FONTS.includes(loaded.font)) loaded.font = DEFAULT_PREFS.font
+    if (!CODE_FONTS.includes(loaded.codeFont)) loaded.codeFont = DEFAULT_PREFS.codeFont
     // a sort order this version does not know (a newer version's) breaks the list
     if (!SORTS.includes(loaded.sort)) loaded.sort = DEFAULT_PREFS.sort
     // a channel this version does not know (Beta, before betas ended) is Stable

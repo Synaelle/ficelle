@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! OpenDyslexic, which the app does not carry (lib/fonts.ts): downloaded once,
-//! when first needed, and kept beside the vault in `fonts/<id>/`, offline
-//! afterwards. It comes from the project's own host, which mirrors Fontsource's
+//! The fonts the app does not carry (lib/fonts.ts): OpenDyslexic, and Ubuntu
+//! and JetBrains Mono for those who pick them in the editor settings.
+//! Each is downloaded once, when first needed, and kept beside the vault in
+//! `fonts/<id>/`, offline afterwards. It comes from the project's own host, which mirrors Fontsource's
 //! open font files (`FONTS_URL`); from Fontsource on jsDelivr only when that
 //! fails. Only those two addresses are ever asked, with a font id and file names
 //! checked here, so the page cannot make the app fetch anything else.
@@ -37,7 +38,7 @@ pub const FILES: [&str; 8] = [
 /// The SHA-256 of each file of the release above, as both hosts serve them.
 /// Anything else, from either, is refused: the web view's font engine reads
 /// these files, so only the ones checked here may reach it.
-const HASHES: [(&str, &str, &str); 4] = [
+const HASHES: [(&str, &str, &str); 20] = [
     (
         "opendyslexic",
         "latin-400-normal",
@@ -57,6 +58,86 @@ const HASHES: [(&str, &str, &str); 4] = [
         "opendyslexic",
         "latin-700-italic",
         "a20d82c2a1a0a6ab74796529aca31bfbae93e3e58f5a7360cba854dd98a15214",
+    ),
+    (
+        "ubuntu",
+        "latin-400-normal",
+        "dabae363ac0ae6c3b2a137a32f7132b42520a8af252f87aa6c2198f2a79cf91c",
+    ),
+    (
+        "ubuntu",
+        "latin-700-normal",
+        "3658a0717e347c1db8d80dd565584b9dc56769fbf87909c50a4a7740206ec5f7",
+    ),
+    (
+        "ubuntu",
+        "latin-400-italic",
+        "bc79d1b312559bbb2fec09c60895b411a60403586df8907fc022afaae3be7971",
+    ),
+    (
+        "ubuntu",
+        "latin-700-italic",
+        "c43326719ec42ca99c5f6ee1c6107ebe59f636812c4a0e93a58a2e7051db4930",
+    ),
+    (
+        "ubuntu",
+        "latin-ext-400-normal",
+        "7db064fa5c5d305d684608744d621aa724ec4f1c6b00bb647697f4d8d3e78df1",
+    ),
+    (
+        "ubuntu",
+        "latin-ext-700-normal",
+        "30073583012b73a5c05c290e601325850ddbc7c7a1241561ec9264b8744c2a86",
+    ),
+    (
+        "ubuntu",
+        "latin-ext-400-italic",
+        "b923867df5e5862a03c79e4d38ad76d5102da1a5a01d8ccadc75c05e0786e8bd",
+    ),
+    (
+        "ubuntu",
+        "latin-ext-700-italic",
+        "794cd2c5767e39c9273da3a321c0f65a599d6c5a08d24a6c7c3798bea6de00d7",
+    ),
+    (
+        "jetbrains-mono",
+        "latin-400-normal",
+        "14425ba9c695763c1547f48a206b7aa60350a33ae23de09f0407877f3fcd89eb",
+    ),
+    (
+        "jetbrains-mono",
+        "latin-700-normal",
+        "d0d4e818808f2a0ba39b2b09d1989366f63494e295f003c7ef436697378507e8",
+    ),
+    (
+        "jetbrains-mono",
+        "latin-400-italic",
+        "87ddac4a62229787528cf4ac3fa58137b62a9aec364c44fc0f40470bcda9efba",
+    ),
+    (
+        "jetbrains-mono",
+        "latin-700-italic",
+        "2cd42fe8f872ef7e06156fe04338b23fc4ec532e66450c8e931db43473c0306c",
+    ),
+    (
+        "jetbrains-mono",
+        "latin-ext-400-normal",
+        "505dfba8ecbe77e82765f36d317ed7ef4ac42719dc5f4ae68d1c483fd22d0d14",
+    ),
+    (
+        "jetbrains-mono",
+        "latin-ext-700-normal",
+        "45a606d88f72bc0afae4d1a6988e3dba3a5e77ee51aa3b550e37c31c728f4d2d",
+    ),
+    (
+        "jetbrains-mono",
+        "latin-ext-400-italic",
+        "a53b6b29b1621cdf51140761869e160521fc566a4a9f312d9b92e7178d433bc7",
+    ),
+    (
+        "jetbrains-mono",
+        "latin-ext-700-italic",
+        "ebfe512fe16186a55f5576fec93d877718e25f90be5ad12223ea624498c33b1e",
     ),
 ];
 

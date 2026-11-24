@@ -2,4 +2,9 @@
 // Where the OpenDyslexic setting's download stands, for the settings pages
 // (lib/dyslexicFont.ts sets it).
 
-export const dyslexicStatus = $state({ loading: false, failed: false })
+import type { ShownError } from './errors'
+
+export const dyslexicStatus: { loading: boolean; error: ShownError | null } = $state({
+  loading: false,
+  error: null,
+})

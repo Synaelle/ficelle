@@ -13,6 +13,7 @@
   import { autoLock } from '../lib/autolock.svelte'
   import { backend, type VaultStatus } from '../lib/backend'
   import { applyDyslexicFont } from '../lib/dyslexicFont'
+  import { applyChosenFonts } from '../lib/chosenFonts.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { setLocale, systemLocale, t } from '../lib/i18n.svelte'
   import { parseMarkdownFile, parseTextFile } from '../lib/importing'
@@ -45,6 +46,7 @@
     $effect(() => void setLocale(prefs.language ?? systemLocale()))
     $effect(() => applyUiSize(prefs.uiSize))
     $effect(() => applyDyslexicFont(prefs.dyslexicFont))
+    applyChosenFonts()
     // notes opened here for an import, with no main window whose auto-lock
     // would close them again: this window's does
     autoLock(() => {

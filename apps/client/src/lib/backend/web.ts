@@ -305,7 +305,9 @@ export function coreBackend(send: Send): Backend {
     },
     fontFiles: async () => [],
     fontFile: async (id, name) => {
-      const response = await fetch(`fonts/${id}/${name}.woff2`)
+      const response = await fetch(`fonts/${id}/${name}.woff2`).catch((err: unknown) => {
+        throw { kind: 'offline', message: String(err) }
+      })
       if (!response.ok) throw { kind: 'notFound', message: `${id} has no ${name}` }
       return response.arrayBuffer()
     },

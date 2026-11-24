@@ -56,6 +56,8 @@ export const SETTINGS_INSIDE: (readonly [IconName, string, InsidePage])[] = [
   ['search', 'settings.scopedSearch', 'editor'],
   ['attachment', 'settings.nameFromAttachment', 'editor'],
   ['right', 'settings.arrow', 'editor'],
+  ['font', 'settings.font', 'editor'],
+  ['code', 'settings.codeFont', 'editor'],
   ['timer', 'settings.clock', 'language'],
   ['info', 'settings.credits', 'about'],
   // a phone spells with its system and never lists beside the note

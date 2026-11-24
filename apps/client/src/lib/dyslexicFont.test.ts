@@ -59,17 +59,17 @@ describe('applyDyslexicFont', () => {
     expect(vi.mocked(loadFontPack).mock.lastCall?.[0]).toBe(OPENDYSLEXIC)
     expect(family).toMatch(/^OpenDyslexic [0-9a-f]{16}$/)
     expect(css).toContain(`--font-ui: '${family}'`)
-    expect(dyslexicStatus.failed).toBe(false)
+    expect(dyslexicStatus.error).toBeNull()
   })
 
   it('says when the font could not be downloaded', async () => {
-    vi.mocked(loadFontPack).mockRejectedValueOnce(new Error('offline'))
+    vi.mocked(loadFontPack).mockRejectedValueOnce({ kind: 'offline', message: 'no network' })
     applyDyslexicFont(true)
-    await vi.waitFor(() => expect(dyslexicStatus.failed).toBe(true))
+    await vi.waitFor(() => expect(dyslexicStatus.error?.code).toBe('FONT-OFFLINE'))
     // the page keeps its own fonts, not the system's fallback
     expect(document.getElementById('dyslexic-font')?.textContent).toBe('')
     expect(document.documentElement.hasAttribute('data-dyslexic-font')).toBe(false)
     applyDyslexicFont(false)
-    expect(dyslexicStatus.failed).toBe(false)
+    expect(dyslexicStatus.error).toBeNull()
   })
 })

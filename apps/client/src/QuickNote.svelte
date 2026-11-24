@@ -8,6 +8,7 @@
   import { onDestroy, onMount } from 'svelte'
   import { backend } from './lib/backend'
   import { applyDyslexicFont } from './lib/dyslexicFont'
+  import { applyChosenFonts } from './lib/chosenFonts.svelte'
   import { setLocale, systemLocale, t } from './lib/i18n.svelte'
   import { prefs } from './lib/prefs.svelte'
   import { announceSaved } from './lib/quickNote'
@@ -21,6 +22,7 @@
   $effect(() => void setLocale(prefs.language ?? systemLocale()))
   $effect(() => applyUiSize(prefs.uiSize))
   $effect(() => applyDyslexicFont(prefs.dyslexicFont))
+  applyChosenFonts()
 
   let title = $state('')
   let body = $state('')
