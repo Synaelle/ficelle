@@ -5,6 +5,8 @@ body:
     attributes:
       value: |
         Ask here for a new language first. Once it is added, anyone can translate it on GitHub, and it shows in the app once half of it is translated.
+
+        I write English and French myself. Other languages are translated and kept up to date by the people who speak them.
   - type: input
     id: language
     attributes:

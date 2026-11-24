@@ -4,6 +4,8 @@
 
 Edit a file in [packages/locales](packages/locales) on GitHub and propose the change. Keep the keys and the words in `{braces}` as they are. A language shows in the app once half translated.
 
+I write English and French myself. Other languages are translated and kept up to date by the people who speak them.
+
 Languages with more plural forms than English, such as Polish, Russian or Arabic, list every form they need beside `one` and `other`, as given in the [Unicode plural rules](https://www.unicode.org/cldr/charts/latest/supplemental/language_plural_rules.html).
 
 ```toml
