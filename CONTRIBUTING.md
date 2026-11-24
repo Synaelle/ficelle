@@ -2,7 +2,7 @@
 
 ## Languages
 
-Edit a file in [packages/locales](packages/locales) on GitHub and propose the change. Keep the keys and the words in `{braces}` as they are. German, Spanish, Italian, Dutch and Portuguese come from DeepL, and corrections are welcome. A language shows in the app once half translated.
+Edit a file in [packages/locales](packages/locales) on GitHub and propose the change. Keep the keys and the words in `{braces}` as they are. A language shows in the app once half translated.
 
 Languages with more plural forms than English, such as Polish, Russian or Arabic, list every form they need beside `one` and `other`, as given in the [Unicode plural rules](https://www.unicode.org/cldr/charts/latest/supplemental/language_plural_rules.html).
 
