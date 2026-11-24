@@ -29,7 +29,7 @@
   import { channelSwitch } from './lib/channelChange.svelte'
   import { captureLogs } from './lib/feedback'
   import { setLocale, systemLocale, t } from './lib/i18n.svelte'
-  import { persistPrefs, prefs } from './lib/prefs.svelte'
+  import { experimenting, persistPrefs, prefs } from './lib/prefs.svelte'
   import { applyQuickShortcut } from './lib/quickNote'
   import Overlays from './lib/Overlays.svelte'
   import CriticalUpdate from './lib/CriticalUpdate.svelte'
@@ -97,7 +97,7 @@
   // made: every stroke 0.2 px thicker gives a paragraph the ink it has there.
   // An experimental setting for now, shown on the nightly channel only
   $effect(() => {
-    const thicker = LINUX && !WEB && prefs.channel === 'nightly' && prefs.windowsText
+    const thicker = LINUX && experimenting() && prefs.windowsText
     document.documentElement.style.setProperty('--text-stroke', thicker ? '0.2px' : '0px')
   })
   $effect(() => void applyQuickShortcut(prefs.quickNoteShortcut))

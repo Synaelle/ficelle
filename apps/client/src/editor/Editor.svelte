@@ -22,7 +22,7 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { overlay, SEPARATOR, textItems, type Around, type MenuItem } from '../lib/overlay.svelte'
   import type { IconName } from '../lib/icons/sets'
-  import { LEADING, prefs, shortcutFor } from '../lib/prefs.svelte'
+  import { experimenting, LEADING, prefs, shortcutFor } from '../lib/prefs.svelte'
   import type { ActionId } from '../lib/shortcuts'
   import { workspace } from '../lib/workspace.svelte'
   import { isMarkdownFile } from '../lib/importing'
@@ -1035,6 +1035,7 @@
     class="surface"
     bind:this={element}
     style:--leading={LEADING[prefs.lineSpacing]}
+    data-even-spacing={experimenting() && prefs.evenSpacing ? '' : undefined}
     oncontextmenu={editorMenu}
     onscrollcapture={() => (tick += 1)}
     role="presentation"

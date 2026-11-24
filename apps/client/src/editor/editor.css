@@ -24,6 +24,28 @@
 .prose blockquote > * + * {
   margin-top: calc((var(--leading) - 1) * 1.15em);
 }
+/* Even line spacing (Settings, Experimental, Editor.svelte): every line the
+   same distance apart, like a notepad. Paragraphs, list items, quotes and
+   headings get no room of their own. A block drawn in a box or across the
+   note keeps the room between two lines on each side, its edge would touch
+   the text otherwise */
+[data-even-spacing] .prose > * + *,
+[data-even-spacing] .prose blockquote > * + * {
+  margin-top: 0;
+}
+[data-even-spacing] .prose :is(h1, h2, h3, h4, h5, h6, ul, ol, blockquote) {
+  margin: 0;
+}
+[data-even-spacing]
+  .prose
+  > :is(pre, .code-block, .tableWrapper, table, .callout, .details, hr)
+  + *,
+[data-even-spacing]
+  .prose
+  > *
+  + :is(pre, .code-block, .tableWrapper, table, .callout, .details, hr) {
+  margin-top: calc((var(--leading) - 1) * 1em);
+}
 /* an empty note says where to write (the placeholder extension) */
 .prose p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);

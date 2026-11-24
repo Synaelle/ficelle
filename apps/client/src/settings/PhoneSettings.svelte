@@ -21,7 +21,14 @@
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
   import { overlay, type MenuItem } from '../lib/overlay.svelte'
-  import { CODE_FONTS, LINE_SPACINGS, prefs, showTool, TEXT_FONTS } from '../lib/prefs.svelte'
+  import {
+    CODE_FONTS,
+    experimenting,
+    LINE_SPACINGS,
+    prefs,
+    showTool,
+    TEXT_FONTS,
+  } from '../lib/prefs.svelte'
   import { TOOL_NAMES } from '../editor/toolNames'
   import ArrowPicker from './ArrowPicker.svelte'
   import DataSettings from './DataSettings.svelte'
@@ -306,7 +313,7 @@
       : []),
     // what is still being tried, only where it applies and for those who
     // follow the nightlies
-    ...(!WEB && prefs.channel === 'nightly'
+    ...(experimenting()
       ? [
           {
             icon: 'flask' as const,
@@ -844,6 +851,12 @@
         <TestTools />
       {:else if page === 'experimental'}
         <Group>
+          {@render row({
+            icon: 'list',
+            label: t('settings.evenSpacing'),
+            on: prefs.evenSpacing,
+            run: () => (prefs.evenSpacing = !prefs.evenSpacing),
+          })}
           {#if LINUX}
             {@render row({
               icon: 'textStyle',

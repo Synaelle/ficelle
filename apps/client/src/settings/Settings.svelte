@@ -14,6 +14,7 @@
   import type { IconName } from '../lib/icons/sets'
   import {
     CODE_FONTS,
+    experimenting,
     LINE_SPACINGS,
     prefs,
     shortcutFor,
@@ -97,7 +98,7 @@
     ...(__APP_DEV_TOOLS__ ? (['testTools'] as const) : []),
     // what is still being tried, only where it applies and for those who
     // follow the nightlies
-    ...(!WEB && prefs.channel === 'nightly' ? (['experimental'] as const) : []),
+    ...(experimenting() ? (['experimental'] as const) : []),
     // release builds only, the web version is always the one served
     ...(updatesHere ? (['updates'] as const) : []),
     'about',
@@ -631,6 +632,9 @@
             <TestTools />
           {:else if section === 'experimental'}
             <Group>
+              <Row label={t('settings.evenSpacing')}>
+                <Switch label={t('settings.evenSpacing')} bind:checked={prefs.evenSpacing} />
+              </Row>
               {#if LINUX}
                 <Row label={t('settings.windowsText')}>
                   <Switch label={t('settings.windowsText')} bind:checked={prefs.windowsText} />

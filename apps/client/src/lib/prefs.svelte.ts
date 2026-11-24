@@ -7,6 +7,7 @@ import type { Mode } from '@app/ui/theme'
 import type { NoteSort, Scope, UpdateChannel } from './backend'
 import { isLocale, type Locale } from './i18n.svelte'
 import { DEFAULT_SHORTCUTS, type ActionId } from './shortcuts'
+import { WEB } from './platform'
 import type { UiSize } from './uiSize'
 
 /** What a typed -> may become, the first leaves it as typed. */
@@ -96,6 +97,9 @@ export interface Prefs {
   reportFolder: string | null
   /** Linux: text drawn as thick as on Windows (App.svelte), experimental. */
   windowsText: boolean
+  /** Every line of a note the same distance apart, like a notepad: no more
+   * room between paragraphs and blocks than between lines. Experimental. */
+  evenSpacing: boolean
   /** The font of the interface and the notes. */
   font: TextFont
   /** The font of code. */
@@ -146,6 +150,7 @@ export const DEFAULT_PREFS: Prefs = {
   feedbackInstall: '',
   reportFolder: null,
   windowsText: false,
+  evenSpacing: false,
   font: 'default',
   codeFont: 'default',
   reportScreenshot: true,
@@ -209,6 +214,10 @@ export function persistPrefs() {
     }
   })
 }
+
+/** What Experimental in Settings holds applies: in the apps, on the
+ * nightly channel, where that section shows. */
+export const experimenting = () => !WEB && prefs.channel === 'nightly'
 
 export function shortcutFor(action: ActionId): string {
   return prefs.shortcuts[action] ?? DEFAULT_SHORTCUTS[action]
