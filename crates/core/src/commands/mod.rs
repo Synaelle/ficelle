@@ -6,4 +6,6 @@
 //! has (key stores, a server's files policy) and keeps only how it reaches
 //! its files and holds the open vault.
 
+pub mod backup;
+pub mod import;
 pub mod vault;

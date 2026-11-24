@@ -6,7 +6,6 @@ use std::path::PathBuf;
 
 use app_core::id::{AttachmentId, NoteId};
 use app_core::model::Attachment;
-use serde::Serialize;
 use tauri::ipc::{InvokeBody, Request};
 use tauri::{Manager, State};
 
@@ -221,37 +220,14 @@ pub async fn remove_attachment(state: State<'_, AppState>, id: AttachmentId) -> 
     state.with(|s| s.store.remove_attachment(id))
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExportSummary {
-    notes: usize,
-    folders: usize,
-    attachments: usize,
-    missing_attachments: Vec<String>,
-}
-
-impl From<app_core::export::ExportReport> for ExportSummary {
-    fn from(report: app_core::export::ExportReport) -> Self {
-        Self {
-            notes: report.notes,
-            folders: report.folders,
-            attachments: report.attachments,
-            missing_attachments: report.missing_attachments,
-        }
-    }
-}
-
 #[tauri::command]
 pub async fn export_markdown(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     dir: String,
-) -> CommandResult<ExportSummary> {
+) -> CommandResult<app_core::export::ExportReport> {
     let dir = crate::picked::picked_path(&app, &dir)?;
-    state.with(|s| {
-        let report = app_core::export::export_markdown(&s.store, &dir, &s.blobs)?;
-        Ok(ExportSummary::from(report))
-    })
+    state.with(|s| app_core::export::export_markdown(&s.store, &dir, &s.blobs))
 }
 
 /// One note as the export writes it, for the page to save where the person

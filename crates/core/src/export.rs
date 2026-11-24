@@ -15,6 +15,8 @@ use std::fmt::Write as _;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
+
 use crate::clock::{Timestamp, to_rfc3339};
 use crate::error::{Error, Result};
 use crate::model::{Note, NoteScope, NoteSort};
@@ -41,7 +43,8 @@ impl AttachmentSource for NoAttachments {
 }
 
 /// What an export wrote.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportReport {
     /// Notes written.
     pub notes: usize,

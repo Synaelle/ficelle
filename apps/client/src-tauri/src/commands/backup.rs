@@ -3,12 +3,12 @@
 //! Backups of the whole vault, and the markdown export as a zip.
 
 use app_core::backup::{Backup, Manifest};
+use app_core::commands::backup::Inspected;
 use app_core::crypto::KdfParams;
+use app_core::export::ExportReport;
 use app_core::store::RestoreReport;
-use serde::Serialize;
 use tauri::State;
 
-use super::files::ExportSummary;
 use crate::error::CommandResult;
 use crate::picked::{is_document, open_document, picked_path};
 use crate::state::AppState;
@@ -16,9 +16,9 @@ use crate::state::AppState;
 /// The name offered for a new backup.
 #[tauri::command]
 pub fn backup_default_name() -> String {
-    app_core::backup::default_name(app_core::clock::Clock::now(&app_core::clock::SystemClock))
-        .to_string_lossy()
-        .into_owned()
+    app_core::commands::backup::default_name(app_core::clock::Clock::now(
+        &app_core::clock::SystemClock,
+    ))
 }
 
 /// Writes a backup of the vault, sealed with `password` when there is one.
@@ -71,14 +71,6 @@ pub async fn backup_encrypted(app: tauri::AppHandle, path: String) -> CommandRes
     Ok(app_core::backup::is_encrypted(&picked_path(&app, &path)?)?)
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Inspected {
-    manifest: Manifest,
-    /// Notes of the backup already in this vault, left as they are.
-    present: usize,
-}
-
 /// What a backup holds and how much of it is here already, writing nothing.
 #[tauri::command]
 pub async fn backup_inspect(
@@ -88,13 +80,7 @@ pub async fn backup_inspect(
     password: Option<String>,
 ) -> CommandResult<Inspected> {
     let mut backup = open_backup(&app, &path, password.as_deref())?;
-    let data = backup.data()?;
-    let ids: Vec<_> = data.notes.iter().map(|n| n.id).collect();
-    let present = state.quietly(|s| s.store.notes_present(&ids))?.len();
-    Ok(Inspected {
-        manifest: backup.manifest().clone(),
-        present,
-    })
+    state.quietly(|s| app_core::commands::backup::inspect(&mut backup, &s.store))
 }
 
 /// Puts a backup back into the vault.
@@ -115,17 +101,11 @@ pub async fn export_markdown_zip(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     path: String,
-) -> CommandResult<ExportSummary> {
+) -> CommandResult<ExportReport> {
     if is_document(&path) {
         let file = open_document(&app, &path, true)?;
-        return state.with(|s| {
-            let report = app_core::export::export_markdown_zip_to(&s.store, file, &s.blobs)?;
-            Ok(ExportSummary::from(report))
-        });
+        return state.with(|s| app_core::export::export_markdown_zip_to(&s.store, file, &s.blobs));
     }
     let path = picked_path(&app, &path)?;
-    state.with(|s| {
-        let report = app_core::export::export_markdown_zip(&s.store, &path, &s.blobs)?;
-        Ok(ExportSummary::from(report))
-    })
+    state.with(|s| app_core::export::export_markdown_zip(&s.store, &path, &s.blobs))
 }
