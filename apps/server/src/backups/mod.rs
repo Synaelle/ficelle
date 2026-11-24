@@ -3,7 +3,8 @@
 //! The instance's backups, set up by an admin: the folder on the server,
 //! the password, how many to keep. Runs daily in the background, the admin
 //! page shows how they went, a failure is logged. People back up their own
-//! notes from their apps.
+//! notes from their apps. A server with only end-to-end encrypted accounts
+//! backs up without a password: their notes are sealed by their devices.
 
 pub mod instance;
 
@@ -30,15 +31,19 @@ fn folder_name() -> String {
 fn readme() -> String {
     let (app, binary) = (app_brand::DISPLAY_NAME, app_brand::SERVER_BINARY);
     format!(
-        "These are backups of a {app} server, encrypted with the backup password.\n\n\
+        "These are backups of a {app} server.\n\n\
          The files only work together, so do not rename, edit or remove any of them.\n\n\
          To restore, stop the server and run\n\
          {binary} backup restore --target <target.json> --into <empty folder>\n\
-         with the backup password in {}_BACKUP_PASSWORD. The target file is the one shown \
-         on the admin page, Backups, under To restore the whole instance.\n",
+         with the backup password, if they have one, in {}_BACKUP_PASSWORD. The target file \
+         is the one shown on the admin page, Backups, under To restore the whole instance.\n",
         app_brand::ENV_PREFIX
     )
 }
+
+/// The password of backups made without one, on a server with only end-to-end
+/// encrypted accounts.
+pub const NO_PASSWORD: &str = "ficelle-backup-without-password";
 
 /// How many backups stay when nothing else is said.
 pub const DEFAULT_KEEP: u32 = 30;
@@ -154,7 +159,7 @@ impl Schedule {
 pub struct BackupConfig {
     /// Where.
     pub target: ServerTarget,
-    /// The repository's password.
+    /// The repository's password, [`NO_PASSWORD`] for none.
     pub password: String,
     /// When.
     pub schedule: Schedule,
@@ -446,12 +451,26 @@ pub async fn run(state: &AppState, by: &str) -> Result<BackupStatus, String> {
 
 async fn run_once(state: &AppState) -> Result<(RunReport, u64, u64), String> {
     let master = state.master.clone();
-    let config = state
+    let (config, standard) = state
         .db
-        .call(move |c| config(c, &master))
+        .call(move |c| {
+            Ok((
+                config(c, &master)?,
+                crate::accounts::e2ee::standard_accounts_exist(c)?,
+            ))
+        })
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or("backups are not set up")?;
+        .map_err(|e| e.to_string())?;
+    let config = config.ok_or("backups are not set up")?;
+    // the server reads a standard account's notes with the master key, which
+    // the backups carry: never into backups without a password
+    if standard && config.password == NO_PASSWORD {
+        return Err(
+            "this server has a standard account now, so its backups need a password: \
+             set backups up again in a new folder, with a password"
+                .into(),
+        );
+    }
     let dir = scratch(state, "run");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let copy = dir.join("server.db");

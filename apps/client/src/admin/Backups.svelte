@@ -4,7 +4,9 @@
      test restore. A whole instance is restored from the command line, the
      server stopped: what to keep for that is shown here. Setting up starts
      simple, a new backup in the suggested folder and a password; Advanced
-     also opens a backup already there. -->
+     also opens a backup already there. A server with only end-to-end
+     encrypted accounts backs up without a password, their notes are sealed
+     by the devices. -->
 <script lang="ts">
   import PasswordField from '../lib/PasswordField.svelte'
   import Icon from '../lib/icons/Icon.svelte'
@@ -15,7 +17,7 @@
 
   type Target = { kind: 'folder'; path: string }
   interface View {
-    config: { target: Target; keep: number } | null
+    config: { target: Target; keep: number; withPassword: boolean } | null
     status: {
       lastRunAt: number | null
       lastSuccessAt: number | null
@@ -25,6 +27,8 @@
       storedBytes: number
     }
     running: boolean
+    /** A standard account exists: a password, and the master key in the backups. */
+    passwordNeeded: boolean
     masterKeyApart: boolean
     suggestedFolder: string
     suggestedApart: boolean
@@ -106,7 +110,13 @@
     if (view && !view.config && !advanced && path === null) simple()
   })
 
+  /** The password field: a new backup's when a standard account exists, an
+   * existing one's always, it may have one. */
+  const passwordNeeded = $derived(!!(view as View | null)?.passwordNeeded)
+  const asksPassword = $derived(passwordNeeded || existing)
+
   const passwordProblem = $derived.by(() => {
+    if (!passwordNeeded) return null
     if (!password) return t('backups.passwordNeeded')
     if (!existing && password.length < 8) return t('backups.passwordShort')
     if (!existing && password !== again) return t('backups.passwordsDiffer')
@@ -199,7 +209,7 @@
 
 <!-- the simple setup says what it needs in two lines, the rest comes with
      Advanced or once backups run -->
-{#if view && (view.config || advanced)}
+{#if view?.passwordNeeded && (view.config || advanced)}
   <section>
     {#if !view.masterKeyApart}
       <p class="muted small">{t('admin.backups.masterKey')}</p>
@@ -339,7 +349,11 @@
     <!-- rarely needed, long: folded -->
     <details class="recovery">
       <summary>{t('admin.backups.recovery')}</summary>
-      <p class="dash-help">{t('admin.backups.recoveryHelp')}</p>
+      <p class="dash-help">
+        {view.config.withPassword
+          ? t('admin.backups.recoveryHelp')
+          : t('admin.backups.recoveryHelpOpen')}
+      </p>
       <pre data-backups-recovery>{recovery}</pre>
     </details>
     <p class="actions">
@@ -387,14 +401,16 @@
         >
       </fieldset>
     {/if}
-    <label class="field-label"
-      >{existing ? t('backups.password') : t('backups.newPassword')}<PasswordField
-        class="field"
-        bind:value={password}
-        autocomplete="new-password"
-      /></label
-    >
-    {#if !existing}
+    {#if asksPassword}
+      <label class="field-label"
+        >{existing ? t('backups.password') : t('backups.newPassword')}<PasswordField
+          class="field"
+          bind:value={password}
+          autocomplete="new-password"
+        /></label
+      >
+    {/if}
+    {#if view.passwordNeeded && !existing}
       <label class="field-label"
         >{t('backups.passwordAgain')}<PasswordField
           eye={false}

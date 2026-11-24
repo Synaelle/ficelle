@@ -8,8 +8,10 @@ use axum::http::StatusCode;
 use serde_json::{Value, json};
 
 use super::files_tests::{content, sha, upload};
-use super::tests::{admin_on, call, person, server_with, token};
-use crate::config::{Config, StorageConfig};
+use super::tests::{admin_on, call, device, e2ee_person, ksf, person, server_with, token};
+use crate::config::{AuthConfig, Config, StorageConfig};
+use crate::db::Db;
+use crate::routes::{AppState, router};
 
 // a server runs one backup at a time, process wide, so these tests take turns
 static ONE_AT_A_TIME: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -64,9 +66,14 @@ async fn an_instance_is_backed_up_test_restored_and_restored_whole() {
     // only an admin sets backups up
     let (status, _) = set_up(&app, token(&kim), place.path(), true, "pw").await;
     assert_eq!(status, StatusCode::FORBIDDEN);
+    // a standard account's backups need a password
+    let (status, body) = set_up(&app, &admin, place.path(), true, "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
     let (status, view) = set_up(&app, &admin, place.path(), true, "backup pw").await;
     assert_eq!(status, StatusCode::OK, "{view}");
     assert_eq!(view["config"]["keep"], 30);
+    assert_eq!(view["config"]["withPassword"], true);
+    assert_eq!(view["passwordNeeded"], true);
     // a second repository at the same place is refused, and a wrong password
     let (status, body) = set_up(&app, &admin, place.path(), true, "other").await;
     assert_eq!(status, StatusCode::BAD_GATEWAY, "{body}");
@@ -224,6 +231,152 @@ async fn a_backup_that_cannot_be_made_says_why_and_is_logged() {
     // stopping keeps the status, clears the settings
     let (_, stopped) = call(&app, "DELETE", "/admin/backups", Some(&admin), None).await;
     assert!(stopped["config"].is_null());
+}
+
+/// A server whose master key is a file in `data`, as a real one keeps it,
+/// with cheap password hashing.
+async fn keyed_server(data: &std::path::Path) -> (AppState, axum::Router) {
+    let config = Config {
+        storage: StorageConfig {
+            data_dir: data.to_owned(),
+            ..StorageConfig::default()
+        },
+        auth: AuthConfig {
+            argon2_memory_kib: 64,
+            argon2_iterations: 1,
+            ..AuthConfig::default()
+        },
+        ..Config::default()
+    };
+    let master = crate::keys::MasterKey::load(&config).unwrap();
+    let state = AppState::new(
+        config,
+        Db::open(data).unwrap(),
+        master,
+        Db::feedback_in_memory().unwrap(),
+        std::sync::Arc::new(crate::files::Memory::default()),
+    );
+    state.db.call(|c| crate::setup::lock(c)).await.unwrap();
+    let app = router(state.clone());
+    (state, app)
+}
+
+/// An OPAQUE sign-in with the password `e2ee_person` gives: its status.
+async fn sign_in(app: &axum::Router, name: &str) -> StatusCode {
+    let password = format!("{name} password");
+    let start = app_e2ee::login_start(&password).unwrap();
+    let (status, started) = call(
+        app,
+        "POST",
+        "/auth/opaque/login/start",
+        None,
+        Some(json!({ "username": name, "request": start.request })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{started}");
+    let done = app_e2ee::login_finish(
+        &start.state,
+        &password,
+        started["response"].as_str().unwrap(),
+        name,
+        ksf(&started),
+    )
+    .unwrap();
+    let (status, _) = call(
+        app,
+        "POST",
+        "/auth/opaque/login/finish",
+        None,
+        Some(
+            json!({ "challenge": started["challenge"], "finalization": done.finalization,
+            "device": device("laptop") }),
+        ),
+    )
+    .await;
+    status
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_server_of_e2ee_accounts_backs_up_without_a_password_and_restores() {
+    let _turn = ONE_AT_A_TIME.lock().await;
+    let data = tempfile::tempdir().unwrap();
+    let place = tempfile::tempdir().unwrap();
+    let (state, app) = keyed_server(data.path()).await;
+    let (session, _) = e2ee_person(&state, "root").await;
+    state
+        .db
+        .call(|c| Ok(c.execute("UPDATE users SET role = 'admin'", [])?))
+        .await
+        .unwrap();
+    let admin = token(&session).to_owned();
+    let (_, view) = call(&app, "GET", "/admin/backups", Some(&admin), None).await;
+    assert_eq!(view["passwordNeeded"], false, "{view}");
+    let (status, view) = set_up(&app, &admin, place.path(), true, "").await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+    assert_eq!(view["config"]["keep"], 30);
+    assert_eq!(view["config"]["withPassword"], false);
+
+    // how many stay is the one choice, the newest are kept
+    let (status, body) = call(
+        &app,
+        "PUT",
+        "/admin/backups/settings",
+        Some(&admin),
+        Some(json!({ "keep": 0 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    let (status, view) = call(
+        &app,
+        "PUT",
+        "/admin/backups/settings",
+        Some(&admin),
+        Some(json!({ "keep": 2, "offsetSeconds": 3600 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+    assert_eq!(view["config"]["keep"], 2);
+    for _ in 0..3 {
+        state.clock.advance(crate::clock::MINUTE);
+        let (status, view) = call(&app, "POST", "/admin/backups/run", Some(&admin), None).await;
+        assert_eq!(status, StatusCode::OK, "{view}");
+    }
+    let (_, view) = call(&app, "GET", "/admin/backups", Some(&admin), None).await;
+    assert_eq!(view["status"]["snapshots"], 2, "{view}");
+
+    // the snapshot holds the database and the master key, readable
+    // without a password, and a restore signs the account in again
+    let target: crate::backups::ServerTarget =
+        serde_json::from_value(json!({ "kind": "folder", "path": place.path() })).unwrap();
+    let repo = app_repo::Repo::open(target.open().unwrap(), crate::backups::NO_PASSWORD).unwrap();
+    let newest = repo.snapshots().unwrap().pop().unwrap();
+    let names: Vec<&str> = newest.items.iter().map(|i| i.name.as_str()).collect();
+    assert_eq!(names, ["server.db", "master.key"]);
+    let into = tempfile::tempdir().unwrap();
+    let restored = into.path().join("data");
+    crate::backups::instance::restore(&repo, &newest.id, &restored).unwrap();
+    let (_, again) = keyed_server(&restored).await;
+    assert_eq!(sign_in(&again, "root").await, StatusCode::OK);
+
+    // a standard account now: no more backups without a password
+    person(&state, "kim").await;
+    let (_, view) = call(&app, "GET", "/admin/backups", Some(&admin), None).await;
+    assert_eq!(view["passwordNeeded"], true);
+    let (status, body) = call(&app, "POST", "/admin/backups/run", Some(&admin), None).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("need a password"),
+        "{body}"
+    );
+    let other = tempfile::tempdir().unwrap();
+    let (status, _) = set_up(&app, &admin, other.path(), true, "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, view) = set_up(&app, &admin, other.path(), true, "backup pw").await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+    assert_eq!(view["config"]["keep"], 2, "the number stays");
 }
 
 #[tokio::test(flavor = "multi_thread")]

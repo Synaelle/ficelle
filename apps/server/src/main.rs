@@ -71,8 +71,8 @@ const USAGE: &str = "usage: ficelle-server [--config <file>] [--check] [--versio
   backup list --target <file>
                    the instance's backups at the place <file> describes (the
                    json the admin page shows under Backups). The password
-                   comes from {ENV}_BACKUP_PASSWORD,
-                   else from the first line of the input.
+                   comes from {ENV}_BACKUP_PASSWORD, else from the first
+                   line of the input. Backups made without one need none.
   backup check --target <file> [--full]
                    checks the backups, reading every file with --full
   backup restore --target <file> --into <folder> [--snapshot <id>]
@@ -137,17 +137,24 @@ fn backup_command(words: &[String]) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     let target: backups::ServerTarget =
         serde_json::from_str(&text).map_err(|e| format!("the target file: {e}"))?;
-    let password =
-        if let Ok(p) = std::env::var(format!("{}_BACKUP_PASSWORD", app_brand::ENV_PREFIX)) {
-            p
-        } else {
-            let mut line = String::new();
-            std::io::stdin()
-                .read_line(&mut line)
-                .map_err(|e| e.to_string())?;
-            line.trim_end().to_owned()
-        };
-    let repo = app_repo::Repo::open(target.open()?, &password).map_err(|e| e.to_string())?;
+    let target = target.open()?;
+    let repo = if let Ok(p) = std::env::var(format!("{}_BACKUP_PASSWORD", app_brand::ENV_PREFIX)) {
+        app_repo::Repo::open(target, &p)
+    } else {
+        // backups of a server with only end-to-end encrypted accounts have
+        // no password to ask for
+        match app_repo::Repo::open(target.clone(), backups::NO_PASSWORD) {
+            Err(app_repo::Error::WrongPassword) => {
+                let mut line = String::new();
+                std::io::stdin()
+                    .read_line(&mut line)
+                    .map_err(|e| e.to_string())?;
+                app_repo::Repo::open(target, line.trim_end())
+            }
+            opened => opened,
+        }
+    }
+    .map_err(|e| e.to_string())?;
     let mut list: Vec<app_repo::Snapshot> = repo
         .snapshots()
         .map_err(|e| e.to_string())?

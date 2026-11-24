@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use super::admin::{admin, admin_event};
 use super::extract::{Body, ClientIp, CurrentUser};
+use crate::accounts::e2ee;
 use crate::backups::{
     self, BackupConfig, BackupStatus, Schedule, ServerTarget, instance::TestRestore,
 };
@@ -36,15 +37,24 @@ pub struct ConfigView {
     /// schedule and policy until a number is chosen, how many there are:
     /// choosing it as it is removes none.
     keep: u32,
+    /// The backups have a password: restoring asks for it.
+    with_password: bool,
 }
 
 /// `GET /api/v1/admin/backups`
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each says one thing the page shows"
+)]
 pub struct BackupsView {
     config: Option<ConfigView>,
     status: BackupStatus,
     running: bool,
+    /// A standard account exists: backups need a password, and carry the
+    /// master key that opens its notes.
+    password_needed: bool,
     /// The master key is read from a file of its own (`storage.master_key_file`).
     master_key_apart: bool,
     /// Where the simple setup puts backups: `storage.backups_dir` when the
@@ -71,9 +81,15 @@ fn suggested_folder(storage: &crate::config::StorageConfig) -> (std::path::PathB
 
 async fn view(state: &AppState) -> Result<BackupsView, Error> {
     let master = state.master.clone();
-    let (config, status) = state
+    let (config, status, password_needed) = state
         .db
-        .call(move |c| Ok((backups::config(c, &master)?, backups::status(c)?)))
+        .call(move |c| {
+            Ok((
+                backups::config(c, &master)?,
+                backups::status(c)?,
+                e2ee::standard_accounts_exist(c)?,
+            ))
+        })
         .await?;
     let (suggested, suggested_apart) = suggested_folder(&state.config.storage);
     let there = u32::try_from(status.snapshots).unwrap_or(backups::MAX_KEEP);
@@ -82,10 +98,12 @@ async fn view(state: &AppState) -> Result<BackupsView, Error> {
             keep: c
                 .keep()
                 .unwrap_or_else(|| there.clamp(1, backups::MAX_KEEP)),
+            with_password: c.password != backups::NO_PASSWORD,
             target: c.target,
         }),
         status,
         running: backups::running(),
+        password_needed,
         master_key_apart: !state.config.storage.master_key_file.as_os_str().is_empty(),
         suggested_folder: suggested.display().to_string(),
         suggested_apart,
@@ -102,11 +120,13 @@ pub async fn get(
 }
 
 /// `PUT /api/v1/admin/backups`: a new repository at the target, or one
-/// there opened with its password.
+/// there opened with its password. An empty password is none, on a server
+/// with only end-to-end encrypted accounts.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Connect {
     target: ServerTarget,
+    #[serde(default)]
     password: String,
     create: bool,
     #[serde(default)]
@@ -121,9 +141,14 @@ pub async fn connect(
     Body(connect): Body<Connect>,
 ) -> Result<Json<BackupsView>, Error> {
     admin(&me)?;
-    if connect.password.is_empty() {
-        return Err(Error::invalid("a backup needs a password"));
-    }
+    let password = if connect.password.is_empty() {
+        if state.db.call(|c| e2ee::standard_accounts_exist(c)).await? {
+            return Err(Error::invalid("a backup needs a password"));
+        }
+        backups::NO_PASSWORD.to_owned()
+    } else {
+        connect.password
+    };
     let master = state.master.clone();
     let old = match state.db.call(move |c| backups::config(c, &master)).await {
         Ok(old) => old,
@@ -133,7 +158,7 @@ pub async fn connect(
     };
     let config = BackupConfig {
         target: connect.target,
-        password: connect.password,
+        password,
         schedule: old.as_ref().map_or(Schedule::Daily, |o| o.schedule),
         policy: old
             .as_ref()

@@ -644,7 +644,8 @@
             address: location.origin + location.pathname.replace(/\/setup\/?$/, ''),
           })}
         </p>
-        <p class="warn">{t('admin.setup.secrets')}</p>
+        <!-- with only an e2ee account, the devices seal every note -->
+        {#if kind === 'standard'}<p class="warn">{t('admin.setup.secrets')}</p>{/if}
         <a class="btn primary" href="admin">{t('admin.setup.openAdmin')}</a>
       {/if}
       {#if problem && step === 'checks'}<p class="problem" role="alert">{problem}</p>{/if}
