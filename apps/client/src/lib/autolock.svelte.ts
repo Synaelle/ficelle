@@ -31,32 +31,35 @@ export function nextCheck(lastActive: number, now: number, minutes: number): num
 }
 
 /** Starts watching input. Call from a component, it stops with it. Choosing
- * another time starts over, which is activity anyway. */
-export function autoLock(lock: () => void) {
+ * another time starts over, which is activity anyway. `lock` hears whether
+ * the lock was found due as the window showed again, when the notes should
+ * go at once rather than fade out in front of the person. */
+export function autoLock(lock: (shown: boolean) => void) {
   $effect(() => {
     const minutes = prefs.autoLockMinutes
     if (lockDelay(minutes) === null) return
     let lastActive = Date.now()
     let timer: ReturnType<typeof setTimeout> | undefined
     const touch = () => (lastActive = Date.now())
-    const check = () => {
+    const check = (shown: boolean) => {
       clearTimeout(timer)
       timer = undefined
       const now = Date.now()
       // looked at again after locking too, in case the lock failed
       const idle = isIdle(lastActive, now, minutes)
-      if (idle) lock()
+      if (idle) lock(shown)
       const wait = idle ? CHECK_AT_MOST_EVERY_MS : nextCheck(lastActive, now, minutes)
-      if (wait !== null) timer = setTimeout(check, wait)
+      if (wait !== null) timer = setTimeout(() => check(false), wait)
     }
+    const shownAgain = () => check(true)
     for (const name of ACTIVITY) window.addEventListener(name, touch, { passive: true })
-    document.addEventListener('visibilitychange', check)
-    window.addEventListener('focus', check)
-    check()
+    document.addEventListener('visibilitychange', shownAgain)
+    window.addEventListener('focus', shownAgain)
+    check(false)
     return () => {
       for (const name of ACTIVITY) window.removeEventListener(name, touch)
-      document.removeEventListener('visibilitychange', check)
-      window.removeEventListener('focus', check)
+      document.removeEventListener('visibilitychange', shownAgain)
+      window.removeEventListener('focus', shownAgain)
       clearTimeout(timer)
     }
   })

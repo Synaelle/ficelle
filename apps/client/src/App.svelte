@@ -184,18 +184,22 @@
 
   /** The notes fade as they lock, the lock screen's knot then ties itself. */
   let closing = $state(false)
+  /** Locked as the app showed again: the notes go at once, never seen. */
+  let gone = $state(false)
 
-  async function lock() {
+  async function lock(shown = false) {
+    if (shown) gone = true
     closing = true
     await workspace.flush()
     await flushNoteWindows()
     // long enough to see the notes go, short enough not to wait for it
-    if (!matchMedia('(prefers-reduced-motion: reduce)').matches)
+    if (!gone && !matchMedia('(prefers-reduced-motion: reduce)').matches)
       await new Promise((resolve) => setTimeout(resolve, 220))
     await backend.vaultLock()
     status = await backend.vaultStatus()
     stage = 'unlock'
     closing = false
+    gone = false
   }
 
   /** Called once unlocked or created, the vault may have become encrypted. */
@@ -231,7 +235,7 @@
     stage === 'ready' && !!status && status.way !== 'device' && status.way !== 'plain',
   )
   $effect(() => {
-    if (lockable) autoLock(() => void lock())
+    if (lockable) autoLock((shown) => void lock(shown))
   })
   // updates download while the notes are open, never on the lock screen
   $effect(() => {
@@ -288,9 +292,9 @@
 {:else if stage === 'welcome'}
   <Welcome done={ready} />
 {:else if stage === 'ready'}
-  <div class="notes" class:closing>
+  <div class="notes" class:closing class:gone>
     {#await workspaceScreen then { default: Workspace }}
-      <Workspace onlock={lock} {lockable} />
+      <Workspace onlock={() => lock()} {lockable} />
     {/await}
   </div>
   <BetaFeedback />
@@ -382,6 +386,9 @@
   .notes.closing {
     pointer-events: none;
     animation: notes-close 220ms ease-in forwards;
+  }
+  .notes.gone {
+    visibility: hidden;
   }
   @keyframes notes-close {
     to {

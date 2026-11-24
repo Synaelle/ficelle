@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { describe, expect, it } from 'vitest'
-import { isIdle, nextCheck } from './autolock.svelte'
+import { flushSync } from 'svelte'
+import { describe, expect, it, vi } from 'vitest'
+import { autoLock, isIdle, nextCheck } from './autolock.svelte'
+import { prefs } from './prefs.svelte'
 
 const MINUTE = 60_000
 
@@ -19,5 +21,18 @@ describe('autolock', () => {
 
   it('needs no timer when set to never', () => {
     expect(nextCheck(0, 0, 0)).toBeNull()
+  })
+
+  it('says the lock came due as the app showed again', () => {
+    vi.useFakeTimers()
+    prefs.autoLockMinutes = 1
+    const locks: boolean[] = []
+    const stop = $effect.root(() => autoLock((shown) => locks.push(shown)))
+    flushSync()
+    vi.setSystemTime(Date.now() + 2 * MINUTE)
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(locks).toEqual([true])
+    stop()
+    vi.useRealTimers()
   })
 })
