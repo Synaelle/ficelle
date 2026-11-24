@@ -550,7 +550,10 @@
               </Group>
             {/if}
           {:else if section === 'sync'}
-            <SyncSettings />
+            <SyncSettings
+              unencrypted={!!settings.vault && !settings.vault.encrypted}
+              onsecurity={() => open('security')}
+            />
           {:else if section === 'data'}
             <DataSettings
               {settings}

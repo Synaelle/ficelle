@@ -729,7 +729,7 @@
           {/if}
         </Group>
       {:else if page === 'sync'}
-        <SyncSettings phone />
+        <SyncSettings phone unencrypted={!!vault && !encrypted} onsecurity={back} />
       {:else if page === 'notes'}
         <DataSettings {settings} {onimport} {onrestorefile} {onreset} />
       {:else if page === 'feedback'}

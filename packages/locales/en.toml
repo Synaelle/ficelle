@@ -852,6 +852,7 @@ disconnectHelp = "Sync stops and this device forgets the account. Your notes sta
 more = "Co-editing and files"
 clockAhead = "This device's clock is {amount} ahead, so it does not sync. Set the right date and time on it and sync starts again by itself."
 clockBehind = "This device's clock is {amount} behind, so it does not sync. Set the right date and time on it and sync starts again by itself."
+unprotected = "Notes on this device are not encrypted"
 
 [sync.pendingCount]
 one = "{count} change waits to be sent."

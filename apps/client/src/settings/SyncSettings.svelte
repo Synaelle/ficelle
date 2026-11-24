@@ -4,7 +4,8 @@
      name, the paired devices, pairing, and a page per device. Then the sync
      server, deprecated, folded away and open by itself on a device linked to
      one: connect to an account, see how sync stands, sync now or
-     disconnect. A device uses one or the other, never both. -->
+     disconnect. A device uses one or the other, never both. A device whose
+     notes are not encrypted says so, with a way to its security settings. -->
 <script lang="ts">
   import { brand } from '@app/brand'
   import { COPIED_MS, copyText } from '../lib/clipboard'
@@ -35,7 +36,17 @@
   import Row from './ui/Row.svelte'
   import Switch from './ui/Switch.svelte'
 
-  let { phone = false }: { phone?: boolean } = $props()
+  let {
+    phone = false,
+    unencrypted = false,
+    onsecurity,
+  }: {
+    phone?: boolean
+    /** This device's notes are kept without encryption. */
+    unencrypted?: boolean
+    /** Opens the security settings. */
+    onsecurity?: () => void
+  } = $props()
 
   /** Error codes with their own text, the others say their message. */
   const KNOWN = [
@@ -419,6 +430,14 @@
       </label>
     {/each}
   </div>
+  {#if unencrypted && onsecurity}
+    <button class="unprotected" onclick={onsecurity}
+      ><Icon name="warning" size={16} /><span>{t('sync.unprotected')}</span><Icon
+        name="right"
+        size={16}
+      /></button
+    >
+  {/if}
 {/if}
 
 {#if viewing}
@@ -1043,6 +1062,38 @@
   }
   .state p {
     margin: 2px 0 0;
+  }
+  .unprotected {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    max-width: 640px;
+    min-height: 40px;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-control);
+    background: var(--color-surface-2);
+    color: var(--color-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .unprotected span {
+    flex: 1;
+    min-width: 0;
+  }
+  .unprotected :global(svg) {
+    flex: none;
+    color: var(--color-warning);
+  }
+  .unprotected :global(svg:last-child) {
+    color: var(--color-text-faint);
+  }
+  @media (hover: hover) {
+    .unprotected:hover {
+      background: var(--color-hover);
+    }
   }
   .detail {
     overflow-wrap: anywhere;
