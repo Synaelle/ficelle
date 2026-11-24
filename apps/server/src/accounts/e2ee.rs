@@ -22,6 +22,21 @@ pub fn kind_of(text: &str) -> AccountKind {
     }
 }
 
+/// Whether any account is a standard one, whose notes the server opens
+/// with the master key. Without one, every note on the server is sealed by
+/// the devices.
+///
+/// # Errors
+///
+/// Database errors only.
+pub fn standard_accounts_exist(conn: &Connection) -> Result<bool, DbError> {
+    Ok(conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM users WHERE kind <> 'e2ee')",
+        [],
+        |r| r.get(0),
+    )?)
+}
+
 /// The server's OPAQUE setup, made and stored on first use. It lives in
 /// the database because the records are useless without it, and a backup
 /// must carry both. It is sealed by the master key: a copy of the database

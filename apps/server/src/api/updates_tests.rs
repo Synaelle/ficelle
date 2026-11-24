@@ -328,3 +328,22 @@ async fn the_checklist_warns_when_storage_has_no_limit() {
         (&json!("warn"), &json!("unlimited"))
     );
 }
+
+#[tokio::test]
+async fn the_master_key_line_is_only_for_a_server_with_a_standard_account() {
+    let (state, app) = server_with(Config::default()).await;
+    let (session, _) = super::tests::e2ee_person(&state, "root").await;
+    state
+        .db
+        .call(|c| Ok(c.execute("UPDATE users SET role = 'admin'", [])?))
+        .await
+        .unwrap();
+    let token = super::tests::token(&session);
+    let (status, list) = call(&app, "GET", "/admin/checklist", Some(token), None).await;
+    assert_eq!(status, StatusCode::OK, "{list}");
+    assert!(line(&list, "secrets").is_none(), "{list}");
+
+    super::tests::person(&state, "kim").await;
+    let (_, list) = call(&app, "GET", "/admin/checklist", Some(token), None).await;
+    assert_eq!(line(&list, "secrets").unwrap()["state"], "warn");
+}

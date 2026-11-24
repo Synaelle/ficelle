@@ -91,6 +91,8 @@ struct Facts {
     status: crate::backups::BackupStatus,
     updates: bool,
     secrets_dismissed: bool,
+    /// A standard account exists, whose notes the master key opens.
+    standard: bool,
     /// Storage an account may use, 0 for no limit.
     quota_bytes: u64,
 }
@@ -129,6 +131,7 @@ fn facts(
         status: crate::backups::status(conn)?,
         updates: updates::enabled(conn)?,
         secrets_dismissed: dismissed.is_some(),
+        standard: crate::accounts::e2ee::standard_accounts_exist(conn)?,
         quota_bytes: crate::files::policy::effective(conn, files)?.quota_bytes,
     })
 }
@@ -342,7 +345,8 @@ async fn lines(state: &AppState, secure: &Secure) -> Result<Vec<ChecklistItem>, 
             &[("state", "http".into()), ("url", url.clone())],
         )
     });
-    if !facts.secrets_dismissed {
+    // with only e2ee accounts, the devices seal every note
+    if facts.standard && !facts.secrets_dismissed {
         let apart = !state.config.storage.master_key_file.as_os_str().is_empty();
         items.push(item(
             "secrets",
