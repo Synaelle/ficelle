@@ -42,6 +42,7 @@
     LOCK_CHOICES,
     lockLabel,
     SETTINGS_INSIDE,
+    toolbarState,
     ways,
     type SettingsState,
   } from './settingsState.svelte'
@@ -109,6 +110,8 @@
     disabled?: boolean
     /** Opens its choices in place, under it: the id of their list. */
     folds?: string
+    /** The label shows typed characters (->) that no font may join. */
+    typed?: boolean
     run: (event: MouseEvent) => void
   }
 
@@ -116,10 +119,11 @@
     LOCALES.find((l) => l.code === prefs.language)?.name ?? t('settings.languageSystem'),
   )
 
-  // the language page shows one choice list at a time, the other folded
-  // into its row, so the page fits a screen
-  let unfolded: 'language' | 'clock' | null = $state(null)
-  function fold(list: 'language' | 'clock') {
+  // a page shows one choice list at a time, the others folded into their
+  // rows, so it stays short
+  type Fold = 'language' | 'clock' | 'font' | 'codeFont' | 'lineSpacing' | 'arrow' | 'tools'
+  let unfolded: Fold | null = $state(null)
+  function fold(list: Fold) {
     unfolded = unfolded === list ? null : list
   }
   /** A choice made: its list folds and the focus goes back to its row. */
@@ -422,7 +426,7 @@
     <span class="tile"><Icon name={r.icon} size={16} /></span>
     <!-- the value under its label: long words in any language keep room -->
     <span class="text">
-      <span class="label">{r.label}</span>
+      <span class="label" class:as-typed={r.typed}>{r.label}</span>
       {#if r.on === undefined && r.value}<span class="value">{r.value}</span>{/if}
     </span>
     {#if r.on !== undefined}
@@ -581,14 +585,29 @@
           {/if}
         </Group>
       {:else if page === 'editor'}
-        <Group title={t('settings.font')}>
-          {#each TEXT_FONTS as font (font)}
-            <Row
-              label={font === 'default' ? t('settings.fontDefault') : FONT_PACKS[font].family}
-              checked={prefs.font === font}
-              onclick={() => (prefs.font = font)}
-            />
-          {/each}
+        <Group>
+          {@render row({
+            icon: 'font',
+            label: t('settings.font'),
+            value:
+              prefs.font === 'default' ? t('settings.fontDefault') : FONT_PACKS[prefs.font].family,
+            folds: 'choices-font',
+            run: () => fold('font'),
+          })}
+          {#if unfolded === 'font'}
+            <div id="choices-font" class="choices">
+              {#each TEXT_FONTS as font (font)}
+                <Row
+                  label={font === 'default' ? t('settings.fontDefault') : FONT_PACKS[font].family}
+                  checked={prefs.font === font}
+                  onclick={() => {
+                    prefs.font = font
+                    chosen()
+                  }}
+                />
+              {/each}
+            </div>
+          {/if}
           {#if prefs.font !== 'default' && (fontStatus.text.loading || fontStatus.text.error)}
             <div class="under">
               <FontLoad
@@ -599,15 +618,28 @@
               />
             </div>
           {/if}
-        </Group>
-        <Group title={t('settings.codeFont')}>
-          {#each CODE_FONTS as font (font)}
-            <Row
-              label={font === 'default' ? DEFAULT_CODE_FONT : FONT_PACKS[font].family}
-              checked={prefs.codeFont === font}
-              onclick={() => (prefs.codeFont = font)}
-            />
-          {/each}
+          {@render row({
+            icon: 'code',
+            label: t('settings.codeFont'),
+            value:
+              prefs.codeFont === 'default' ? DEFAULT_CODE_FONT : FONT_PACKS[prefs.codeFont].family,
+            folds: 'choices-codeFont',
+            run: () => fold('codeFont'),
+          })}
+          {#if unfolded === 'codeFont'}
+            <div id="choices-codeFont" class="choices">
+              {#each CODE_FONTS as font (font)}
+                <Row
+                  label={font === 'default' ? DEFAULT_CODE_FONT : FONT_PACKS[font].family}
+                  checked={prefs.codeFont === font}
+                  onclick={() => {
+                    prefs.codeFont = font
+                    chosen()
+                  }}
+                />
+              {/each}
+            </div>
+          {/if}
           {#if prefs.codeFont !== 'default' && (fontStatus.code.loading || fontStatus.code.error)}
             <div class="under">
               <FontLoad
@@ -618,15 +650,27 @@
               />
             </div>
           {/if}
-        </Group>
-        <Group title={t('settings.lineSpacing')}>
-          {#each LINE_SPACINGS as spacing (spacing)}
-            <Row
-              label={t(`settings.lineSpacing_${spacing}`)}
-              checked={prefs.lineSpacing === spacing}
-              onclick={() => (prefs.lineSpacing = spacing)}
-            />
-          {/each}
+          {@render row({
+            icon: 'textStyle',
+            label: t('settings.lineSpacing'),
+            value: t(`settings.lineSpacing_${prefs.lineSpacing}`),
+            folds: 'choices-lineSpacing',
+            run: () => fold('lineSpacing'),
+          })}
+          {#if unfolded === 'lineSpacing'}
+            <div id="choices-lineSpacing" class="choices">
+              {#each LINE_SPACINGS as spacing (spacing)}
+                <Row
+                  label={t(`settings.lineSpacing_${spacing}`)}
+                  checked={prefs.lineSpacing === spacing}
+                  onclick={() => {
+                    prefs.lineSpacing = spacing
+                    chosen()
+                  }}
+                />
+              {/each}
+            </div>
+          {/if}
         </Group>
         <Group>
           {@render row({
@@ -648,6 +692,21 @@
               on: prefs.spellcheck,
               run: () => (prefs.spellcheck = !prefs.spellcheck),
             })}
+          {/if}
+          {@render row({
+            icon: 'right',
+            label: t('settings.arrow'),
+            typed: true,
+            value: prefs.arrow || t('settings.arrowOff'),
+            folds: 'choices-arrow',
+            run: () => fold('arrow'),
+          })}
+          {#if unfolded === 'arrow'}
+            <div id="choices-arrow" class="choices inside"><ArrowPicker /></div>
+          {/if}
+        </Group>
+        <Group>
+          {#if !HANDHELD}
             {@render row({
               icon: 'pin',
               label: t('settings.openNoteFirst'),
@@ -674,18 +733,26 @@
             run: () => (prefs.nameFromAttachment = !prefs.nameFromAttachment),
           })}
         </Group>
-        <Group title={t('settings.arrow')} typed>
-          <div class="inside"><ArrowPicker /></div>
-        </Group>
-        <Group title={t('settings.toolbarButtons')}>
-          {#each TOOL_NAMES as tool (tool.icon)}
-            {@render row({
-              icon: tool.icon,
-              label: t(tool.label),
-              on: !prefs.hiddenTools.includes(tool.icon),
-              run: () => showTool(tool.icon, prefs.hiddenTools.includes(tool.icon)),
-            })}
-          {/each}
+        <Group>
+          {@render row({
+            icon: 'bold',
+            label: t('settings.toolbarButtons'),
+            value: toolbarState(),
+            folds: 'choices-tools',
+            run: () => fold('tools'),
+          })}
+          {#if unfolded === 'tools'}
+            <div id="choices-tools" class="choices">
+              {#each TOOL_NAMES as tool (tool.icon)}
+                {@render row({
+                  icon: tool.icon,
+                  label: t(tool.label),
+                  on: !prefs.hiddenTools.includes(tool.icon),
+                  run: () => showTool(tool.icon, prefs.hiddenTools.includes(tool.icon)),
+                })}
+              {/each}
+            </div>
+          {/if}
         </Group>
       {:else if page === 'language'}
         <Group>
@@ -776,16 +843,16 @@
       {:else if page === 'testTools'}
         <TestTools />
       {:else if page === 'experimental'}
-        {#if LINUX}
-          <Group>
+        <Group>
+          {#if LINUX}
             {@render row({
               icon: 'textStyle',
               label: t('settings.windowsText'),
               on: prefs.windowsText,
               run: () => (prefs.windowsText = !prefs.windowsText),
             })}
-          </Group>
-        {/if}
+          {/if}
+        </Group>
       {:else if page === 'updates'}
         <UpdateCheck />
       {:else if page === 'about'}
@@ -1020,8 +1087,11 @@
     opacity: 0.5;
     cursor: default;
   }
-  /* hairlines between rows start after the icon, like a phone's own lists */
-  .row + .row::before {
+  /* hairlines between rows start after the icon, like a phone's own lists,
+     also under choices or a download line folded in between */
+  .row + .row::before,
+  .choices + .row::before,
+  .under + .row::before {
     content: '';
     position: absolute;
     top: 0;

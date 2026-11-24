@@ -341,7 +341,7 @@ clock_system = "Same as the system"
 clock_24 = "24-hour (14:30)"
 clock_12 = "12-hour (2:30 PM)"
 editor = "Editor"
-editorKeywords = "markdown lists bullets numbered typing automatic format quick note shortcut window arrow arrows symbol spelling spell check line spacing height compact relaxed font typeface ubuntu jetbrains mono code"
+editorKeywords = "markdown lists bullets numbered typing automatic format quick note shortcut window arrow arrows symbol spelling spell check line spacing height compact relaxed font typeface ubuntu jetbrains mono code toolbar formatting buttons"
 autoLists = "Start a list when a line begins with - or 1."
 emojiShortcodes = "Turn :name: into emoji"
 spellcheck = "Check spelling"
@@ -356,6 +356,7 @@ scopedSearch = "Search only the open tag"
 nameFromAttachment = "Name untitled notes after their attachment"
 openLastNote = "Open the last note when the app starts"
 toolbarButtons = "Formatting buttons"
+toolbarAll = "All shown"
 font = "Font"
 fontDefault = "Hanken Grotesk and Atkinson Hyperlegible"
 codeFont = "Code font"
@@ -435,6 +436,10 @@ encryptionUndone = "Encrypting your notes was cut short, so they are still unenc
 [settings.exported]
 one = "Exported {count} note."
 other = "Exported {count} notes."
+
+[settings.toolbarHidden]
+one = "{count} hidden"
+other = "{count} hidden"
 
 [settings.phone]
 groupLook = "Look and writing"

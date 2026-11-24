@@ -4,7 +4,8 @@
      only, like the phone's own rows. When both do not fit, in a long
      language or on a phone, the control moves under the name instead of
      squeezing it. A row with `onclick` is a button as a whole (a choice in
-     a list, with `checked` showing the picked one). -->
+     a list, with `checked` showing the picked one), or one that shows more
+     settings under it (`expanded`). -->
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import Icon from '../../lib/icons/Icon.svelte'
@@ -20,6 +21,9 @@
     onclick,
     disabled = false,
     opens = false,
+    expanded,
+    controls,
+    typed = false,
     children,
   }: {
     label: string
@@ -34,6 +38,12 @@
     disabled?: boolean
     /** A row that opens something else: an arrow on the right. */
     opens?: boolean
+    /** A row that shows more settings under it: whether they show. */
+    expanded?: boolean
+    /** The id of what it shows, with `expanded`. */
+    controls?: string
+    /** The label shows typed characters (->) that no font may join. */
+    typed?: boolean
     /** The control on the right. */
     children?: Snippet
   } = $props()
@@ -43,13 +53,18 @@
   {#if icon}<span class="tile" aria-hidden="true"><Icon name={icon} size={16} /></span>{/if}
   <span class="main">
     <span class="text">
-      <span class="label">{label}</span>
+      <span class="label" class:as-typed={typed}>{label}</span>
       {#if help}<span class="help">{help}</span>{/if}
     </span>
     {#if children}<span class="control">{@render children()}</span>{/if}
   </span>
   {#if on !== undefined}<Switch drawn checked={on} />{/if}
   {#if opens}<span class="opens" aria-hidden="true"><Icon name="right" size={16} /></span>{/if}
+  {#if expanded !== undefined}
+    <span class="opens" class:open={expanded} aria-hidden="true"
+      ><Icon name="down" size={16} /></span
+    >
+  {/if}
   {#if checked !== undefined}
     <span class="check" aria-hidden="true"
       >{#if checked}<Icon name="check" size={16} />{/if}</span
@@ -62,6 +77,8 @@
     class="row choice settings-row"
     role={on !== undefined ? 'switch' : checked !== undefined ? 'radio' : undefined}
     aria-checked={on ?? checked}
+    aria-expanded={expanded}
+    aria-controls={controls}
     {disabled}
     {onclick}>{@render body()}</button
   >
@@ -109,6 +126,15 @@
     display: grid;
     flex: none;
     color: var(--color-text-faint);
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .opens.open {
+    transform: rotate(180deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .opens {
+      transition: none;
+    }
   }
   @media (hover: hover) {
     .choice:hover:not(:disabled) {

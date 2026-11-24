@@ -13,6 +13,8 @@ import { t } from '../lib/i18n.svelte'
 import { pickToOpen, pickToSave } from '../lib/pick'
 import { overlay } from '../lib/overlay.svelte'
 import { errorKind, shownError, type ShownError } from '../lib/errors'
+import { prefs } from '../lib/prefs.svelte'
+import { TOOL_NAMES } from '../editor/toolNames'
 
 /** Choices for the auto lock delay in minutes, 0 is never. */
 export const LOCK_CHOICES = [0, 1, 5, 15, 30, 60]
@@ -58,6 +60,7 @@ export const SETTINGS_INSIDE: (readonly [IconName, string, InsidePage])[] = [
   ['right', 'settings.arrow', 'editor'],
   ['font', 'settings.font', 'editor'],
   ['code', 'settings.codeFont', 'editor'],
+  ['bold', 'settings.toolbarButtons', 'editor'],
   ['timer', 'settings.clock', 'language'],
   ['info', 'settings.credits', 'about'],
   // a phone spells with its system and never lists beside the note
@@ -72,6 +75,12 @@ export const SETTINGS_INSIDE: (readonly [IconName, string, InsidePage])[] = [
     ? ([['flask', 'appUpdate.nightlyVersions', 'updates']] as const)
     : []),
 ]
+
+/** The formatting buttons in a few words: all shown, or how many are hidden. */
+export function toolbarState(): string {
+  const hidden = TOOL_NAMES.filter((tool) => prefs.hiddenTools.includes(tool.icon)).length
+  return hidden ? t('settings.toolbarHidden', { count: hidden }) : t('settings.toolbarAll')
+}
 
 export class SettingsState {
   vault: VaultStatus | null = $state(null)

@@ -52,6 +52,7 @@
     lockLabel,
     SETTINGS_INSIDE,
     SettingsState,
+    toolbarState,
     ways,
   } from './settingsState.svelte'
   import Group from './ui/Group.svelte'
@@ -130,6 +131,8 @@
     ImportDialog ??= (await loadPart(() => import('./ImportDialog.svelte')))?.default ?? null
     if (ImportDialog) importing = ficelle ? 'ficelle' : 'other'
   }
+  /** The formatting buttons' switches, shown under their row. */
+  let toolsShown = $state(false)
   let resetting = $state(false)
   let restoringFile = $state(false)
   let filter = $state('')
@@ -327,6 +330,20 @@
                   {/each}
                 </select>
               </Row>
+              <Row label={t('settings.lineSpacing')}>
+                <div class="segmented" role="radiogroup" aria-label={t('settings.lineSpacing')}>
+                  {#each LINE_SPACINGS as spacing (spacing)}
+                    <label class:checked={prefs.lineSpacing === spacing}>
+                      <input
+                        type="radio"
+                        name="lineSpacing"
+                        value={spacing}
+                        bind:group={prefs.lineSpacing}
+                      />{t(`settings.lineSpacing_${spacing}`)}
+                    </label>
+                  {/each}
+                </div>
+              </Row>
             </Group>
             {#if prefs.font !== 'default'}
               <FontLoad
@@ -345,20 +362,6 @@
               />
             {/if}
             <Group>
-              <Row label={t('settings.lineSpacing')}>
-                <div class="segmented" role="radiogroup" aria-label={t('settings.lineSpacing')}>
-                  {#each LINE_SPACINGS as spacing (spacing)}
-                    <label class:checked={prefs.lineSpacing === spacing}>
-                      <input
-                        type="radio"
-                        name="lineSpacing"
-                        value={spacing}
-                        bind:group={prefs.lineSpacing}
-                      />{t(`settings.lineSpacing_${spacing}`)}
-                    </label>
-                  {/each}
-                </div>
-              </Row>
               <Row label={t('settings.autoLists')}>
                 <Switch label={t('settings.autoLists')} bind:checked={prefs.autoLists} />
               </Row>
@@ -371,20 +374,9 @@
               <Row label={t('settings.spellcheck')}>
                 <Switch label={t('settings.spellcheck')} bind:checked={prefs.spellcheck} />
               </Row>
-            </Group>
-            <Group title={t('settings.arrow')} typed>
-              <div class="inside"><ArrowPicker /></div>
-            </Group>
-            <Group title={t('settings.toolbarButtons')}>
-              {#each TOOL_NAMES as tool (tool.icon)}
-                <Row label={t(tool.label)}>
-                  <Switch
-                    label={t(tool.label)}
-                    checked={!prefs.hiddenTools.includes(tool.icon)}
-                    onchange={(on) => showTool(tool.icon, on)}
-                  />
-                </Row>
-              {/each}
+              <Row label={t('settings.arrow')} typed>
+                <ArrowPicker />
+              </Row>
             </Group>
             <!-- how the app behaves, apart from what typing does -->
             <Group note={quickTaken ? t('settings.quickNoteTaken') : undefined}>
@@ -418,6 +410,30 @@
                     onchange={(on) => void setQuick(on ? DEFAULT_QUICK_SHORTCUT : null)}
                   />
                 </Row>
+              {/if}
+            </Group>
+            <!-- a long list seldom changed: folded under its row -->
+            <Group>
+              <Row
+                label={t('settings.toolbarButtons')}
+                expanded={toolsShown}
+                controls="toolbar-buttons"
+                onclick={() => (toolsShown = !toolsShown)}
+              >
+                <span class="state">{toolbarState()}</span>
+              </Row>
+              {#if toolsShown}
+                <div id="toolbar-buttons" class="folded">
+                  {#each TOOL_NAMES as tool (tool.icon)}
+                    <Row label={t(tool.label)}>
+                      <Switch
+                        label={t(tool.label)}
+                        checked={!prefs.hiddenTools.includes(tool.icon)}
+                        onchange={(on) => showTool(tool.icon, on)}
+                      />
+                    </Row>
+                  {/each}
+                </div>
               {/if}
             </Group>
           {:else if section === 'language'}
@@ -732,6 +748,18 @@
   h2 {
     margin: 0;
     font-size: var(--title-dialog);
+  }
+  /* the switches folded under their row, a hairline above like any row */
+  .folded {
+    position: relative;
+  }
+  .folded::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: var(--space-3);
+    right: 0;
+    border-top: 1px solid var(--color-border);
   }
   /* a menu in a settings row, as wide as its longest choice */
   .content :global(.field.compact) {
