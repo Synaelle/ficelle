@@ -4,9 +4,6 @@
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "link-arg=/ignore:4099"]
 
-[target.aarch64-pc-windows-msvc]
-rustflags = ["-C", "link-arg=/ignore:4099"]
-
 # Added to the Android web view class wry generates: its autofill structure
 # goes through AppOnlyStructure (gen/android), so password managers name
 # saved logins after the app, not the web view's internal tauri.localhost.
