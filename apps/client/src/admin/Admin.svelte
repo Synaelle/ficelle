@@ -3,9 +3,9 @@
      shows the setup page, a public page, sign-in or the panel. -->
 <script lang="ts">
   import { brand } from '@app/brand'
-  import { setLocale, systemLocale, t } from '../lib/i18n.svelte'
+  import { t } from '../lib/i18n.svelte'
   import Overlays from '../lib/Overlays.svelte'
-  import { persistPrefs, prefs } from '../lib/prefs.svelte'
+  import { persistPrefs } from '../lib/prefs.svelte'
   import { applyTheme } from '../lib/theme.svelte'
   import {
     api,
@@ -25,7 +25,6 @@
 
   persistPrefs()
   applyTheme()
-  $effect(() => void setLocale(prefs.language ?? systemLocale()))
 
   /** A public page: a link from a mail, the recovery page, the privacy
    * page. They need no sign-in. */
