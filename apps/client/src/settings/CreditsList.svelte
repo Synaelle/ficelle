@@ -103,7 +103,10 @@
   .phone .use {
     font-size: 13px;
   }
+  /* a long license wraps rather than squeeze the name to a letter a line */
   .phone .license {
+    max-width: 10em;
     font-size: 13px;
+    white-space: normal;
   }
 </style>
