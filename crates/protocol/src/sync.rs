@@ -32,105 +32,6 @@ fn yes() -> bool {
     true
 }
 
-/// A role in a shared space.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum SpaceRole {
-    /// Shared it: edits, adds and removes people, stops sharing.
-    Owner,
-    /// Reads and edits.
-    Edit,
-    /// Reads only.
-    Read,
-}
-
-/// A key of an e2ee shared space, sealed for the account reading it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SpaceGrant {
-    /// The key's epoch: a new one starts when someone is removed.
-    pub epoch: u32,
-    /// The space key sealed with HPKE to this account's public key.
-    pub grant: String,
-}
-
-/// A member of an e2ee space who has no key for its latest epoch yet: the
-/// owner's devices seal one for them, the server cannot.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GrantWanted {
-    /// The member.
-    pub user_id: String,
-    /// Their published public key.
-    pub public_key: String,
-    /// The epoch they have no key for. A member added after a removal
-    /// needs the older epochs too, to read what was written before.
-    pub epoch: u32,
-    /// Their username, for the owner to recognise someone waiting to be let
-    /// in. Empty from servers before 0.2.1.
-    #[serde(default)]
-    pub name: String,
-}
-
-/// A shared space this account belongs to.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SharedSpace {
-    /// Its id.
-    pub id: String,
-    /// This account's role.
-    pub role: SpaceRole,
-    /// Standard or e2ee, the owner's kind.
-    pub kind: AccountKind,
-    /// The owner's username, shown as "shared by".
-    pub owner: String,
-    /// E2ee: the owner's public key, which members' devices keep from the
-    /// first time they see it. Grants are sealed by the owner's key pair
-    /// and only taken from that key. Empty from servers before 0.3.0.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub owner_key: String,
-    /// Number of its latest change.
-    pub head: i64,
-    /// E2ee: the latest key epoch.
-    #[serde(default)]
-    pub epoch: u32,
-    /// E2ee: this account's keys for it, every epoch it was a member in.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub grants: Vec<SpaceGrant>,
-    /// E2ee, owner only: members waiting for a key.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub grants_wanted: Vec<GrantWanted>,
-}
-
-/// A key sealed by an owner's device for one member.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GrantGiven {
-    /// The member.
-    pub user_id: String,
-    /// The space key sealed to their public key.
-    pub grant: String,
-}
-
-/// `POST /api/v1/sync/spaces/{id}/grants`: keys for members of an e2ee
-/// space, from one of the owner's devices.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GiveGrants {
-    /// The epoch the key is for.
-    pub epoch: u32,
-    /// One sealed key per member.
-    pub grants: Vec<GrantGiven>,
-}
-
-/// `GET /api/v1/sync/spaces`: the shared spaces this account belongs to.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SharedSpaces {
-    /// The spaces, owned ones included.
-    pub spaces: Vec<SharedSpace>,
-}
-
 /// `GET /api/v1/sync/live`, a WebSocket: what the server tells a device.
 /// The device sends only pings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -144,13 +45,10 @@ pub enum LiveMessage {
         /// See [`SpaceInfo::coediting`].
         coediting: bool,
     },
-    /// Another device pushed changes, or the shared spaces changed: pull.
+    /// Another device pushed changes: pull.
     Changed {
         /// Number of the latest change now, 0 when unknown.
         head: i64,
-        /// The shared space that changed, absent for the account's own.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        space: Option<String>,
     },
     /// The admin changed the co-editing setting.
     Settings {
@@ -284,13 +182,10 @@ mod tests {
             r#"{"type":"hello","head":4,"coediting":true}"#
         );
         let changed: LiveMessage = serde_json::from_str(r#"{"type":"changed","head":9}"#).unwrap();
-        assert_eq!(
-            changed,
-            LiveMessage::Changed {
-                head: 9,
-                space: None
-            }
-        );
+        assert_eq!(changed, LiveMessage::Changed { head: 9 });
+        let from_a_sharing_server: LiveMessage =
+            serde_json::from_str(r#"{"type":"changed","head":9,"space":"s1"}"#).unwrap();
+        assert_eq!(from_a_sharing_server, LiveMessage::Changed { head: 9 });
         let old: SpaceInfo =
             serde_json::from_str(r#"{"spaceId":"s","kind":"standard","head":0}"#).unwrap();
         assert!(old.coediting, "a server from before the setting allows it");

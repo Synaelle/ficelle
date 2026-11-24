@@ -381,12 +381,12 @@ async fn live_socket(
         let out = tokio::select! {
             notice = notices.recv() => match notice {
                 Ok(Notice::Changed { head, device: from }) if from != device => {
-                    Some(send(&LiveMessage::Changed { head, space: None }))
+                    Some(send(&LiveMessage::Changed { head }))
                 }
                 Ok(Notice::Changed { .. }) => None,
                 Ok(Notice::Settings { coediting }) => Some(send(&LiveMessage::Settings { coediting })),
                 // fell behind: one pull covers everything missed
-                Err(RecvError::Lagged(_)) => Some(send(&LiveMessage::Changed { head: 0, space: None })),
+                Err(RecvError::Lagged(_)) => Some(send(&LiveMessage::Changed { head: 0 })),
                 Err(RecvError::Closed) => break,
             },
             incoming = socket.recv() => match incoming {
