@@ -1,8 +1,9 @@
 name: mirror
 
-# Copies every branch and tag to gitlab.com/Synaelle/ficelle after each push.
-# Needs the GITLAB_TOKEN secret, a GitLab token allowed to write to that
-# project. Without it the copy is skipped.
+# Copies every branch and tag to gitlab.com/Synaelle/ficelle and
+# codeberg.org/Synaelle/ficelle after each push. Needs the GITLAB_TOKEN and
+# CODEBERG_TOKEN secrets, tokens allowed to write to those repositories.
+# Without one, that copy is skipped.
 
 on:
   push:
@@ -37,4 +38,25 @@ jobs:
           git update-ref -d refs/remotes/origin/HEAD 2>/dev/null || true
           git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/Synaelle/ficelle.git"
           git push --force --prune gitlab \
+            "refs/remotes/origin/*:refs/heads/*" "refs/tags/*:refs/tags/*"
+
+  codeberg:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: push to codeberg
+        env:
+          CODEBERG_TOKEN: ${{ secrets.CODEBERG_TOKEN }}
+        run: |
+          if [ -z "$CODEBERG_TOKEN" ]; then
+            echo "::warning::no CODEBERG_TOKEN secret, mirror skipped"
+            exit 0
+          fi
+          git fetch --prune origin "+refs/heads/*:refs/remotes/origin/*"
+          git update-ref -d refs/remotes/origin/HEAD 2>/dev/null || true
+          git remote add codeberg "https://Synaelle:${CODEBERG_TOKEN}@codeberg.org/Synaelle/ficelle.git"
+          git push --force --prune codeberg \
             "refs/remotes/origin/*:refs/heads/*" "refs/tags/*:refs/tags/*"
