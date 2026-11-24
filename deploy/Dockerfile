@@ -30,11 +30,7 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
  && npm install -g --no-fund --no-audit pnpm@12.15.0
-# the web pages carry the e2ee client as WebAssembly, built by tools/wasm.mjs,
-# and the web version the notes core, whose SQLite clang builds for wasm32
-RUN apt-get update \
- && apt-get install -y --no-install-recommends clang \
- && rm -rf /var/lib/apt/lists/*
+# the web pages carry the e2ee client as WebAssembly, built by tools/wasm.mjs
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo install --locked wasm-bindgen-cli --version 0.2.129
 WORKDIR /src
@@ -56,14 +52,11 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     esac; \
     export APP_COMMIT="$COMMIT" APP_COMMIT_DATE="$COMMIT_DATE"; \
     pnpm --filter @app/client build:admin; \
-    pnpm --filter @app/client build:web; \
     cargo build --release --locked -p server; \
     mkdir -p /out/bin /out/web /out/root; \
     install -d -m 700 /out/root/data /out/root/backups; \
     cp "target/release/$BINARY" /out/bin/; \
     cp -r apps/client/dist/. /out/web/; \
-    mkdir -p /out/web/web; \
-    cp -r apps/client/dist-web/. /out/web/web/; \
     node tools/fonts-mirror.mjs /out/web/fonts
 
 FROM gcr.io/distroless/cc-debian13:nonroot@sha256:cb87acc574abe719b6e5c547384defa2f7b1f24af9605d3f618cf852495d8be2
