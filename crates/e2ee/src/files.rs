@@ -13,9 +13,8 @@
 //! nonce): a file cut short, chunks reordered or taken from another file do
 //! not open. The file's SHA-256 is the associated data of every chunk.
 //!
-//! Keys: a space's files key comes from the account master key (personal
-//! space) or the space key of an epoch (shared space). Each file's key and
-//! nonce prefix derive from it and the file's hash, so the same file in the
+//! Keys: an account's files key comes from its master key. Each file's key
+//! and nonce prefix derive from it and the file's hash, so the same file in the
 //! same space always seals to the same bytes: one copy on the server, and an
 //! upload cut off resumes. A key is only ever used for one content, so the
 //! fixed nonce never encrypts two different texts. The address the server
@@ -28,7 +27,6 @@ use chacha20poly1305::{KeyInit, XChaCha20Poly1305};
 use zeroize::Zeroizing;
 
 use crate::keys::MasterKey;
-use crate::share::SpaceKey;
 use crate::sync::derive_with;
 use crate::{Error, Result};
 
@@ -54,11 +52,6 @@ pub type FilesKey = Zeroizing<[u8; 32]>;
 /// Files key of an account's personal space.
 pub fn files_key(master: &MasterKey) -> FilesKey {
     derive_with(master.as_bytes(), FILES_KEY)
-}
-
-/// Files key of a shared space, for one epoch.
-pub fn space_files_key(space_key: &SpaceKey) -> FilesKey {
-    derive_with(space_key.as_slice(), FILES_KEY)
 }
 
 /// Files key from any 32 byte secret, for a vault's own encrypted folder.
@@ -435,10 +428,8 @@ mod tests {
     }
 
     #[test]
-    fn personal_and_shared_files_keys_differ() {
+    fn the_files_key_is_not_the_master_key() {
         let master = MasterKey::generate();
-        let space = crate::share::new_space_key();
-        assert_ne!(*files_key(&master), *space_files_key(&space));
         assert_ne!(*files_key(&master), *master.as_bytes());
     }
 }

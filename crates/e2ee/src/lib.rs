@@ -21,7 +21,6 @@ mod handoff;
 mod keys;
 mod recovery;
 pub mod server;
-mod share;
 mod suite;
 mod sync;
 
@@ -32,16 +31,12 @@ pub use client::{
 pub use files::{
     CHUNK, FORMAT as FILE_FORMAT, FileCipher, FilesKey, HEADER as FILE_HEADER, Opener,
     SEALED_CHUNK, Sealer, file_address, files_key, files_key_from, open_file, plain_size,
-    seal_file, sealed_size, space_files_key,
+    seal_file, sealed_size,
 };
-pub use handoff::{Handoff, open_export_key, seal_export_key};
+pub use handoff::{Handoff, public_key_ok, seal_export_key};
 pub use keys::{AccountKeys, KeyBundle, MasterKey, NewAccount, new_account};
 pub use opaque_ke;
 pub use recovery::{generate as recovery_code, normalize as normalize_recovery_code};
-pub use share::{
-    KeyPair, accept, accept_unsigned, fingerprint, grant, new_key_pair, new_space_key,
-    public_key_ok, space_doc_key,
-};
 pub use suite::{CONTEXT, Ksf, Suite, decode, encode, identifiers, username};
 pub use sync::{DocKey, doc_key, open_change, seal_change};
 

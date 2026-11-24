@@ -3,8 +3,9 @@
 //! Handing the password's export key from the server's sign-in page to the
 //! app that opened it. The app makes a key pair for this sign-in only and
 //! puts its public half in the address it opens; the page seals the export
-//! key to it with HPKE (RFC 9180, base mode, the same suite as sharing) and
-//! the info binds it to the sign-in's PKCE challenge. The server passes the
+//! key to it with HPKE (RFC 9180, base mode: DHKEM X25519 HKDF-SHA256,
+//! HKDF-SHA256, ChaCha20-Poly1305) and the info binds it to the sign-in's
+//! PKCE challenge. The server passes the
 //! sealed key along once and cannot open it, neither can another sign-in.
 
 use hpke::aead::ChaCha20Poly1305;
@@ -16,7 +17,6 @@ use rand::rngs::OsRng;
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
-use crate::share::{KeyPair, new_key_pair};
 use crate::suite::{decode, encode};
 use crate::{Error, Result};
 
@@ -26,6 +26,36 @@ const HANDOFF_INFO: &[u8] = b"notes e2ee v1 sign-in handoff";
 
 /// The longest export key sealed: OPAQUE's is 64 bytes.
 const MAX_KEY: usize = 128;
+
+/// The app's key pair for one sign-in.
+struct KeyPair {
+    public: [u8; 32],
+    private: Zeroizing<[u8; 32]>,
+}
+
+impl KeyPair {
+    fn public_text(&self) -> String {
+        encode(&self.public)
+    }
+}
+
+fn new_key_pair() -> KeyPair {
+    let (private, public) = Kem::gen_keypair();
+    let mut secret = Zeroizing::new([0u8; 32]);
+    secret.copy_from_slice(&private.to_bytes());
+    let mut published = [0u8; 32];
+    published.copy_from_slice(&public.to_bytes());
+    KeyPair {
+        public: published,
+        private: secret,
+    }
+}
+
+/// Whether this is a public key, for a server that cannot do more than
+/// check its shape.
+pub fn public_key_ok(public: &str) -> bool {
+    decode(public, "public key").is_ok_and(|b| b.len() == 32)
+}
 
 fn info(challenge: &str) -> Vec<u8> {
     [HANDOFF_INFO, b"\0", challenge.as_bytes()].concat()
@@ -114,11 +144,7 @@ pub fn seal_export_key(export_key: &[u8], device_public: &str, challenge: &str) 
 ///
 /// [`Error::Malformed`] or [`Error::WrongKey`]: sealed for another key,
 /// another sign-in, or changed on the way.
-pub fn open_export_key(
-    sealed: &str,
-    pair: &KeyPair,
-    challenge: &str,
-) -> Result<Zeroizing<Vec<u8>>> {
+fn open_export_key(sealed: &str, pair: &KeyPair, challenge: &str) -> Result<Zeroizing<Vec<u8>>> {
     let bytes = decode(sealed, "sealed key")?;
     if bytes.len() < 32 {
         return Err(Error::Malformed("sealed key"));
@@ -126,7 +152,7 @@ pub fn open_export_key(
     let (encapped, sealed) = bytes.split_at(32);
     let encapped = <Kem as KemTrait>::EncappedKey::from_bytes(encapped)
         .map_err(|_| Error::Malformed("sealed key"))?;
-    let private = <Kem as KemTrait>::PrivateKey::from_bytes(pair.private())
+    let private = <Kem as KemTrait>::PrivateKey::from_bytes(pair.private.as_slice())
         .map_err(|_| Error::Malformed("private key"))?;
     let key = hpke::single_shot_open::<ChaCha20Poly1305, HkdfSha256, Kem>(
         &OpModeR::Base,
