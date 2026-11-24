@@ -9,6 +9,7 @@ import type { Backend } from './backend'
 import type { CoreAnswer, CoreRequest } from './core.worker'
 import { pageScope } from '../webScope'
 import { download, showOrDownload } from '../download'
+import { coreMissing } from '../pageParts'
 import { pickedFile } from '../pick'
 import { backupMade, notesMade } from '../webBackups'
 import { storageFull } from '../storageTrouble'
@@ -115,10 +116,16 @@ export function createWebBackend(): Backend {
           name: SCOPE,
         })
         started.onmessage = ({ data }: MessageEvent<CoreAnswer>) => {
+          if ('error' in data && data.error.kind === 'coreLoad') return coreGone()
           const pending = waiting.get(data.id)
           waiting.delete(data.id)
           if ('error' in data) void failed(data.error, pending?.size ?? 0).then(pending?.reject)
           else pending?.resolve(data.value)
+        }
+        // a worker whose script could not be fetched gets a plain event, one
+        // that crashed an ErrorEvent: without this its calls wait forever
+        started.onerror = (event) => {
+          if (!(event instanceof ErrorEvent)) coreGone()
         }
         resolve(started)
         // held until another tab takes the notes: this one then stops its
@@ -144,6 +151,17 @@ export function createWebBackend(): Backend {
       worker = null
       throw err
     })
+  }
+
+  /** The core's files are gone, after the server moved to a new version:
+   * every call waiting fails, the worker ends and the page reloads. */
+  function coreGone() {
+    const gone = { kind: 'coreLoad', message: 'the notes core could not load' }
+    for (const pending of waiting.values()) pending.reject(gone)
+    waiting.clear()
+    stop?.()
+    stop = null
+    void coreMissing()
   }
 
   /** A write the core could not make, told as a full or cleared storage

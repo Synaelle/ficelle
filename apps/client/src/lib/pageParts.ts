@@ -50,6 +50,12 @@ function reloadForPart(): Promise<void> {
   return checking
 }
 
+/** The notes core's files are gone from this page: the page reloads into the
+ * version the server has now, or says why it cannot. */
+export function coreMissing(): Promise<void> {
+  return reloadForPart()
+}
+
 /** Starts watching the parts that fail to load. Call once from the root. */
 export function followPageParts() {
   window.addEventListener('vite:preloadError', (event) => {

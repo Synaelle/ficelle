@@ -18,6 +18,7 @@ errorCode = "Error code {code}"
 [errors]
 wrongPassword = "Wrong password."
 wrongKey = "This database could not be opened with this key."
+coreLoad = "The part of this page that opens the notes could not load. Reload the page to go on."
 notRemembered = "This device does not remember the password, please type it."
 notFound = "This item no longer exists."
 invalid = "The app refused this request."

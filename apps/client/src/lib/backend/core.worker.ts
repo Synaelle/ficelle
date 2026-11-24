@@ -36,7 +36,12 @@ function asError(err: unknown): { kind: string; message: string } {
 
 // the page names the worker after its scope (webScope.ts): the core keeps the
 // notes in that scope's own folder, and opens none without it
-const ready = init().then(() => start(self.name))
+const ready = init()
+  .catch((err: unknown) => {
+    // its code was not fetched: the server has a new version, this page an old one
+    throw new Error(JSON.stringify({ kind: 'coreLoad', message: String(err) }))
+  })
+  .then(() => start(self.name))
 
 self.onmessage = async ({ data }: MessageEvent<CoreRequest>) => {
   const { id, name, args, bytes, binary } = data
