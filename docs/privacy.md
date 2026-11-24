@@ -5,7 +5,7 @@ Ficelle has no analytics, tracking or crash reports. Requests carry no account, 
 ## The apps
 
 - Updates come from GitHub releases, checked on unlock and every few hours. An update downloads only when you ask for it.
-- OpenDyslexic downloads once from ficelle.synaelle.com, else jsDelivr.
+- OpenDyslexic, Ubuntu and JetBrains Mono download once, when first used, from ficelle.synaelle.com, else jsDelivr.
 - Feedback goes to ficelle.synaelle.com, or to your sync server if its admin chose so.
 
 ## Feedback
