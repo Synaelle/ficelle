@@ -400,41 +400,25 @@
 {/snippet}
 
 <!-- a device syncs on its network or with a server, never both: each is a
-     choice, the one not in use shows greyed with what to do to use it. The
-     phone lists them as rows with a check, like its other choices -->
+     choice, the one not in use shows greyed with what to do to use it -->
 {#if !viewing}
   {@const ways = [
     ['local', t('sync.tabLocal'), devicesPaired && !linked],
     ['server', t('sync.tabServer'), linked],
   ] as const}
-  {#if phone}
-    <div role="radiogroup" aria-label={t('sync.tabs')}>
-      <Group>
-        {#each ways as [id, name, inUse] (id)}
-          <Row
-            label={name}
-            help={inUse ? t('sync.inUse') : undefined}
-            checked={tab === id}
-            onclick={() => (picked = id)}
-          />
-        {/each}
-      </Group>
-    </div>
-  {:else}
-    <div class="segmented" role="radiogroup" aria-label={t('sync.tabs')}>
-      {#each ways as [id, name, inUse] (id)}
-        <label class:checked={tab === id}>
-          <input
-            type="radio"
-            name="syncWay"
-            checked={tab === id}
-            onchange={() => (picked = id)}
-          />{name}
-          {#if inUse}<span class="in-use"><span class="dot"></span>{t('sync.inUse')}</span>{/if}
-        </label>
-      {/each}
-    </div>
-  {/if}
+  <div class="segmented" role="radiogroup" aria-label={t('sync.tabs')}>
+    {#each ways as [id, name, inUse] (id)}
+      <label class:checked={tab === id}>
+        <input
+          type="radio"
+          name="syncWay"
+          checked={tab === id}
+          onchange={() => (picked = id)}
+        />{name}
+        {#if inUse}<span class="in-use"><span class="dot"></span>{t('sync.inUse')}</span>{/if}
+      </label>
+    {/each}
+  </div>
 {/if}
 
 {#if viewing}
@@ -742,11 +726,11 @@
           <button class="btn" onclick={() => (confirming = false)}>{t('common.cancel')}</button>
         </div>
       {:else}
-        <Group>
-          <Row label={t('sync.disconnect')}>
-            <button class="btn" onclick={() => (confirming = true)}>{t('sync.disconnect')}</button>
-          </Row>
-        </Group>
+        <div class="settings-buttons">
+          <button class="btn" class:wide={phone} onclick={() => (confirming = true)}
+            >{t('sync.disconnect')}</button
+          >
+        </div>
       {/if}
     {:else if methods}
       <form class="sync-form" onsubmit={giveCode}>
@@ -1112,6 +1096,10 @@
   }
   .device-state.bad {
     color: var(--color-danger);
+  }
+  /* on a phone the one button takes the row */
+  .settings-buttons .wide {
+    flex: 1;
   }
   .device-head {
     display: flex;
