@@ -232,6 +232,10 @@
       border-top: 1px solid var(--color-border);
       border-bottom: 0;
     }
+    /* on pure black the bar's top edge is all that sets it off the note */
+    :global(:root[data-black='true']) .toolbar {
+      border-top-color: var(--color-border-strong);
+    }
     .toolbar::before {
       content: none;
     }
