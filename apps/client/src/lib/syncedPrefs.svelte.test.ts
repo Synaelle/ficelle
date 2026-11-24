@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Runs on the notes core in the page, the vault standing in for every device.
 import { flushSync } from 'svelte'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { backend } from './backend'
 import { prefs } from './prefs.svelte'
-import { sendSyncedPrefs, takeSyncedPrefs } from './syncedPrefs.svelte'
+import { sendSyncedPrefs, setSyncSettings, takeSyncedPrefs } from './syncedPrefs.svelte'
 import { workspace } from './workspace.svelte'
 
 const stored = async () => Object.fromEntries(await backend.syncedSettings())
@@ -13,6 +13,10 @@ const stored = async () => Object.fromEntries(await backend.syncedSettings())
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 describe('choices that follow the person', () => {
+  beforeEach(() => {
+    prefs.syncSettings = true
+  })
+
   it('sends only what changes here, never what was there before', async () => {
     prefs.sort = 'createdDesc'
     const stop = $effect.root(() => sendSyncedPrefs())
@@ -78,5 +82,26 @@ describe('choices that follow the person', () => {
     expect(prefs.sort).toBe('titleAsc')
     expect(read).toHaveBeenCalled()
     read.mockRestore()
+  })
+
+  it('stay on this device until turned on, then take the others first', async () => {
+    prefs.syncSettings = false
+    prefs.clock = 'system'
+    const stop = $effect.root(() => sendSyncedPrefs())
+    flushSync()
+    prefs.spellcheck = !prefs.spellcheck
+    flushSync()
+    await settle()
+    await backend.setSyncedSetting('clock', '"24"')
+    await takeSyncedPrefs()
+    expect(await stored()).not.toHaveProperty('spellcheck')
+    expect(prefs.clock).toBe('system')
+    setSyncSettings(true)
+    await settle()
+    flushSync()
+    await settle()
+    expect(prefs.clock).toBe('24')
+    expect(await stored()).not.toHaveProperty('spellcheck')
+    stop()
   })
 })

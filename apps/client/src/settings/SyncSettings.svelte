@@ -15,6 +15,7 @@
   import { duration } from '../lib/format'
   import { currentLocale, t } from '../lib/i18n.svelte'
   import { prefs } from '../lib/prefs.svelte'
+  import { setSyncSettings } from '../lib/syncedPrefs.svelte'
   import { protocolGap, protocolRange, versionGap } from '../lib/serverVersion'
   import Icon from '../lib/icons/Icon.svelte'
   import { errorCode, errorDetail, errorReason, shownError, type ShownError } from '../lib/errors'
@@ -403,6 +404,16 @@
     })
 </script>
 
+{#snippet settingsSwitch()}
+  <Row label={t('sync.syncSettings')}>
+    <Switch
+      label={t('sync.syncSettings')}
+      checked={prefs.syncSettings}
+      onchange={setSyncSettings}
+    />
+  </Row>
+{/snippet}
+
 {#snippet firewall(device: LocalDevice)}
   <div class="firewall" role="note">
     <p>{t('local.blocked.lead', { name: device.name })}</p>
@@ -617,6 +628,7 @@
             >
           </Row>
         {/if}
+        {@render settingsSwitch()}
       </Group>
       {#if local.discoveryError && local.running}
         <p class="settings-help">{t('local.discoveryProblem', { error: local.discoveryError })}</p>
@@ -745,6 +757,7 @@
             onchange={(on) => (prefs.coediting = on)}
           />
         </Row>
+        {@render settingsSwitch()}
       </Group>
       <FilesSettings />
       {#if confirming}

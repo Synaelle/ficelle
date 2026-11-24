@@ -85,6 +85,9 @@ export interface Prefs {
   channelAsked: boolean
   /** The open note follows other devices' edits as they come in. */
   coediting: boolean
+  /** The choices in syncedPrefs follow the person to the devices that also
+   * have this on. Off, this device keeps its own. */
+  syncSettings: boolean
   /** Lock an encrypted vault after this many idle minutes, 0 never. */
   autoLockMinutes: number
   /** Pane widths in px, set by dragging the dividers. */
@@ -144,6 +147,7 @@ export const DEFAULT_PREFS: Prefs = {
   channel: 'stable',
   channelAsked: false,
   coediting: true,
+  syncSettings: false,
   autoLockMinutes: 15,
   sidebarWidth: 220,
   listWidth: 320,

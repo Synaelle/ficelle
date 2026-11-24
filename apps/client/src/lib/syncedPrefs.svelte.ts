@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The choices that follow the person to every device. A change made here
-// goes into the vault, which syncs it with the notes; one made on another
-// device comes back from the vault and replaces the one here. Choices about
-// this device (its language, sizes, lock, updates...) stay out.
+// The choices that follow the person to every device, on the devices where
+// Same settings on every device is on (prefs.syncSettings). A change made
+// here goes into the vault, which syncs it with the notes; one made on
+// another device comes back from the vault and replaces the one here.
+// Choices about this device (its language, sizes, lock, updates...) stay out.
 import { backend } from './backend'
 import { ARROW_CHOICES, DEFAULT_PREFS, prefs, type Prefs } from './prefs.svelte'
 import { workspace } from './workspace.svelte'
@@ -66,6 +67,7 @@ function putHeld() {
 
 /** Takes the vault's choices in, those of every device. */
 export async function takeSyncedPrefs() {
+  if (!prefs.syncSettings) return
   const values = prefs as Record<Synced, unknown>
   const sortWas = prefs.sort
   for (const [key, raw] of await backend.syncedSettings()) {
@@ -83,12 +85,21 @@ export async function takeSyncedPrefs() {
   if (prefs.sort !== sortWas) await workspace.refreshNotes()
 }
 
+/** Turns syncing the choices on or off. On, the vault's choices come in
+ * first: the other devices' win over what this one had. */
+export function setSyncSettings(on: boolean) {
+  prefs.syncSettings = on
+  if (on) void takeSyncedPrefs()
+}
+
 /** Sends each choice changed here while the notes are open. Choices made
  * before stay on this device until changed again, so a device never pushes
  * what it had over what the others chose. Call from a component. */
 export function sendSyncedPrefs() {
   let seen: Partial<Record<Synced, string>> | null = null
   $effect(() => {
+    // off, nothing is sent, and turning it on sends nothing made meanwhile
+    if (!prefs.syncSettings) return void (seen = null)
     const now: Partial<Record<Synced, string>> = {}
     for (const key of SYNCED) now[key] = JSON.stringify(prefs[key])
     if (seen) {
