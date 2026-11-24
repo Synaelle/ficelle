@@ -203,6 +203,9 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-popover);
   }
+  :global(:root[data-black='true']) .rows {
+    border-color: var(--color-border-strong);
+  }
   .row {
     display: flex;
     align-items: center;

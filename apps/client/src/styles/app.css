@@ -63,10 +63,12 @@ body {
   height: var(--visible-height, 100%);
 }
 
-/* the system's unticked box is pure white, a glare on the light paper:
-   drawn with the theme instead, ticked ones stay native in the accent. Kept
-   weak so a component drawing its own box (a switch) still wins */
-:where(:root[data-mode='light']) input[type='checkbox']:where(:not(:checked, :indeterminate)) {
+/* the system's unticked box is pure white, a glare on the light paper, and
+   a dark grey square lost on pure black: drawn with the theme instead, ticked
+   ones stay native in the accent. Kept weak so a component drawing its own
+   box (a switch) still wins */
+:where(:root[data-mode='light'], :root[data-black='true'])
+  input[type='checkbox']:where(:not(:checked, :indeterminate)) {
   appearance: none;
   width: 13px;
   height: 13px;
@@ -252,6 +254,10 @@ select {
   opacity: 0.5;
   cursor: default;
 }
+/* on pure black the button's fill is black too: its edge is what shows it */
+:root[data-black='true'] .btn:not(.primary) {
+  border-color: var(--color-border-strong);
+}
 
 /* square button holding only an icon, always with an aria-label */
 .icon-btn {
@@ -403,6 +409,9 @@ select.field {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-window);
   background: var(--color-surface-2);
+}
+:root[data-black='true'] .settings-panel {
+  border-color: var(--color-border-strong);
 }
 .settings-group {
   display: grid;

@@ -55,6 +55,9 @@
     font-family: var(--font-ui);
     font-size: 13px;
   }
+  :global(:root[data-black='true']) .choice:not([aria-checked='true']) {
+    border-color: var(--color-border-strong);
+  }
   .choice[aria-checked='true'] {
     border-color: var(--color-accent);
     color: var(--color-text);

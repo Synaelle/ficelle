@@ -413,6 +413,9 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-popover);
   }
+  :global(:root[data-black='true']) .apps {
+    border-color: var(--color-border-strong);
+  }
   .apps label {
     display: flex;
     align-items: center;

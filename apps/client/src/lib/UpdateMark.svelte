@@ -55,6 +55,9 @@
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
+  :global(:root[data-black='true']) .update-mark {
+    border-color: var(--color-border-strong);
+  }
   /* a finger gets 44 px, the mark keeps its size */
   .update-mark::before {
     content: '';

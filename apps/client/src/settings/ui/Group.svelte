@@ -42,6 +42,10 @@
     border-radius: var(--radius-window);
     background: var(--color-surface-2);
   }
+  /* its grey is lost on pure black: the edge marks where the rows are */
+  :global(:root[data-black='true']) .panel {
+    border-color: var(--color-border-strong);
+  }
   /* flush with the panel, the same size as a page's help lines */
   .note {
     margin: 0;

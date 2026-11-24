@@ -361,6 +361,9 @@
     border-radius: var(--radius-popover);
     cursor: pointer;
   }
+  :global(:root[data-black='true']) .choice:not(.chosen) {
+    border-color: var(--color-border-strong);
+  }
   .choice.chosen {
     border-color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 8%, transparent);
