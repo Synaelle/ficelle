@@ -48,6 +48,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/027_one_person.sql"),
     include_str!("../migrations/028_leftovers.sql"),
     include_str!("../migrations/029_no_web_version.sql"),
+    include_str!("../migrations/030_no_email.sql"),
 ];
 
 /// The feedback database's migrations.
@@ -104,6 +105,17 @@ impl Db {
     /// the file comes from a newer server.
     pub fn open(dir: &Path) -> Result<Self, DbError> {
         Self::open_file(dir, DB_FILE, MIGRATIONS)
+    }
+
+    /// Opens (or creates) the database in `dir` at the schema just before
+    /// the first step holding `marker`, as an older server left it.
+    #[cfg(test)]
+    pub fn open_before(dir: &Path, marker: &str) -> Result<Self, DbError> {
+        let before = MIGRATIONS
+            .iter()
+            .position(|m| m.contains(marker))
+            .expect("a step holds the marker");
+        Self::open_file(dir, DB_FILE, &MIGRATIONS[..before])
     }
 
     /// Opens (or creates) the feedback database in `dir`.

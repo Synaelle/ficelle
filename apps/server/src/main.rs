@@ -18,7 +18,6 @@ mod feedback;
 mod files;
 mod keys;
 mod live;
-mod mail;
 mod passkeys;
 mod routes;
 mod secrets;

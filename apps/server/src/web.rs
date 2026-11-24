@@ -30,9 +30,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(to_admin))
         .route("/admin", get(admin_page))
-        // links from mails and the public pages, all handled by the same page
-        .route("/verify/{token}", get(admin_page))
-        .route("/reset/{token}", get(admin_page))
+        // the public pages, handled by the same page
         .route("/recover", get(admin_page))
         .route("/privacy", get(admin_page))
         // the setup link, its token after `#` stays in the browser
@@ -251,8 +249,12 @@ mod tests {
             "the shared headers still apply"
         );
 
-        for page in ["/verify/ch_x", "/reset/ch_x", "/recover", "/privacy"] {
+        for page in ["/recover", "/privacy"] {
             assert_eq!(get(&app, page).await.0, StatusCode::OK, "{page}");
+        }
+        // the links mails once carried
+        for gone in ["/verify/ch_x", "/reset/ch_x"] {
+            assert_eq!(get(&app, gone).await.0, StatusCode::NOT_FOUND, "{gone}");
         }
 
         let (status, headers, _) = get(&app, "/assets/admin-abc123.js").await;

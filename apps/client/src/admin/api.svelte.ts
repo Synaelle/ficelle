@@ -49,8 +49,6 @@ export interface AuthOptions {
   passkeys: boolean
   /** The kind of the accounts here, the choice when they differ. */
   accountKinds: AccountKinds
-  /** A forgotten password can be reset by email. */
-  emailReset: boolean
 }
 
 export interface User {
@@ -110,7 +108,7 @@ export interface AuditEntry {
   detail: string | null
 }
 
-export type SecondFactor = 'totp' | 'recoveryCode' | 'passkey' | 'email'
+export type SecondFactor = 'totp' | 'recoveryCode' | 'passkey'
 
 /** The answer of a sign-in whose password was right, when the account has
  * a second factor. */
@@ -133,11 +131,6 @@ export interface Security {
   totp: boolean
   recoveryCodesLeft: number
   passkeys: Passkey[]
-  /** The confirmed email. */
-  email?: string
-  emailAvailable: boolean
-  /** Codes by email are the account's second step. */
-  emailCodes: boolean
 }
 
 /** Facts for the privacy page, from the server's settings. */
@@ -145,7 +138,6 @@ export interface PrivacyInfo {
   operator?: string
   contact?: string
   notice?: string
-  email: boolean
   auditDays: number
   sessionDays: number
   /** Feedback: taken here, kept so long, where this server's people send theirs. */

@@ -39,8 +39,6 @@ pub struct AppState {
     pub clock: Clock,
     /// Passkey checks, `None` without `server.public_url`.
     pub webauthn: Option<Arc<Webauthn>>,
-    /// Outgoing email.
-    pub mailer: crate::mail::Mailer,
     /// Wraps the space keys of standard accounts.
     pub master: Arc<crate::keys::MasterKey>,
     /// The OPAQUE setup, read from the database on first use.
@@ -92,7 +90,6 @@ impl AppState {
             hashing: Arc::new(tokio::sync::Semaphore::new(
                 std::thread::available_parallelism().map_or(2, |n| n.get().clamp(2, 8)),
             )),
-            mailer: crate::mail::Mailer::new(&config),
             master: Arc::new(master),
             feedback,
             feedback_limit: RateLimit::new(FEEDBACK_CHALLENGES_PER_MINUTE),

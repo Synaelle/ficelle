@@ -135,14 +135,12 @@ pub async fn security(
     CurrentUser(me): CurrentUser,
 ) -> Result<Json<Security>, Error> {
     let id = me.user.id.clone();
-    let (totp, codes, email, email_codes) = state
+    let (totp, codes) = state
         .db
         .call(move |c| {
             Ok((
                 factors::totp(c, &id)?.secret.is_some(),
                 factors::recovery_codes_left(c, &id)?,
-                crate::accounts::profile::email(c, &id)?,
-                factors::email_codes(c, &id)?.is_some(),
             ))
         })
         .await?;
@@ -151,9 +149,10 @@ pub async fn security(
         totp,
         recovery_codes_left: codes,
         passkeys: super::passkeys::list(&state, &me.user.id).await?,
-        email,
-        email_available: state.mailer.enabled(),
-        email_codes,
+        // this server sends no email
+        email: None,
+        email_available: false,
+        email_codes: false,
     }))
 }
 
@@ -263,63 +262,6 @@ pub async fn totp_disable(
         })
         .await?;
     log(&state, &me, ip, "totp_disabled").await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-/// `POST /api/v1/me/email-codes/enable`: codes by email as the account's
-/// second step. Needs a server that sends mail and a confirmed address.
-pub async fn email_codes_enable(
-    State(state): State<AppState>,
-    ip: ClientIp,
-    CurrentUser(me): CurrentUser,
-) -> Result<StatusCode, Error> {
-    if !state.mailer.enabled() {
-        return Err(Error::new(
-            StatusCode::NOT_FOUND,
-            error_code::MAIL_OFF,
-            "this server sends no email",
-        ));
-    }
-    let id = me.user.id.clone();
-    let done = state
-        .db
-        .call(move |c| {
-            let tx = c.transaction()?;
-            if crate::accounts::profile::email(&tx, &id)?.is_none() {
-                return Ok(false);
-            }
-            factors::set_email_codes(&tx, &id, true)?;
-            tx.commit()?;
-            Ok(true)
-        })
-        .await?;
-    if !done {
-        return Err(Error::invalid("confirm an email address first"));
-    }
-    log(&state, &me, ip, "email_codes_enabled").await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-/// `POST /api/v1/me/email-codes/disable`, confirmed like any second step
-/// going away.
-pub async fn email_codes_disable(
-    State(state): State<AppState>,
-    ip: ClientIp,
-    CurrentUser(me): CurrentUser,
-    Body(req): Body<Confirm>,
-) -> Result<StatusCode, Error> {
-    confirm(&state, &me, req, ip).await?;
-    let id = me.user.id.clone();
-    state
-        .db
-        .call(move |c| {
-            let tx = c.transaction()?;
-            factors::set_email_codes(&tx, &id, false)?;
-            tx.commit()?;
-            Ok(())
-        })
-        .await?;
-    log(&state, &me, ip, "email_codes_disabled").await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

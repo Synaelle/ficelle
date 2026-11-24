@@ -68,24 +68,6 @@
     })
   }
 
-  async function setEmail() {
-    const email = await overlay.askText(t('admin.account.emailPrompt'), security?.email ?? '')
-    if (!email?.trim()) return
-    const confirm = await proof()
-    if (!confirm) return
-    await run(
-      () => api('PUT', '/me/email', { email, ...confirm }),
-      t('admin.account.emailSent', { email: email.trim() }),
-    )
-  }
-
-  async function removeEmail() {
-    const confirm = await proof()
-    if (!confirm) return
-    if (await run(() => api('DELETE', '/me/email', confirm), t('admin.account.removed')))
-      await load()
-  }
-
   async function exportData() {
     await run(async () => {
       const data = await api<unknown>('GET', '/me/export')
@@ -164,23 +146,6 @@
     const confirm = await proof()
     if (!confirm) return
     if (await run(() => api('POST', '/me/totp/disable', confirm), t('admin.account.totpOff')))
-      await load()
-  }
-
-  async function enableEmailCodes() {
-    if (await run(() => api('POST', '/me/email-codes/enable'), t('admin.account.emailCodesOn')))
-      await load()
-  }
-
-  async function disableEmailCodes() {
-    const confirm = await proof()
-    if (!confirm) return
-    if (
-      await run(
-        () => api('POST', '/me/email-codes/disable', confirm),
-        t('admin.account.emailCodesOff'),
-      )
-    )
       await load()
   }
 
@@ -420,30 +385,7 @@
       </div>
     </details>
 
-    {#if security.emailAvailable}
-      <details class="item">
-        {@render head(
-          'invite',
-          t('admin.account.emailCodesTitle'),
-          security.emailCodes ? t('admin.account.on') : t('admin.account.off'),
-          security.emailCodes,
-        )}
-        <div class="body">
-          {#if security.emailCodes}
-            <p>{t('admin.account.emailCodesActive', { email: security.email ?? '' })}</p>
-            <button class="btn" onclick={disableEmailCodes}>{t('admin.account.turnOff')}</button>
-          {:else if security.email}
-            <button class="btn" onclick={enableEmailCodes}
-              >{t('admin.account.emailCodesEnable')}</button
-            >
-          {:else}
-            <p class="muted">{t('admin.account.emailCodesNeedsEmail')}</p>
-          {/if}
-        </div>
-      </details>
-    {/if}
-
-    {#if security.totp || security.passkeys.length || security.emailCodes}
+    {#if security.totp || security.passkeys.length}
       <details class="item">
         {@render head(
           'key',
@@ -463,33 +405,6 @@
 
   <h2 class="group">{t('admin.account.accountGroup')}</h2>
   <div class="list">
-    <details class="item">
-      {@render head(
-        'invite',
-        t('admin.account.emailTitle'),
-        !security.emailAvailable
-          ? t('admin.account.unavailable')
-          : (security.email ?? t('admin.account.off')),
-        !!security.email,
-      )}
-      <div class="body">
-        {#if !security.emailAvailable}
-          <p class="muted">{t('admin.account.emailOff')}</p>
-        {:else}
-          <div class="row">
-            <button class="btn" onclick={setEmail}
-              >{security.email
-                ? t('admin.account.changeEmail')
-                : t('admin.account.addEmail')}</button
-            >
-            {#if security.email}
-              <button class="btn" onclick={removeEmail}>{t('admin.account.remove')}</button>
-            {/if}
-          </div>
-        {/if}
-      </div>
-    </details>
-
     <details class="item">
       {@render head('database', t('admin.account.dataTitle'), '')}
       <div class="body">

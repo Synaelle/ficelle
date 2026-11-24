@@ -8,7 +8,6 @@
 //! An admin made or reset here has a password alone. It signs in, then must
 //! add a passkey or an authenticator app before any admin page answers it.
 
-use std::fmt::Write as _;
 use std::io::{BufRead, IsTerminal, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
@@ -282,14 +281,6 @@ fn ask(question: &str, default: &str) -> Result<String, String> {
     Ok(if answer.is_empty() { default } else { answer }.to_owned())
 }
 
-fn yes(question: &str, default: bool) -> Result<bool, String> {
-    let answer = ask(question, if default { "yes" } else { "no" })?;
-    Ok(matches!(
-        answer.to_ascii_lowercase().as_str(),
-        "y" | "yes" | "o" | "oui"
-    ))
-}
-
 /// A toml string, quoted and escaped.
 fn quoted(text: &str) -> String {
     toml::Value::String(text.to_owned()).to_string()
@@ -330,37 +321,13 @@ pub fn setup_command(words: &[String], target: &Path) -> Result<(), String> {
         "Data folder (databases, master key, files)",
         &defaults.storage.data_dir.display().to_string(),
     )?;
-    let mut text = format!(
+    let text = format!(
         "# Written by `{} setup`.\n\n[server]\nbind = {}\npublic_url = {}\n\n[storage]\ndata_dir = {}\n",
         app_brand::SERVER_BINARY,
         quoted(&bind),
         quoted(&public_url),
         quoted(&data_dir)
     );
-    if yes("Send mail (address checks, password resets)?", false)? {
-        let host = ask("Mail server", "")?;
-        let port = ask("Its port (587 for STARTTLS, 465 for TLS)", "587")?;
-        let security = ask("starttls, tls or none", "starttls")?;
-        let username = ask("Login, empty for none", "")?;
-        let password = if username.is_empty() {
-            String::new()
-        } else {
-            read_password("Its password (not shown): ")?
-        };
-        let from = ask("Sender, for example Notes <notes@example.org>", "")?;
-        let port = port
-            .parse::<u16>()
-            .map_err(|_| format!("{port} is not a port"))?;
-        let _ = write!(
-            text,
-            "\n[smtp]\nhost = {}\nport = {port}\nsecurity = {}\nusername = {}\npassword = {}\nfrom = {}\n",
-            quoted(&host),
-            quoted(&security),
-            quoted(&username),
-            quoted(&password),
-            quoted(&from)
-        );
-    }
     Config::from_sources(&text, std::iter::empty()).map_err(|e| e.to_string())?;
     write_private(target, &text).map_err(|e| format!("{}: {e}", target.display()))?;
     println!();

@@ -196,7 +196,7 @@ pub async fn checks(
         public_url: config.server.public_url.clone(),
         server_time: state.clock.now(),
         part_bytes: super::files::part_bytes(&state),
-        mail: state.mailer.enabled(),
+        mail: false,
     }))
 }
 

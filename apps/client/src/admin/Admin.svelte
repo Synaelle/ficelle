@@ -24,15 +24,12 @@
   persistPrefs()
   applyTheme()
 
-  /** A public page: a link from a mail, the recovery page, the privacy
-   * page. They need no sign-in. */
+  /** A public page: the recovery page, the privacy page. They need no
+   * sign-in. */
   const publicPage = (() => {
     const path = route()
-    const after = (prefix: string) => decodeURIComponent(path.slice(prefix.length))
-    if (path.startsWith('/verify/')) return { page: 'verify' as const, token: after('/verify/') }
-    if (path.startsWith('/reset/')) return { page: 'reset' as const, token: after('/reset/') }
-    if (path === '/recover') return { page: 'recover' as const, token: '' }
-    if (path === '/privacy') return { page: 'privacy' as const, token: '' }
+    if (path === '/recover') return 'recover' as const
+    if (path === '/privacy') return 'privacy' as const
     return null
   })()
 
@@ -75,7 +72,7 @@
 {:else if setupPage}
   <Setup />
 {:else if publicPage}
-  <Public page={publicPage.page} token={publicPage.token} />
+  <Public page={publicPage} />
 {:else if options.setupNeeded || !auth.session}
   <SignIn setup={options.setupNeeded} {options} done={start} />
 {:else}

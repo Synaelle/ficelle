@@ -344,7 +344,7 @@ async fn every_api_route_waits_for_setup() {
     let (_, app) = fresh();
     let routes = declared_routes();
     assert!(
-        routes.len() > 100,
+        routes.len() > 80,
         "the route list was read: {}",
         routes.len()
     );
@@ -376,7 +376,7 @@ async fn every_api_route_waits_for_setup() {
         );
         checked += 1;
     }
-    assert!(checked > 90, "{checked} routes checked");
+    assert!(checked > 70, "{checked} routes checked");
 
     // the routes that stay open answer as themselves
     let (status, _) = send(&app, "198.51.100.1", "GET", "/api/v1/info", None).await;

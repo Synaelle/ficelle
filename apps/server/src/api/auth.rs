@@ -112,7 +112,7 @@ pub async fn options(State(state): State<AppState>) -> Result<Json<AuthOptions>,
         registration: Registration::Closed,
         setup_needed: !locked,
         account_kinds,
-        email_reset: state.mailer.enabled(),
+        email_reset: false,
         passkeys: state.webauthn.is_some(),
         sso: None,
     }))

@@ -30,10 +30,6 @@ pub enum ChallengeKind {
     ConfirmProof,
     /// A recovery code checked, waiting for the new password.
     Recovery,
-    /// A link sent to an address, proving it when opened.
-    EmailVerify,
-    /// A password reset link sent by email.
-    PasswordReset,
 }
 
 impl ChallengeKind {
@@ -46,8 +42,6 @@ impl ChallengeKind {
             Self::OpaqueConfirm => "opaque_confirm",
             Self::ConfirmProof => "confirm_proof",
             Self::Recovery => "recovery",
-            Self::EmailVerify => "email_verify",
-            Self::PasswordReset => "password_reset",
         }
     }
 }
@@ -363,15 +357,13 @@ pub fn recovery_codes_left(conn: &Connection, user_id: &str) -> Result<u32, DbEr
 }
 
 /// Whether the account asks for a second factor at sign-in: an
-/// authenticator app, a passkey, or codes by email to a confirmed address.
+/// authenticator app or a passkey.
 ///
 /// # Errors
 ///
 /// Database errors only.
 pub fn has_second_factor(conn: &Connection, user_id: &str) -> Result<bool, DbError> {
-    Ok(totp(conn, user_id)?.secret.is_some()
-        || !passkeys(conn, user_id)?.is_empty()
-        || email_codes(conn, user_id)?.is_some())
+    Ok(totp(conn, user_id)?.secret.is_some() || !passkeys(conn, user_id)?.is_empty())
 }
 
 /// Whether admins must have a second step to act as admin. On unless the
@@ -433,115 +425,6 @@ pub fn guard_admin(conn: &Connection, user_id: &str) -> Result<(), DbError> {
         )?;
     }
     Ok(())
-}
-
-/// The address codes go to when the account takes codes by email as its
-/// second step and its address is confirmed. `None` otherwise.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn email_codes(conn: &Connection, user_id: &str) -> Result<Option<String>, DbError> {
-    Ok(conn
-        .query_row(
-            "SELECT email FROM users WHERE id = ?1 AND email_codes = 1
-             AND email IS NOT NULL AND email_verified_at IS NOT NULL",
-            [user_id],
-            |r| r.get(0),
-        )
-        .optional()?
-        .flatten())
-}
-
-/// Turns codes by email on or off for the account.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn set_email_codes(conn: &Connection, user_id: &str, on: bool) -> Result<(), DbError> {
-    conn.execute(
-        "UPDATE users SET email_codes = ?2 WHERE id = ?1",
-        params![user_id, on],
-    )?;
-    if on {
-        conn.execute(
-            "UPDATE users SET factor_required = 0 WHERE id = ?1",
-            [user_id],
-        )?;
-    } else {
-        drop_unneeded_recovery_codes(conn, user_id)?;
-        guard_admin(conn, user_id)?;
-    }
-    Ok(())
-}
-
-/// How many codes one sign-in may ask to be sent.
-pub const EMAIL_SENDS: i64 = 3;
-
-/// Keeps the code sent for the sign-in whose challenge is `challenge`,
-/// replacing an earlier one. `false` when that sign-in already asked for
-/// [`EMAIL_SENDS`] codes.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn keep_email_code(
-    conn: &Connection,
-    challenge: &TokenHash,
-    code: &str,
-    expires_at: i64,
-) -> Result<bool, DbError> {
-    let sends: Option<i64> = conn
-        .query_row(
-            "SELECT sends FROM email_codes WHERE challenge = ?1",
-            [challenge.as_slice()],
-            |r| r.get(0),
-        )
-        .optional()?;
-    if sends.is_some_and(|n| n >= EMAIL_SENDS) {
-        return Ok(false);
-    }
-    conn.execute(
-        "INSERT INTO email_codes (challenge, code, expires_at) VALUES (?1, ?2, ?3)
-         ON CONFLICT (challenge) DO UPDATE SET code = excluded.code,
-             expires_at = excluded.expires_at, sends = sends + 1",
-        params![
-            challenge.as_slice(),
-            token::hash(code).as_slice(),
-            expires_at
-        ],
-    )?;
-    Ok(true)
-}
-
-/// Whether `code` is the one sent for this sign-in and still fresh. A
-/// right code is spent.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn use_email_code(
-    conn: &Connection,
-    challenge: &TokenHash,
-    code: &str,
-    now: i64,
-) -> Result<bool, DbError> {
-    let stored: Option<Vec<u8>> = conn
-        .query_row(
-            "SELECT code FROM email_codes WHERE challenge = ?1 AND expires_at > ?2",
-            params![challenge.as_slice(), now],
-            |r| r.get(0),
-        )
-        .optional()?;
-    // both sides are sha-256 outputs, the comparison tells nothing useful
-    let right = stored.is_some_and(|s| s.as_slice() == token::hash(code.trim()).as_slice());
-    if right {
-        conn.execute(
-            "DELETE FROM email_codes WHERE challenge = ?1",
-            [challenge.as_slice()],
-        )?;
-    }
-    Ok(right)
 }
 
 /// Recovery codes only stand in for a second factor: without one left,
@@ -681,7 +564,6 @@ pub fn delete_passkey(conn: &Connection, user_id: &str, id: &str) -> Result<bool
 /// Database errors only.
 pub fn reset_second_factors(conn: &Connection, user_id: &str) -> Result<(), DbError> {
     disable_totp(conn, user_id)?;
-    conn.execute("UPDATE users SET email_codes = 0 WHERE id = ?1", [user_id])?;
     conn.execute("DELETE FROM recovery_codes WHERE user_id = ?1", [user_id])?;
     conn.execute("DELETE FROM passkeys WHERE user_id = ?1", [user_id])?;
     guard_admin(conn, user_id)
@@ -693,7 +575,6 @@ pub fn reset_second_factors(conn: &Connection, user_id: &str) -> Result<(), DbEr
 ///
 /// Database errors only.
 pub fn cleanup(conn: &Connection, now: i64) -> Result<usize, DbError> {
-    conn.execute("DELETE FROM email_codes WHERE expires_at <= ?1", [now])?;
     Ok(conn.execute("DELETE FROM challenges WHERE expires_at <= ?1", [now])?)
 }
 

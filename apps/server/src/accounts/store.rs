@@ -230,20 +230,6 @@ pub fn set_password(conn: &Connection, user_id: &str, hash: &str) -> Result<(), 
         "UPDATE users SET password_hash = ?2 WHERE id = ?1",
         params![user_id, hash],
     )?;
-    end_resets(conn, user_id)
-}
-
-/// Reset links still waiting go: a new password or email makes them
-/// answer to something past.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn end_resets(conn: &Connection, user_id: &str) -> Result<(), DbError> {
-    conn.execute(
-        "DELETE FROM challenges WHERE user_id = ?1 AND kind = 'password_reset'",
-        [user_id],
-    )?;
     Ok(())
 }
 

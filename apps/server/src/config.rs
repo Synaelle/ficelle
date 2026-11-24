@@ -29,8 +29,11 @@ pub struct Config {
     /// starting.
     #[serde(skip_serializing)]
     pub sso: Option<toml::Value>,
-    /// Outgoing email, for verification, password resets and notices.
-    pub smtp: SmtpConfig,
+    /// The old `[smtp]` section, no longer read: the server sends no
+    /// email, a server that still has it keeps starting.
+    /// Ignored whole, its password never reaches debug output.
+    #[serde(skip_serializing)]
+    pub smtp: Option<serde::de::IgnoredAny>,
     /// What the privacy page says about who runs the server.
     pub privacy: PrivacyConfig,
     /// Attachments: the instance's starting policy, before the admin page
@@ -130,7 +133,7 @@ impl SetupConfig {
 /// Keys holding secrets: a plain environment variable is refused for them,
 /// `docker inspect` and `/proc` show those to anyone on the machine. The
 /// `_FILE` form (a Docker secret) or the config file works.
-const SECRET_KEYS: &[(&str, &str)] = &[("smtp", "password"), ("setup", "admin_password")];
+const SECRET_KEYS: &[(&str, &str)] = &[("setup", "admin_password")];
 
 /// `[feedback]`: the starting switches, before the admin page changes them,
 /// and the limits against floods.
@@ -180,8 +183,8 @@ pub struct ServerConfig {
     /// Address to listen on. Loopback by default, the server is meant to sit
     /// behind a reverse proxy that handles TLS.
     pub bind: SocketAddr,
-    /// Address people reach the server at, for links in invites and emails.
-    /// Empty until set. An `https` address also turns on HSTS.
+    /// Address people reach the server at, for passkeys and the links the
+    /// admin page shows. Empty until set. An `https` address also turns on HSTS.
     pub public_url: String,
     /// Largest request body in megabytes. Attachments go through chunked
     /// uploads later, this only bounds a single request.
@@ -352,71 +355,6 @@ pub struct AuthConfig {
     /// The old grace period of account deletions, no longer read.
     #[serde(skip_serializing)]
     pub deletion_grace_days: Option<toml::Value>,
-}
-
-/// `[smtp]`. Off while `host` is empty: no email at all, so no password
-/// reset by email either.
-#[derive(Clone, PartialEq, Deserialize, Serialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct SmtpConfig {
-    /// Mail server.
-    pub host: String,
-    /// Its port. 587 for STARTTLS, 465 for TLS.
-    pub port: u16,
-    /// `starttls`, `tls`, or `none` for a relay on the same machine.
-    pub security: SmtpSecurity,
-    /// Login, empty for none.
-    pub username: String,
-    /// Password, best given through `SMTP__PASSWORD_FILE`.
-    pub password: String,
-    /// Sender, for example `Notes <notes@example.org>`.
-    pub from: String,
-}
-
-/// How the connection to the mail server is protected.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum SmtpSecurity {
-    /// Plain connection upgraded with STARTTLS, which must succeed.
-    Starttls,
-    /// TLS from the first byte.
-    Tls,
-    /// No encryption, only for a relay on the same machine or network.
-    None,
-}
-
-impl SmtpConfig {
-    /// Whether email is set up.
-    pub fn enabled(&self) -> bool {
-        !self.host.is_empty()
-    }
-}
-
-/// The password stays out of debug output, which can end up in logs.
-impl fmt::Debug for SmtpConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SmtpConfig")
-            .field("host", &self.host)
-            .field("port", &self.port)
-            .field("security", &self.security)
-            .field("username", &self.username)
-            .field("password", &"***")
-            .field("from", &self.from)
-            .finish()
-    }
-}
-
-impl Default for SmtpConfig {
-    fn default() -> Self {
-        Self {
-            host: String::new(),
-            port: 587,
-            security: SmtpSecurity::Starttls,
-            username: String::new(),
-            password: String::new(),
-            from: String::new(),
-        }
-    }
 }
 
 /// `[privacy]`, shown on the privacy page.
@@ -670,20 +608,6 @@ impl Config {
         ] {
             if value == 0 {
                 return Err(ConfigError::Invalid(format!("{key} must be at least 1")));
-            }
-        }
-        let smtp = &self.smtp;
-        if smtp.enabled() {
-            if smtp.from.parse::<lettre::message::Mailbox>().is_err() {
-                return Err(ConfigError::Invalid(format!(
-                    "smtp.from must be an address like \"Notes <notes@example.org>\", got {:?}",
-                    smtp.from
-                )));
-            }
-            if self.server.public_url.is_empty() {
-                return Err(ConfigError::Invalid(
-                    "email needs server.public_url, the links in it lead there".into(),
-                ));
             }
         }
         if !(1..=100).contains(&self.files.image_quality) {
@@ -947,34 +871,29 @@ mod tests {
     }
 
     #[test]
-    fn email_needs_a_sender_and_an_address_and_hides_its_password() {
-        let file = "[server]\npublic_url = \"https://notes.example.org\"\n[smtp]\nhost = \"mail.example.org\"\nfrom = \"Notes <notes@example.org>\"\npassword = \"p4ss\"\n";
-        let config = Config::from_sources(file, env(&[])).unwrap();
-        assert!(config.smtp.enabled());
-        assert_eq!(config.smtp.security, SmtpSecurity::Starttls);
-        assert!(!format!("{config:?}").contains("p4ss"));
-        let bad = Config::from_sources(
-            "[server]\npublic_url = \"https://n.example.org\"\n[smtp]\nhost = \"m\"\nfrom = \"nobody\"\n",
-            env(&[]),
+    fn an_old_smtp_section_still_starts() {
+        let dir = tempfile::tempdir().unwrap();
+        let secret = dir.path().join("p");
+        std::fs::write(&secret, "p4ss\n").unwrap();
+        let config = Config::from_sources(
+            "[smtp]\nhost = \"mail.example.org\"\nfrom = \"nobody\"\npassword = \"p4ss\"\n",
+            env(&[("FICELLE_SMTP__PASSWORD_FILE", secret.to_str().unwrap())]),
         )
-        .unwrap_err();
-        assert!(bad.to_string().contains("smtp.from"), "{bad}");
-        let no_url =
-            Config::from_sources("[smtp]\nhost = \"m\"\nfrom = \"n@example.org\"\n", env(&[]))
-                .unwrap_err();
-        assert!(no_url.to_string().contains("public_url"), "{no_url}");
+        .unwrap();
+        assert!(config.smtp.is_some());
+        assert!(!toml::to_string(&config).unwrap().contains("smtp"));
+        assert!(!format!("{config:?}").contains("p4ss"));
     }
 
     #[test]
     fn secrets_are_refused_from_plain_variables() {
-        for var in ["FICELLE_SMTP__PASSWORD", "FICELLE_SETUP__ADMIN_PASSWORD"] {
-            let refused = Config::from_sources("", env(&[(var, "hunter22")])).unwrap_err();
-            assert!(
-                refused.to_string().contains(&format!("{var}_FILE")),
-                "{refused}"
-            );
-            assert!(!refused.to_string().contains("hunter22"), "{refused}");
-        }
+        let var = "FICELLE_SETUP__ADMIN_PASSWORD";
+        let refused = Config::from_sources("", env(&[(var, "hunter22")])).unwrap_err();
+        assert!(
+            refused.to_string().contains(&format!("{var}_FILE")),
+            "{refused}"
+        );
+        assert!(!refused.to_string().contains("hunter22"), "{refused}");
         let dir = tempfile::tempdir().unwrap();
         let secret = dir.path().join("p");
         std::fs::write(
@@ -983,21 +902,9 @@ mod tests {
 ",
         )
         .unwrap();
-        let config = Config::from_sources(
-            "[smtp]
-password = \"in the file\"
-",
-            env(&[("FICELLE_SETUP__ALLOW_HTTP", "true")]),
-        )
-        .unwrap();
-        assert_eq!(config.smtp.password, "in the file");
+        let config =
+            Config::from_sources("", env(&[("FICELLE_SETUP__ALLOW_HTTP", "true")])).unwrap();
         assert!(config.setup.allow_http);
-        let config = Config::from_sources(
-            "",
-            env(&[("FICELLE_SMTP__PASSWORD_FILE", secret.to_str().unwrap())]),
-        )
-        .unwrap();
-        assert_eq!(config.smtp.password, "hunter22");
         let config = Config::from_sources(
             "",
             env(&[

@@ -3,7 +3,7 @@
 //! The instance's backups, set up by an admin: the folder on the server,
 //! the password, when, what to keep. Runs on a
 //! schedule in the background, the admin page shows how they went, a
-//! failure is logged and mailed to the admins. People back up their own
+//! failure is logged. People back up their own
 //! notes from their apps.
 
 pub mod instance;
@@ -358,7 +358,7 @@ fn remove_scratch(path: &Path) {
 }
 
 /// Backs the instance up now, then thins the snapshots by the policy.
-/// Records how it went, logs and mails a failure.
+/// Records how it went, logs a failure.
 ///
 /// # Errors
 ///
@@ -413,7 +413,6 @@ pub async fn run(state: &AppState, by: &str) -> Result<BackupStatus, String> {
         .await
         .map_err(|e| e.to_string())?;
     if let Some(why) = &status.last_error.clone().filter(|_| result.is_err()) {
-        alert(state, why).await;
         return Err(why.clone());
     }
     Ok(status)
@@ -482,39 +481,6 @@ async fn run_once(state: &AppState) -> Result<(RunReport, u64, u64), String> {
     .map_err(|e| e.to_string())?;
     remove_scratch(&dir);
     result
-}
-
-/// Mails the admins about a failed backup, when mail is set up.
-async fn alert(state: &AppState, why: &str) {
-    if !state.mailer.enabled() {
-        return;
-    }
-    let admins = state
-        .db
-        .call(|c| {
-            let mut stmt = c.prepare(
-                "SELECT email FROM users WHERE role = 'admin' AND email IS NOT NULL
-                 AND email_verified_at IS NOT NULL",
-            )?;
-            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
-            Ok(rows.filter_map(Result::ok).collect::<Vec<_>>())
-        })
-        .await
-        .unwrap_or_default();
-    for email in admins {
-        state.mailer.send(
-            &email,
-            format!("{}: the backup failed", app_brand::DISPLAY_NAME),
-            format!(
-                "The backup of {} failed:\n\n{why}\n\nSee the admin page, Backups.",
-                if state.config.server.public_url.is_empty() {
-                    app_brand::DISPLAY_NAME
-                } else {
-                    &state.config.server.public_url
-                }
-            ),
-        );
-    }
 }
 
 /// Runs backups on their schedule: a look every five minutes, a run when a

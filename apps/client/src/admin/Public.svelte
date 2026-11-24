@@ -1,8 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Pages anyone reaches without signing in: the link that confirms an
-     email address, the link that sets a new password, a new password with
-     the recovery code of an end-to-end encrypted account, and the privacy
-     page, written from the server's own settings. -->
+<!-- Pages anyone reaches without signing in: a new password with the
+     recovery code of an end-to-end encrypted account, and the privacy page,
+     written from the server's own settings. -->
 <script lang="ts">
   import PasswordField from '../lib/PasswordField.svelte'
   import { brand } from '@app/brand'
@@ -12,8 +11,7 @@
   import { recover } from './e2ee'
   import { errorText } from './format'
 
-  let { page, token = '' }: { page: 'verify' | 'reset' | 'recover' | 'privacy'; token?: string } =
-    $props()
+  let { page }: { page: 'recover' | 'privacy' } = $props()
 
   let busy = $state(false)
   let problem = $state('')
@@ -46,15 +44,6 @@
     return false
   }
 
-  async function resetPassword(event: SubmitEvent) {
-    event.preventDefault()
-    if (!samePasswords()) return
-    await attempt(async () => {
-      await api('POST', '/auth/reset/finish', { token, password })
-      done = t('admin.reset.done')
-    })
-  }
-
   async function recoverAccount(event: SubmitEvent) {
     event.preventDefault()
     if (!samePasswords()) return
@@ -66,15 +55,6 @@
     })
   }
 
-  async function verify() {
-    await attempt(async () => {
-      const answer = await api<{ username: string; email: string }>('POST', '/auth/email/verify', {
-        token,
-      })
-      done = t('admin.verify.done', { email: answer.email, name: answer.username })
-    })
-  }
-
   async function loadPrivacy() {
     await attempt(async () => {
       privacy = await api<PrivacyInfo>('GET', '/privacy')
@@ -82,7 +62,6 @@
   }
 
   onMount(() => {
-    if (page === 'verify') void verify()
     if (page === 'privacy') void loadPrivacy()
   })
 </script>
@@ -129,13 +108,6 @@
           </ul>
         {/if}
 
-        {#if privacy.email}
-          <h2>{t('admin.privacy.othersTitle')}</h2>
-          <ul>
-            <li>{t('admin.privacy.email')}</li>
-          </ul>
-        {/if}
-
         <h2>{t('admin.privacy.rightsTitle')}</h2>
         <ul>
           <li>{t('admin.privacy.export')}</li>
@@ -153,45 +125,12 @@
 {:else}
   <main class="screen">
     <div class="card">
-      {#if page === 'verify'}
-        <h1>{t('admin.verify.title')}</h1>
-        {#if busy}<p class="muted" aria-busy="true">{t('admin.loading')}</p>{/if}
-      {:else if page === 'reset'}
-        <h1>{t('admin.reset.title')}</h1>
-      {:else}
-        <h1>{t('admin.recover.title')}</h1>
-      {/if}
+      <h1>{t('admin.recover.title')}</h1>
 
       {#if done}
         <p role="status">{done}</p>
         <a class="btn" href="admin">{t('admin.public.back')}</a>
-      {:else if page === 'reset'}
-        <form onsubmit={resetPassword}>
-          <label>
-            {t('admin.reset.password')}
-            <PasswordField
-              class="field"
-              autocomplete="new-password"
-              required
-              bind:value={password}
-            />
-          </label>
-          <label>
-            {t('admin.signIn.again')}
-            <PasswordField
-              eye={false}
-              class="field"
-              autocomplete="new-password"
-              required
-              bind:value={again}
-            />
-          </label>
-          {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-          <button class="btn primary" type="submit" disabled={busy}
-            >{t('admin.reset.submit')}</button
-          >
-        </form>
-      {:else if page === 'recover'}
+      {:else}
         <p class="muted">{t('admin.recover.help')}</p>
         <form onsubmit={recoverAccount}>
           <label>
@@ -238,9 +177,6 @@
             >{t('admin.recover.submit')}</button
           >
         </form>
-      {:else if problem}
-        <p class="problem" role="alert">{problem}</p>
-        <a class="btn" href="admin">{t('admin.public.back')}</a>
       {/if}
     </div>
   </main>

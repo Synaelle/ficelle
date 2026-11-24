@@ -1,49 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Storage for what people manage themselves: their confirmed email, a
-//! pending deletion, and the export of everything the server keeps for
-//! them.
+//! Storage for what people manage themselves: a pending deletion, and the
+//! export of everything the server keeps for them.
 
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::Connection;
 use serde_json::{Value, json};
 
 use super::{e2ee, factors};
 use crate::db::DbError;
-
-/// The confirmed email of an account.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn email(conn: &Connection, user_id: &str) -> Result<Option<String>, DbError> {
-    Ok(conn
-        .query_row(
-            "SELECT email FROM users WHERE id = ?1 AND email_verified_at IS NOT NULL",
-            [user_id],
-            |r| r.get(0),
-        )
-        .optional()?
-        .flatten())
-}
-
-/// Keeps an address that was just confirmed, `None` clears it.
-///
-/// # Errors
-///
-/// Database errors only.
-pub fn set_email(
-    conn: &Connection,
-    user_id: &str,
-    email: Option<&str>,
-    now: i64,
-) -> Result<(), DbError> {
-    conn.execute(
-        "UPDATE users SET email = ?2, email_verified_at = CASE WHEN ?2 IS NULL THEN NULL ELSE ?3 END
-         WHERE id = ?1",
-        params![user_id, email, now],
-    )?;
-    super::store::end_resets(conn, user_id)
-}
 
 /// Deletes security log entries older than `before`.
 ///
@@ -90,8 +54,7 @@ fn sync_usage(conn: &Connection, user_id: &str) -> Result<Value, DbError> {
 pub fn export(conn: &Connection, user_id: &str, now: i64) -> Result<Value, DbError> {
     let account = rows(
         conn,
-        "SELECT id, username, display_name, role, kind, created_at, email, email_verified_at,
-                disabled_at, delete_at
+        "SELECT id, username, display_name, role, kind, created_at, disabled_at, delete_at
          FROM users WHERE id = ?1",
         user_id,
         &[
@@ -101,8 +64,6 @@ pub fn export(conn: &Connection, user_id: &str, now: i64) -> Result<Value, DbErr
             "role",
             "kind",
             "createdAt",
-            "email",
-            "emailConfirmedAt",
             "disabledAt",
             "deleteAt",
         ],

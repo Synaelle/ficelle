@@ -54,19 +54,6 @@
   let second: SecondFactorNeeded | null = $state(null)
   let factorCode = $state('')
   let recovery = $state(false)
-  /** A code by email was asked for: its field shows. */
-  let byEmail = $state(false)
-
-  async function sendEmailCode() {
-    const challenge = second?.challenge
-    if (!challenge) return
-    await attempt(async () => {
-      await api('POST', '/auth/second-factor/email', { challenge })
-      byEmail = true
-      recovery = false
-      factorCode = ''
-    })
-  }
 
   /** A passkey first. Not when signing an app in on a server that may hold
    * encrypted accounts: their notes open with the password only, the
@@ -122,7 +109,7 @@
     })
   }
 
-  async function sendFactor(method: 'totp' | 'recoveryCode' | 'passkey' | 'email') {
+  async function sendFactor(method: 'totp' | 'recoveryCode' | 'passkey') {
     const challenge = second?.challenge
     if (!challenge) return
     await attempt(async () => {
@@ -139,17 +126,8 @@
     })
   }
 
-  /** The forgotten password panel, and whether its mail was asked for. */
+  /** The forgotten password panel. */
   let forgot = $state(false)
-  let resetAsked = $state(false)
-
-  async function askReset(event: SubmitEvent) {
-    event.preventDefault()
-    await attempt(async () => {
-      await api('POST', '/auth/reset/request', { username })
-      resetAsked = true
-    })
-  }
 
   /** The second step's field takes the focus as it appears. */
   const focus = (field: HTMLElement) => field.focus()
@@ -159,7 +137,6 @@
     sealed = undefined
     factorCode = ''
     recovery = false
-    byEmail = false
     problem = ''
   }
 
@@ -167,7 +144,7 @@
     event.preventDefault()
     problem = ''
     if (second) {
-      await sendFactor(recovery ? 'recoveryCode' : byEmail ? 'email' : 'totp')
+      await sendFactor(recovery ? 'recoveryCode' : 'totp')
       return
     }
     await attempt(async () => {
@@ -187,10 +164,7 @@
         if ('challenge' in answer) {
           second = answer
           password = ''
-          recovery =
-            !answer.methods.includes('totp') &&
-            !answer.methods.includes('passkey') &&
-            !answer.methods.includes('email')
+          recovery = !answer.methods.includes('totp') && !answer.methods.includes('passkey')
         } else signedIn(answer)
       }
     })
@@ -223,20 +197,6 @@
             bind:value={factorCode}
           />
         </label>
-      {:else if byEmail}
-        <p class="muted">{t('admin.signIn.emailCodeSent')}</p>
-        <label>
-          {t('admin.signIn.emailCode')}
-          <input
-            class="field mono"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            maxlength="7"
-            required
-            {@attach focus}
-            bind:value={factorCode}
-          />
-        </label>
       {:else if second.methods.includes('totp')}
         <label>
           {t('admin.signIn.totpCode')}
@@ -252,27 +212,11 @@
         </label>
       {/if}
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-      {#if second.methods.includes('email') && !recovery && !byEmail}
-        <button
-          class={second.methods.length === 1 ||
-          (second.methods.length === 2 && second.methods.includes('recoveryCode'))
-            ? 'btn primary'
-            : 'btn'}
-          type="button"
-          disabled={busy}
-          onclick={sendEmailCode}>{t('admin.signIn.sendEmailCode')}</button
-        >
-      {/if}
-      {#if recovery || byEmail || second.methods.includes('totp')}
+      {#if recovery || second.methods.includes('totp')}
         <button class="btn primary" type="submit" disabled={busy}>{t('admin.signIn.submit')}</button
         >
       {/if}
       <div class="links">
-        {#if byEmail}
-          <button class="link" type="button" disabled={busy} onclick={sendEmailCode}
-            >{t('admin.signIn.resendEmailCode')}</button
-          >
-        {/if}
         {#if second.methods.includes('recoveryCode')}
           <button
             class="link"
@@ -287,38 +231,19 @@
       </div>
     </form>
   {:else if forgot}
-    <form class="card" onsubmit={askReset}>
+    <div class="card">
       <h1>{t('admin.forgot.title')}</h1>
-      {#if resetAsked}
-        <p role="status">{t('admin.forgot.sent')}</p>
-      {:else if options?.emailReset}
-        <p class="muted">{t('admin.forgot.help')}</p>
-        <label>
-          {t('admin.username')}
-          <input
-            class="field"
-            autocomplete="username"
-            spellcheck="false"
-            required
-            bind:value={username}
-          />
-        </label>
-        {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-        <button class="btn primary" type="submit" disabled={busy}>{t('admin.forgot.send')}</button>
-      {:else}
-        <p class="muted">{t('admin.forgot.noEmail')}</p>
-      {/if}
+      <p class="muted">
+        {t('admin.forgot.command', { command: `${brand.serverBinary} admin reset` })}
+      </p>
       <p class="muted">{t('admin.forgot.e2ee')}</p>
       <div class="links">
         <a class="link" href="recover">{t('admin.forgot.recover')}</a>
-        <button
-          class="link"
-          type="button"
-          onclick={() => ((forgot = false), (resetAsked = false), (problem = ''))}
+        <button class="link" type="button" onclick={() => ((forgot = false), (problem = ''))}
           >{t('admin.forgot.back')}</button
         >
       </div>
-    </form>
+    </div>
   {:else if mode === 'setup'}
     <div class="card">
       <h1>{t('admin.signIn.setupTitle')}</h1>

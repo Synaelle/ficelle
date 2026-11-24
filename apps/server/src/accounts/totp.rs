@@ -93,18 +93,6 @@ pub fn qr_svg(uri: &str) -> String {
     )
 }
 
-/// Six random digits for a code by email.
-///
-/// # Panics
-///
-/// When the operating system cannot provide random bytes.
-pub fn email_code() -> String {
-    let mut bytes = [0u8; 8];
-    getrandom::fill(&mut bytes).expect("the system random source works");
-    // 2^64 is not a multiple of a million, but the bias is below 1e-13
-    format!("{:06}", u64::from_le_bytes(bytes) % 1_000_000)
-}
-
 /// New recovery codes and their hashes: 12 characters of Crockford base32
 /// in groups of four, 60 random bits each.
 ///

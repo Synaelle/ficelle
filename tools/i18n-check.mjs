@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Lists translation problems. English (en.toml) is the reference. The admin
-// page's and the mails' texts (server/texts.toml) are English only, they are
-// checked for use and never translated.
+// page's texts (server/texts.toml) are English only, they are checked for use
+// and never translated.
 // Fails on: placeholders that differ from English, and keys used in the code
 // that English lacks.
 // Warns on: keys a language has not translated yet (the app shows the English
@@ -9,9 +9,8 @@
 // does not.
 //
 // Code usage is found from any quoted string that is a key, so a key passed
-// through a helper or a ternary counts, and tr("a.b") in the server's
-// rust. A template like `errors.${kind}` marks every key under errors. as
-// used.
+// through a helper or a ternary counts. A template like `errors.${kind}`
+// marks every key under errors. as used.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -52,20 +51,6 @@ for (const file of sourceFiles(srcDir)) {
     if (known(english) || known(server)) used.add(key)
   }
   for (const m of code.matchAll(/`([\w-]+\.[\w.-]*)\$\{/g)) prefixes.add(m[1])
-}
-// the server's emails: tr("mail.reset.subject") in rust
-const serverDir = join(localesDir, '..', '..', 'apps', 'server', 'src')
-/** @param {string} dir @returns {string[]} */
-function rustFiles(dir) {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name)
-    if (statSync(path).isDirectory()) return rustFiles(path)
-    return name.endsWith('.rs') ? [path] : []
-  })
-}
-for (const file of rustFiles(serverDir)) {
-  const code = readFileSync(file, 'utf8')
-  for (const m of code.matchAll(/\btr\(\s*"([\w.-]+)"/g)) used.add(m[1])
 }
 // the web version's own wording of a text, see apps/client/src/lib/i18n.svelte.ts
 /** @type {(key: string) => boolean} */

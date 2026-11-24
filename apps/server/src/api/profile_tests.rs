@@ -1,274 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Email, password reset, export and the privacy facts, through
-//! the full router with mail kept in memory.
+//! The export and the privacy facts, and a server that sent email before,
+//! through the full router.
 
-use axum::Router;
 use axum::http::StatusCode;
 use serde_json::json;
 
-use super::tests::{admin_on, call, events, login, server_with, with_admin};
-use crate::config::Config;
-use crate::mail::TEST_HOST;
-use crate::routes::AppState;
+use super::tests::{admin_on, call, login, server_with, with_admin};
+use crate::config::{AuthConfig, Config};
+use crate::db::Db;
+use crate::routes::{AppState, router};
 
 const PASSWORD: &str = "admin password";
 
-async fn with_mail() -> (AppState, Router, String) {
-    let mut config = Config::default();
-    config.server.public_url = "https://notes.example.org".into();
-    config.smtp.host = TEST_HOST.into();
-    config.smtp.from = "Notes <notes@example.org>".into();
-    config.privacy.operator = "Le club".into();
-    admin_on(server_with(config).await).await
-}
-
-/// The path of the link in the last mail, after the server address.
-fn last_link(state: &AppState) -> String {
-    let sent = state.mailer.sent();
-    let body = &sent.last().expect("a mail was sent").body;
-    let start = body
-        .find("https://notes.example.org/")
-        .expect("a link in the mail");
-    body[start + "https://notes.example.org".len()..]
-        .split_whitespace()
-        .next()
-        .unwrap()
-        .to_owned()
-}
-
-async fn confirmed_email(state: &AppState, app: &Router, token: &str) {
-    let (status, _) = call(
-        app,
-        "PUT",
-        "/me/email",
-        Some(token),
-        Some(json!({ "email": "Admin@Example.org", "password": PASSWORD })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::ACCEPTED);
-    let link = last_link(state);
-    let verify = link.strip_prefix("/verify/").unwrap();
-    let (status, body) = call(
-        app,
-        "POST",
-        "/auth/email/verify",
-        None,
-        Some(json!({ "token": verify })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-}
-
-#[tokio::test]
-async fn an_address_is_kept_once_its_link_is_opened() {
-    let (state, app, token) = with_mail().await;
-    let (status, body) = call(
-        &app,
-        "PUT",
-        "/me/email",
-        Some(&token),
-        Some(json!({ "email": "admin@example.org" })),
-    )
-    .await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::FORBIDDEN, Some("confirmNeeded"))
-    );
-    let (status, _) = call(
-        &app,
-        "PUT",
-        "/me/email",
-        Some(&token),
-        Some(json!({ "email": "not an address", "password": PASSWORD })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-
-    let (status, _) = call(
-        &app,
-        "PUT",
-        "/me/email",
-        Some(&token),
-        Some(json!({ "email": "Admin@Example.ORG", "password": PASSWORD })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::ACCEPTED);
-    let sent = state.mailer.sent();
-    assert_eq!(sent[0].to, "Admin@example.org");
-    assert_eq!(sent[0].subject, "Confirm your email address");
-    assert!(sent[0].body.starts_with("Hello admin,"), "{}", sent[0].body);
-    let (_, security) = call(&app, "GET", "/me/security", Some(&token), None).await;
-    assert!(security.get("email").is_none(), "not before the link");
-    assert_eq!(security["emailAvailable"], true);
-
-    let link = last_link(&state);
-    let verify = link.strip_prefix("/verify/").unwrap();
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/auth/email/verify",
-        None,
-        Some(json!({ "token": verify })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["email"], "Admin@example.org");
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/auth/email/verify",
-        None,
-        Some(json!({ "token": verify })),
-    )
-    .await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::BAD_REQUEST, Some("linkInvalid")),
-        "a link works once"
-    );
-    let (_, security) = call(&app, "GET", "/me/security", Some(&token), None).await;
-    assert_eq!(security["email"], "Admin@example.org");
-    assert!(events(&state).await.iter().any(|e| e == "email_confirmed"));
-}
-
-#[tokio::test]
-async fn without_smtp_there_is_no_email_and_no_reset() {
-    let (_, app, token) = with_admin().await;
-    let (_, options) = call(&app, "GET", "/auth/options", None, None).await;
-    assert_eq!(options["emailReset"], false);
-    let (status, body) = call(
-        &app,
-        "PUT",
-        "/me/email",
-        Some(&token),
-        Some(json!({ "email": "a@example.org", "password": PASSWORD })),
-    )
-    .await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::NOT_FOUND, Some("mailOff"))
-    );
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/auth/reset/request",
-        None,
-        Some(json!({ "username": "admin" })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-}
-
-#[tokio::test]
-async fn a_reset_link_sets_a_new_password_and_signs_everyone_out() {
-    let (state, app, token) = with_mail().await;
-    let reset = |name: &'static str| {
-        let app = app.clone();
-        async move {
-            call(
-                &app,
-                "POST",
-                "/auth/reset/request",
-                None,
-                Some(json!({ "username": name })),
-            )
-            .await
-            .0
-        }
-    };
-    // no address yet, and nobody called that: the same answer, no mail
-    assert_eq!(reset("admin").await, StatusCode::ACCEPTED);
-    assert_eq!(reset("ghost").await, StatusCode::ACCEPTED);
-    assert!(state.mailer.sent().is_empty());
-
-    confirmed_email(&state, &app, &token).await;
-    assert_eq!(reset("ADMIN").await, StatusCode::ACCEPTED);
-    let link = last_link(&state);
-    let reset_token = link.strip_prefix("/reset/").unwrap().to_owned();
-    assert_eq!(
-        state.mailer.sent().last().unwrap().subject,
-        "Set a new password"
-    );
-
-    let finish = |password: &'static str| {
-        let app = app.clone();
-        let reset_token = reset_token.clone();
-        async move {
-            call(
-                &app,
-                "POST",
-                "/auth/reset/finish",
-                None,
-                Some(json!({ "token": reset_token, "password": password })),
-            )
-            .await
-        }
-    };
-    let (status, body) = finish("admin").await;
-    assert_eq!(
-        (status, body["error"].as_str()),
-        (StatusCode::BAD_REQUEST, Some("passwordWeak"))
-    );
-    let (status, _) = finish("brand new password").await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-    let (status, _) = finish("another new password").await;
-    assert_eq!(status, StatusCode::BAD_REQUEST, "the link works once");
-
-    let (status, _) = call(&app, "GET", "/me", Some(&token), None).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "every device signed out");
-    assert_eq!(
-        login(&app, "admin", PASSWORD).await.0,
-        StatusCode::UNAUTHORIZED
-    );
-    assert_eq!(
-        login(&app, "admin", "brand new password").await.0,
-        StatusCode::OK
-    );
-    let sent = state.mailer.sent();
-    assert_eq!(sent.last().unwrap().subject, "Your password was changed");
-    assert!(
-        events(&state)
-            .await
-            .iter()
-            .any(|e| e == "password_reset_by_email")
-    );
-}
-
-#[tokio::test]
-async fn an_expired_reset_link_does_nothing() {
-    let (state, app, token) = with_mail().await;
-    confirmed_email(&state, &app, &token).await;
-    call(
-        &app,
-        "POST",
-        "/auth/reset/request",
-        None,
-        Some(json!({ "username": "admin" })),
-    )
-    .await;
-    let link = last_link(&state);
-    state.clock.advance(2 * 60 * 60 * 1000);
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/auth/reset/finish",
-        None,
-        Some(json!({ "token": link.strip_prefix("/reset/").unwrap(), "password": "brand new password" })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(login(&app, "admin", PASSWORD).await.0, StatusCode::OK);
-}
-
 #[tokio::test]
 async fn the_export_holds_the_account_but_no_secret() {
-    let (state, app, token) = with_mail().await;
-    confirmed_email(&state, &app, &token).await;
+    let (_, app, token) = with_admin().await;
     let (status, export) = call(&app, "GET", "/me/export", Some(&token), None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(export["account"]["username"], "admin");
-    assert_eq!(export["account"]["email"], "Admin@example.org");
+    assert!(export["account"].get("email").is_none());
     assert_eq!(export["devices"].as_array().unwrap().len(), 1);
     assert!(
         export["securityLog"]
@@ -284,12 +35,14 @@ async fn the_export_holds_the_account_but_no_secret() {
 
 #[tokio::test]
 async fn privacy_facts_come_from_the_configuration() {
-    let (_, app, _) = with_mail().await;
+    let mut config = Config::default();
+    config.privacy.operator = "Le club".into();
+    let (_, app, _) = admin_on(server_with(config).await).await;
     let (status, info) = call(&app, "GET", "/privacy", None, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(info["operator"], "Le club");
     assert!(info.get("contact").is_none());
-    assert_eq!(info["email"], true);
+    assert_eq!(info["email"], false);
     assert_eq!(info["auditDays"], 365);
     assert!(info.get("accountKinds").is_none());
     // feedback: not taken here by default, people's reports go to the project
@@ -305,91 +58,100 @@ async fn privacy_facts_come_from_the_configuration() {
     );
 }
 
-/// The six digits of the last mail.
-fn last_code(state: &AppState) -> String {
-    let sent = state.mailer.sent();
-    let body = &sent.last().expect("a mail was sent").body;
-    body.split_whitespace()
-        .find(|w| w.len() == 6 && w.bytes().all(|b| b.is_ascii_digit()))
-        .expect("a code in the mail")
-        .to_owned()
+#[tokio::test]
+async fn nothing_about_email_answers_any_more() {
+    let (_, app, token) = with_admin().await;
+    let (_, options) = call(&app, "GET", "/auth/options", None, None).await;
+    assert_eq!(options["emailReset"], false);
+    let (_, security) = call(&app, "GET", "/me/security", Some(&token), None).await;
+    assert_eq!(
+        (&security["emailAvailable"], &security["emailCodes"]),
+        (&json!(false), &json!(false))
+    );
+    for (method, path) in [
+        ("PUT", "/me/email"),
+        ("POST", "/auth/email/verify"),
+        ("POST", "/auth/reset/request"),
+        ("POST", "/auth/reset/finish"),
+        ("POST", "/me/email-codes/enable"),
+        ("POST", "/auth/second-factor/email"),
+    ] {
+        let (status, _) = call(&app, method, path, Some(&token), Some(json!({}))).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method} {path}");
+    }
 }
 
 #[tokio::test]
-async fn a_code_by_email_as_the_second_step() {
-    let (state, app, token) = with_mail().await;
-    // not without a confirmed address
-    let (status, _) = call(&app, "POST", "/me/email-codes/enable", Some(&token), None).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    confirmed_email(&state, &app, &token).await;
-    let (status, _) = call(&app, "POST", "/me/email-codes/enable", Some(&token), None).await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-    let (_, security) = call(&app, "GET", "/me/security", Some(&token), None).await;
-    assert_eq!(security["emailCodes"], true);
+async fn an_admin_whose_second_step_was_codes_by_email_still_signs_in_after_the_upgrade() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config {
+        auth: AuthConfig {
+            argon2_memory_kib: 64,
+            argon2_iterations: 1,
+            ..AuthConfig::default()
+        },
+        ..Config::default()
+    };
+    // the hash as the older server made it, with the same settings
+    let (made, _) = server_with(config.clone()).await;
+    let hash = super::auth::hash_password(&made, PASSWORD.into())
+        .await
+        .unwrap();
+    let old = Db::open_before(dir.path(), "DROP TABLE email_codes;").unwrap();
+    old.call(move |c| {
+        let user = crate::accounts::store::insert_user(
+            c,
+            "admin",
+            "Admin",
+            &hash,
+            app_protocol::account::Role::Admin,
+            1,
+        )?
+        .unwrap();
+        c.execute(
+            "UPDATE users SET email = 'admin@example.org', email_verified_at = 1,
+                 email_codes = 1, factor_required = 0 WHERE id = ?1",
+            [&user.id],
+        )?;
+        c.execute(
+            "INSERT INTO recovery_codes (user_id, hash) VALUES (?1, x'01')",
+            [&user.id],
+        )?;
+        c.execute(
+            "INSERT INTO email_codes (challenge, code, expires_at) VALUES (x'02', x'03', 9)",
+            [],
+        )?;
+        crate::setup::lock(c)?;
+        Ok(())
+    })
+    .await
+    .unwrap();
+    drop(old);
 
-    // the password asks for the code next
-    let (status, needed) = login(&app, "admin", PASSWORD).await;
-    assert_eq!(status, StatusCode::ACCEPTED, "{needed}");
-    assert_eq!(needed["methods"], json!(["email"]));
-    let challenge = needed["challenge"].clone();
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/auth/second-factor/email",
-        None,
-        Some(json!({ "challenge": challenge })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-    let code = last_code(&state);
-    let answer = |code: &str| json!({ "challenge": challenge, "method": "email", "code": code });
-    let wrong = if code == "000000" { "111111" } else { "000000" };
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/auth/second-factor",
-        None,
-        Some(answer(wrong)),
-    )
-    .await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED);
-    let (status, session) = call(
-        &app,
-        "POST",
-        "/auth/second-factor",
-        None,
-        Some(answer(&code)),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{session}");
-
-    // a few codes per sign-in at most
-    let (_, needed) = login(&app, "admin", PASSWORD).await;
-    let ask = json!({ "challenge": needed["challenge"] });
-    for _ in 0..crate::accounts::factors::EMAIL_SENDS {
-        let (status, _) = call(
-            &app,
-            "POST",
-            "/auth/second-factor/email",
-            None,
-            Some(ask.clone()),
-        )
-        .await;
-        assert_eq!(status, StatusCode::NO_CONTENT);
-    }
-    let (status, _) = call(&app, "POST", "/auth/second-factor/email", None, Some(ask)).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED);
-
-    // off again with the password, then the password alone signs in
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/me/email-codes/disable",
-        Some(&token),
-        Some(json!({ "password": PASSWORD })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-    let (status, _) = login(&app, "admin", PASSWORD).await;
-    assert_eq!(status, StatusCode::OK);
+    let state = AppState::for_tests(config, Db::open(dir.path()).unwrap());
+    let app = router(state.clone());
+    let (status, session) = login(&app, "admin", PASSWORD).await;
+    assert_eq!(status, StatusCode::OK, "the password alone, {session}");
+    assert_eq!(session["user"]["factorRequired"], true);
+    let token = session["accessToken"].as_str().unwrap();
+    let (status, body) = call(&app, "GET", "/admin/overview", Some(token), None).await;
+    assert_eq!(
+        (status, body["error"].as_str()),
+        (StatusCode::FORBIDDEN, Some("secondFactorRequired")),
+        "a passkey or an authenticator app first"
+    );
+    let (_, security) = call(&app, "GET", "/me/security", Some(token), None).await;
+    assert_eq!(security["recoveryCodesLeft"], 0);
+    let columns: i64 = state
+        .db
+        .call(|c| {
+            Ok(c.query_row(
+                "SELECT count(*) FROM pragma_table_info('users') WHERE name LIKE 'email%'",
+                [],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(columns, 0);
 }

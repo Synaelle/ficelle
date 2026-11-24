@@ -47,7 +47,6 @@ pub fn router() -> Router<AppState> {
         .route("/admin/checklist/restore", post(updates::restore))
         .route("/auth/login", post(auth::login))
         .route("/auth/second-factor", post(second_factor::second_factor))
-        .route("/auth/second-factor/email", post(second_factor::email_code))
         .route("/auth/kind", post(e2ee::kind))
         .route("/auth/opaque/registration", post(e2ee::registration))
         .route("/auth/opaque/login/start", post(e2ee::login_start))
@@ -58,13 +57,6 @@ pub fn router() -> Router<AppState> {
         .route("/me/confirm/finish", post(e2ee::confirm_finish))
         .route("/me/keys", get(e2ee::keys))
         .route("/me/e2ee/strengthen", post(e2ee::strengthen))
-        .route(
-            "/me/email",
-            put(profile::set_email).delete(profile::remove_email),
-        )
-        .route("/auth/email/verify", post(profile::verify_email))
-        .route("/auth/reset/request", post(profile::reset_request))
-        .route("/auth/reset/finish", post(profile::reset_finish))
         .route("/me/export", get(profile::export))
         .route("/privacy", get(profile::privacy))
         .route("/auth/passkey/start", post(passkeys::sign_in_start))
@@ -77,11 +69,6 @@ pub fn router() -> Router<AppState> {
         .route("/me/totp/setup", post(security::totp_setup))
         .route("/me/totp/confirm", post(security::totp_confirm))
         .route("/me/totp/disable", post(security::totp_disable))
-        .route("/me/email-codes/enable", post(security::email_codes_enable))
-        .route(
-            "/me/email-codes/disable",
-            post(security::email_codes_disable),
-        )
         .route("/me/recovery-codes", post(security::new_recovery_codes))
         .route("/me/passkeys/start", post(passkeys::add_start))
         .route("/me/passkeys/finish", post(passkeys::add_finish))

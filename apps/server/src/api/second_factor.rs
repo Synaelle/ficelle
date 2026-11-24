@@ -7,9 +7,7 @@
 
 use app_protocol::account::{DeviceInfo, Session};
 use app_protocol::error_code;
-use app_protocol::security::{
-    EmailCodeRequest, SecondFactor, SecondFactorNeeded, SecondFactorRequest,
-};
+use app_protocol::security::{SecondFactor, SecondFactorNeeded, SecondFactorRequest};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -32,8 +30,6 @@ use crate::routes::AppState;
 const CHALLENGE_LIFE: i64 = 5 * MINUTE;
 /// Wrong answers before the challenge is dropped.
 const MAX_ATTEMPTS: i64 = 5;
-/// How long a code sent by email works.
-const EMAIL_CODE_LIFE: i64 = 10 * MINUTE;
 
 /// What the password step keeps for the second.
 #[derive(Debug, Serialize, Deserialize)]
@@ -60,7 +56,6 @@ pub(super) async fn ask(
     };
     let (options, check) = started.unzip();
     let id = user.id.clone();
-    let mail = state.mailer.enabled();
     let found = state
         .db
         .call(move |c| {
@@ -71,10 +66,6 @@ pub(super) async fn ask(
             }
             if totp {
                 methods.push(SecondFactor::Totp);
-            }
-            // the weakest last, and only while mail goes out
-            if mail && factors::email_codes(c, &id)?.is_some() {
-                methods.push(SecondFactor::Email);
             }
             if methods.is_empty() {
                 return Ok(None);
@@ -113,8 +104,6 @@ fn invalid() -> Error {
 
 /// A second factor as sent.
 struct Answer<'a> {
-    /// The hash of the sign-in's challenge, which a code by email is kept by.
-    challenge: &'a token::TokenHash,
     method: SecondFactor,
     code: &'a str,
     webauthn: Option<&'a Webauthn>,
@@ -165,8 +154,9 @@ fn check_answer(
             }
             checked.map(|_| "passkey".to_owned())
         }
-        SecondFactor::Email => factors::use_email_code(tx, answer.challenge, answer.code, now)?
-            .then(|| "code by email".to_owned()),
+        // the server sends no codes by email, an older page may still
+        // answer with one
+        SecondFactor::Email => None,
     })
 }
 
@@ -218,7 +208,6 @@ pub async fn second_factor(
         .call(move |c| {
             let tx = c.transaction()?;
             let answer = Answer {
-                challenge: &hash,
                 method,
                 code: &code,
                 webauthn: webauthn.as_deref(),
@@ -258,56 +247,4 @@ pub async fn second_factor(
     let how = outcome.ok_or_else(invalid)?;
     let session = finish_sign_in(&state, user, device, &ip.0.to_string(), Some(how)).await?;
     Ok(Json(session))
-}
-
-/// `POST /api/v1/auth/second-factor/email`: sends a code to the account
-/// signing in, when codes by email are its second step. Answers the same
-/// whether or not a mail went, a few times per sign-in at most.
-pub async fn email_code(
-    State(state): State<AppState>,
-    ip: ClientIp,
-    Body(req): Body<EmailCodeRequest>,
-) -> Result<StatusCode, Error> {
-    rate_limit(&state, ip)?;
-    if !state.mailer.enabled() {
-        return Err(invalid());
-    }
-    let now = state.clock.now();
-    let hash = token::hash(req.challenge.trim());
-    let code = totp::email_code();
-    let kept = code.clone();
-    let found = state
-        .db
-        .call(move |c| {
-            let Some(challenge) =
-                factors::challenge::<Pending>(c, &hash, ChallengeKind::SecondFactor, now)?
-            else {
-                return Ok(None);
-            };
-            let Some(id) = challenge.user_id else {
-                return Ok(None);
-            };
-            let Some(user) = store::user_by_id(c, &id)? else {
-                return Ok(None);
-            };
-            let Some(to) = factors::email_codes(c, &id)? else {
-                return Ok(None);
-            };
-            if !factors::keep_email_code(c, &hash, &kept, now + EMAIL_CODE_LIFE)? {
-                return Ok(None);
-            }
-            Ok(Some((to, user)))
-        })
-        .await?;
-    let (to, user) = found.ok_or_else(invalid)?;
-    let subject = crate::mail::tr("mail.code.subject", &[]);
-    let body = crate::mail::tr(
-        "mail.code.body",
-        &[("username", &user.username), ("code", &code)],
-    );
-    let greeting = crate::mail::tr("mail.greeting", &[("name", &user.display_name)]);
-    state
-        .mailer
-        .send(&to, subject, format!("{greeting}\n\n{body}\n"));
-    Ok(StatusCode::NO_CONTENT)
 }

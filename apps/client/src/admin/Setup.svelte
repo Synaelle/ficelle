@@ -4,7 +4,7 @@
      address bar. Then: health checks of the way in (https, the proxy's
      headers, WebSocket, upload size, clock), the admin with a passkey first
      or an authenticator app, its recovery codes, and the first choices made
-     with the admin's session: accounts, files, mail, backups. -->
+     with the admin's session: accounts, files, backups. -->
 <script lang="ts">
   import { COPIED_MS } from '../lib/clipboard'
   import PasswordField from '../lib/PasswordField.svelte'
@@ -41,7 +41,6 @@
     hostMatches: boolean
     serverTime: number
     partBytes: number
-    mail: boolean
   }
   type State = 'running' | 'ok' | 'warn' | 'fail'
   interface Check {
