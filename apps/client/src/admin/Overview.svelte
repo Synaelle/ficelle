@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The server at a glance: a strip of its state (devices, storage, the
-     last backup, the web version, new feedback), what needs a look, and its
-     on or off settings. -->
+     last backup, new feedback), what needs a look, and its on or off
+     settings. -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte'
   import { overlay } from '../lib/overlay.svelte'
-  import { api, sectionHref, type Overview, type StorageOverview, type WebView } from './api.svelte'
+  import { api, sectionHref, type Overview, type StorageOverview } from './api.svelte'
   import Checklist from './Checklist.svelte'
   import { bytes, errorText, relative } from './format'
 
@@ -24,7 +24,6 @@
   let overview: Overview | null = $state(null)
   let storage: StorageOverview | null = $state(null)
   let backups = $state<Backups | null>(null)
-  let web: WebView | null = $state(null)
   let newReports: number | null = $state(null)
   let updates: Updates | null = $state(null)
   let problem = $state('')
@@ -32,11 +31,10 @@
 
   async function load() {
     try {
-      ;[overview, storage, backups, web, updates] = await Promise.all([
+      ;[overview, storage, backups, updates] = await Promise.all([
         api<Overview>('GET', '/admin/overview'),
         api<StorageOverview>('GET', '/admin/storage'),
         api<Backups>('GET', '/admin/backups'),
-        api<WebView>('GET', '/admin/web'),
         api<Updates>('GET', '/admin/updates'),
       ])
       newReports = (
@@ -110,15 +108,6 @@
       <a href={sectionHref('backups')}>
         <span class="k">{t('admin.overview.lastBackup')}</span>
         <span class={['v', lastBackup.tone]}>{lastBackup.v}</span>
-      </a>
-    {/if}
-    {#if web}
-      <a href={sectionHref('web')}>
-        <span class="k">{t('admin.web.title')}</span>
-        <span class="v"
-          >{web.access === 'off' ? t('admin.account.off') : t('admin.account.on')}</span
-        >
-        <span class="s">{t(`admin.web.short_${web.access}`)}</span>
       </a>
     {/if}
     {#if newReports !== null}

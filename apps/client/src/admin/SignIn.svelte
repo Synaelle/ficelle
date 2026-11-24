@@ -34,7 +34,7 @@
     setup: boolean
     options?: AuthOptions | null
     initialProblem?: string
-    /** In place of the admin page's title, for the web version's sign-in. */
+    /** In place of the admin page's title, for connecting an app. */
     heading?: string
     /** Signing an app in: an encrypted account's export key is sealed to it. */
     forApp?: AppKey

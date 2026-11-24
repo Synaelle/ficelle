@@ -26,7 +26,6 @@ mod setup;
 mod sync;
 mod updates;
 mod web;
-mod webapp;
 
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -411,7 +410,6 @@ fn spawn_cleanup(state: AppState) {
                 .call(move |c| {
                     Ok(accounts::store::cleanup(c, now)?
                         + accounts::profile::trim_audit(c, now - keep)?
-                        + webapp::cleanup(c, now)?
                         + app_codes::cleanup(c, now)?
                         + app_links::cleanup(c, now)?)
                 })

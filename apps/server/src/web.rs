@@ -3,9 +3,8 @@
 //! The admin page and its files, from `server.web_dir` (the web build of the
 //! client). `/admin` is the page, `/assets/...` its scripts, styles and
 //! fonts.
-//! `/` leads to the admin page. The web version is apart, see
-//! [`crate::webapp`]. Without
-//! `web_dir` these paths answer 404 like any unknown path.
+//! `/` leads to the admin page. Without `web_dir` these paths answer 404
+//! like any unknown path.
 
 use std::path::{Path, PathBuf};
 
@@ -62,16 +61,14 @@ async fn to_admin(State(state): State<AppState>) -> Redirect {
 
 /// The page, told where it lives: its assets and every address it builds
 /// are relative to the `<base>` added here, so it works under any path.
-pub(crate) async fn admin_page(State(state): State<AppState>) -> Result<Response, Error> {
+async fn admin_page(State(state): State<AppState>) -> Result<Response, Error> {
     let path = web_dir(&state)?.join("admin.html");
     let html = tokio::fs::read_to_string(&path)
         .await
         .map_err(|_| Error::not_found())?;
-    // and where the web version is, its sign-in is this page too
     let base = format!(
-        "<head>\n    <base href=\"{}/\" />\n    <meta name=\"web-path\" content=\"{}/\" />",
-        state.config.base_path(),
-        state.config.web_path()
+        "<head>\n    <base href=\"{}/\" />",
+        state.config.base_path()
     );
     let html = html.replacen("<head>", &base, 1);
     Ok(respond(
@@ -136,7 +133,7 @@ async fn font(
     Ok(respond(bytes, "font/woff2", "public, max-age=604800"))
 }
 
-pub(crate) fn respond(body: Vec<u8>, kind: &'static str, cache: &'static str) -> Response {
+fn respond(body: Vec<u8>, kind: &'static str, cache: &'static str) -> Response {
     let mut response = (StatusCode::OK, body).into_response();
     let headers = response.headers_mut();
     headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(kind));
@@ -149,7 +146,7 @@ pub(crate) fn respond(body: Vec<u8>, kind: &'static str, cache: &'static str) ->
     response
 }
 
-pub(crate) fn content_type(file: &str) -> &'static str {
+fn content_type(file: &str) -> &'static str {
     match file.rsplit('.').next().unwrap_or("") {
         "js" | "mjs" => "text/javascript; charset=utf-8",
         "css" => "text/css; charset=utf-8",

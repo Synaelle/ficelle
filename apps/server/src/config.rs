@@ -199,18 +199,11 @@ pub struct ServerConfig {
     /// the path of `public_url`. Empty when the proxy removes the path
     /// before passing requests on.
     pub base_path: Option<String>,
-    /// Where the web version is served below `base_path`, `/app` when unset.
-    /// For a server that shares its address with a site already using
-    /// `/app`: `/notes-web`. One plain name, none of the server's own.
-    pub web_path: Option<String>,
+    /// The old path of the web version, no longer read: the server no
+    /// longer serves it, a config that still sets it starts.
+    #[serde(skip_serializing)]
+    pub web_path: Option<toml::Value>,
 }
-
-/// The first part of every path the server answers itself, or answered
-/// once (`invite`), which the web version's path must not take.
-const SERVER_PATHS: &[&str] = &[
-    "api", "admin", "assets", "fonts", "invite", "verify", "reset", "recover", "privacy", "setup",
-    "connect", "link", "health",
-];
 
 impl ServerConfig {
     /// Whether `ip` is one of the trusted proxies.
@@ -651,18 +644,6 @@ impl Config {
                 "server.base_path must look like /notes (letters, digits, - _ . ~, no slash at the end), got {base:?}"
             )));
         }
-        let web = self.web_path();
-        let name = web.strip_prefix('/').unwrap_or_default();
-        let plain = !name.is_empty()
-            && name
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '~'))
-            && !name.starts_with('.');
-        if !plain || SERVER_PATHS.contains(&name) {
-            return Err(ConfigError::Invalid(format!(
-                "server.web_path must be one plain name like /notes-web, none of the server's own paths, got {web:?}"
-            )));
-        }
         if self.server.max_body_mb == 0 {
             return Err(ConfigError::Invalid(
                 "server.max_body_mb must be at least 1".into(),
@@ -736,14 +717,6 @@ impl Config {
             .parse::<tracing_subscriber::filter::Targets>()
             .map_err(|e| ConfigError::Invalid(format!("log.level {:?}: {e}", self.log.level)))?;
         Ok(())
-    }
-
-    /// The web version's path below `base_path`: `/app` unless set.
-    pub fn web_path(&self) -> String {
-        self.server
-            .web_path
-            .as_deref()
-            .map_or_else(|| "/app".to_owned(), |p| p.trim_end_matches('/').to_owned())
     }
 
     /// The path everything is served under, empty or `/notes`: the one set,
@@ -1052,23 +1025,11 @@ password = \"in the file\"
     }
 
     #[test]
-    fn the_web_version_moves_only_to_a_plain_name_of_its_own() {
-        let at = |file: &str| Config::from_sources(file, env(&[]));
-        assert_eq!(at("").unwrap().web_path(), "/app");
-        assert_eq!(
-            at("[server]\nweb_path = \"/notes-web/\"")
-                .unwrap()
-                .web_path(),
-            "/notes-web"
-        );
-        for bad in [
-            "/api", "/admin", "/link", "/a/b", "notes", "/", "/.hidden", "/x y",
-        ] {
-            assert!(
-                at(&format!("[server]\nweb_path = {bad:?}")).is_err(),
-                "{bad}"
-            );
-        }
+    fn an_old_web_path_still_starts() {
+        let config =
+            Config::from_sources("[server]\nweb_path = \"/notes-web\"\n", env(&[])).unwrap();
+        assert!(config.server.web_path.is_some());
+        assert!(!toml::to_string(&config).unwrap().contains("web_path"));
     }
 
     #[test]

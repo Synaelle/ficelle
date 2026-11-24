@@ -47,6 +47,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/026_link_networks.sql"),
     include_str!("../migrations/027_one_person.sql"),
     include_str!("../migrations/028_leftovers.sql"),
+    include_str!("../migrations/029_no_web_version.sql"),
 ];
 
 /// The feedback database's migrations.
@@ -391,7 +392,11 @@ mod tests {
     #[test]
     fn leftovers_of_sharing_go_and_the_instance_policy_stays() {
         let dir = tempfile::tempdir().unwrap();
-        let old = Db::open_file(dir.path(), DB_FILE, &MIGRATIONS[..MIGRATIONS.len() - 1]).unwrap();
+        let before = MIGRATIONS
+            .iter()
+            .position(|m| m.contains("DROP TABLE extensions;"))
+            .unwrap();
+        let old = Db::open_file(dir.path(), DB_FILE, &MIGRATIONS[..before]).unwrap();
         old.conn
             .lock()
             .unwrap()
@@ -446,5 +451,40 @@ mod tests {
             .is_err(),
             "only the instance has a policy"
         );
+    }
+
+    #[test]
+    fn the_web_version_s_sessions_and_setting_go_and_the_device_stays() {
+        let dir = tempfile::tempdir().unwrap();
+        let before = MIGRATIONS
+            .iter()
+            .position(|m| m.contains("DROP TABLE web_sessions;"))
+            .unwrap();
+        let old = Db::open_file(dir.path(), DB_FILE, &MIGRATIONS[..before]).unwrap();
+        old.conn
+            .lock()
+            .unwrap()
+            .execute_batch(
+                "INSERT INTO users (id, username, display_name, password_hash, role, created_at)
+                     VALUES ('o', 'owner', 'Owner', 'h', 'admin', 1);
+                 INSERT INTO devices (id, user_id, name, platform, created_at, last_seen_at)
+                     VALUES ('d', 'o', 'Firefox, web version', 'web', 1, 1);
+                 INSERT INTO web_sessions (hash, device_id, expires_at) VALUES (x'01', 'd', 9);
+                 INSERT INTO settings (key, value) VALUES ('web_version', 'signed_in');",
+            )
+            .unwrap();
+        drop(old);
+        let db = Db::open(dir.path()).unwrap();
+        let conn = db.conn.lock().unwrap();
+        let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        assert_eq!(
+            count("SELECT count(*) FROM sqlite_master WHERE name = 'web_sessions'"),
+            0
+        );
+        assert_eq!(
+            count("SELECT count(*) FROM settings WHERE key = 'web_version'"),
+            0
+        );
+        assert_eq!(count("SELECT count(*) FROM devices"), 1);
     }
 }

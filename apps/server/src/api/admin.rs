@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The admin api: the instance at a glance, its switches and the security
-//! log. Every change is logged with the acting admin.
+//! The admin api: the instance at a glance, its switches, the sign-in
+//! limits and the security log. Every change is logged with the acting
+//! admin.
 
 use app_protocol::account::Role;
 use app_protocol::admin::{AuditPage, Overview};
@@ -9,11 +10,11 @@ use app_protocol::error_code;
 use axum::Json;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::extract::{Body, ClientIp, CurrentUser};
 use crate::accounts::factors;
-use crate::accounts::store::{self, Authed, Event};
+use crate::accounts::store::{self, Authed, Event, Limits};
 use crate::admin as admin_store;
 use crate::db::DbError;
 use crate::error::Error;
@@ -127,6 +128,70 @@ pub async fn set_second_step(
         })
         .await?;
     Ok(Json(req))
+}
+
+/// The sign-in limits as the admin page shows them.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LimitsView {
+    /// The ones set on the admin page.
+    limits: Limits,
+    /// The config file's, used where none is set.
+    defaults: Limits,
+}
+
+async fn limits_view(state: &AppState) -> Result<LimitsView, Error> {
+    let auth = &state.config.auth;
+    let defaults = Limits {
+        per_minute: Some(auth.rate_limit_per_minute),
+        attempts: Some(auth.lockout_attempts),
+        first_wait: Some(auth.lockout_minutes),
+        longest_wait: Some(auth.lockout_max_minutes),
+    };
+    let limits = state.db.call(|c| store::limits(c)).await?;
+    Ok(LimitsView { limits, defaults })
+}
+
+/// `GET /api/v1/admin/signin-limits`
+pub async fn signin_limits(
+    State(state): State<AppState>,
+    CurrentUser(me): CurrentUser,
+) -> Result<Json<LimitsView>, Error> {
+    admin(&me)?;
+    Ok(Json(limits_view(&state).await?))
+}
+
+/// `PUT /api/v1/admin/signin-limits`: `null` for the config file's value.
+/// They count for every way of signing in.
+pub async fn set_signin_limits(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    CurrentUser(me): CurrentUser,
+    Body(limits): Body<Limits>,
+) -> Result<Json<LimitsView>, Error> {
+    admin(&me)?;
+    let within =
+        |value: Option<u32>, low: u32, high: u32| value.is_none_or(|v| (low..=high).contains(&v));
+    let applied = limits.apply(&state.config.auth);
+    if !within(limits.per_minute, 1, 600)
+        || !within(limits.attempts, 1, 100)
+        || !within(limits.first_wait, 1, 1440)
+        || !within(limits.longest_wait, 1, 10080)
+        || applied.lockout_max_minutes < applied.lockout_minutes
+    {
+        return Err(Error::invalid("a sign-in limit is out of range"));
+    }
+    let now = state.clock.now();
+    let ip_text = ip.0.to_string();
+    state
+        .db
+        .call(move |c| {
+            store::set_limits(c, &limits)?;
+            admin_event(c, now, "signin_limits_changed", None, &me, &ip_text, "")
+        })
+        .await?;
+    state.rate_limit.set(applied.rate_limit_per_minute);
+    Ok(Json(limits_view(&state).await?))
 }
 
 #[derive(Debug, Deserialize)]

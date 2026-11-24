@@ -2,7 +2,6 @@
 <!-- Root of the admin page: checks the server speaks our protocol, then
      shows the setup page, a public page, sign-in or the panel. -->
 <script lang="ts">
-  import { brand } from '@app/brand'
   import { t } from '../lib/i18n.svelte'
   import Overlays from '../lib/Overlays.svelte'
   import { persistPrefs } from '../lib/prefs.svelte'
@@ -12,7 +11,6 @@
     auth,
     PROTOCOL_VERSION,
     route,
-    webPath,
     type AuthOptions,
     type ServerInfo,
   } from './api.svelte'
@@ -41,24 +39,8 @@
   /** Opened from the setup link in the server log. */
   const setupPage = route() === '/setup'
 
-  /** The web version's sign-in: the server shows this page at `/app/` (or
-   * where its admin moved it) until
-   * the browser holds the web version's cookie. */
-  const webDoor = route() === webPath
-
   /** An app signing in through this page. */
   const connectPage = route() === '/connect' || route() === '/link'
-
-  /** Signed in at the web version's door: the cookie, then the web version. */
-  async function openWeb() {
-    problem = ''
-    try {
-      await api('POST', '/web/session')
-      location.reload()
-    } catch (err) {
-      problem = errorText(err)
-    }
-  }
 
   let info: ServerInfo | null = $state(null)
   let options: AuthOptions | null = $state(null)
@@ -78,11 +60,6 @@
     }
   }
 
-  // already signed in on this tab: straight through the door
-  $effect(() => {
-    if (webDoor && auth.session && options && !problem) void openWeb()
-  })
-
   void start()
 </script>
 
@@ -95,17 +72,6 @@
   <main class="center" aria-busy="true"><p class="muted">{t('admin.loading')}</p></main>
 {:else if connectPage}
   <Connect {options} byCode={route() === '/link'} />
-{:else if webDoor && auth.session}
-  <main class="center" aria-busy="true"><p class="muted">{t('admin.loading')}</p></main>
-{:else if webDoor}
-  <SignIn
-    setup={false}
-    {options}
-    heading={t('admin.webDoor', { app: brand.displayName })}
-    done={() => {
-      // signed in: the effect above opens the web version
-    }}
-  />
 {:else if setupPage}
   <Setup />
 {:else if publicPage}

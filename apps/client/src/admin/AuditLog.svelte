@@ -35,7 +35,6 @@
     'feedback_blocked',
     'feedback_unblocked',
     'feedback_deleted',
-    'web_version_changed',
     'signin_limits_changed',
   ]
 

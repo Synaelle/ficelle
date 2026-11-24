@@ -15,16 +15,15 @@
   import Policy from './Policy.svelte'
   import Backups from './Backups.svelte'
   import Feedback from './Feedback.svelte'
-  import WebVersion from './WebVersion.svelte'
-  import { api, sectionHref, type WebView } from './api.svelte'
+  import SignInLimits from './SignInLimits.svelte'
+  import { api, sectionHref } from './api.svelte'
   import { errorText } from './format'
 
   let { info, admin }: { info: ServerInfo; admin: boolean } = $props()
 
-  type Section = 'overview' | 'web' | 'backups' | 'advanced' | 'feedback' | 'security'
+  type Section = 'overview' | 'backups' | 'advanced' | 'feedback' | 'security'
   const SERVER: [Section, IconName][] = [
     ['overview', 'dashboard'],
-    ['web', 'globe'],
     ['backups', 'backup'],
     ['advanced', 'settings'],
   ]
@@ -34,8 +33,7 @@
   ]
   /** Why the sections that depend on the server could not be shown. */
   let problem = $state('')
-  /** The web version's state and the new reports, beside their sections. */
-  let web: WebView | null = $state(null)
+  /** The new reports, beside their section. */
   let newReports = $state(0)
   const server = $derived(admin ? SERVER : [])
   const people = $derived(admin ? PEOPLE : PEOPLE.filter(([s]) => s === 'security'))
@@ -54,9 +52,6 @@
   let section: Section = $state(fromHash())
 
   function loadTags() {
-    void api<WebView>('GET', '/admin/web')
-      .then((view) => (web = view))
-      .catch((err: unknown) => (problem = errorText(err)))
     void api<{ counts: { new: number } }>('GET', '/admin/feedback/reports?status=new&limit=1')
       .then((page) => (newReports = page.counts.new))
       .catch((err: unknown) => (problem = errorText(err)))
@@ -75,11 +70,7 @@
 {#snippet entry([s, icon]: [Section, IconName])}
   <button aria-current={section === s ? 'page' : undefined} onclick={() => go(s)}>
     <Icon name={icon} size={16} /><span class="name">{t(`admin.${s}.title`)}</span>
-    {#if s === 'web' && web}
-      <span class={['tag', web.access !== 'off' && 'on']}
-        >{web.access === 'off' ? t('admin.account.off') : t('admin.account.on')}</span
-      >
-    {:else if s === 'feedback' && newReports > 0}
+    {#if s === 'feedback' && newReports > 0}
       <span class="tag count">{newReports}</span>
     {/if}
   </button>
@@ -116,8 +107,6 @@
       <div class="dash-head"><h1>{t(`admin.${section}.title`)}</h1></div>
       {#if section === 'overview'}
         <Overview />
-      {:else if section === 'web'}
-        <WebVersion onchange={(view) => (web = view)} />
       {:else if section === 'advanced'}
         <Policy path="/admin/policy" />
       {:else if section === 'backups'}
@@ -126,7 +115,10 @@
         <Feedback />
       {:else}
         <Account />
-        {#if admin}<AuditLog />{/if}
+        {#if admin}
+          <SignInLimits />
+          <AuditLog />
+        {/if}
       {/if}
     </div>
   </main>
@@ -211,9 +203,6 @@
   .tag {
     color: var(--color-text-muted);
     font-size: 12px;
-  }
-  .tag.on {
-    color: var(--color-success);
   }
   .tag.count {
     color: var(--color-accent-text);

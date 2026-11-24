@@ -20,7 +20,6 @@ mod security;
 mod setup;
 mod sync;
 mod updates;
-mod web;
 
 use app_protocol::account::User;
 use axum::Router;
@@ -90,9 +89,10 @@ pub fn router() -> Router<AppState> {
         .route("/admin/overview", get(admin::overview))
         .route("/admin/audit", get(admin::audit))
         .route("/admin/coediting", put(admin::set_coediting))
-        .route("/admin/web", get(web::get).put(web::set))
-        .route("/admin/web/limits", put(web::set_limits))
-        .route("/web/session", post(web::session))
+        .route(
+            "/admin/signin-limits",
+            get(admin::signin_limits).put(admin::set_signin_limits),
+        )
         .route("/auth/app/code", post(connect::code))
         .route("/auth/app/token", post(connect::token))
         .route("/auth/app/link", post(connect::link))
@@ -254,5 +254,3 @@ mod tests;
 mod transfer_tests;
 #[cfg(test)]
 mod updates_tests;
-#[cfg(test)]
-mod web_tests;

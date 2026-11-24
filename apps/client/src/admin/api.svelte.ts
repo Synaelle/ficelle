@@ -10,11 +10,6 @@
 // eslint-disable-next-line svelte/prefer-svelte-reactivity
 export const base = new URL('.', document.baseURI).pathname
 
-/** Where the server serves the web version below `base`, `/app/` unless
- * its admin moved it. The server says it beside `<base>`. */
-export const webPath =
-  document.querySelector<HTMLMetaElement>('meta[name=web-path]')?.content ?? '/app/'
-
 /** The page's own path below `base`, `/admin` or `/connect`. */
 export function route(): string {
   const path = location.pathname
@@ -89,8 +84,6 @@ export interface Overview {
 }
 
 /** Who may open the web version, `off` until an admin turns it on. */
-export type WebAccess = 'off' | 'signedIn' | 'anyone'
-
 /** Sign-in limits, `null` for the config file's value. Waits in minutes. */
 export interface SignInLimits {
   perMinute: number | null
@@ -99,18 +92,11 @@ export interface SignInLimits {
   longestWait: number | null
 }
 
-/** The web version as the admin page shows it. */
-export interface WebView {
-  access: WebAccess
-  /** Its files are on this server. */
-  files: boolean
-  /** Where people open it, empty without the server's public address. */
-  address: string
+/** The sign-in limits as the admin page shows them. */
+export interface SignInLimitsView {
   limits: SignInLimits
+  /** The config file's, used where none is set. */
   defaults: SignInLimits
-  /** Sign-ins and refused ones in the last day. */
-  signIns: number
-  refused: number
 }
 
 export interface AuditEntry {
@@ -309,11 +295,9 @@ function lastDevice(): string | undefined {
 }
 
 /** A short device name for the admin page in the device list, and the
- * sign-in it takes the place of. The web version's sign-in is a device of
- * its own, it replaces none, and so is connecting an app, which signs out
- * once the app has its own session. */
+ * sign-in it takes the place of. Connecting an app is a device of its own,
+ * it replaces none and signs out once the app has its own session. */
 export function thisDevice() {
-  const web = route() === webPath
   const connect = route() === '/connect' || route() === '/link'
   const ua = navigator.userAgent
   const browser = /firefox/i.test(ua)
@@ -326,9 +310,7 @@ export function thisDevice() {
           ? 'Safari'
           : 'Browser'
   if (connect) return { name: `${browser}, connecting an app`, platform: 'web' }
-  return web
-    ? { name: `${browser}, web version`, platform: 'web' }
-    : { name: `${browser}, admin page`, platform: 'web', replaces: lastDevice() }
+  return { name: `${browser}, admin page`, platform: 'web', replaces: lastDevice() }
 }
 
 /** A files policy as set at one level, a key left out is inherited. */
