@@ -847,9 +847,6 @@ scanWaitingHelp = "Press Connect on the page that shows the QR code. {appName} c
 signIn = "Sign in"
 signingIn = "Signing in…"
 signedOutHelp = "This device was signed out of the server. Sign in again to keep syncing, nothing waiting here is lost."
-sendEmailCode = "Email me a code"
-resendEmailCode = "Send another code"
-emailCodeSent = "A code is on its way to your email address. It works for 10 minutes."
 secondFactorHelp = "This account asks for a second step."
 secondFactorMethod = "Way to confirm"
 server = "Server"
@@ -904,7 +901,6 @@ synced = "Synced"
 totp = "Code from the authenticator app"
 recoveryCode = "Recovery code"
 passkey = "Passkey"
-email = "Code by email"
 
 [sync.error]
 offline = "The server could not be reached. Check the address and the connection."

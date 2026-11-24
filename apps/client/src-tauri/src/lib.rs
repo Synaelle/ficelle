@@ -283,7 +283,6 @@ pub fn run() {
             sync::browser::sync_link_start,
             sync::browser::sync_browser_cancel,
             sync::commands::sync_second_factor,
-            sync::commands::sync_email_code,
             sync::commands::sync_status,
             sync::commands::sync_now,
             sync::commands::sync_disconnect,

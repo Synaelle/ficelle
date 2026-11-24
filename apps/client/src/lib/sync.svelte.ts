@@ -81,7 +81,7 @@ export interface BrowserEnded {
   error: SyncError | null
 }
 
-export type SecondFactor = 'totp' | 'recoveryCode' | 'passkey' | 'email'
+export type SecondFactor = 'totp' | 'recoveryCode' | 'passkey'
 
 export interface SignInAnswer {
   status: SyncStatus | null
@@ -203,11 +203,6 @@ class Sync {
   private browserDone(ended: BrowserEnded) {
     if (ended.status) this.status = ended.status
     this.browserEnded = ended
-  }
-
-  /** Asks the server to email a code for the sign-in waiting. */
-  async emailCode() {
-    await invoke('sync_email_code')
   }
 
   async secondFactor(method: SecondFactor, code: string) {

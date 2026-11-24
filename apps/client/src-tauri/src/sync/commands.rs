@@ -146,10 +146,11 @@ fn answer(
             second_factor: None,
         }),
         Outcome::SecondFactor(waiting, methods) => {
-            // a passkey needs the browser's WebAuthn, not available here yet
+            // a passkey needs the browser's WebAuthn, not available here yet;
+            // servers send no codes by email any more
             let methods: Vec<SecondFactor> = methods
                 .into_iter()
-                .filter(|m| *m != SecondFactor::Passkey)
+                .filter(|m| !matches!(m, SecondFactor::Passkey | SecondFactor::Email))
                 .collect();
             if methods.is_empty() {
                 return Err(invalid(
@@ -221,28 +222,6 @@ pub async fn sync_second_factor(
     let server = waiting.api.base().to_owned();
     let signed = blocking(move || sign_in::second_factor(&waiting, method, &code)).await?;
     link(&app, &state, &server, signed)
-}
-
-/// Sends a code by email for the sign-in waiting for its second step.
-#[tauri::command]
-pub async fn sync_email_code(pending: State<'_, PendingSignIn>) -> Result<(), SignInError> {
-    let (api, challenge) = pending
-        .0
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .as_ref()
-        .map(|w| (w.api.clone(), w.challenge.clone()))
-        .ok_or_else(|| invalid("expired", "sign in again"))?;
-    blocking(move || {
-        api.post(
-            "/auth/second-factor/email",
-            None,
-            &app_protocol::security::EmailCodeRequest { challenge },
-        )
-        .map(|_| ())
-        .map_err(SignInError::from)
-    })
-    .await
 }
 
 #[tauri::command]

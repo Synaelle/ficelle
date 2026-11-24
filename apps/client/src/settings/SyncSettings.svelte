@@ -162,16 +162,6 @@
     })
   }
 
-  /** A code by email was asked for this sign-in. */
-  let emailSent = $state(false)
-
-  function sendEmailCode() {
-    void run(async () => {
-      await sync.emailCode()
-      emailSent = true
-    })
-  }
-
   function giveCode(event: SubmitEvent) {
     event.preventDefault()
     void run(async () => {
@@ -195,7 +185,6 @@
     checked = null
     plainOk = false
     methods = null
-    emailSent = false
     password = ''
     code = ''
   }
@@ -777,7 +766,7 @@
     {:else if methods}
       <form class="sync-form" onsubmit={giveCode}>
         <p class="settings-help">{t('sync.secondFactorHelp')}</p>
-        <Group note={method === 'email' && emailSent ? t('sync.emailCodeSent') : undefined}>
+        <Group>
           {#if methods.length > 1}
             <Row label={t('sync.secondFactorMethod')}>
               <select
@@ -796,17 +785,12 @@
             <input
               class="field"
               autocomplete="one-time-code"
-              inputmode={method === 'totp' || method === 'email' ? 'numeric' : 'text'}
+              inputmode={method === 'totp' ? 'numeric' : 'text'}
               placeholder={t(`sync.method.${method}`)}
               aria-label={t(`sync.method.${method}`)}
               autofocus
               bind:value={code}
             />
-            {#if method === 'email'}
-              <button class="btn" type="button" disabled={busy} onclick={sendEmailCode}
-                >{emailSent ? t('sync.resendEmailCode') : t('sync.sendEmailCode')}</button
-              >
-            {/if}
           </div>
         </Group>
         <div class="settings-buttons">
