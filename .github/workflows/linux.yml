@@ -31,11 +31,8 @@ jobs:
   appimage:
     strategy:
       matrix:
-        include:
-          - runner: ubuntu-24.04
-            arch: amd64
-          - runner: ubuntu-24.04-arm
-            arch: aarch64
+        # a nightly is x86_64 only, a release also builds aarch64
+        include: ${{ fromJSON(inputs.nightly != '' && '[{"runner":"ubuntu-24.04","arch":"amd64"}]' || '[{"runner":"ubuntu-24.04","arch":"amd64"},{"runner":"ubuntu-24.04-arm","arch":"aarch64"}]') }}
     runs-on: ${{ matrix.runner }}
     container: ubuntu:22.04@sha256:f64b2ffc2f10ab8f8505aa56b2664bd846cbb9df87c7e2532e30f7667021c0e6
     env:

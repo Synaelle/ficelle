@@ -7,7 +7,7 @@ name: android
 # TAURI_SIGNING_PRIVATE_KEY one too, and attaches it. A manual run builds the
 # APK of the chosen branch, or of `ref` (a released tag, to build its APK
 # again), kept as an artifact for a week, signed for the updater if asked.
-# nightly.yml calls it with a nightly's name and build number. With `store`,
+# nightly.yml calls it with a nightly's name and build number, for 64-bit ARM only. With `store`,
 # a test build of the APK F-Droid makes from source (APP_STORE=1): no
 # updater and no permission to install, named ficelle-<version>-android-store.apk.
 
@@ -138,7 +138,8 @@ jobs:
           APP_NIGHTLY: ${{ inputs.nightly }}
           APP_BUILD: ${{ inputs.build }}
           APP_STORE: ${{ inputs.store && '1' || '' }}
-        run: pnpm --filter @app/client tauri android build --target aarch64 armv7 x86_64 --apk
+        # a nightly is for 64-bit ARM phones only, a release holds every architecture
+        run: pnpm --filter @app/client tauri android build --target ${{ inputs.nightly != '' && 'aarch64' || 'aarch64 armv7 x86_64' }} --apk
 
       - name: name and updater signature
         id: apk
@@ -152,7 +153,7 @@ jobs:
           # all three, or a phone gets an APK that does not run on it
           libs=$(unzip -l "$built" | grep -o 'lib/[^/]*/' | sort -u | paste -sd ' ')
           echo "$libs"
-          test "$libs" = "lib/arm64-v8a/ lib/armeabi-v7a/ lib/x86_64/"
+          test "$libs" = "${{ inputs.nightly != '' && 'lib/arm64-v8a/' || 'lib/arm64-v8a/ lib/armeabi-v7a/ lib/x86_64/' }}"
           version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
           if [ -n "${{ inputs.nightly }}" ]; then version="${{ inputs.nightly }}"; fi
           # the version Android reads, or phones refuse it as an update
