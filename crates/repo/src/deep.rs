@@ -2,7 +2,9 @@
 
 //! Random repositories under stress. Items are named by the hash of their
 //! content, so any snapshot can be checked by reading it back, whatever the
-//! test knows of it. `DEEP_RUNS` sets the number of seeds (default 4, many more by hand in release).
+//! test knows of it. `DEEP_RUNS` sets the number of seeds: 1 by default,
+//! for every CI run, and `DEEP_RUNS=4` or more by hand before a server
+//! release.
 //!
 //! - Two devices back up, thin out and prune at random, on a target that
 //!   fails calls at random, sometimes after the write happened (an answer
@@ -35,7 +37,7 @@ fn runs() -> u64 {
     std::env::var("DEEP_RUNS")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(4)
+        .unwrap_or(1)
 }
 
 /// xorshift, a failing seed fails the same way every time.

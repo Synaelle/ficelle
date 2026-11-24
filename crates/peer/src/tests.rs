@@ -484,13 +484,18 @@ fn the_first_change_ever_made_on_a_device_reaches_the_other_by_itself() {
 #[test]
 fn a_change_taken_in_does_not_come_back_and_nothing_runs_when_idle() {
     let ((a, ha), (b, hb)) = paired();
+    // a round ends on a once it notes the time, after taking changes in
+    let synced_at = |h: &TestHost| h.s(|s, _| s.peer_devices()).unwrap()[0].last_sync_at;
+    let paired_at = synced_at(&ha);
     let id = note(&ha, "Shopping", "milk");
     until("b has the note", || has_note(&hb, "Shopping"));
+    until("a ended its round", || synced_at(&ha) != paired_at);
+    let noted_at = synced_at(&ha);
     edit(&hb, id, "milk, bread");
     until("a has b's edit", || body(&ha, id) == "milk, bread");
-    // let any round still running end
-    std::thread::sleep(Duration::from_secs(2));
-    let synced_at = |h: &TestHost| h.s(|s, _| s.peer_devices()).unwrap()[0].last_sync_at;
+    until("a ended the round of b's edit", || {
+        synced_at(&ha) != noted_at
+    });
     let before = (
         ha.changed.load(Ordering::SeqCst),
         hb.changed.load(Ordering::SeqCst),
