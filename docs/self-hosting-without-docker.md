@@ -10,13 +10,12 @@ Commands are for Debian and Ubuntu.
 You need [rustup](https://rustup.rs), Node.js 24 and these packages. pnpm comes through corepack, and `wasm-bindgen-cli` must match the `wasm-bindgen` version in `Cargo.lock`.
 
 ```bash
-sudo apt install git curl build-essential pkg-config perl clang
+sudo apt install git curl build-essential pkg-config perl
 git clone https://github.com/Synaelle/ficelle.git && cd ficelle
 git checkout "$(git describe --tags --abbrev=0 --match 'server-v*')"
 cargo install --locked wasm-bindgen-cli --version "$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/version = "\(.*\)"/\1/p')"
 sudo corepack enable && pnpm install --frozen-lockfile
 APP_RELEASE=1 pnpm --filter @app/client build:admin
-APP_RELEASE=1 pnpm --filter @app/client build:web
 APP_RELEASE=1 cargo build --release --locked -p server
 ```
 
@@ -27,7 +26,6 @@ sudo useradd --system --home /var/lib/ficelle --shell /usr/sbin/nologin ficelle
 sudo install -m 755 target/release/ficelle-server /usr/local/bin/
 sudo mkdir -p /usr/local/share/ficelle /etc/ficelle
 sudo cp -r apps/client/dist /usr/local/share/ficelle/web
-sudo cp -r apps/client/dist-web /usr/local/share/ficelle/web/web
 sudo node tools/fonts-mirror.mjs /usr/local/share/ficelle/web/fonts
 sudo ficelle-server --config /etc/ficelle/ficelle.toml setup
 sudo chown ficelle: /etc/ficelle/ficelle.toml
@@ -47,13 +45,12 @@ sudo journalctl -u ficelle-server | grep setup
 
 ```bash
 git fetch --tags && git checkout "$(git describe --tags --abbrev=0 --match 'server-v*' origin/main)"
-pnpm install --frozen-lockfile && APP_RELEASE=1 pnpm --filter @app/client build:admin && APP_RELEASE=1 pnpm --filter @app/client build:web
+pnpm install --frozen-lockfile && APP_RELEASE=1 pnpm --filter @app/client build:admin
 APP_RELEASE=1 cargo build --release --locked -p server
 sudo systemctl stop ficelle-server
 sudo cp -a /var/lib/ficelle /var/lib/ficelle.before-update
 sudo install -m 755 target/release/ficelle-server /usr/local/bin/
 sudo rm -rf /usr/local/share/ficelle/web && sudo cp -r apps/client/dist /usr/local/share/ficelle/web
-sudo cp -r apps/client/dist-web /usr/local/share/ficelle/web/web
 sudo node tools/fonts-mirror.mjs /usr/local/share/ficelle/web/fonts
 sudo systemctl start ficelle-server
 ```

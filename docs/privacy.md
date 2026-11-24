@@ -18,7 +18,7 @@ ficelle.synaelle.com deletes reports 30 days after arrival and stores no network
 
 Local sync talks only to paired devices on your network, encrypted, and announces a random name there. On Linux open TCP 47821 and UDP 5353.
 
-Server sync talks only to your server. It sees your username, email, device names and sync times, and logs sign-ins with network addresses for 365 days by default. Without end-to-end encryption, whoever runs it can read your notes. With it, the server sees only their number, sizes and change times.
+Server sync talks only to your server. It sees your username, device names and sync times, and logs sign-ins with network addresses for 365 days by default. Without end-to-end encryption, whoever runs it can read your notes. With it, the server sees only their number, sizes and change times.
 
 ## The web version
 
@@ -30,4 +30,4 @@ Notes, files and backups are encrypted once you turn on encryption in Settings, 
 
 ## Servers
 
-A server checks ficelle.synaelle.com daily for new releases unless its admin turns that off. Mail goes through the admin's mail server. An admin can send a server issue report, with its version and address, from the admin page.
+A server checks ficelle.synaelle.com daily for new releases unless its admin turns that off. An admin can send a server issue report, with its version and address, from the admin page.
