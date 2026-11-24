@@ -1,0 +1,84 @@
+name: gitlab release
+
+# Copies the newest stable release to gitlab.com/Synaelle/ficelle: its notes
+# and its download files, kept in the project's package registry. GitLab keeps
+# that one release only, older ones and their files are removed, so the free
+# storage never fills. Nightlies, server and web releases stay on GitHub.
+# Runs once release.yml has published a release, or by hand for a tag. Needs
+# the GITLAB_TOKEN secret with the api scope.
+
+on:
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: A stable release tag, v1.2.3
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gitlab-release
+  cancel-in-progress: false
+
+jobs:
+  copy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+      TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+    steps:
+      - name: copy the release
+        run: |
+          set -euo pipefail
+          [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a stable release tag: $TAG"; exit 1; }
+          if [ -z "$GITLAB_TOKEN" ]; then
+            echo "::warning::no GITLAB_TOKEN secret, release not copied"
+            exit 0
+          fi
+          api=https://gitlab.com/api/v4/projects/Synaelle%2Fficelle
+          gl() { curl --fail-with-body -sS --max-time 600 -H "PRIVATE-TOKEN: $GITLAB_TOKEN" "$@"; }
+          version=${TAG#v}
+
+          # the mirror pushes the tag; a release published right after may be first
+          for _ in $(seq 1 20); do
+            gl -o /dev/null "$api/repository/tags/$TAG" && break
+            sleep 15
+          done
+          gl -o /dev/null "$api/repository/tags/$TAG"
+
+          mkdir files
+          gh release download "$TAG" --dir files --pattern '*.exe' --pattern '*.AppImage' --pattern '*.apk'
+          gh release view "$TAG" --json body --jq .body > notes.md
+
+          links='[]'
+          for file in files/*; do
+            name=$(basename "$file")
+            url="$api/packages/generic/ficelle/$version/$name"
+            echo "uploading $name"
+            gl --upload-file "$file" "$url" > /dev/null
+            links=$(jq --arg name "$name" --arg url "$url" '. + [{name: $name, url: $url, link_type: "package"}]' <<< "$links")
+          done
+
+          gl -X DELETE -o /dev/null "$api/releases/$TAG" || true
+          jq -n --arg tag "$TAG" --arg name "$TAG" --rawfile notes notes.md --argjson links "$links" \
+            '{tag_name: $tag, name: $name, description: $notes, assets: {links: $links}}' |
+            gl -X POST -H 'Content-Type: application/json' --data @- "$api/releases" > /dev/null
+          echo "release $TAG copied"
+
+          # every other release and package version goes
+          gl "$api/releases?per_page=100" | jq -r '.[].tag_name' | while read -r old; do
+            [ "$old" = "$TAG" ] || { gl -X DELETE -o /dev/null "$api/releases/$old"; echo "removed release $old"; }
+          done
+          gl "$api/packages?package_type=generic&package_name=ficelle&per_page=100" |
+            jq -r --arg v "$version" '.[] | select(.version != $v) | "\(.id) \(.version)"' |
+            while read -r id old; do
+              gl -X DELETE -o /dev/null "$api/packages/$id"
+              echo "removed files of $old"
+            done
