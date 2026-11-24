@@ -68,6 +68,12 @@ export async function setLocale(locale: Locale) {
   document.documentElement.lang = known
 }
 
+/** Adds English texts only one page has: the admin page's, which is in
+ * English alone and so never switches language. */
+export function addEnglish(strings: Record<string, string>) {
+  Object.assign(english, strings)
+}
+
 export function currentLocale(): Locale {
   return state.locale
 }

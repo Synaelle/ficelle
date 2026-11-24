@@ -17,14 +17,14 @@ use axum::response::{IntoResponse, Response};
 use serde::{Deserialize, Serialize};
 
 use super::auth::{hash_password, rate_limit};
-use super::extract::{Body, ClientIp, CurrentUser, Language};
+use super::extract::{Body, ClientIp, CurrentUser};
 use super::security::{confirm, log};
 use crate::accounts::factors::{self, ChallengeKind};
 use crate::accounts::store::{self, Event, UserRow};
 use crate::accounts::{password, profile, token};
 use crate::clock::{DAY, MINUTE};
 use crate::error::Error;
-use crate::mail::{Lang, plausible, tr};
+use crate::mail::{plausible, tr};
 use crate::routes::AppState;
 
 /// How long an address link works.
@@ -63,10 +63,9 @@ fn link(state: &AppState, path: &str) -> String {
 }
 
 /// Wraps a mail's text in the greeting and the footer, and sends it.
-fn send(state: &AppState, lang: Lang, to: &str, user: &UserRow, subject: String, text: &str) {
-    let greeting = tr(lang, "mail.greeting", &[("name", &user.display_name)]);
+fn send(state: &AppState, to: &str, user: &UserRow, subject: String, text: &str) {
+    let greeting = tr("mail.greeting", &[("name", &user.display_name)]);
     let footer = tr(
-        lang,
         "mail.footer",
         &[("app", app_brand::DISPLAY_NAME), ("host", &host(state))],
     );
@@ -85,7 +84,6 @@ struct PendingEmail {
 pub async fn set_email(
     State(state): State<AppState>,
     ip: ClientIp,
-    Language(lang): Language,
     CurrentUser(me): CurrentUser,
     Body(req): Body<EmailRequest>,
 ) -> Result<StatusCode, Error> {
@@ -121,16 +119,15 @@ pub async fn set_email(
             )
         })
         .await?;
-    let subject = tr(lang, "mail.verify.subject", &[]);
+    let subject = tr("mail.verify.subject", &[]);
     let text = tr(
-        lang,
         "mail.verify.body",
         &[
             ("username", &me.user.username),
             ("link", &link(&state, &format!("/verify/{token}"))),
         ],
     );
-    send(&state, lang, &email, &me.user, subject, &text);
+    send(&state, &email, &me.user, subject, &text);
     log(&state, &me, ip, "email_link_sent").await?;
     Ok(StatusCode::ACCEPTED)
 }
@@ -212,7 +209,6 @@ pub async fn verify_email(
 pub async fn reset_request(
     State(state): State<AppState>,
     ip: ClientIp,
-    Language(lang): Language,
     Body(req): Body<ResetRequest>,
 ) -> Result<StatusCode, Error> {
     rate_limit(&state, ip)?;
@@ -251,9 +247,8 @@ pub async fn reset_request(
         let username = user.username.clone();
         let (subject, text) = match token {
             Some(token) => (
-                tr(lang, "mail.reset.subject", &[]),
+                tr("mail.reset.subject", &[]),
                 tr(
-                    lang,
                     "mail.reset.body",
                     &[
                         ("username", &username),
@@ -262,15 +257,14 @@ pub async fn reset_request(
                 ),
             ),
             None => (
-                tr(lang, "mail.recover.subject", &[]),
+                tr("mail.recover.subject", &[]),
                 tr(
-                    lang,
                     "mail.recover.body",
                     &[("username", &username), ("link", &link(&state, "/recover"))],
                 ),
             ),
         };
-        send(&state, lang, &email, &user, subject, &text);
+        send(&state, &email, &user, subject, &text);
     }
     Ok(StatusCode::ACCEPTED)
 }
@@ -281,7 +275,6 @@ pub async fn reset_request(
 pub async fn reset_finish(
     State(state): State<AppState>,
     ip: ClientIp,
-    Language(lang): Language,
     Body(req): Body<ResetFinish>,
 ) -> Result<StatusCode, Error> {
     rate_limit(&state, ip)?;
@@ -341,9 +334,9 @@ pub async fn reset_finish(
         .await?
         .ok_or_else(link_invalid)?;
     if let Some(email) = email {
-        let subject = tr(lang, "mail.password.subject", &[]);
-        let text = tr(lang, "mail.password.body", &[("username", &user.username)]);
-        send(&state, lang, &email, &user, subject, &text);
+        let subject = tr("mail.password.subject", &[]);
+        let text = tr("mail.password.body", &[("username", &user.username)]);
+        send(&state, &email, &user, subject, &text);
     }
     Ok(StatusCode::NO_CONTENT)
 }

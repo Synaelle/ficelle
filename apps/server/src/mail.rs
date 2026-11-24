@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Outgoing email: address checks before an address is kept, password
-//! resets, deletion notices. Plain text only, in the language of the
-//! request that caused it. The texts live in the app's translation files
-//! under `mail.`, so they are translated and checked like the rest.
+//! resets, deletion notices. Plain text only, in English. The texts live
+//! under `mail.` in the server's texts beside the app's translation files,
+//! so they are checked like the rest.
 //!
 //! Sending happens in the background: a request never waits for the mail
 //! server, and never answers faster or slower depending on whether a mail
@@ -20,38 +20,6 @@ use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
 use crate::config::{Config, SmtpSecurity};
-
-/// Languages mails are written in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Lang {
-    /// English, the default.
-    En,
-    /// French.
-    Fr,
-}
-
-impl Lang {
-    /// The first language of an `Accept-Language` header that we write,
-    /// English otherwise.
-    pub fn from_header(header: Option<&str>) -> Self {
-        header
-            .unwrap_or("")
-            .split(',')
-            .map(|part| {
-                part.split(';')
-                    .next()
-                    .unwrap_or("")
-                    .trim()
-                    .to_ascii_lowercase()
-            })
-            .find_map(|tag| match tag.split('-').next() {
-                Some("en") => Some(Self::En),
-                Some("fr") => Some(Self::Fr),
-                _ => None,
-            })
-            .unwrap_or(Self::En)
-    }
-}
 
 type Texts = HashMap<String, String>;
 
@@ -79,22 +47,12 @@ fn load(source: &str) -> Texts {
     out
 }
 
-static EN: LazyLock<Texts> =
-    LazyLock::new(|| load(include_str!("../../../packages/locales/en.toml")));
-static FR: LazyLock<Texts> =
-    LazyLock::new(|| load(include_str!("../../../packages/locales/fr.toml")));
+static TEXTS: LazyLock<Texts> =
+    LazyLock::new(|| load(include_str!("../../../packages/locales/server/texts.toml")));
 
 /// A mail text with its `{placeholders}` filled.
-pub fn tr(lang: Lang, key: &str, vars: &[(&str, &str)]) -> String {
-    let texts = match lang {
-        Lang::En => &*EN,
-        Lang::Fr => &*FR,
-    };
-    let mut text = texts
-        .get(key)
-        .or_else(|| EN.get(key))
-        .cloned()
-        .unwrap_or_else(|| key.to_owned());
+pub fn tr(key: &str, vars: &[(&str, &str)]) -> String {
+    let mut text = TEXTS.get(key).cloned().unwrap_or_else(|| key.to_owned());
     for (name, value) in vars {
         text = text.replace(&format!("{{{name}}}"), value);
     }
@@ -291,21 +249,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn languages_from_the_header() {
-        assert_eq!(Lang::from_header(Some("fr-FR,fr;q=0.9,en;q=0.8")), Lang::Fr);
-        assert_eq!(Lang::from_header(Some("de-DE, en;q=0.5")), Lang::En);
-        assert_eq!(Lang::from_header(Some("de-DE, fr-CA;q=0.5")), Lang::Fr);
-        assert_eq!(Lang::from_header(None), Lang::En);
-    }
-
-    #[test]
-    fn texts_come_from_the_locales_with_placeholders_filled() {
-        let en = tr(Lang::En, "mail.greeting", &[("name", "Zoé")]);
-        assert!(en.contains("Zoé"));
-        let fr = tr(Lang::Fr, "mail.greeting", &[("name", "Zoé")]);
-        assert!(fr.contains("Zoé"));
-        assert_ne!(fr, en);
-        assert_eq!(tr(Lang::En, "mail.nope", &[]), "mail.nope");
+    fn texts_come_from_the_server_texts_with_placeholders_filled() {
+        let text = tr("mail.greeting", &[("name", "Zoé")]);
+        assert!(text.contains("Zoé"));
+        assert!(!text.contains("{name}"));
+        // a key apart from the call, or the translation check takes it for one in use
+        let missing = "mail.nope";
+        assert_eq!(tr(missing, &[]), missing);
     }
 
     #[test]

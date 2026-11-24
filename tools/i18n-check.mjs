@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Lists translation problems. English (en.toml) is the reference.
+// Lists translation problems. English (en.toml) is the reference. The admin
+// page's and the mails' texts (server/texts.toml) are English only, they are
+// checked for use and never translated.
 // Fails on: placeholders that differ from English, and keys used in the code
 // that English lacks.
 // Warns on: keys a language has not translated yet (the app shows the English
 // text meanwhile), keys no code uses, and keys a language has but English
 // does not.
 //
-// Code usage is found from t('a.b') calls, and tr(lang, "a.b") in the server's
+// Code usage is found from t('a.b') calls, and tr("a.b") in the server's
 // rust. A template like t(`errors.${kind}`) marks every key under errors. as
 // used.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { loadLocales, localesDir, placeholders } from './i18n.mjs'
+import { loadLocales, localesDir, parseLocale, placeholders } from './i18n.mjs'
 
 const srcDir = join(localesDir, '..', '..', 'apps', 'client', 'src')
 
@@ -28,15 +30,23 @@ function sourceFiles(dir) {
 const locales = loadLocales()
 const english = locales.en
 if (!english) throw new Error('en.toml is missing')
+const serverFile = join(localesDir, 'server', 'texts.toml')
+const server = parseLocale(readFileSync(serverFile, 'utf8'))
 
 const used = new Set()
+// the apps carry en.toml alone, server/texts.toml only reaches the admin page
+const usedByApps = new Set()
+const adminDir = join(srcDir, 'admin')
 const prefixes = new Set()
 for (const file of sourceFiles(srcDir)) {
   const code = readFileSync(file, 'utf8')
-  for (const m of code.matchAll(/\bt\(\s*['"]([\w.-]+)['"]/g)) used.add(m[1])
+  for (const m of code.matchAll(/\bt\(\s*['"]([\w.-]+)['"]/g)) {
+    used.add(m[1])
+    if (!file.startsWith(adminDir)) usedByApps.add(m[1])
+  }
   for (const m of code.matchAll(/\bt\(\s*`([\w.-]+)\$\{/g)) prefixes.add(m[1])
 }
-// the server's emails: tr(lang, "mail.reset.subject") in rust
+// the server's emails: tr("mail.reset.subject") in rust
 const serverDir = join(localesDir, '..', '..', 'apps', 'server', 'src')
 /** @param {string} dir @returns {string[]} */
 function rustFiles(dir) {
@@ -48,7 +58,7 @@ function rustFiles(dir) {
 }
 for (const file of rustFiles(serverDir)) {
   const code = readFileSync(file, 'utf8')
-  for (const m of code.matchAll(/\btr\(\s*\w+,\s*"([\w.-]+)"/g)) used.add(m[1])
+  for (const m of code.matchAll(/\btr\(\s*"([\w.-]+)"/g)) used.add(m[1])
 }
 // the web version's own wording of a text, see apps/client/src/lib/i18n.svelte.ts
 /** @type {(key: string) => boolean} */
@@ -61,14 +71,22 @@ const isUsed = (key) =>
 const errors = []
 const warnings = []
 
+const allEnglish = { ...english, ...server }
 for (const key of used) {
-  const plural = Object.keys(english).some(
+  const plural = Object.keys(allEnglish).some(
     (k) => k.startsWith(`${key}.`) && /\.(one|other)$/.test(k),
   )
-  if (!(key in english) && !plural) errors.push(`en: used in code but missing: ${key}`)
+  if (!(key in allEnglish) && !plural) errors.push(`en: used in code but missing: ${key}`)
 }
 for (const key of Object.keys(english)) {
   if (!isUsed(key)) warnings.push(`en: not used by any code: ${key}`)
+  if (key in server) errors.push(`en: also in server/texts.toml: ${key}`)
+}
+for (const key of usedByApps) {
+  if (key in server) errors.push(`server: used outside the admin page: ${key}`)
+}
+for (const key of Object.keys(server)) {
+  if (!isUsed(key)) warnings.push(`server: not used by any code: ${key}`)
 }
 const FORMS = ['zero', 'one', 'two', 'few', 'many', 'other']
 /** `files.inNote` for `files.inNote.few` when English has that plural, else null. */
@@ -114,13 +132,16 @@ for (const [code, strings] of Object.entries(locales)) {
 
 // [list], then other sections, then [list.count] is valid TOML, but the
 // translation website cannot read a section split like that
-for (const file of readdirSync(localesDir).filter((f) => f.endsWith('.toml'))) {
+const files = readdirSync(localesDir).filter((f) => f.endsWith('.toml'))
+for (const file of [...files.map((f) => join(localesDir, f)), serverFile]) {
   const seen = new Set()
   let current = ''
-  for (const [, name] of readFileSync(join(localesDir, file), 'utf8').matchAll(/^\[([^\]]+)\]/gm)) {
+  for (const [, name] of readFileSync(file, 'utf8').matchAll(/^\[([^\]]+)\]/gm)) {
     const top = name.split('.')[0]
     if (top !== current && seen.has(top))
-      errors.push(`${file}: [${name}] is apart from the rest of [${top}]`)
+      errors.push(
+        `${file.slice(localesDir.length + 1)}: [${name}] is apart from the rest of [${top}]`,
+      )
     seen.add(top)
     current = top
   }
@@ -128,7 +149,7 @@ for (const file of readdirSync(localesDir).filter((f) => f.endsWith('.toml'))) {
 
 for (const w of warnings) console.warn(`warning  ${w}`)
 for (const e of errors) console.error(`error    ${e}`)
-const counts = Object.entries(locales)
+const counts = [...Object.entries(locales), ['server', server]]
   .map(([c, s]) => `${c} ${Object.keys(s).length}`)
   .join(', ')
 console.log(`${counts} strings, ${errors.length} errors, ${warnings.length} warnings`)

@@ -16,7 +16,6 @@ use crate::accounts::store::{self, Authed};
 use crate::accounts::token;
 use crate::config::ServerConfig;
 use crate::error::Error;
-use crate::mail::Lang;
 use crate::routes::AppState;
 
 /// The client's address. Behind a trusted proxy it is the last address in
@@ -104,24 +103,6 @@ impl FromRequestParts<AppState> for Secure {
             client,
             &state.config,
         ))))
-    }
-}
-
-/// The language of the request, for the mails it causes.
-pub struct Language(pub Lang);
-
-impl<S: Send + Sync> FromRequestParts<S> for Language {
-    type Rejection = Infallible;
-
-    fn from_request_parts(
-        parts: &mut Parts,
-        _: &S,
-    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
-        let header = parts
-            .headers
-            .get(header::ACCEPT_LANGUAGE)
-            .and_then(|v| v.to_str().ok());
-        std::future::ready(Ok(Self(Lang::from_header(header))))
     }
 }
 

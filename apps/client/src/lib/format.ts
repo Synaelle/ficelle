@@ -20,7 +20,7 @@ export function date(ms: number | null | undefined): string {
 
 /** "5 minutes ago", "in 2 days". */
 export function relative(ms: number | null | undefined, now = Date.now()): string {
-  if (!ms) return t('admin.never')
+  if (!ms) return t('common.never')
   const rtf = new Intl.RelativeTimeFormat(currentLocale(), { numeric: 'auto' })
   const seconds = Math.round((ms - now) / 1000)
   const steps: [Intl.RelativeTimeFormatUnit, number][] = [

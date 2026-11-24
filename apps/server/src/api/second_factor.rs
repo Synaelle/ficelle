@@ -266,7 +266,6 @@ pub async fn second_factor(
 pub async fn email_code(
     State(state): State<AppState>,
     ip: ClientIp,
-    super::extract::Language(lang): super::extract::Language,
     Body(req): Body<EmailCodeRequest>,
 ) -> Result<StatusCode, Error> {
     rate_limit(&state, ip)?;
@@ -301,13 +300,12 @@ pub async fn email_code(
         })
         .await?;
     let (to, user) = found.ok_or_else(invalid)?;
-    let subject = crate::mail::tr(lang, "mail.code.subject", &[]);
+    let subject = crate::mail::tr("mail.code.subject", &[]);
     let body = crate::mail::tr(
-        lang,
         "mail.code.body",
         &[("username", &user.username), ("code", &code)],
     );
-    let greeting = crate::mail::tr(lang, "mail.greeting", &[("name", &user.display_name)]);
+    let greeting = crate::mail::tr("mail.greeting", &[("name", &user.display_name)]);
     state
         .mailer
         .send(&to, subject, format!("{greeting}\n\n{body}\n"));

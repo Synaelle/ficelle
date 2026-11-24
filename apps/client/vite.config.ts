@@ -24,7 +24,7 @@ function protocolVersion(): number {
 // `--mode web` builds the web version: the notes app alone, for a static
 // folder, with the core running in the page
 export default defineConfig(({ mode }) => ({
-  plugins: [svelte(), tomlLocales(!!platform), localeShares(), iconSets()],
+  plugins: [svelte(), tomlLocales(), localeShares(), iconSets()],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion()),
     __APP_BUILD_DATE__: JSON.stringify(buildDate()),

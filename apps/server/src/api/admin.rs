@@ -11,7 +11,7 @@ use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use serde::Deserialize;
 
-use super::extract::{Body, ClientIp, CurrentUser, Language};
+use super::extract::{Body, ClientIp, CurrentUser};
 use crate::accounts::factors;
 use crate::accounts::store::{self, Authed, Event};
 use crate::admin as admin_store;
@@ -172,7 +172,6 @@ pub async fn audit(
 pub async fn mail_test(
     State(state): State<AppState>,
     CurrentUser(me): CurrentUser,
-    Language(lang): Language,
     Body(req): Body<app_protocol::admin::MailTestRequest>,
 ) -> Result<StatusCode, Error> {
     admin(&me)?;
@@ -194,9 +193,8 @@ pub async fn mail_test(
         .ok()
         .and_then(|u| u.host_str().map(str::to_owned))
         .unwrap_or_default();
-    let subject = crate::mail::tr(lang, "mail.test.subject", &[]);
+    let subject = crate::mail::tr("mail.test.subject", &[]);
     let body = crate::mail::tr(
-        lang,
         "mail.test.body",
         &[("app", app_brand::DISPLAY_NAME), ("host", &host)],
     );
