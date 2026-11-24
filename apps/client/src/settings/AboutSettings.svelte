@@ -129,6 +129,11 @@
   .get :global(svg) {
     color: var(--color-text-muted);
   }
+  /* on the phone the rows are flat on the page: these keep its margins */
+  :global(.screen) .identity,
+  :global(.screen) .inside {
+    padding-inline: var(--space-4);
+  }
   .mono {
     color: var(--color-text-muted);
     font-family: var(--font-ui);

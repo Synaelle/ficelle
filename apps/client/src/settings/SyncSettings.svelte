@@ -1154,6 +1154,15 @@
     overflow-wrap: anywhere;
     user-select: all;
   }
+  /* on the phone nothing is boxed: the notes sit on the page like its help */
+  :global(.screen) .aside,
+  :global(.screen) .notice,
+  :global(.screen) .firewall {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
   .chevron {
     display: grid;
     color: var(--color-text-faint);

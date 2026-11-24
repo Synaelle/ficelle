@@ -78,30 +78,24 @@
     white-space: nowrap;
   }
 
-  /* the phone's lists: a rounded surface per group, hairlines between rows */
+  /* the phone's lists: flat on the page under a title like a settings
+     group's, hairlines between rows */
   .phone {
     gap: 0;
     font-size: 15px;
   }
   .phone .intro {
-    margin: var(--space-2) var(--space-4) 0;
+    margin: var(--space-2) 0 0;
     font-size: 13px;
   }
   .phone h4 {
-    margin: var(--space-5) var(--space-4) var(--space-2);
+    margin: var(--space-5) 0 var(--space-2);
     color: var(--color-text-muted);
     font-size: 13px;
-    font-weight: 400;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .phone ul {
-    overflow: hidden;
-    border-radius: var(--radius-popover);
-    background: var(--color-surface);
+    font-weight: 600;
   }
   .phone li {
-    padding: var(--space-2) var(--space-4);
+    padding: var(--space-2) 0;
   }
   .phone li + li {
     border-top: 1px solid var(--color-border);

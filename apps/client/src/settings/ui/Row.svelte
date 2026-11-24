@@ -41,11 +41,13 @@
 
 {#snippet body()}
   {#if icon}<span class="tile" aria-hidden="true"><Icon name={icon} size={16} /></span>{/if}
-  <span class="text">
-    <span class="label">{label}</span>
-    {#if help}<span class="help">{help}</span>{/if}
+  <span class="main">
+    <span class="text">
+      <span class="label">{label}</span>
+      {#if help}<span class="help">{help}</span>{/if}
+    </span>
+    {#if children}<span class="control">{@render children()}</span>{/if}
   </span>
-  {#if children}<span class="control">{@render children()}</span>{/if}
   {#if on !== undefined}<Switch drawn checked={on} />{/if}
   {#if opens}<span class="opens" aria-hidden="true"><Icon name="right" size={16} /></span>{/if}
   {#if checked !== undefined}
@@ -112,6 +114,11 @@
     .choice:hover:not(:disabled) {
       background: var(--color-hover);
     }
+  }
+  /* no box of its own on the desktop; on the phone a control that moves under
+     the name stays in the name's column, right of the icon */
+  .main {
+    display: contents;
   }
   /* the name keeps room for a few words, else the control takes the next line */
   .text {

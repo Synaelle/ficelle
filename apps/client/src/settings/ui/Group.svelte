@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- A group of settings rows on the desktop, like the phone's: a rounded
-     panel, an optional title above and a short note below. -->
+<!-- A group of settings rows: an optional title above, a short note below,
+     the rows in a rounded panel on the desktop and flat on the page on a
+     phone (PhoneSettings). -->
 <script lang="ts">
   import type { Snippet } from 'svelte'
 

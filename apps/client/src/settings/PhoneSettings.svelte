@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Settings on phones, grouped lists like a phone's own settings: coloured
-     icon tiles, the current value on the right, a short note under groups.
+<!-- Settings on phones, grouped lists like a phone's own settings: rows flat
+     on the page with hairlines between, a title over each group, icon tiles,
+     the current value on the right, a short note under groups.
      Every row is one tap from the first screen, details open a page. -->
 <script lang="ts">
   import { errorCode } from '../lib/errors'
@@ -822,13 +823,13 @@
     background: transparent;
     color: var(--color-text);
   }
+  /* the app's name and state on the page itself, the mark in a tile like the
+     rows' icons */
   .hero {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    border-radius: var(--radius-popover);
-    background: var(--color-surface);
+    padding: var(--space-1) 0;
   }
   .hero .mark {
     --knot-behind: var(--color-surface-2);
@@ -853,17 +854,8 @@
     color: var(--color-text-muted);
     font-size: 14px;
   }
-  /* on a dark phone the page has the cards' colour: they go one step up */
-  :global(:root[data-phone-dark='true']) .hero,
-  :global(:root[data-phone-dark='true']) .screen :global(section.group > .panel),
-  :global(:root[data-phone-dark='true']) .screen :global(.settings-panel) {
-    background: var(--color-surface-2);
-  }
   /* pure black means black: what would be a shade of grey is an outline */
-  :global(:root[data-black='true']) .search,
-  :global(:root[data-black='true']) .hero,
-  :global(:root[data-black='true']) .screen :global(section.group > .panel),
-  :global(:root[data-black='true']) .screen :global(.settings-panel) {
+  :global(:root[data-black='true']) .search {
     border: 1px solid var(--color-border);
     background: transparent;
   }
@@ -895,44 +887,70 @@
   }
 
   /* the settings groups (settings/ui/), shared with the desktop, on a phone:
-     flat on the page, the captions written as on the desktop, rows a
-     finger's height */
+     no panel, the rows flat on the page, as wide as the screen so a press
+     shows across it, their text on the page's margin like the captions.
+     Panels drawn by the pages themselves (.settings-panel) go the same way */
   .screen :global(section.group > .panel),
   .screen :global(.settings-panel) {
+    margin-inline: calc(var(--space-4) * -1);
     border: 0;
-    border-radius: var(--radius-popover);
-    background: var(--color-surface);
+    border-radius: 0;
+    background: none;
+  }
+  .screen :global(.settings-panel) {
+    padding-inline: var(--space-4);
   }
   .screen :global(section.group > h3) {
-    margin: 0 var(--space-4);
+    margin: 0;
     color: var(--color-text-muted);
     font-size: 13px;
     font-weight: 600;
   }
   .screen :global(section.group > .note) {
-    margin: 0 var(--space-4);
+    margin: 0;
     font-size: 13px;
   }
   /* a page's opening line lines up with the captions */
   .groups > :global(.settings-help),
   .screen :global(.sync-form > .settings-help) {
-    margin: 0 var(--space-4);
+    margin: 0;
   }
   /* a name with its help line fits the height of a row without one */
-  .screen :global(.settings-row) {
+  .screen :global(.settings-row),
+  .screen :global(.field-row) {
     min-height: 52px;
-    padding-block: var(--space-1);
+    padding: var(--space-1) var(--space-4);
     font-size: 16px;
   }
   .screen :global(.settings-row .help) {
     font-size: 13px;
   }
+  /* hairlines between rows on the page's margins */
+  .screen :global(.settings-row + .settings-row)::before,
+  .screen :global(.field-row + .field-row)::before,
+  .screen :global(.settings-row + .field-row)::before,
+  .screen :global(.field-row + .settings-row)::before {
+    left: var(--space-4);
+    right: var(--space-4);
+  }
+  /* a control too wide beside the name goes under it, not under the icon */
+  .screen :global(.settings-row > .main) {
+    display: flex;
+    flex: 1 1 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    min-width: 0;
+  }
+  .screen :global(.settings-row .control) {
+    padding-block: var(--space-1);
+  }
   .inside {
-    padding: var(--space-3);
+    padding: var(--space-2) var(--space-4);
   }
   .under {
     margin: 0;
-    padding: 0 var(--space-3) var(--space-2);
+    padding: 0 var(--space-4) var(--space-2);
     color: var(--color-text-muted);
     font-size: 13px;
   }
@@ -947,7 +965,7 @@
     align-items: center;
     gap: var(--space-3);
     min-height: 52px;
-    padding: 0 var(--space-3);
+    padding: 0 var(--space-4);
     border: 0;
     background: none;
     color: var(--color-text);
@@ -967,8 +985,8 @@
     content: '';
     position: absolute;
     top: 0;
-    left: calc(var(--space-3) * 2 + 30px);
-    right: 0;
+    left: calc(var(--space-4) + var(--space-3) + 30px);
+    right: var(--space-4);
     border-top: 1px solid var(--color-border);
   }
   .row.danger .label {
@@ -1017,24 +1035,27 @@
     content: '';
     position: absolute;
     top: 0;
-    left: var(--space-3);
-    right: 0;
+    left: var(--space-4);
+    right: var(--space-4);
     border-top: 1px solid var(--color-border);
   }
   /* a shared row with an icon (settings/ui/Row) gets the same tile, and its
-     hairline starts after it */
+     hairline starts after it. The tile is level with the first line, so a
+     row whose control went under its name keeps it beside the name */
   .screen :global(.settings-row > .tile) {
     display: grid;
+    align-self: flex-start;
     width: 30px;
     height: 30px;
     flex: none;
+    margin-top: calc((52px - 30px) / 2 - var(--space-1));
     place-items: center;
     border-radius: var(--radius-control);
     background: var(--color-surface-2);
     color: var(--color-accent);
   }
   .screen :global(.settings-row:has(> .tile))::before {
-    left: calc(var(--space-3) * 2 + 30px);
+    left: calc(var(--space-4) + var(--space-3) + 30px);
   }
   /* with a large text size the value gives way first, cut short, and the
      label wraps if it still has no room: never drawn over each other. A
