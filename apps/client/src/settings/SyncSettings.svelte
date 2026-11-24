@@ -629,6 +629,7 @@
           <SyncIcon state={status.state} />
           <div>
             <b>{t(STATE_TEXT[status.state])}</b>
+            <p class="settings-help">{status.e2ee ? t('sync.kindE2ee') : t('sync.kindStandard')}</p>
             {#if status.state === 'pending' || status.state === 'offline'}
               <p class="settings-help">{t('sync.pendingCount', { count: status.pending })}</p>
             {/if}
@@ -666,7 +667,6 @@
             <Row label={t('sync.server')}><span class="value">{status.server}</span></Row>
             <Row label={t('sync.account')}>
               <span class="value">{status.username}</span>
-              <span class="kind">{status.e2ee ? t('sync.kindE2ee') : t('sync.kindStandard')}</span>
             </Row>
             <Row label={t('sync.lastSync')}>
               <span class="value"
@@ -1051,13 +1051,6 @@
     color: var(--color-text-muted);
     overflow-wrap: anywhere;
     text-align: right;
-  }
-  .kind {
-    padding: 1px var(--space-2);
-    border-radius: var(--radius-chip);
-    background: var(--color-surface);
-    color: var(--color-text-muted);
-    font-size: 12px;
   }
   .error {
     margin: 0;
