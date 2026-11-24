@@ -2,9 +2,10 @@
 <!-- The setup page, opened from the link in the server log. The token in
      the address is traded at once for a setup session and leaves the
      address bar. Then: health checks of the way in (https, the proxy's
-     headers, WebSocket, upload size, clock), the admin with a passkey first
-     or an authenticator app, its recovery codes, and the first choices made
-     with the admin's session: accounts, files, backups. -->
+     headers, WebSocket, upload size, clock), the admin, standard or end-to-end
+     encrypted, with a passkey first or an authenticator app, the encrypted
+     account's recovery code, the second step's recovery codes, and the first
+     choices made with the admin's session: files, backups. -->
 <script lang="ts">
   import { COPIED_MS } from '../lib/clipboard'
   import PasswordField from '../lib/PasswordField.svelte'
@@ -18,10 +19,12 @@
     keep,
     PROTOCOL_VERSION,
     thisDevice,
+    type AccountKind,
     type Session,
     type TotpSetup,
   } from './api.svelte'
   import Backups from './Backups.svelte'
+  import { setupAccount, type SetupE2ee } from './e2ee'
   import { bytes, errorText } from './format'
   import { createPasskey, passkeysSupported } from './webauthn'
 
@@ -48,9 +51,11 @@
     state: State
     detail: string
   }
-  type Step = 'checks' | 'admin' | 'codes' | 'backups' | 'done'
+  type Step = 'checks' | 'admin' | 'key' | 'codes' | 'backups' | 'done'
   const steps: Step[] = ['checks', 'admin', 'backups', 'done']
   const SESSION_KEY = 'setup-session'
+  /** The server's own rule, it cannot check an encrypted admin's password. */
+  const PASSWORD_MIN_CHARS = 8
 
   /** The token leaves the address before anything else: it works once and
    * should not stay in the history or reach a screenshot. */
@@ -209,6 +214,7 @@
   }
 
   // the admin
+  let kind = $state<AccountKind>('standard')
   let username = $state('')
   let displayName = $state('')
   let password = $state('')
@@ -228,6 +234,10 @@
   /** Backups were set up in the wizard: Continue rather than Skip. */
   let backupsOn = $state(false)
   let copied = $state(false)
+  /** An encrypted admin's recovery code, shown once. */
+  let recoveryCode = $state('')
+  let typedBack = $state('')
+  let codeCopied = $state(false)
 
   async function showTotp() {
     problem = ''
@@ -258,6 +268,14 @@
       problem = t('admin.setup.noneFirst')
       return
     }
+    if (
+      kind === 'e2ee' &&
+      ([...password].length < PASSWORD_MIN_CHARS ||
+        password.toLowerCase() === username.trim().toLowerCase())
+    ) {
+      problem = t('admin.errors.passwordWeak')
+      return
+    }
     busy = true
     try {
       const display = displayName.trim() || undefined
@@ -272,6 +290,11 @@
         proof = { type: 'passkey', credential, name: thisDevice().name }
       } else if (factor === 'totp') proof = { type: 'totp', code: code.replace(/\s/g, '') }
       else proof = { type: 'none' }
+      // after the passkey, which needs the click that sent the form
+      let e2ee: SetupE2ee | undefined
+      let shownOnce = ''
+      if (kind === 'e2ee')
+        ({ e2ee, recoveryCode: shownOnce } = await setupAccount(session, username, password))
       const done = await api<{ session: Session; recoveryCodes: string[] }>(
         'POST',
         '/setup/finish',
@@ -279,9 +302,11 @@
           session,
           username,
           displayName: display,
-          password,
+          // an encrypted admin's password stays here
+          password: e2ee ? '' : password,
           factor: proof,
           device: thisDevice(),
+          e2ee,
         },
       )
       keep(done.session)
@@ -289,8 +314,9 @@
       password = ''
       again = ''
       codes = done.recoveryCodes
+      recoveryCode = shownOnce
       // no second step, no recovery codes to keep
-      step = codes.length ? 'codes' : 'backups'
+      step = recoveryCode ? 'key' : afterKey()
     } catch (err) {
       if (err instanceof DOMException) problem = t('admin.signIn.passkeyCancelled')
       else if (err instanceof ApiError && err.code === 'setupLinkInvalid') lost(err)
@@ -298,6 +324,39 @@
     } finally {
       busy = false
     }
+  }
+
+  const afterKey = (): Step => (codes.length ? 'codes' : 'backups')
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(recoveryCode)
+      codeCopied = true
+      setTimeout(() => (codeCopied = false), COPIED_MS)
+    } catch {
+      problem = t('admin.invites.copyFailed')
+    }
+  }
+
+  function saveCode() {
+    const text = `${t('admin.setup.codeFile', { app: brand.displayName, host: location.host, name: username.trim().toLowerCase() })}\n\n${recoveryCode}\n`
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
+    link.download = `${brand.slug}-recovery-code.txt`
+    link.click()
+    URL.revokeObjectURL(link.href)
+  }
+
+  function keptCode(event: SubmitEvent) {
+    event.preventDefault()
+    problem = ''
+    if (typedBack.replace(/[\s-]/g, '').toUpperCase() !== recoveryCode.split('-').at(-1)) {
+      problem = t('admin.setup.typeBackWrong')
+      return
+    }
+    recoveryCode = ''
+    typedBack = ''
+    step = afterKey()
   }
 
   async function copyCodes() {
@@ -319,7 +378,7 @@
     URL.revokeObjectURL(link.href)
   }
 
-  const position = $derived(steps.indexOf(step === 'codes' ? 'admin' : step))
+  const position = $derived(steps.indexOf(step === 'codes' || step === 'key' ? 'admin' : step))
   const httpsFailed = $derived(checks.some((c) => c.key === 'https' && c.state === 'fail'))
   const running = $derived(checks.some((c) => c.state === 'running'))
 
@@ -391,6 +450,21 @@
           <p class="muted">
             {t('admin.setup.adminHelpPersonal')}
           </p>
+          <fieldset>
+            <legend>{t('admin.setup.kind')}</legend>
+            {#each ['standard', 'e2ee'] as const as one (one)}
+              <label class="mode" class:checked={kind === one}>
+                <input type="radio" name="kind" value={one} bind:group={kind} />
+                <span>
+                  <b>{t(`admin.setup.kinds.${one}`)}</b>
+                  <span class="muted">{t(`admin.setup.kinds.${one}Help`)}</span>
+                </span>
+              </label>
+            {/each}
+            {#if kind === 'e2ee'}
+              <p class="warn">{t('admin.setup.e2eeWarning')}</p>
+            {/if}
+          </fieldset>
           <label>
             {t('admin.username')}
             <input
@@ -504,6 +578,30 @@
           <button class="btn primary" type="submit" disabled={busy}
             >{t('admin.setup.createPersonal')}</button
           >
+        </form>
+      {:else if step === 'key'}
+        <form class="form" onsubmit={keptCode}>
+          <p>{t('admin.setup.codeHelp')}</p>
+          <code class="key">{recoveryCode}</code>
+          <div class="row">
+            <button class="btn" type="button" onclick={copyCode}
+              >{codeCopied ? t('admin.copied') : t('admin.copy')}</button
+            >
+            <button class="btn" type="button" onclick={saveCode}>{t('admin.setup.save')}</button>
+          </div>
+          <label>
+            {t('admin.setup.typeBack')}
+            <input
+              class="field mono"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="4"
+              required
+              bind:value={typedBack}
+            />
+          </label>
+          {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+          <button class="btn primary" type="submit">{t('admin.setup.keptCode')}</button>
         </form>
       {:else if step === 'codes'}
         <p>{t('admin.setup.codesHelp')}</p>
@@ -692,6 +790,17 @@
   .secret {
     font-family: var(--font-ui);
     overflow-wrap: anywhere;
+  }
+  .key {
+    padding: var(--space-3);
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-control);
+    font-family: var(--font-ui);
+    font-size: 17px;
+    letter-spacing: 0.04em;
+    text-align: center;
+    overflow-wrap: anywhere;
+    user-select: all;
   }
   .codes {
     display: grid;

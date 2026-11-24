@@ -401,12 +401,25 @@ kept = "I kept them somewhere safe"
 backupsLater = "You can set them up later, on the admin page under Backups."
 skip = "Skip for now"
 secrets = "master.key and the databases in the data folder are this server's secrets: without master.key, the standard accounts' notes cannot be opened. Keep backups, or a copy of the data folder, somewhere apart from this server, and the backup password apart from both."
+kind = "Encryption"
+e2eeWarning = "Your password never leaves this browser, and nobody can reset it. The password and the recovery code shown next are the only ways in. If you lose both, your notes are gone. Connecting an app asks for the password once."
+codeHelp = "This recovery code opens your account and your notes if you forget the password. It is shown only now. Write it down or save it somewhere safe, away from this server."
+typeBack = "Type its last four characters"
+typeBackWrong = "That is not the end of the code. Look at it again."
+keptCode = "I kept it, continue"
+codeFile = "{app} recovery code for {name} on {host}. Keep it secret. It opens the account and its notes if the password is forgotten."
 
 [admin.setup.step]
 checks = "Checks"
 admin = "Admin"
 backups = "Backups"
 done = "Done"
+
+[admin.setup.kinds]
+standard = "Standard"
+standardHelp = "The server encrypts your notes with its own key. Whoever runs the server can read them. A forgotten password can be reset from the server's command line."
+e2ee = "End-to-end encrypted"
+e2eeHelp = "Only your devices can read your notes. Nobody running the server can, not even with its data folder."
 
 [admin.setup.check]
 https = "Https"
