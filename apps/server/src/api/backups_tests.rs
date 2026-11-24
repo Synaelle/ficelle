@@ -66,8 +66,7 @@ async fn an_instance_is_backed_up_test_restored_and_restored_whole() {
     assert_eq!(status, StatusCode::FORBIDDEN);
     let (status, view) = set_up(&app, &admin, place.path(), true, "backup pw").await;
     assert_eq!(status, StatusCode::OK, "{view}");
-    assert_eq!(view["config"]["schedule"], "daily");
-    assert_eq!(view["config"]["policy"]["last"], 10);
+    assert_eq!(view["config"]["keep"], 30);
     // a second repository at the same place is refused, and a wrong password
     let (status, body) = set_up(&app, &admin, place.path(), true, "other").await;
     assert_eq!(status, StatusCode::BAD_GATEWAY, "{body}");
@@ -225,4 +224,73 @@ async fn a_backup_that_cannot_be_made_says_why_and_is_logged() {
     // stopping keeps the status, clears the settings
     let (_, stopped) = call(&app, "DELETE", "/admin/backups", Some(&admin), None).await;
     assert!(stopped["config"].is_null());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn older_settings_keep_their_schedule_and_policy_until_a_number_is_chosen() {
+    let _turn = ONE_AT_A_TIME.lock().await;
+    let data = tempfile::tempdir().unwrap();
+    let place = tempfile::tempdir().unwrap();
+    let config = Config {
+        storage: StorageConfig {
+            data_dir: data.path().to_owned(),
+            ..StorageConfig::default()
+        },
+        ..Config::default()
+    };
+    let (state, app, admin) = admin_on(server_with(config).await).await;
+    let (status, _) = set_up(&app, &admin, place.path(), true, "backup pw").await;
+    assert_eq!(status, StatusCode::OK);
+    for _ in 0..3 {
+        state.clock.advance(crate::clock::MINUTE);
+        call(&app, "POST", "/admin/backups/run", Some(&admin), None).await;
+    }
+    // as the earlier admin page left them: hourly, the newest one and one a day
+    let master = state.master.clone();
+    state
+        .db
+        .call(move |c| {
+            let mut config = crate::backups::config(c, &master)?.unwrap();
+            config.schedule = crate::backups::Schedule::Hourly;
+            config.policy = app_repo::Policy {
+                last: 1,
+                daily: 7,
+                weekly: 4,
+                monthly: 12,
+                yearly: 0,
+            };
+            crate::backups::set_config(c, &master, Some(&config))
+        })
+        .await
+        .unwrap();
+    let (_, view) = call(&app, "GET", "/admin/backups", Some(&admin), None).await;
+    assert_eq!(view["config"]["keep"], 3, "what is there: {view}");
+    let master = state.master.clone();
+    let kept = state
+        .db
+        .call(move |c| Ok(crate::backups::config(c, &master)?.unwrap()))
+        .await
+        .unwrap();
+    assert_eq!(kept.schedule, crate::backups::Schedule::Hourly);
+    assert_eq!(kept.keep(), None);
+
+    let (status, view) = call(
+        &app,
+        "PUT",
+        "/admin/backups/settings",
+        Some(&admin),
+        Some(json!({ "keep": 3 })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+    let (_, view) = call(&app, "POST", "/admin/backups/run", Some(&admin), None).await;
+    assert_eq!(view["status"]["snapshots"], 3, "{view}");
+    let master = state.master.clone();
+    let now = state
+        .db
+        .call(move |c| Ok(crate::backups::config(c, &master)?.unwrap()))
+        .await
+        .unwrap();
+    assert_eq!(now.schedule, crate::backups::Schedule::Daily);
+    assert_eq!(now.keep(), Some(3));
 }

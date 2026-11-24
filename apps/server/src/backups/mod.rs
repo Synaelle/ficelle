@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The instance's backups, set up by an admin: the folder on the server,
-//! the password, when, what to keep. Runs on a
-//! schedule in the background, the admin page shows how they went, a
-//! failure is logged. People back up their own
+//! the password, how many to keep. Runs daily in the background, the admin
+//! page shows how they went, a failure is logged. People back up their own
 //! notes from their apps.
 
 pub mod instance;
@@ -39,6 +38,22 @@ fn readme() -> String {
          on the admin page, Backups, under To restore the whole instance.\n",
         app_brand::ENV_PREFIX
     )
+}
+
+/// How many backups stay when nothing else is said.
+pub const DEFAULT_KEEP: u32 = 30;
+/// The most that may be kept.
+pub const MAX_KEEP: u32 = 100;
+
+/// What keeps the newest `keep` backups and nothing else.
+pub fn keeping(keep: u32) -> Policy {
+    Policy {
+        last: keep.clamp(1, MAX_KEEP),
+        daily: 0,
+        weekly: 0,
+        monthly: 0,
+        yearly: 0,
+    }
 }
 
 /// Where the instance's backups go.
@@ -131,7 +146,9 @@ impl Schedule {
     }
 }
 
-/// The instance's backup settings.
+/// The instance's backup settings. The admin page sets a daily schedule
+/// and a policy of the newest few: settings from before, with another
+/// schedule or policy, keep them until a number is chosen.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BackupConfig {
@@ -145,6 +162,15 @@ pub struct BackupConfig {
     pub policy: Policy,
     /// The time zone for the policy's days, seconds east of UTC.
     pub offset_seconds: i64,
+}
+
+impl BackupConfig {
+    /// How many backups stay, `None` for older settings with another
+    /// schedule or policy.
+    pub fn keep(&self) -> Option<u32> {
+        (self.schedule == Schedule::Daily && self.policy == keeping(self.policy.last))
+            .then_some(self.policy.last)
+    }
 }
 
 /// How the runs went.

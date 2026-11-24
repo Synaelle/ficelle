@@ -486,7 +486,6 @@ recoveryInvalid = "This recovery code does not open this account, or the recover
 linkInvalid = "This link is used, expired, or was never sent. Ask for a new one."
 
 [admin.backups]
-keep = "Keep"
 title = "Backups"
 simpleInData = "This folder is inside the server's data, on the same disk. It helps after a mistake, not after losing the disk. With Docker, mount another disk on /backups."
 simpleWhere = "A folder on the same machine does not survive the machine itself. Copy it elsewhere now and then."

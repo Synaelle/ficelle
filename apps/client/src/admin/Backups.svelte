@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- The instance's backups: the folder on the server, the password, when,
-     what to keep; how the runs went; the backups to check and test restore.
-     A whole instance is restored from the command line, the server stopped:
-     what to keep for that is shown here. Setting up starts simple, a new
-     backup in the suggested folder every day and a password; Advanced also
-     opens a backup already there. -->
+<!-- The instance's backups: the folder on the server, the password, how
+     many to keep, made daily; how the runs went; the backups to check and
+     test restore. A whole instance is restored from the command line, the
+     server stopped: what to keep for that is shown here. Setting up starts
+     simple, a new backup in the suggested folder and a password; Advanced
+     also opens a backup already there. -->
 <script lang="ts">
   import PasswordField from '../lib/PasswordField.svelte'
   import Icon from '../lib/icons/Icon.svelte'
@@ -14,10 +14,8 @@
   import { bytes, dateTime, errorText, relative } from './format'
 
   type Target = { kind: 'folder'; path: string }
-  type Policy = { last: number; daily: number; weekly: number; monthly: number; yearly: number }
-  type Schedule = 'off' | 'hourly' | 'daily' | 'weekly'
   interface View {
-    config: { target: Target; schedule: Schedule; policy: Policy } | null
+    config: { target: Target; keep: number } | null
     status: {
       lastRunAt: number | null
       lastSuccessAt: number | null
@@ -58,8 +56,7 @@
   let existing = $state(false)
   let password = $state('')
   let again = $state('')
-  let schedule: Schedule = $state('daily')
-  let policy: Policy = $state({ last: 10, daily: 7, weekly: 4, monthly: 12, yearly: 0 })
+  let keep = $state(30)
   let snapshots: Snapshot[] | null = $state(null)
   let check: Check | null = $state(null)
 
@@ -83,10 +80,7 @@
   function show(next: View) {
     view = next
     onconfigured?.(!!next.config)
-    if (next.config) {
-      schedule = next.config.schedule
-      policy = { ...next.config.policy }
-    }
+    if (next.config) keep = next.config.keep
   }
 
   void act(async () => show(await api<View>('GET', '/admin/backups')))
@@ -147,12 +141,13 @@
     }, t('backups.done'))
   }
 
-  function saveSchedule() {
+  function saveKeep(value: number) {
+    const count = Math.round(value)
+    if (count < 1 || count > 100) return
     void act(async () => {
       show(
         await api<View>('PUT', '/admin/backups/settings', {
-          schedule,
-          policy,
+          keep: count,
           offsetSeconds: offsetSeconds(),
         }),
       )
@@ -197,8 +192,6 @@
     return config ? JSON.stringify(config.target, null, 2) : ''
   })
   const where = $derived((view as View | null)?.config?.target.path ?? '')
-  const SCHEDULES: Schedule[] = ['off', 'hourly', 'daily', 'weekly']
-  const KEEP = ['last', 'daily', 'weekly', 'monthly'] as const
 </script>
 
 {#if problem}<p class="problem" role="alert" data-backups-problem>{problem}</p>{/if}
@@ -324,44 +317,23 @@
     </section>
   {/if}
 
-  <section class="dash-group" aria-labelledby="backups-when">
-    <h2 id="backups-when">{t('backups.when')}</h2>
-    <ul class="dash-rows">
-      <li class="dash-row dash-tight">
-        <span class="dash-words"><span class="dash-label">{t('backups.schedule')}</span></span>
-        <span class="dash-ctl">
-          <select
-            class="field dash-select"
-            aria-label={t('backups.schedule')}
-            bind:value={schedule}
-          >
-            {#each SCHEDULES as s (s)}<option value={s}>{t(`backups.schedule_${s}`)}</option>{/each}
-          </select>
-        </span>
-      </li>
-      <li class="dash-row dash-tight">
-        <span class="dash-words">
-          <span class="dash-label">{t('admin.backups.keep')}</span>
-        </span>
-        <span class="dash-ctl">
-          {#each KEEP as period (period)}
-            <label class="keep"
-              ><span class="dash-unit">{t(`backups.keep_${period}`)}</span><input
-                class="field dash-num"
-                type="number"
-                min="0"
-                max="100"
-                bind:value={policy[period]}
-              /></label
-            >
-          {/each}
-        </span>
-      </li>
-    </ul>
-    <p class="actions">
-      <button class="btn" disabled={busy} onclick={saveSchedule}>{t('backups.save')}</button>
-    </p>
-  </section>
+  <ul class="dash-rows">
+    <li class="dash-row dash-tight">
+      <span class="dash-words"><span class="dash-label">{t('backups.kept')}</span></span>
+      <span class="dash-ctl">
+        <input
+          class="field dash-num"
+          type="number"
+          min="1"
+          max="100"
+          aria-label={t('backups.kept')}
+          value={keep}
+          disabled={busy}
+          onchange={(e) => saveKeep(Number(e.currentTarget.value))}
+        />
+      </span>
+    </li>
+  </ul>
 
   <section class="dash-group">
     <!-- rarely needed, long: folded -->
@@ -474,11 +446,6 @@
     display: grid;
     gap: var(--space-3);
     justify-items: start;
-  }
-  .keep {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
   }
   .mono {
     font-family: var(--font-ui);

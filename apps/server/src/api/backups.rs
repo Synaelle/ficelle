@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The instance's backups on the admin page (`/admin/backups`): set up,
-//! run, list, check and test restore. A whole instance is restored from
-//! the command line, the server stopped.
+//! how many to keep, run, list, check and test restore. A whole instance
+//! is restored from the command line, the server stopped.
 
 use axum::Json;
 use axum::extract::State;
@@ -17,7 +17,7 @@ use crate::backups::{
 use crate::db::DbError;
 use crate::error::Error;
 use crate::routes::AppState;
-use app_repo::{CheckReport, Policy};
+use app_repo::CheckReport;
 
 fn failed(why: impl Into<String>) -> Error {
     Error::new(
@@ -32,8 +32,10 @@ fn failed(why: impl Into<String>) -> Error {
 #[serde(rename_all = "camelCase")]
 pub struct ConfigView {
     target: ServerTarget,
-    schedule: Schedule,
-    policy: Policy,
+    /// How many backups stay. For older settings, which keep their own
+    /// schedule and policy until a number is chosen, how many there are:
+    /// choosing it as it is removes none.
+    keep: u32,
 }
 
 /// `GET /api/v1/admin/backups`
@@ -74,11 +76,13 @@ async fn view(state: &AppState) -> Result<BackupsView, Error> {
         .call(move |c| Ok((backups::config(c, &master)?, backups::status(c)?)))
         .await?;
     let (suggested, suggested_apart) = suggested_folder(&state.config.storage);
+    let there = u32::try_from(status.snapshots).unwrap_or(backups::MAX_KEEP);
     Ok(BackupsView {
         config: config.map(|c| ConfigView {
+            keep: c
+                .keep()
+                .unwrap_or_else(|| there.clamp(1, backups::MAX_KEEP)),
             target: c.target,
-            schedule: c.schedule,
-            policy: c.policy,
         }),
         status,
         running: backups::running(),
@@ -131,7 +135,9 @@ pub async fn connect(
         target: connect.target,
         password: connect.password,
         schedule: old.as_ref().map_or(Schedule::Daily, |o| o.schedule),
-        policy: old.as_ref().map_or_else(Policy::default, |o| o.policy),
+        policy: old
+            .as_ref()
+            .map_or_else(|| backups::keeping(backups::DEFAULT_KEEP), |o| o.policy),
         offset_seconds: connect.offset_seconds,
     };
     let now = state.clock.now();
@@ -153,12 +159,12 @@ pub async fn connect(
     Ok(Json(view(&state).await?))
 }
 
-/// `PUT /api/v1/admin/backups/settings`
+/// `PUT /api/v1/admin/backups/settings`: how many backups stay, made
+/// daily.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-    schedule: Schedule,
-    policy: Policy,
+    keep: u32,
     #[serde(default)]
     offset_seconds: i64,
 }
@@ -170,6 +176,12 @@ pub async fn settings(
     Body(settings): Body<Settings>,
 ) -> Result<Json<BackupsView>, Error> {
     admin(&me)?;
+    if !(1..=backups::MAX_KEEP).contains(&settings.keep) {
+        return Err(Error::invalid(format!(
+            "keep 1 to {} backups",
+            backups::MAX_KEEP
+        )));
+    }
     let master = state.master.clone();
     state
         .db
@@ -177,8 +189,8 @@ pub async fn settings(
             let Some(mut config) = backups::config(c, &master)? else {
                 return Ok(false);
             };
-            config.schedule = settings.schedule;
-            config.policy = settings.policy;
+            config.schedule = Schedule::Daily;
+            config.policy = backups::keeping(settings.keep);
             config.offset_seconds = settings.offset_seconds;
             backups::set_config(c, &master, Some(&config))?;
             Ok(true)
