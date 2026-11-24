@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Runs on the in-memory backend, the one a plain browser gets.
+// Runs on the notes core in the page, the backend a plain browser gets.
 import { describe, expect, it, vi } from 'vitest'
 import { backend, type NoteChange } from './backend'
+import { closeSource } from './import'
+import { coreSource } from './import/testExport'
 import { prefs } from './prefs.svelte'
 import { toasts } from './toast.svelte'
 import { SEARCH_LIMIT, workspace } from './workspace.svelte'
@@ -687,8 +689,26 @@ describe('a search result picked', () => {
 
 describe('searching', () => {
   it('lists more than fifty notes, and says when there are more than it lists', async () => {
-    for (let i = 0; i < SEARCH_LIMIT + 2; i++)
-      await backend.createNote({ title: `Quarry stone ${i}` })
+    // written in one batch: one note at a time, they took seconds
+    const source = await coreSource('Quarry', { 'Quarry.md': '' })
+    await backend.importBegin(source.nativeId, 'Quarry')
+    await backend.importWrite(source.nativeId, {
+      importer: 'markdown',
+      folders: [],
+      notes: Array.from({ length: SEARCH_LIMIT + 2 }, (_, i) => ({
+        key: `stone ${i}`,
+        folder: null,
+        title: `Quarry stone ${i}`,
+        body: '',
+        tags: [],
+        created: null,
+        updated: null,
+        pinned: false,
+        trashed: false,
+        sources: [],
+      })),
+    })
+    await closeSource(source)
     await workspace.search('quarry')
     expect(workspace.hits).toHaveLength(SEARCH_LIMIT)
     expect(workspace.moreHits).toBe(true)

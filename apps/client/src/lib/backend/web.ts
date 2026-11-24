@@ -2,7 +2,8 @@
 // The web version's backend: the apps' commands, answered by the notes core
 // in a worker (core.worker.ts) in place of the native side. What only an app
 // can do (update itself, keep a key on the device, reach the system's files
-// and windows) is left out here, or done the browser's way.
+// and windows) is left out here, or done the browser's way. The same, on the
+// core run in the page (pageCore.ts), is the preview's and the tests'.
 
 import type { invoke } from '@tauri-apps/api/core'
 import type { Backend } from './backend'
@@ -193,6 +194,31 @@ export function createWebBackend(): Backend {
     })
   }
 
+  const core = coreBackend(send)
+  return {
+    ...core,
+    createNote: async (note) => kept(await core.createNote(note)),
+    updateNote: async (id, change) => kept(await core.updateNote(id, change)),
+    // the worker ends: nothing of the open notes stays in its memory, and
+    // the next call starts a fresh one that has to unlock again
+    vaultLock: async () => {
+      await core.vaultLock()
+      stop?.()
+      stop = null
+    },
+  }
+}
+
+/** Sends a command to the core, with bytes or for bytes. */
+export type Send = <T>(
+  name: string,
+  args?: Record<string, unknown>,
+  more?: Pick<CoreRequest, 'bytes' | 'binary'>,
+) => Promise<T>
+
+/** The apps' commands answered by the core through `send`, and what only
+ * an app can do left out or done the browser's way. */
+export function coreBackend(send: Send): Backend {
   const call = ((name: string, args?: Record<string, unknown>) => send(name, args)) as typeof invoke
   const commands = createTauriBackend(call)
 
@@ -237,8 +263,6 @@ export function createWebBackend(): Backend {
     native: false,
 
     search,
-    createNote: async (note) => kept(await commands.createNote(note)),
-    updateNote: async (id, change) => kept(await commands.updateNote(id, change)),
 
     vaultUnlockPin: async () => {
       throw unsupported('a PIN needs the app')
@@ -256,13 +280,9 @@ export function createWebBackend(): Backend {
       await commands.vaultCreate(way, password, pin)
       notesMade()
     },
-    // the worker ends: nothing of the open notes stays in its memory, and
-    // the next call starts a fresh one that has to unlock again
     vaultLock: async () => {
       forgetUrls()
       await commands.vaultLock()
-      stop?.()
-      stop = null
     },
 
     appUpdateCheck: async () => null,

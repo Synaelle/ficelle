@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @app/client tauri dev",
-    "dev:web": "pnpm --filter @app/client dev",
+    "dev:web": "pnpm --filter @app/client dev:browser",
     "dev:server": "node tools/dev-server.mjs",
     "build:release": "node tools/build-release.mjs",
     "build:preview": "node tools/build-release.mjs --preview",

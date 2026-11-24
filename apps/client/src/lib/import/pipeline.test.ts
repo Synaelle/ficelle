@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest'
-import { createMemoryBackend } from '../backend/memory'
+import { backend } from '../backend'
 import { htmlToMarkdown, parseHtml } from './html'
 import { markdownImporter, inlineTags } from './importers/markdown'
 import { parseDate, splitFrontMatter } from './markdown'
 import { detect, fileAddress, prepare, reportMarkdown, settle, write } from './pipeline'
 import { memorySource, resolvePath } from './source'
+import { coreSource } from './testExport'
 import { fileRef, noteRef, type ReportItem } from './types'
 
+/** A new, empty vault in the core for each test. */
 async function vault() {
-  const backend = createMemoryBackend()
-  await backend.vaultCreate('plain', null)
+  await backend.vaultReset()
+  await backend.vaultCreate('plain', '')
   return backend
 }
 
@@ -179,7 +181,7 @@ describe('a Ficelle export brought back', () => {
 describe('the markdown importer through the pipeline', () => {
   it('detects, previews and writes a folder with links, files, tags and dates', async () => {
     const backend = await vault()
-    const source = memorySource('Vault', VAULT, Date.UTC(2025, 5, 1))
+    const source = await coreSource('Vault', VAULT, Date.UTC(2025, 5, 1))
     expect(detect(source, [markdownImporter])).toBe(markdownImporter)
     expect(detect(memorySource('x', { 'a.png': '' }), [markdownImporter])).toBeNull()
 
@@ -201,18 +203,15 @@ describe('the markdown importer through the pipeline', () => {
 
     const done = await write(prepared, backend, { name: 'Markdown, today' })
     expect(done).toMatchObject({ notes: 3, skipped: 0, cancelled: false })
-    const folders = [...backend.folders.values()]
-    const root = folders.find((f) => f.id === done.root)
-    const notesFolder = folders.find((f) => f.name === 'Notes')
-    expect(root?.name).toBe('Markdown, today')
-    expect(notesFolder?.parentId).toBe(done.root)
-    const inNotes = await backend.listNotes(
-      { kind: 'folder', id: notesFolder?.id ?? '' },
-      'titleAsc',
-    )
+    const all = await backend.listNotes({ kind: 'all' }, 'titleAsc')
+    expect(all.map((n) => n.title)).toEqual(['Big plan', 'Ideas', 'Log book'])
+    expect(all.find((n) => n.title === 'Log book')?.folderId).toBe(done.root)
+    const written = await backend.getNote(all[0]?.id ?? '')
+    expect(written.folderId).not.toBe(done.root)
+    const inNotes = await backend.listNotes({ kind: 'folder', id: written.folderId }, 'titleAsc')
     expect(inNotes.map((n) => n.title)).toEqual(['Big plan', 'Ideas'])
-    const written = await backend.getNote(inNotes[0]?.id ?? '')
-    expect(written.tags).toEqual(['work'])
+    // the folders it came in, as a tag of their own
+    expect(written.tags).toEqual(['Markdown, today/Notes', 'work'])
     expect(written.createdAt).toBe(Date.UTC(2024, 2, 1, 9))
     expect((await backend.listAttachments(written.id)).map((a) => a.fileName).sort()).toEqual([
       'diagram.png',
@@ -261,10 +260,10 @@ describe('the markdown importer through the pipeline', () => {
   it('knows notes an earlier version brought in by their path alone', async () => {
     const backend = await vault()
     const files = { 'a.md': 'one', 'b.md': 'two' }
-    const first = await prepare(memorySource('Old', files), markdownImporter, backend)
+    const first = await prepare(await coreSource('Old', files), markdownImporter, backend)
     const byPath = first.model.notes.map((n) => ({ ...n, key: n.key.split('\n')[0] ?? '' }))
     await write({ ...first, model: { ...first.model, notes: byPath } }, backend, { name: 'Old' })
-    const again = await prepare(memorySource('Old', files), markdownImporter, backend)
+    const again = await prepare(await coreSource('Old', files), markdownImporter, backend)
     expect(again.counts).toMatchObject({ notes: 0, skipped: 2 })
   })
 
@@ -272,7 +271,7 @@ describe('the markdown importer through the pipeline', () => {
     const backend = await vault()
     const files: Record<string, string> = {}
     for (let i = 0; i < 250; i += 1) files[`n${i}.md`] = `note ${i}`
-    const prepared = await prepare(memorySource('Many', files), markdownImporter, backend)
+    const prepared = await prepare(await coreSource('Many', files), markdownImporter, backend)
     const stop = new AbortController()
     const done = await write(prepared, backend, {
       name: 'Many',
@@ -281,7 +280,7 @@ describe('the markdown importer through the pipeline', () => {
     })
     expect(done).toMatchObject({ notes: 100, cancelled: true })
     // what was written is known: the rest comes next time
-    const rest = await prepare(memorySource('Many', files), markdownImporter, backend)
+    const rest = await prepare(await coreSource('Many', files), markdownImporter, backend)
     expect(rest.counts).toMatchObject({ notes: 150, skipped: 100 })
   })
 })

@@ -6,6 +6,7 @@
 // or { id, error } with the apps' { kind, message } error.
 
 import init, { call, callBytes, readBytes, start } from '@app/core-web'
+import { coreError, type CoreError } from './coreError'
 
 export interface CoreRequest {
   id: number
@@ -18,21 +19,7 @@ export interface CoreRequest {
   binary?: boolean
 }
 
-export type CoreAnswer =
-  { id: number; value: unknown } | { id: number; error: { kind: string; message: string } }
-
-/** The core's error as the apps send theirs. */
-function asError(err: unknown): { kind: string; message: string } {
-  const message = err instanceof Error ? err.message : String(err)
-  try {
-    const parsed: unknown = JSON.parse(message)
-    if (parsed && typeof parsed === 'object' && 'kind' in parsed && 'message' in parsed)
-      return parsed as { kind: string; message: string }
-  } catch {
-    // not one of the core's, a crash: said as it is
-  }
-  return { kind: 'unknown', message }
-}
+export type CoreAnswer = { id: number; value: unknown } | { id: number; error: CoreError }
 
 // the page names the worker after its scope (webScope.ts): the core keeps the
 // notes in that scope's own folder, and opens none without it
@@ -55,6 +42,6 @@ self.onmessage = async ({ data }: MessageEvent<CoreRequest>) => {
     const text = bytes ? callBytes(name, args, bytes) : call(name, args)
     self.postMessage({ id, value: JSON.parse(text) as unknown } satisfies CoreAnswer)
   } catch (err) {
-    self.postMessage({ id, error: asError(err) } satisfies CoreAnswer)
+    self.postMessage({ id, error: coreError(err) } satisfies CoreAnswer)
   }
 }

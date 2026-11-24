@@ -28,6 +28,13 @@ const picked = new Map<string, File>()
 /** A file the web version's picker gave, by its made up path. */
 export const pickedFile = (path: string): File | undefined => picked.get(path)
 
+/** Keeps a file picked in the browser, under the path made up for it. */
+export function keepPicked(file: File): string {
+  const path = `picked/${picked.size}/${file.name}`
+  picked.set(path, file)
+  return path
+}
+
 /** The browser's own file picker, one file. */
 function pickInBrowser(options: OpenDialogOptions): Promise<string | null> {
   return new Promise((resolve) => {
@@ -37,10 +44,7 @@ function pickInBrowser(options: OpenDialogOptions): Promise<string | null> {
     if (types.length > 0 && !types.includes('*')) input.accept = types.map((e) => `.${e}`).join(',')
     input.onchange = () => {
       const file = input.files?.[0]
-      if (!file) return resolve(null)
-      const path = `picked/${picked.size}/${file.name}`
-      picked.set(path, file)
-      resolve(path)
+      resolve(file ? keepPicked(file) : null)
     }
     input.oncancel = () => resolve(null)
     input.click()

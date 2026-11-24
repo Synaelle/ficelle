@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest'
-import { createMemoryBackend } from '../backend/memory'
+import { backend } from '../backend'
 import { evernoteImporter } from './importers/evernote'
 import { dayOneImporter, opmlImporter, roamImporter, tomboyImporter } from './importers/extras'
 import { htmlImporter } from './importers/html'
@@ -10,11 +10,10 @@ import { IMPORTERS, notionImporter } from './index'
 import { md5 } from './md5'
 import { detect, prepare, write } from './pipeline'
 import { memorySource } from './source'
+import { coreSource } from './testExport'
 import type { Importer, ImportSource, ReportItem } from './types'
 
 async function run(source: ImportSource, importer: Importer, picked?: Importer) {
-  const backend = createMemoryBackend()
-  await backend.vaultCreate('plain', null)
   if (!picked) expect(detect(source, IMPORTERS)).toBe(importer)
   return { prepared: await prepare(source, importer, backend), backend }
 }
@@ -99,7 +98,7 @@ ${b64(pdf)}
     const one = (title: string) =>
       `<en-export><note><title>${title}</title><content><![CDATA[<en-note>x</en-note>]]></content></note></en-export>`
     const r = await run(
-      memorySource('export', {
+      await coreSource('export', {
         'Work.enex': one('A'),
         'Home.enex': one('B'),
         'Broken.enex': '<en-export><note>',

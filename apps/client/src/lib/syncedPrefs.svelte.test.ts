@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Runs on the in-memory backend, the vault standing in for every device.
+// Runs on the notes core in the page, the vault standing in for every device.
 import { flushSync } from 'svelte'
 import { describe, expect, it, vi } from 'vitest'
 import { backend } from './backend'

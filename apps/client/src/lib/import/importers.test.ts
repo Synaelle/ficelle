@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest'
-import { createMemoryBackend } from '../backend/memory'
+import { backend } from '../backend'
 import { IMPORTERS, notionImporter } from './index'
 import { bearImporter, bearTags } from './importers/bear'
 import { lexicalToMarkdown, simplenoteImporter, standardNotesImporter } from './importers/json'
@@ -13,8 +13,6 @@ import { memorySource } from './source'
 import type { Importer, ImportSource, ReportItem } from './types'
 
 async function run(source: ImportSource, importer: Importer) {
-  const backend = createMemoryBackend()
-  await backend.vaultCreate('plain', null)
   expect(detect(source, IMPORTERS)).toBe(importer)
   return prepare(source, importer, backend)
 }

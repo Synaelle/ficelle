@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Everything the ui needs from storage. The native app implements it with
-// tauri commands, the browser preview and tests with an in-memory store.
+// tauri commands, the web version, the browser preview and the tests with
+// the notes core built for the browser.
 
 import type {
   Attachment,
@@ -39,7 +40,7 @@ export interface Backend {
 
   vaultStatus(): Promise<VaultStatus>
   /** First launch: the password, and how the vault opens day to day (`pin`
-   * for the PIN way). `plain` with no password only in the browser's tests. */
+   * for the PIN way), `plain` with an empty password for none. */
   vaultCreate(way: VaultWay, password: string | null, pin?: string | null): Promise<void>
   /** `password` null opens an old vault this device opened alone. */
   vaultUnlock(password: string | null): Promise<void>
@@ -209,7 +210,7 @@ export interface Backend {
   importRead(source: number, path: string): Promise<Uint8Array>
   /** The keys among these an earlier import by `importer` brought in. */
   importKnown(importer: string, keys: string[]): Promise<string[]>
-  /** Makes the import's own folder. `source` is null for exports in memory. */
+  /** Makes the import's own folder. */
   importBegin(source: number | null, name: string): Promise<Id>
   /** Stores bytes decoded by an importer, attached by a later batch. */
   importPut(bytes: Uint8Array): Promise<{ sha256: string; size: number }>

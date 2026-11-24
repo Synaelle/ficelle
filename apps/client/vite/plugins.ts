@@ -3,6 +3,7 @@
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { Plugin } from 'vite'
 import { loadLocales, localesDir, parseLocale } from '../../../tools/i18n.mjs'
 import { LUCIDE, PHOSPHOR } from '../src/lib/icons/sets.ts'
@@ -77,5 +78,30 @@ export function iconSets(): Plugin {
       const phosphor = read(PHOSPHOR, (n) => join(icons, 'phosphor', `${n}.svg`))
       return `export const lucide = ${JSON.stringify(lucide)}\nexport const phosphor = ${JSON.stringify(phosphor)}\n`
     },
+  }
+}
+
+/**
+ * `@app/core-web` in the tests, which run in Node: the notes core built by
+ * tools/wasm.mjs --core, its code read from disk when it loads, since
+ * Node's fetch reads no files.
+ */
+export function coreInNode(): Plugin {
+  const resolved = '\0core-in-node'
+  const generated = (name: string) =>
+    JSON.stringify(fileURLToPath(new URL(`../src/generated/core/${name}`, import.meta.url)))
+  return {
+    name: 'core-in-node',
+    enforce: 'pre',
+    resolveId: (id) => (id === '@app/core-web' ? resolved : null),
+    load: (id) =>
+      id === resolved
+        ? [
+            `import { readFileSync } from 'node:fs'`,
+            `import init from ${generated('app_core_web.js')}`,
+            `export * from ${generated('app_core_web.js')}`,
+            `export default () => init({ module_or_path: readFileSync(${generated('app_core_web_bg.wasm')}) })`,
+          ].join('\n')
+        : null,
   }
 }

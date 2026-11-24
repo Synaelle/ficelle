@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Picks the backend: tauri inside the app, the notes core in a worker in the
-// web version, in memory in any other browser page. Only dev builds (pnpm
-// dev:web) fill that one with the sample notes, so the ui can be worked on
-// without the native shell; the server's admin page gets it empty.
+// web version, the core in the page with its notes in memory in any other
+// browser page (pnpm dev:web, the tests). Dev builds fill that one with the
+// sample notes, so the ui can be worked on without the native shell.
 
 import { PLATFORM, WEB } from '../platform'
 import { announcingInvoke } from '../windows'
 import type { Backend } from './backend'
-import { createMemoryBackend } from './memory'
+import { createPageBackend } from './pageCore'
 import { createTauriBackend } from './tauri'
 import { createWebBackend } from './web'
 
 export type { Backend } from './backend'
 export * from './types'
 
-// an app build is always inside tauri: the other two backends are left out
+// an app build is always inside tauri: the other backends are left out
 const inTauri =
   PLATFORM !== 'web' || (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)
 
@@ -28,4 +28,4 @@ export const backend: Backend = inTauri
   ? createTauriBackend(announcingInvoke)
   : WEB
     ? createWebBackend()
-    : createMemoryBackend({ seed: import.meta.env.DEV && !fresh })
+    : createPageBackend({ seed: import.meta.env.DEV && !fresh })

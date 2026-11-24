@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { defineConfig } from 'vitest/config'
 import { appVersion, buildDate, hasReleaseIdentity, isRelease } from '../../tools/version.mjs'
-import { iconSets, localeShares, tomlLocales } from './vite/plugins.ts'
+import { coreInNode, iconSets, localeShares, tomlLocales } from './vite/plugins.ts'
 
 // tauri sets TAURI_ENV_PLATFORM while it drives the build
 const platform = process.env.TAURI_ENV_PLATFORM
@@ -21,10 +21,27 @@ function protocolVersion(): number {
   return Number(found[1])
 }
 
+/** Where `@app/core-web`, the notes core the pages carry, comes from: built
+ * (tools/wasm.mjs --core) for the web version and the preview of
+ * development (a dev server outside tauri), a stand-in in the apps, which
+ * have their own. The tests load it with coreInNode. */
+function coreAlias(mode: string, command: string): Record<string, string> {
+  if (process.env.VITEST) return {}
+  const own = mode === 'web' || (command === 'serve' && !platform)
+  const file = own ? 'src/generated/core/app_core_web.js' : 'src/lib/backend/noCore.ts'
+  return { '@app/core-web': fileURLToPath(new URL(file, import.meta.url)) }
+}
+
 // `--mode web` builds the web version: the notes app alone, for a static
 // folder, with the core running in the page
-export default defineConfig(({ mode }) => ({
-  plugins: [svelte(), tomlLocales(), localeShares(), iconSets()],
+export default defineConfig(({ mode, command }) => ({
+  plugins: [
+    svelte(),
+    tomlLocales(),
+    localeShares(),
+    iconSets(),
+    ...(process.env.VITEST ? [coreInNode()] : []),
+  ],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion()),
     __APP_BUILD_DATE__: JSON.stringify(buildDate()),
@@ -46,16 +63,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     // components mount in the tests (FileWindow.test.ts): svelte's browser build
     ...(process.env.VITEST ? { conditions: ['browser'] } : {}),
-    alias: {
-      // the notes core, built for the web version alone (tools/wasm.mjs
-      // --core), a stand-in elsewhere
-      '@app/core-web': fileURLToPath(
-        new URL(
-          mode === 'web' ? 'src/generated/core/app_core_web.js' : 'src/lib/backend/noCore.ts',
-          import.meta.url,
-        ),
-      ),
-    },
+    alias: coreAlias(mode, command),
   },
   clearScreen: false,
   server: {

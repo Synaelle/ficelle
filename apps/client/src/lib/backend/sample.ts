@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The design sample notes, for the browser preview. Same content as the
-// devtool seed (crates/devtool/src/seed.rs).
+// The design sample notes, for the browser preview, written through the
+// core when it starts. Same content as the devtool seed
+// (crates/devtool/src/seed.rs).
 
-import type { Note } from './types'
+import type { NewNote } from './types'
 
-const DAY = 86_400_000
-
-export const TRELLIS = `Six cedar posts along the south bed, jute twine strung between them. Same setup as last year but tighter spacing. See [[Garden log 2025]] for what went wrong.
+const TRELLIS = `Six cedar posts along the south bed, jute twine strung between them. Same setup as last year but tighter spacing. See [[Garden log 2025]] for what went wrong.
 
 ## This weekend
 
@@ -25,29 +24,16 @@ posts = 6
 \`\`\`
 `
 
-export function sampleData(now: number): { notes: Note[] } {
-  let age = 12
+/** The sample notes, oldest first. */
+export function sampleNotes(): NewNote[] {
   const note = (
     place: string | null,
     title: string,
     body: string,
     tags: string[],
     pinned = false,
-  ): Note => {
-    age -= 2
-    return {
-      id: `n-${age}`,
-      folderId: null,
-      title,
-      body,
-      pinned,
-      tags: place ? [place, ...tags] : tags,
-      createdAt: now - age * DAY,
-      updatedAt: now - age * DAY,
-      trashedAt: null,
-    }
-  }
-  const notes = [
+  ): NewNote => ({ title, body, pinned, tags: place ? [place, ...tags] : tags })
+  return [
     note('Reading', 'Reading list, autumn', 'The Overstory, Piranesi, La Horde du Contrevent.', [
       'ideas',
     ]),
@@ -78,5 +64,4 @@ export function sampleData(now: number): { notes: Note[] } {
     ),
     note('Projects/Garden', 'Tomato trellis plan', TRELLIS, ['todo'], true),
   ]
-  return { notes }
 }
