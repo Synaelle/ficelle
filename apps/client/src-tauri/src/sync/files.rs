@@ -9,12 +9,13 @@ use std::time::{Duration, Instant};
 use app_core::id::NoteId;
 use app_core::model::Attachment;
 use app_core::sync::engine::{RemoteError, SyncError};
-use app_core::sync::files::{FileError, FilePart};
+use app_core::sync::files::{FileError, FilePart, Moving};
 use app_protocol::files::{FileState, FilesInfo, encode_name};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use super::http::{Answer, HttpError};
+use super::progress::Shown;
 use super::{Vault, wire};
 use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
@@ -99,7 +100,7 @@ pub(super) fn run(sync: &super::Sync, app: &AppHandle) {
         if !linked || sync.clock_off() {
             continue;
         }
-        let done = wire(&state).and_then(|(mut remote, _)| after_round(&state, &mut remote));
+        let done = wire(&state).and_then(|(mut remote, _)| after_round(app, &mut remote));
         match done {
             Ok(fetched) => {
                 if fetched {
@@ -116,11 +117,18 @@ pub(super) fn run(sync: &super::Sync, app: &AppHandle) {
 
 /// The files pass, and now and then the clean up of files removed long
 /// enough ago. Returns whether files arrived.
-fn after_round(state: &AppState, wire: &mut super::Wire<'_>) -> Result<bool, SyncError> {
+fn after_round(app: &AppHandle, wire: &mut super::Wire<'_>) -> Result<bool, SyncError> {
+    let state = app.state::<AppState>();
     let blobs = state
         .quietly(|s| Ok(s.blobs.clone()))
         .map_err(|_| RemoteError::Offline("the vault is locked".into()))?;
-    let done = app_core::sync::files::transfer(&Vault(state), &blobs, wire, AUTO_FETCH)?;
+    let done = app_core::sync::files::transfer(
+        &Vault(&state),
+        &blobs,
+        wire,
+        AUTO_FETCH,
+        &mut Shown::new(app),
+    )?;
     let clean = {
         let mut shared = state.sync.lock();
         let due = shared.cleaned.is_none_or(|t| t.elapsed() >= CLEAN_EVERY);
@@ -130,7 +138,7 @@ fn after_round(state: &AppState, wire: &mut super::Wire<'_>) -> Result<bool, Syn
         due
     };
     if clean {
-        clean_up(state);
+        clean_up(&state);
     }
     Ok(done.fetched > 0)
 }
@@ -213,8 +221,9 @@ pub async fn fetch_attachment(app: AppHandle, sha256: String) -> CommandResult<(
         }
         let (mut remote, _) =
             wire(&state).map_err(|e| CommandError::new("offline", e.to_string()))?;
-        app_core::sync::files::fetch(&Vault(&state), &blobs, &mut remote, &sha256).map_err(|e| {
-            match e {
+        let mut shown = Shown::new(&worker);
+        app_core::sync::files::fetch(&Vault(&state), &blobs, &mut remote, &sha256, &mut shown)
+            .map_err(|e| match e {
                 FileError::Missing => {
                     CommandError::new("notFound", "the server does not have this file yet")
                 }
@@ -223,8 +232,7 @@ pub async fn fetch_attachment(app: AppHandle, sha256: String) -> CommandResult<(
                 }
                 FileError::Remote(other) => CommandError::new("offline", other.to_string()),
                 FileError::Refused(why) => CommandError::new("refused", why),
-            }
-        })
+            })
     })
     .await
     .map_err(|e| CommandError::new("internal", e.to_string()))??;
@@ -415,6 +423,13 @@ fn clean_opened(opened: &std::path::Path, keep: Duration) {
 fn still_open(err: &std::io::Error) -> bool {
     const ERROR_SHARING_VIOLATION: i32 = 32;
     cfg!(windows) && err.raw_os_error() == Some(ERROR_SHARING_VIOLATION)
+}
+
+/// The files on their way to or from the server now, the one moving first
+/// in each pass or fetch. Changes come with `files-moving`.
+#[tauri::command]
+pub async fn files_moving(state: State<'_, AppState>) -> CommandResult<Vec<Moving>> {
+    Ok(state.sync.transfers.moving())
 }
 
 /// What the server allows this account and what it uses, as the last round

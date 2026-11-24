@@ -1459,14 +1459,27 @@ mod files_deep {
         h.device.server.faults = faults;
         let notes = run(&h.device.store, &mut h.device.server);
         if notes.is_ok() || faults.lose_answer {
-            let _ = transfer(&h.device.store, &h.blobs, &mut h.device.server, u64::MAX);
+            let _ = transfer(
+                &h.device.store,
+                &h.blobs,
+                &mut h.device.server,
+                u64::MAX,
+                &mut (),
+            );
         }
         h.device.server.faults = Faults::default();
     }
 
     fn clean(h: &mut Holder) {
         round(h, Faults::default());
-        transfer(&h.device.store, &h.blobs, &mut h.device.server, u64::MAX).unwrap();
+        transfer(
+            &h.device.store,
+            &h.blobs,
+            &mut h.device.server,
+            u64::MAX,
+            &mut (),
+        )
+        .unwrap();
     }
 
     fn notes(h: &Holder) -> Vec<NoteId> {

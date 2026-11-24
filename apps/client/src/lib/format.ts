@@ -39,6 +39,15 @@ export function relative(ms: number | null | undefined, now = Date.now()): strin
   return rtf.format(value, 'year')
 }
 
+const UNITS = ['byte', 'kilobyte', 'megabyte', 'gigabyte', 'terabyte'] as const
+
+/** The unit `n` bytes read best in, at least kilobytes, and its size. */
+function unitOf(n: number): [(typeof UNITS)[number], number] {
+  let unit = 1
+  while (n >= 1024 ** (unit + 1) && unit < UNITS.length - 1) unit += 1
+  return [UNITS[unit] ?? 'kilobyte', 1024 ** unit]
+}
+
 /** "33 bytes", "12 MB", "1.5 GB", in the page's language. */
 export function bytes(n: number): string {
   // below a kilobyte, as many bytes: a fraction of one rounded to "0 kB",
@@ -49,19 +58,25 @@ export function bytes(n: number): string {
       unit: 'byte',
       unitDisplay: 'long',
     }).format(n)
-  const units = ['byte', 'kilobyte', 'megabyte', 'gigabyte', 'terabyte'] as const
-  let value = n / 1024
-  let unit = 1
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024
-    unit += 1
-  }
+  const [unit, size] = unitOf(n)
+  const value = n / size
   return new Intl.NumberFormat(currentLocale(), {
     style: 'unit',
-    unit: units[unit],
+    unit,
     unitDisplay: 'short',
     maximumFractionDigits: value < 10 ? 1 : 0,
   }).format(value)
+}
+
+/** "12 of 340 MB": how much of a file moved, both in the unit of the whole. */
+export function bytesOf(done: number, total: number): string {
+  if (total < 1024) return t('files.progress', { done, total: bytes(total) })
+  const [, size] = unitOf(total)
+  const digits = total / size < 10 ? 1 : 0
+  const part = new Intl.NumberFormat(currentLocale(), {
+    maximumFractionDigits: digits,
+  }).format(done / size)
+  return t('files.progress', { done: part, total: bytes(total) })
 }
 
 /** "15 minutes", "3 hours", "31 days", rounded, in the page's language. */

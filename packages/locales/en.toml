@@ -146,6 +146,9 @@ saveCopy = "Save a copy…"
 attach = "Attach files"
 mention = "Insert in the note"
 notMentioned = "not in the text"
+progress = "{done} of {total}"
+sending = "Sending {name}"
+receiving = "Receiving {name}"
 
 [files.inNote]
 one = "{count} attachment"
@@ -853,6 +856,14 @@ more = "Co-editing and files"
 clockAhead = "This device's clock is {amount} ahead, so it does not sync. Set the right date and time on it and sync starts again by itself."
 clockBehind = "This device's clock is {amount} behind, so it does not sync. Set the right date and time on it and sync starts again by itself."
 unprotected = "Notes on this device are not encrypted"
+
+[sync.sending]
+one = "Sending {count} file, {progress}"
+other = "Sending {count} files, {progress}"
+
+[sync.receiving]
+one = "Receiving {count} file, {progress}"
+other = "Receiving {count} files, {progress}"
 
 [sync.pendingCount]
 one = "{count} change waits to be sent."

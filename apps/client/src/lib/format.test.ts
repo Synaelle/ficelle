@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest'
-import { bytes } from './format'
+import { bytes, bytesOf } from './format'
 import { setLocale } from './i18n.svelte'
 
 describe('bytes', () => {
@@ -14,5 +14,15 @@ describe('bytes', () => {
     await setLocale('en')
     expect(bytes(1536)).toBe('1.5 kB')
     expect(bytes(30 * 1024 * 1024)).toBe('30 MB')
+  })
+})
+
+describe('bytesOf', () => {
+  it('says how much moved in the unit of the whole file', async () => {
+    await setLocale('en')
+    expect(bytesOf(12 * 1024 * 1024, 340 * 1024 * 1024)).toBe('12 of 340 MB')
+    expect(bytesOf(1.5 * 1024 * 1024, 5 * 1024 * 1024)).toBe('1.5 of 5 MB')
+    expect(bytesOf(0, 2 * 1024 * 1024 * 1024)).toBe('0 of 2 GB')
+    expect(bytesOf(40, 900)).toBe('40 of 900 bytes')
   })
 })

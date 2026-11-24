@@ -7,7 +7,8 @@
 //! its backoff wait is over. It holds the vault only for the short steps
 //! of a round, never while waiting on the network. The ui hears about it
 //! through two events: `sync-status` with a [`SyncStatus`], and
-//! `sync-changed` when changes from elsewhere were taken in.
+//! `sync-changed` when changes from elsewhere were taken in. Files moving
+//! are told apart, see [`progress`].
 
 pub mod authed;
 pub mod browser;
@@ -17,6 +18,7 @@ pub mod files;
 mod http;
 mod live;
 pub mod local;
+pub mod progress;
 pub(crate) mod sign_in;
 
 use std::sync::{Arc, Condvar, Mutex};
@@ -170,6 +172,8 @@ pub struct Sync {
     /// never both trade the same refresh token, the server would take the
     /// second use for a stolen token and sign the device out.
     refreshing: Arc<Mutex<()>>,
+    /// Files on their way, for the page.
+    transfers: Arc<progress::Transfers>,
 }
 
 impl Sync {

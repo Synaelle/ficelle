@@ -2,7 +2,7 @@
 <!-- The open note's attachments, folded at the very bottom of the note:
      each file's name, type and size, whether it is on this device, opening
      it, a copy to save, a mention to put in the text when it has none, and
-     removal. Files added here stay out of the text until mentioned. Read
+     removal. A file on its way shows how far it got. Files added here stay out of the text until mentioned. Read
      again when the note or its files change. -->
 <script lang="ts">
   import { onDestroy } from 'svelte'
@@ -13,9 +13,11 @@
   import Icon from '../lib/icons/Icon.svelte'
   import { pickToSave } from '../lib/pick'
   import { WEB } from '../lib/platform'
-  import { FILES_CHANGED } from '../lib/sync.svelte'
+  import { FILES_CHANGED, sync } from '../lib/sync.svelte'
+  import { movingOf } from '../lib/transfers'
   import { workspace } from '../lib/workspace.svelte'
   import { ATTACHMENTS_CHANGED } from '../editor/extensions/image'
+  import FileProgress from './FileProgress.svelte'
 
   /** The open editor, absent while the note shows its markdown source. */
   interface EditorFiles {
@@ -99,6 +101,7 @@
     </summary>
     <ul>
       {#each files as file (file.id)}
+        {@const moving = movingOf(sync.moving, file.sha256)}
         <li>
           <span class="text">
             <span class="name">{file.fileName}</span>
@@ -112,6 +115,7 @@
                 .filter(Boolean)
                 .join(', ')}
             </span>
+            {#if moving}<FileProgress file={moving} />{/if}
           </span>
           <span class="actions">
             {#if editor && !mentioned(file)}

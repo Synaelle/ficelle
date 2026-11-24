@@ -3,9 +3,10 @@
      between the person's own devices on the same network: this device's
      name, the paired devices, pairing, and a page per device. Then the sync
      server, deprecated, folded away and open by itself on a device linked to
-     one: connect to an account, see how sync stands, sync now or
-     disconnect. A device uses one or the other, never both. A device whose
-     notes are not encrypted says so, with a way to its security settings. -->
+     one: connect to an account, see how sync stands and the files on their
+     way, sync now or disconnect. A device uses one or the other, never
+     both. A device whose notes are not encrypted says so, with a way to its
+     security settings. -->
 <script lang="ts">
   import { brand } from '@app/brand'
   import { COPIED_MS, copyText } from '../lib/clipboard'
@@ -26,6 +27,7 @@
     type ServerCheck,
     type SyncState,
   } from '../lib/sync.svelte'
+  import { movingLines } from '../lib/transfers'
   import SyncIcon from '../workspace/SyncIcon.svelte'
   import { localSync, type LocalDevice } from '../lib/localSync.svelte'
   import FilesSettings from './FilesSettings.svelte'
@@ -75,6 +77,12 @@
   ]
 
   const status = $derived(sync.status)
+  /** "Sending 2 files, 120 of 450 MB", while files move after a round. */
+  const moving = $derived(
+    status.state === 'synced' || status.state === 'syncing' || status.state === 'pending'
+      ? movingLines(sync.moving)
+      : [],
+  )
   const linked = $derived(status.state !== 'off')
   /** The server part, folded at first unless this device uses one, then as
    * the person chooses. */
@@ -645,9 +653,11 @@
     {:else if linked && status.state !== 'signedOut'}
       <Group>
         <div class="settings-row state">
-          <SyncIcon state={status.state} />
+          <SyncIcon state={moving.length ? 'syncing' : status.state} />
           <div>
-            <b>{t(STATE_TEXT[status.state])}</b>
+            {#each moving.length ? moving : [t(STATE_TEXT[status.state])] as line (line)}
+              <b>{line}</b>
+            {/each}
             <p class="settings-help">{status.e2ee ? t('sync.kindE2ee') : t('sync.kindStandard')}</p>
             {#if status.state === 'pending' || status.state === 'offline'}
               <p class="settings-help">{t('sync.pendingCount', { count: status.pending })}</p>
@@ -1059,6 +1069,10 @@
   .state > div {
     flex: 1;
     min-width: 0;
+  }
+  .state b {
+    display: block;
+    overflow-wrap: anywhere;
   }
   .state p {
     margin: 2px 0 0;

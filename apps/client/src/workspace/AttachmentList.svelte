@@ -3,7 +3,8 @@
      in the sidebar or, on a phone, in the sheet under the title: name, type,
      size, its note and when it was added, newest first, with a filter by
      name and a sort. A file opens its note, its button opens the file
-     itself. Notes in the trash are left out. -->
+     itself, a file on its way shows how far it got. Notes in the trash are
+     left out. -->
 <script lang="ts">
   import { onDestroy } from 'svelte'
   import { openAttachment } from '../lib/attachments'
@@ -12,8 +13,10 @@
   import { currentLocale, t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { prefs } from '../lib/prefs.svelte'
-  import { FILES_CHANGED } from '../lib/sync.svelte'
+  import { FILES_CHANGED, sync } from '../lib/sync.svelte'
+  import { movingOf } from '../lib/transfers'
   import { workspace } from '../lib/workspace.svelte'
+  import FileProgress from './FileProgress.svelte'
   import TagSheet from './TagSheet.svelte'
 
   let { narrow, onsettings }: { narrow: boolean; onsettings: () => void } = $props()
@@ -127,6 +130,7 @@
   {#if shown.length}
     <ul>
       {#each shown as file (file.id)}
+        {@const moving = movingOf(sync.moving, file.sha256)}
         <li>
           <button
             class="row"
@@ -143,6 +147,7 @@
               <span class="note">{file.noteTitle || t('note.untitled')}</span>
               <span>{day(file.createdAt)}</span>
             </span>
+            {#if moving}<FileProgress file={moving} />{/if}
           </button>
           <button
             class="icon-btn"

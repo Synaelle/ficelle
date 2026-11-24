@@ -6,7 +6,7 @@
 
 use app_core::blobs::BlobStore;
 use app_core::id::NoteId;
-use app_core::sync::files::FilesRound;
+use app_core::sync::files::{FilesRound, Moving, Progress};
 use axum::http::StatusCode;
 use serde_json::json;
 
@@ -52,7 +52,8 @@ async fn sync(device: Device, fetch_up_to: u64) -> (Device, FilesRound) {
     tokio::task::spawn_blocking(move || {
         let (store, mut wire, dir) = device;
         let files = BlobStore::new(dir.path().join("files"), None);
-        let done = app_core::sync::files::transfer(&store, &files, &mut wire, fetch_up_to).unwrap();
+        let done = app_core::sync::files::transfer(&store, &files, &mut wire, fetch_up_to, &mut ())
+            .unwrap();
         ((store, wire, dir), done)
     })
     .await
@@ -177,13 +178,85 @@ async fn large_files_wait_until_asked_for_and_thumbnails_come_at_once() {
     let phone = tokio::task::spawn_blocking(move || {
         let (store, mut wire, dir) = phone;
         let files = BlobStore::new(dir.path().join("files"), None);
-        app_core::sync::files::fetch(&store, &files, &mut wire, &sha).unwrap();
+        app_core::sync::files::fetch(&store, &files, &mut wire, &sha, &mut ()).unwrap();
         assert_eq!(files.get(&sha).unwrap().unwrap(), big);
         (store, wire, dir)
     })
     .await
     .unwrap();
     drop(phone);
+}
+
+/// Every report a pass or a fetch gave.
+#[derive(Default)]
+struct Heard(Vec<Vec<Moving>>);
+
+impl Progress for Heard {
+    fn files(&mut self, moving: &[Moving]) {
+        self.0.push(moving.to_vec());
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_file_in_several_parts_reports_how_far_it_got_both_ways() {
+    let (_, app, _) = with_admin().await;
+    let laptop = linked(&app, &login(&app, "admin", "admin password").await.1, None);
+    let phone = linked(&app, &login(&app, "admin", "admin password").await.1, None);
+    let bytes = content(20 * MB + 3, 7);
+    let total = bytes.len() as u64;
+    let (_, sha) = attach(&laptop, "Site survey", "site-survey.mp4", &bytes);
+    let (laptop, _) = round(laptop).await;
+    let sent = tokio::task::spawn_blocking(move || {
+        let (store, mut wire, dir) = laptop;
+        let files = BlobStore::new(dir.path().join("files"), None);
+        let mut heard = Heard::default();
+        app_core::sync::files::transfer(&store, &files, &mut wire, u64::MAX, &mut heard).unwrap();
+        heard.0
+    })
+    .await
+    .unwrap();
+    let steps: Vec<u64> = sent
+        .iter()
+        .filter_map(|files| files.first())
+        .map(|file| {
+            assert!(file.sending);
+            assert_eq!((file.name.as_str(), file.total), ("site-survey.mp4", total));
+            file.done
+        })
+        .collect();
+    // parts of 8 MB under the 16 MB body limit: where it starts, then each part
+    let part = 8 * MB as u64;
+    assert_eq!(steps, vec![0, part, 2 * part, total]);
+    assert_eq!(sent.last(), Some(&Vec::new()), "nothing left once sent");
+
+    // too large for the round: fetched when asked for
+    let (phone, done) = sync(phone, MB as u64).await;
+    assert_eq!(done.fetched, 0);
+    let received = tokio::task::spawn_blocking(move || {
+        let (store, mut wire, dir) = phone;
+        let files = BlobStore::new(dir.path().join("files"), None);
+        let mut heard = Heard::default();
+        app_core::sync::files::fetch(&store, &files, &mut wire, &sha, &mut heard).unwrap();
+        assert_eq!(files.get(&sha).unwrap().unwrap(), bytes);
+        heard.0
+    })
+    .await
+    .unwrap();
+    let steps: Vec<u64> = received
+        .iter()
+        .filter_map(|files| files.first())
+        .map(|file| {
+            assert!(!file.sending);
+            assert_eq!(file.total, total);
+            file.done
+        })
+        .collect();
+    assert_eq!(steps.first(), Some(&0));
+    assert_eq!(steps.last(), Some(&total));
+    assert!(steps.windows(2).all(|w| w[0] <= w[1]), "{steps:?}");
+    // every quarter megabyte or so, not at every read
+    assert!((60..=100).contains(&steps.len()), "{}", steps.len());
+    assert_eq!(received.last(), Some(&Vec::new()));
 }
 
 #[tokio::test(flavor = "multi_thread")]

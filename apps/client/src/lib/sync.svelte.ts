@@ -36,6 +36,19 @@ export interface SyncStatus {
   clockOff: number | null
 }
 
+/** A file on its way to or from the server. */
+export interface Moving {
+  sha256: string
+  /** A name it is attached under. */
+  name: string
+  /** Sent to the server, else received from it. */
+  sending: boolean
+  /** Bytes moved so far. */
+  done: number
+  /** The file's size in bytes. */
+  total: number
+}
+
 /** How long a server check is reused before the server is asked again. */
 const CHECK_REUSE_MS = 60_000
 
@@ -105,6 +118,8 @@ const native = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 class Sync {
   readonly available = native
   status: SyncStatus = $state(OFF)
+  /** Files on their way, the one moving first in each pass or fetch. */
+  moving: Moving[] = $state([])
   /** The last sign-in through the browser that ended, for the settings. */
   browserEnded: BrowserEnded | null = $state(null)
   private started = false
@@ -129,7 +144,11 @@ class Sync {
     await listen<BrowserEnded>('sync-browser', (event) => this.browserDone(event.payload))
     // files that arrived: the open note shows them
     await listen('files-changed', () => window.dispatchEvent(new Event(FILES_CHANGED)))
+    await listen<Moving[]>('files-moving', (event) => {
+      this.moving = event.payload
+    })
     this.status = await invoke<SyncStatus>('sync_status')
+    this.moving = await invoke<Moving[]>('files_moving')
     // coming back to the app is when other devices' changes are wanted:
     // pull then rather than at the next minute
     const back = () => {
