@@ -179,12 +179,8 @@
     background: none;
     font: inherit;
     font-size: 13px;
-    opacity: 0.7;
   }
   .attach:hover,
-  .attach:focus-visible {
-    opacity: 1;
-  }
   summary:hover,
   details[open] summary {
     color: var(--color-text);
