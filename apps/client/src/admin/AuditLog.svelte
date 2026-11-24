@@ -5,37 +5,49 @@
   import { api, type AuditEntry } from './api.svelte'
   import { dateTime, errorText } from './format'
 
+  /** Every event the server writes. Older entries may hold kinds it no
+   * longer writes. */
   const EVENTS = [
     'sign_in',
     'sign_in_failed',
     'locked_out',
     'token_reuse',
     'signed_out',
-    'device_revoked',
+    'app_connect',
     'password_changed',
-    'password_reset',
-    'registered',
-    'user_created',
-    'user_updated',
-    'user_deleted',
-    'invite_created',
-    'invite_revoked',
-    'registration_changed',
-    'group_created',
-    'group_renamed',
-    'group_deleted',
-    'group_member_added',
-    'group_member_removed',
+    'password_change_failed',
+    'password_recovered',
+    'password_strengthened',
+    'confirm_failed',
+    'second_factor_failed',
+    'totp_enabled',
+    'totp_disabled',
+    'recovery_codes_created',
+    'passkey_added',
+    'passkey_removed',
+    'passkey_failed',
+    'data_exported',
+    'setup_started',
     'setup_done',
     'setup_failed',
+    'admin_created',
+    'admin_reset',
+    'admin_second_step_changed',
+    'signin_limits_changed',
+    'coediting_changed',
+    'policy_changed',
+    'updates_check',
+    'backup_set_up',
+    'backup_stopped',
+    'backup_done',
+    'backup_failed',
     'feedback_settings',
-    'feedback_reader_added',
-    'feedback_reader_removed',
+    'feedback_caps',
     'feedback_token',
+    'feedback_sent',
     'feedback_blocked',
     'feedback_unblocked',
     'feedback_deleted',
-    'signin_limits_changed',
   ]
 
   let event = $state('')
@@ -43,11 +55,12 @@
   let next: number | null = $state(null)
   let problem = $state('')
 
-  /** A known event in words, an unknown one as it is. */
+  /** An event in words. A kind the server no longer writes says only that
+   * it comes from an earlier version. */
   function label(name: string) {
     const key = `admin.log.events.${name}`
     const text = t(key)
-    return text === key ? name : text
+    return text === key ? t('admin.log.earlier') : text
   }
 
   async function load(more = false) {
