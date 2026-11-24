@@ -57,10 +57,15 @@ jobs:
         run: |
           set -eu
           skip() { echo "::notice::no nightly: $1"; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0; }
-          # CI skips a push of markdown alone: its result is the one of the
-          # newest commit that changed anything else
-          tested=$(git log -1 --format=%H -- . ':(exclude)*.md' ':(exclude)LICENSE')
+          # CI checks a push once, on its newest commit; a push of markdown
+          # alone it skips, its result is then the one of the newest commit
+          # that changed anything else
+          tested=$SHA
           ci=$(gh run list --workflow ci.yml --commit "$tested" --limit 1 --json conclusion --jq '.[0].conclusion // ""')
+          if [ -z "$ci" ]; then
+            tested=$(git log -1 --format=%H -- . ':(exclude)*.md' ':(exclude)LICENSE')
+            ci=$(gh run list --workflow ci.yml --commit "$tested" --limit 1 --json conclusion --jq '.[0].conclusion // ""')
+          fi
           [ "$ci" = success ] || skip "CI on ${tested:0:9} is ${ci:-not there}"
           release=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
           last_name="" last_release="" last_n=0 last_commit=""
