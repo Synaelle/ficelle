@@ -7,6 +7,13 @@
 
 import { prefs } from './prefs.svelte'
 
+declare global {
+  interface Window {
+    /** Set by MainActivity on Android, see liftCoverOnReturn. */
+    AppCover?: { arm(on: boolean): void; lift(): void }
+  }
+}
+
 const CHECK_AT_MOST_EVERY_MS = 60_000
 // app-activity: typing in a note window of its own (windows.ts)
 const ACTIVITY = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'app-activity'] as const
@@ -55,12 +62,25 @@ export function autoLock(lock: (shown: boolean) => void) {
     for (const name of ACTIVITY) window.addEventListener(name, touch, { passive: true })
     document.addEventListener('visibilitychange', shownAgain)
     window.addEventListener('focus', shownAgain)
+    window.AppCover?.arm(true)
     check(false)
     return () => {
       for (const name of ACTIVITY) window.removeEventListener(name, touch)
       document.removeEventListener('visibilitychange', shownAgain)
       window.removeEventListener('focus', shownAgain)
+      window.AppCover?.arm(false)
       clearTimeout(timer)
     }
+  })
+}
+
+/** On Android the app covers the page while it is away with notes that may
+ * lock meanwhile (LockCover.kt): back in front, the web view would first
+ * show its last frame. The cover goes once the page has looked at the lock
+ * again and drawn what it shows now, two frames later. */
+export function liftCoverOnReturn() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return
+    requestAnimationFrame(() => requestAnimationFrame(() => window.AppCover?.lift()))
   })
 }

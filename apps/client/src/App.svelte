@@ -4,7 +4,7 @@
      encryption before them; the web version goes straight to them. -->
 <script lang="ts">
   import { brand } from '@app/brand'
-  import { LINUX, PHONE, WEB } from './lib/platform'
+  import { ANDROID, LINUX, PHONE, WEB } from './lib/platform'
   import { followBrowserBack } from './lib/browserBack.svelte'
   // file viewer
   import FileViewer from './fileViewer/InApp.svelte'
@@ -12,7 +12,7 @@
   import BetaFeedback from './lib/BetaFeedback.svelte'
   import WebWelcome from './lib/WebWelcome.svelte'
   import TagsMerged from './workspace/TagsMerged.svelte'
-  import { autoLock } from './lib/autolock.svelte'
+  import { autoLock, liftCoverOnReturn } from './lib/autolock.svelte'
   import { backend, type VaultStatus } from './lib/backend'
   import { reopenNotes } from './lib/backend/web'
   import { storageTrouble, type StorageTrouble } from './lib/storageTrouble'
@@ -85,6 +85,7 @@
   catchErrors()
   if (WEB) followPageParts()
   if (WEB && PHONE) followBrowserBack()
+  if (ANDROID) liftCoverOnReturn()
   persistPrefs()
   applyTheme(() => backend.systemClock24h())
   $effect(() => void setLocale(prefs.language ?? systemLocale()))

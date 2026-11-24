@@ -23,16 +23,21 @@ describe('autolock', () => {
     expect(nextCheck(0, 0, 0)).toBeNull()
   })
 
-  it('says the lock came due as the app showed again', () => {
+  it('says the lock came due as the app showed again, and keeps the phone covered meanwhile', () => {
     vi.useFakeTimers()
+    const cover = { arm: vi.fn(), lift: vi.fn() }
+    window.AppCover = cover
     prefs.autoLockMinutes = 1
     const locks: boolean[] = []
     const stop = $effect.root(() => autoLock((shown) => locks.push(shown)))
     flushSync()
+    expect(cover.arm).toHaveBeenLastCalledWith(true)
     vi.setSystemTime(Date.now() + 2 * MINUTE)
     document.dispatchEvent(new Event('visibilitychange'))
     expect(locks).toEqual([true])
     stop()
+    expect(cover.arm).toHaveBeenLastCalledWith(false)
+    delete window.AppCover
     vi.useRealTimers()
   })
 })

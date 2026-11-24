@@ -26,6 +26,7 @@ class MainActivity : TauriActivity() {
   override val handleBackNavigation = false
 
   private val inbox by lazy { Inbox(this) }
+  private val lockCover = LockCover(this)
 
   // dev and preview builds only, see DevReports
   private var devReports: DevReports? = null
@@ -40,6 +41,7 @@ class MainActivity : TauriActivity() {
     webView.addJavascriptInterface(SystemInfo(this), "AppSystem")
     webView.addJavascriptInterface(Installer(this), "AppInstaller")
     webView.addJavascriptInterface(Screenshot(this, webView), "AppShot")
+    webView.addJavascriptInterface(lockCover, "AppCover")
     if (BuildConfig.DEV_REPORTS) {
       val reports = DevReports(this, webView) { reportFolderPicker.launch(null) }
       devReports = reports
@@ -83,6 +85,16 @@ class MainActivity : TauriActivity() {
       view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
       WindowInsetsCompat.CONSUMED
     }
+  }
+
+  override fun onStart() {
+    super.onStart()
+    lockCover.start()
+  }
+
+  override fun onStop() {
+    super.onStop()
+    lockCover.stop()
   }
 
   override fun onNewIntent(intent: Intent) {
