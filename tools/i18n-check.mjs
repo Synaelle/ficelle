@@ -78,7 +78,7 @@ const pluralBase = (/** @type {string} */ key) => {
   return FORMS.includes(key.slice(at + 1)) && `${base}.other` in english ? base : null
 }
 /** The plural forms a language needs beyond one and other. "many" only for
- * millions (French, Spanish) falls back to other well enough. */
+ * millions (French) falls back to other well enough. */
 const extraForms = (/** @type {string} */ code) => {
   const rules = new Intl.PluralRules(code)
   const small = new Set(Array.from({ length: 200 }, (_, n) => rules.select(n)))

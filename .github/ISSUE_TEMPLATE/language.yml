@@ -9,8 +9,8 @@ body:
     id: language
     attributes:
       label: Language
-      description: Its name, and its code if you know it (de, pt-BR).
-      placeholder: German
+      description: Its name, and its code if you know it (pl, zh-TW).
+      placeholder: Polish
     validations:
       required: true
   - type: dropdown

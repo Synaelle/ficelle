@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { brand } from '@app/brand'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import fr from '../../../../packages/locales/fr.toml'
-import { currentLocale, setLocale, t } from './i18n.svelte'
+import { currentLocale, setLocale, systemLocale, t } from './i18n.svelte'
 
 describe('t', () => {
   it('fills placeholders and the app name', async () => {
@@ -46,5 +46,19 @@ describe('t', () => {
     await setLocale('ja' as 'en')
     expect(currentLocale()).toBe('en')
     expect(t('errorReport.lead')).toContain(brand.displayName)
+  })
+
+  it('follows the system in English or French, else English', () => {
+    const system = (languages: string[]) => {
+      vi.spyOn(navigator, 'languages', 'get').mockReturnValue(languages)
+      return systemLocale()
+    }
+    try {
+      expect(system(['de-DE', 'fr-CA', 'en'])).toBe('fr')
+      expect(system(['pt-BR', 'en-GB'])).toBe('en')
+      expect(system(['es-ES', 'it-IT'])).toBe('en')
+    } finally {
+      vi.restoreAllMocks()
+    }
   })
 })
