@@ -180,8 +180,9 @@ select {
 
 /* the UI font's space nearly vanishes under 14 px, most after a number
    ("2 notes", "13 kB"): smaller text gets a wider one, 0.15em more at 12 px.
-   Windows draws that space wide enough already, the extra looks loose there */
-:where(:root:not([data-platform='windows']) *) {
+   Windows and the system's own text libraries on Linux (the Arch package)
+   draw that space wide enough already, the extra looks loose there */
+:where(:root:not([data-platform='windows'], [data-system-text]) *) {
   word-spacing: max(0px, (14px - 1em) * 0.9);
 }
 /* code keeps its columns */

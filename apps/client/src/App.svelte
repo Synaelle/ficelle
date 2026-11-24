@@ -101,6 +101,12 @@
     document.documentElement.style.setProperty('--text-stroke', thicker ? '0.2px' : '0px')
   })
   $effect(() => void applyQuickShortcut(prefs.quickNoteShortcut))
+  // the Arch package draws text with the system's libraries, the AppImage
+  // with the ones it carries: small text is spaced for the AppImage's
+  if (LINUX)
+    void backend
+      .appUpdatePacman()
+      .then((pacman) => document.documentElement.toggleAttribute('data-system-text', pacman))
 
   /** Waits before each new try while the page before a reload still has
    * the notes: a big note it was saving can take a few seconds. */
