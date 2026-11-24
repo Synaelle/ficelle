@@ -1,67 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! First launch, unlock and lock, and the way the vault opens.
-//!
-//! Every vault has a password, which always opens it. Day to day it opens
-//! with Windows Hello or a fingerprint, with a PIN typed in the app, or with
-//! the password each time (see `app_core::vault`). Changing the way first
-//! gets the key (the password when given, else the guarded copy, which
-//! asks), then keeps it the new way and drops the others. Vaults from before
-//! that opened without asking (`device`) are given a password when opened.
+//! First launch, unlock and lock, and the way the vault opens, as the core
+//! has them (`app_core::commands::vault`), with this device's key stores.
 
-use app_core::crypto::{DatabaseKey, KdfParams};
-use app_core::keystore::GuardedKeyStore;
-use app_core::vault::{Encryption, Vault};
-use serde::{Deserialize, Serialize};
+use app_core::commands::vault::{self, VaultStatus, Way};
+use app_core::crypto::KdfParams;
+use app_core::vault::Vault;
 use tauri::{AppHandle, Manager, State};
 
 use crate::biometric;
 use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
-
-/// How the vault opens.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum Way {
-    /// Not encrypted, chosen under "More options" on the first run (or a
-    /// 0.1.0 vault). Security offers to encrypt it.
-    Plain,
-    /// An earlier vault this device opened without asking, no password.
-    /// No longer made: it is given a password once open.
-    Device,
-    /// Windows Hello or a fingerprint releases the key.
-    Guarded,
-    /// A PIN typed in the app, a few tries.
-    Pin,
-    /// The password each time.
-    Password,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "independent facts the ui reads as plain json fields"
-)]
-pub struct VaultStatus {
-    exists: bool,
-    encrypted: bool,
-    unlocked: bool,
-    way: Way,
-    /// A password opens it: every vault but the old ones.
-    has_password: bool,
-    /// This device can verify the user (Windows Hello, a fingerprint).
-    biometric_available: bool,
-    /// This device can keep a key (its key store works), needed for a PIN.
-    device_available: bool,
-    /// A recovery key can open the vault.
-    recovery: bool,
-    /// Wrong PINs left before the password is needed, with the PIN way.
-    pin_tries_left: Option<u8>,
-    /// This check found an encryption a crash cut short: the notes stayed
-    /// unencrypted.
-    encryption_undone: bool,
-}
 
 /// Whether the app may write in the vault's folder: a read-only one (a disk
 /// mounted read-only, a full one, a copy without rights) opens nothing.
@@ -76,10 +25,7 @@ fn writable(dir: &std::path::Path) -> bool {
 pub async fn vault_status(state: State<'_, AppState>) -> CommandResult<VaultStatus> {
     state.check_alone()?;
     let unlocked = state.session().is_some();
-    let guarded = biometric::guarded();
-    let biometric_available = guarded.as_ref().is_some_and(GuardedKeyStore::available);
-    let device = biometric::device_store();
-    let device_available = device.is_some();
+    let keys = biometric::keys();
     // the page says to put it back, a new vault would not take the notes in
     if Vault::meta_missing(&state.dir) {
         return Err(CommandError::new(
@@ -88,18 +34,7 @@ pub async fn vault_status(state: State<'_, AppState>) -> CommandResult<VaultStat
         ));
     }
     if !Vault::exists(&state.dir) {
-        return Ok(VaultStatus {
-            exists: false,
-            encrypted: false,
-            unlocked,
-            way: Way::Password,
-            has_password: false,
-            biometric_available,
-            device_available,
-            recovery: false,
-            pin_tries_left: None,
-            encryption_undone: false,
-        });
+        return Ok(VaultStatus::none(unlocked, &keys));
     }
     let vault = match Vault::open(&state.dir) {
         Ok(vault) => vault,
@@ -125,46 +60,7 @@ pub async fn vault_status(state: State<'_, AppState>) -> CommandResult<VaultStat
             state.dir.display().to_string(),
         ));
     }
-    let name = vault.device_key_name();
-    let pin_tries_left = device.and_then(|keys| vault.pin_tries_left(keys).ok().flatten());
-    let way = if !vault.is_encrypted() {
-        Way::Plain
-    } else if !vault.has_password() {
-        Way::Device
-    } else if guarded
-        .as_ref()
-        .is_some_and(|g| g.contains(&name).unwrap_or(false))
-    {
-        Way::Guarded
-    } else if pin_tries_left.is_some() {
-        Way::Pin
-    } else {
-        Way::Password
-    };
-    Ok(VaultStatus {
-        exists: true,
-        encrypted: vault.is_encrypted(),
-        unlocked,
-        way,
-        has_password: vault.has_password(),
-        biometric_available,
-        device_available,
-        recovery: vault.has_recovery_key(),
-        pin_tries_left,
-        encryption_undone: vault.encryption_undone(),
-    })
-}
-
-fn no_device() -> CommandError {
-    CommandError::new("unsupported", "this device cannot keep a key")
-}
-
-fn no_biometric() -> CommandError {
-    CommandError::new("unsupported", "this device has no biometric unlock yet")
-}
-
-fn needs_password() -> CommandError {
-    CommandError::new("invalid", "a password is needed")
+    Ok(VaultStatus::of(&vault, unlocked, &keys))
 }
 
 /// Brings the window forward, the system prompt otherwise opens behind it.
@@ -196,67 +92,23 @@ pub async fn vault_create(
 ) -> CommandResult<()> {
     state.check_alone()?;
     let dir = state.dir.clone();
-    if way == Way::Plain {
-        // no password, nothing to keep: anyone with the files reads them
-        let (vault, store) = blocking(move || Ok(Vault::create(&dir, Encryption::Off)?)).await?;
-        return state.open(vault, store);
+    if way != Way::Plain {
+        focus(&app);
     }
-    if password.is_empty() {
-        return Err(needs_password());
-    }
-    if way == Way::Device {
-        return Err(CommandError::new("invalid", "new vaults have a password"));
-    }
-    focus(&app);
     let (vault, store) = blocking(move || {
-        let (vault, store) = Vault::create(
+        let disk = std::sync::Arc::new(app_core::disk::NativeDisk);
+        let keys = biometric::keys();
+        Ok(vault::create(
+            disk,
             &dir,
-            Encryption::On {
-                password: &password,
-                kdf: KdfParams::DEFAULT,
-            },
-        )?;
-        let key = vault.key_with_password(&password)?;
-        keep_quick_way(&vault, &key, way, pin.as_deref())?;
-        Ok((vault, store))
+            way,
+            &password,
+            pin.as_deref(),
+            &keys,
+        )?)
     })
     .await?;
     state.open(vault, store)
-}
-
-/// Keeps the key the quick way chosen, and only that way.
-fn keep_quick_way(
-    vault: &Vault,
-    key: &DatabaseKey,
-    way: Way,
-    pin: Option<&str>,
-) -> CommandResult<()> {
-    let device = biometric::device_store();
-    match way {
-        Way::Guarded => {
-            let guarded = biometric::guarded().ok_or_else(no_biometric)?;
-            // sealed first: the other copies go only once this one is kept
-            vault.keep_key(key, &guarded)?;
-            if let Some(keys) = device {
-                vault.remove_pin(keys)?;
-                vault.forget_on_device(keys)?;
-            }
-        }
-        Way::Pin => {
-            let keys = device.ok_or_else(no_device)?;
-            let pin = pin.ok_or_else(|| CommandError::new("invalid", "a PIN is needed"))?;
-            vault.set_pin(key, pin, keys, KdfParams::DEFAULT)?;
-            vault.forget_on_device(keys)?;
-            if let Some(guarded) = biometric::guarded() {
-                vault.forget_on_device(&guarded)?;
-            }
-        }
-        Way::Password => forget_kept(vault)?,
-        Way::Plain | Way::Device => {
-            return Err(CommandError::new("invalid", "not a way to choose"));
-        }
-    }
-    Ok(())
 }
 
 /// Unlocks with the password, or without one an old vault this device
@@ -269,23 +121,7 @@ pub async fn vault_unlock(
     let dir = state.dir.clone();
     let (vault, store) = blocking(move || {
         let vault = Vault::open(&dir)?;
-        let store = match (vault.is_encrypted(), password) {
-            (false, _) => vault.unlock_plain()?,
-            (true, Some(password)) => {
-                let store = vault.unlock_with_password(&password)?;
-                // 0.1.0 could remember the password's key, which opened the
-                // vault without asking: that copy goes
-                if let Some(keys) = biometric::device_store() {
-                    let _ = vault.forget_on_device(keys);
-                }
-                store
-            }
-            (true, None) if vault.has_password() => return Err(needs_password()),
-            (true, None) => {
-                let keys = biometric::device_store().ok_or_else(no_device)?;
-                vault.unlock_with_device(keys)?
-            }
-        };
+        let store = vault::unlock(&vault, password.as_deref(), &biometric::keys())?;
         Ok((vault, store))
     })
     .await?;
@@ -299,9 +135,7 @@ pub async fn vault_unlock_pin(state: State<'_, AppState>, pin: String) -> Comman
     let dir = state.dir.clone();
     let (vault, store) = blocking(move || {
         let vault = Vault::open(&dir)?;
-        let keys = biometric::device_store().ok_or_else(no_device)?;
-        let key = vault.key_with_pin(&pin, keys)?;
-        let store = vault.unlock_with_key(&key)?;
+        let store = vault::unlock_with_pin(&vault, &pin, &biometric::keys())?;
         Ok((vault, store))
     })
     .await?;
@@ -315,7 +149,9 @@ pub async fn vault_unlock_biometric(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> CommandResult<()> {
-    let guarded = biometric::guarded().ok_or_else(no_biometric)?;
+    let guarded = biometric::guarded().ok_or_else(|| {
+        CommandError::new("unsupported", "this device has no biometric unlock yet")
+    })?;
     let vault = Vault::open(&state.dir)?;
     focus(&app);
     let (vault, store) = blocking(move || {
@@ -326,45 +162,10 @@ pub async fn vault_unlock_biometric(
     state.open(vault, store)
 }
 
-/// The key, from the password, else the copy this device keeps for an old
-/// vault, else the guarded one (which asks Windows Hello, so call it off the
-/// async threads).
-fn current_key(vault: &Vault, password: Option<&str>) -> CommandResult<DatabaseKey> {
-    if let Some(password) = password.filter(|p| !p.is_empty()) {
-        return Ok(vault.key_with_password(password)?);
-    }
-    if let Some(keys) = biometric::device_store()
-        && let Ok(key) = vault.key_from(keys)
-    {
-        return Ok(key);
-    }
-    if let Some(guarded) = biometric::guarded()
-        && guarded.contains(&vault.device_key_name()).unwrap_or(false)
-    {
-        return Ok(vault.key_from(&guarded)?);
-    }
-    Err(needs_password())
-}
-
-/// Copies of the key this device keeps, all of them, the PIN too. Each one
-/// is tried even when another fails; the first failure is returned, so the
-/// page never says a copy is gone when it is not.
-fn forget_kept(vault: &Vault) -> CommandResult<()> {
-    let mut results = Vec::new();
-    if let Some(keys) = biometric::device_store() {
-        results.push(vault.forget_on_device(keys));
-        results.push(vault.remove_pin(keys));
-    }
-    if let Some(guarded) = biometric::guarded() {
-        results.push(vault.forget_on_device(&guarded));
-    }
-    Ok(results.into_iter().collect::<Result<(), _>>()?)
-}
-
 /// The open session's copy of the vault reads `vault.json` again.
 fn refresh(state: &AppState) -> CommandResult<()> {
     if let Some(session) = state.session().as_mut() {
-        session.vault = Vault::open(&state.dir)?;
+        session.vault = session.vault.reopen()?;
     }
     Ok(())
 }
@@ -385,21 +186,14 @@ pub async fn vault_set_way(
     focus(&app);
     let (given, kept) = blocking(move || {
         let mut vault = Vault::open(&dir)?;
-        if !vault.is_encrypted() {
-            return Err(CommandError::new("invalid", "encrypt the vault first"));
-        }
-        let key = current_key(&vault, password.as_deref())?;
-        let mut given = None;
-        if !vault.has_password() {
-            let new_password = new_password
-                .filter(|p| !p.is_empty())
-                .ok_or_else(needs_password)?;
-            vault.set_password(&key, &new_password, KdfParams::DEFAULT)?;
-            given = Some(new_password);
-        }
-        // the password stays set when the quick way fails: the backups
-        // take it all the same
-        Ok((given, keep_quick_way(&vault, &key, way, pin.as_deref())))
+        Ok(vault::set_way(
+            &mut vault,
+            way,
+            password.as_deref(),
+            new_password,
+            pin.as_deref(),
+            &biometric::keys(),
+        )?)
     })
     .await?;
     refresh(&state)?;
@@ -408,7 +202,9 @@ pub async fn vault_set_way(
         // and none are made until they are set up again with a password
         let _ = super::backups::protect(app, password).await;
     }
-    kept
+    // the password stays set when the quick way fails: the backups take it
+    // all the same
+    Ok(kept?)
 }
 
 /// Encrypts an unencrypted vault with `password`, no system keychain needed;
@@ -424,33 +220,18 @@ pub async fn vault_encrypt(
 ) -> CommandResult<()> {
     let password = password.filter(|p| !p.is_empty());
     // looked up before the session is taken out: a missing one fails here
-    let keys = match password {
-        Some(_) => None,
-        None => Some(biometric::device_store().ok_or_else(no_device)?),
-    };
+    let device = vault::encryption_keys(password.as_deref(), &biometric::keys())?;
     let Some(session) = state.session().take() else {
         return Err(CommandError::locked());
     };
-    let mut vault = session.vault;
     drop(session.blobs);
-    let encrypted = match keys {
-        Some(keys) => vault.encrypt(session.store, keys),
-        None => vault.encrypt_with_password(
-            session.store,
-            password.as_deref().unwrap_or_default(),
-            KdfParams::DEFAULT,
-        ),
-    };
-    match encrypted {
-        Ok(store) => state.open(vault, store)?,
-        Err(e) => {
-            // read again from disk: vault.json says whether it got encrypted
-            let vault = Vault::open(&state.dir)?;
-            if !vault.is_encrypted() {
-                let store = vault.unlock_plain()?;
+    match vault::encrypt(session.vault, session.store, password.as_deref(), device) {
+        Ok((vault, store)) => state.open(vault, store)?,
+        Err(failed) => {
+            if let Some((vault, store)) = failed.open {
                 state.open(vault, store)?;
             }
-            return Err(e.into());
+            return Err(failed.error.into());
         }
     }
     if let Some(password) = password {
@@ -480,12 +261,12 @@ pub async fn vault_reset(state: State<'_, AppState>) -> CommandResult<()> {
     state.close();
     // stale keys would make a new vault look kept already
     let forgotten = match Vault::open(&state.dir) {
-        Ok(vault) => forget_kept(&vault),
+        Ok(vault) => vault::forget_kept(&vault, &biometric::keys()),
         Err(_) => Ok(()),
     };
     // the notes go even when a key copy would not: the page shows that error
     Vault::destroy(&state.dir)?;
-    forgotten
+    Ok(forgotten?)
 }
 
 /// Starts again from the lock screen: the vault's files move into a dated
@@ -520,8 +301,6 @@ pub async fn vault_change_password(
     super::backups::protect(app, new).await
 }
 
-/// Makes a new recovery key for the vault, replacing any earlier one, and
-/// returns it to show once. `password` when the vault has one.
 /// Whether `password` opens these notes, nothing else done: a backup can
 /// then use the same password, typed once and checked here.
 #[tauri::command]
@@ -532,11 +311,13 @@ pub async fn vault_check_password(
     let dir = state.dir.clone();
     blocking(move || {
         let vault = Vault::open(&dir)?;
-        Ok(!password.is_empty() && vault.key_with_password(&password).is_ok())
+        Ok(vault::check_password(&vault, &password))
     })
     .await
 }
 
+/// Makes a new recovery key for the vault, replacing any earlier one, and
+/// returns it to show once. `password` when the vault has one.
 #[tauri::command]
 pub async fn vault_create_recovery(
     app: AppHandle,
@@ -547,10 +328,11 @@ pub async fn vault_create_recovery(
     focus(&app);
     let code = blocking(move || {
         let mut vault = Vault::open(&dir)?;
-        let key = current_key(&vault, password.as_deref())?;
-        Ok(vault
-            .create_recovery_key_for(&key, KdfParams::DEFAULT)?
-            .to_string())
+        Ok(vault::create_recovery(
+            &mut vault,
+            password.as_deref(),
+            &biometric::keys(),
+        )?)
     })
     .await?;
     refresh(&state)?;
@@ -567,8 +349,11 @@ pub async fn vault_remove_recovery(
     focus(&app);
     blocking(move || {
         let mut vault = Vault::open(&dir)?;
-        let key = current_key(&vault, password.as_deref())?;
-        Ok(vault.remove_recovery_key_for(&key)?)
+        Ok(vault::remove_recovery(
+            &mut vault,
+            password.as_deref(),
+            &biometric::keys(),
+        )?)
     })
     .await?;
     refresh(&state)
@@ -585,16 +370,13 @@ pub async fn vault_recover(
     new_password: String,
 ) -> CommandResult<()> {
     if new_password.is_empty() {
-        return Err(needs_password());
+        return Err(vault::needs_password().into());
     }
     let dir = state.dir.clone();
     let password = new_password.clone();
     let (vault, store) = blocking(move || {
         let mut vault = Vault::open(&dir)?;
-        let key = vault.key_with_recovery(&code)?;
-        vault.set_password(&key, &password, KdfParams::DEFAULT)?;
-        forget_kept(&vault)?;
-        let store = vault.unlock_with_key(&key)?;
+        let store = vault::recover(&mut vault, &code, &password, &biometric::keys())?;
         Ok((vault, store))
     })
     .await?;

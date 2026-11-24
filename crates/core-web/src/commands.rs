@@ -7,11 +7,12 @@ use std::path::Path;
 use std::sync::Arc;
 
 use app_core::blobs::BlobStore;
+use app_core::commands::vault::{self, Keys, VaultStatus, Way};
 use app_core::crypto::KdfParams;
 use app_core::id::{AttachmentId, FolderId, NoteId, TagId, VersionId};
 use app_core::model::{NoteScope, NoteSort};
 use app_core::store::{NewNote, NoteChange, Resolution, Store};
-use app_core::vault::{Encryption, Vault};
+use app_core::vault::Vault;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -54,36 +55,6 @@ impl From<Scope> for NoteScope {
             Scope::Trash => Self::Trash,
         }
     }
-}
-
-/// How the vault opens: the web version has no device to keep a key, so a
-/// password or nothing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum Way {
-    Plain,
-    Device,
-    Guarded,
-    Pin,
-    Password,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "independent facts the ui reads as plain json fields"
-)]
-struct VaultStatus {
-    exists: bool,
-    encrypted: bool,
-    unlocked: bool,
-    way: Way,
-    has_password: bool,
-    biometric_available: bool,
-    device_available: bool,
-    recovery: bool,
-    pin_tries_left: Option<u8>,
 }
 
 /// An attachment with where its file stands, see `attachment_files`.
@@ -177,68 +148,33 @@ fn open(vault: Vault, mut store: Store) -> CommandResult<Value> {
     Ok(Value::Null)
 }
 
-fn needs_password() -> CommandError {
-    CommandError::new("invalid", "a password is needed")
-}
+/// The web version has no device to keep a key in: a password or nothing.
+const NO_KEYS: Keys<'static> = Keys {
+    device: None,
+    guarded: None,
+};
 
 fn status() -> CommandResult<Value> {
     let unlocked = SESSION.with_borrow(Option::is_some);
     let disk = disk();
     if !Vault::exists_on(disk.as_ref(), dir()) {
-        return answer(VaultStatus {
-            exists: false,
-            encrypted: false,
-            unlocked,
-            way: Way::Password,
-            has_password: false,
-            biometric_available: false,
-            device_available: false,
-            recovery: false,
-            pin_tries_left: None,
-        });
+        return answer(VaultStatus::none(unlocked, &NO_KEYS));
     }
     let vault = Vault::open_on(disk, dir())?;
-    answer(VaultStatus {
-        exists: true,
-        encrypted: vault.is_encrypted(),
-        unlocked,
-        way: if vault.is_encrypted() {
-            Way::Password
-        } else {
-            Way::Plain
-        },
-        has_password: vault.has_password(),
-        biometric_available: false,
-        device_available: false,
-        recovery: vault.has_recovery_key(),
-        pin_tries_left: None,
-    })
+    answer(VaultStatus::of(&vault, unlocked, &NO_KEYS))
 }
 
 fn create(a: &Args) -> CommandResult<Value> {
     let way: Way = a.get("way")?;
     let password: String = a.get("password")?;
-    let encryption = match way {
-        Way::Plain => Encryption::Off,
-        Way::Password if !password.is_empty() => Encryption::On {
-            password: &password,
-            kdf: KdfParams::DEFAULT,
-        },
-        Way::Password => return Err(needs_password()),
-        Way::Device | Way::Guarded | Way::Pin => return Err(CommandError::unsupported()),
-    };
-    let (vault, store) = Vault::create_on(disk(), dir(), encryption)?;
+    let (vault, store) = vault::create(disk(), dir(), way, &password, None, &NO_KEYS)?;
     open(vault, store)
 }
 
 fn unlock(a: &Args) -> CommandResult<Value> {
     let password: Option<String> = a.get("password")?;
     let vault = Vault::open_on(disk(), dir())?;
-    let store = match (vault.is_encrypted(), password) {
-        (false, _) => vault.unlock_plain()?,
-        (true, Some(password)) => vault.unlock_with_password(&password)?,
-        (true, None) => return Err(needs_password()),
-    };
+    let store = vault::unlock(&vault, password.as_deref(), &NO_KEYS)?;
     open(vault, store)
 }
 
@@ -248,34 +184,19 @@ fn encrypt(a: &Args) -> CommandResult<Value> {
     let password: Option<String> = a.get("password")?;
     let password = password
         .filter(|p| !p.is_empty())
-        .ok_or_else(needs_password)?;
+        .ok_or_else(vault::needs_password)?;
     let Some(session) = SESSION.with_borrow_mut(Option::take) else {
         return Err(CommandError::locked());
     };
-    let mut vault = session.vault;
     drop(session.blobs);
-    match vault.encrypt_with_password(session.store, &password, KdfParams::DEFAULT) {
-        Ok(store) => open(vault, store),
-        Err(e) => {
-            let vault = Vault::open_on(disk(), dir())?;
-            if !vault.is_encrypted() {
-                let store = vault.unlock_plain()?;
+    match vault::encrypt(session.vault, session.store, Some(&password), None) {
+        Ok((vault, store)) => open(vault, store),
+        Err(failed) => {
+            if let Some((vault, store)) = failed.open {
                 open(vault, store)?;
             }
-            Err(e.into())
+            Err(failed.error.into())
         }
-    }
-}
-
-/// The key of the vault now: with its password, or for an unencrypted one
-/// none is needed.
-fn current_key(
-    vault: &Vault,
-    password: Option<&str>,
-) -> CommandResult<app_core::crypto::DatabaseKey> {
-    match password {
-        Some(password) => Ok(vault.key_with_password(password)?),
-        None => Err(needs_password()),
     }
 }
 
@@ -320,36 +241,27 @@ fn vault_command(name: &str, a: &Args) -> Option<CommandResult<Value>> {
         "vault_check_password" => (|| {
             let password: String = a.get("password")?;
             let vault = Vault::open_on(disk(), dir())?;
-            answer(!password.is_empty() && vault.key_with_password(&password).is_ok())
+            answer(vault::check_password(&vault, &password))
         })(),
         "vault_create_recovery" => (|| {
             let password: Option<String> = a.get("password")?;
             let mut vault = Vault::open_on(disk(), dir())?;
-            let key = current_key(&vault, password.as_deref())?;
-            let code = vault
-                .create_recovery_key_for(&key, KdfParams::DEFAULT)?
-                .to_string();
+            let code = vault::create_recovery(&mut vault, password.as_deref(), &NO_KEYS)?;
             refresh()?;
             answer(code)
         })(),
         "vault_remove_recovery" => (|| {
             let password: Option<String> = a.get("password")?;
             let mut vault = Vault::open_on(disk(), dir())?;
-            let key = current_key(&vault, password.as_deref())?;
-            vault.remove_recovery_key_for(&key)?;
+            vault::remove_recovery(&mut vault, password.as_deref(), &NO_KEYS)?;
             refresh()?;
             Ok(Value::Null)
         })(),
         "vault_recover" => (|| {
             let code: String = a.get("code")?;
             let new_password: String = a.get("newPassword")?;
-            if new_password.is_empty() {
-                return Err(needs_password());
-            }
             let mut vault = Vault::open_on(disk(), dir())?;
-            let key = vault.key_with_recovery(&code)?;
-            vault.set_password(&key, &new_password, KdfParams::DEFAULT)?;
-            let store = vault.unlock_with_key(&key)?;
+            let store = vault::recover(&mut vault, &code, &new_password, &NO_KEYS)?;
             open(vault, store)
         })(),
         _ => return None,

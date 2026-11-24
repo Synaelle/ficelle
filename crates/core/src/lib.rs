@@ -29,6 +29,7 @@ pub mod auto_backup;
 pub mod backup;
 pub mod blobs;
 pub mod clock;
+pub mod commands;
 pub mod crypto;
 pub mod db;
 pub mod disk;

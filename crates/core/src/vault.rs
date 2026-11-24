@@ -271,6 +271,15 @@ impl Vault {
         Ok(vault)
     }
 
+    /// Reads this vault again from its files, after they changed.
+    ///
+    /// # Errors
+    ///
+    /// As [`Vault::open_on`].
+    pub fn reopen(&self) -> Result<Self> {
+        Self::open_on(Arc::clone(&self.disk), &self.dir)
+    }
+
     /// Whether opening found an encryption a crash cut short, and kept the
     /// notes unencrypted as they were before it.
     pub fn encryption_undone(&self) -> bool {

@@ -33,6 +33,11 @@ pub enum Error {
     #[error("{0}")]
     Invalid(String),
 
+    /// Something this device or this version cannot do, for example keep
+    /// a key without a key store.
+    #[error("{0}")]
+    Unsupported(&'static str),
+
     /// The operating system key store failed.
     #[error("secure storage error: {0}")]
     KeyStore(String),
@@ -93,6 +98,7 @@ impl Error {
             Self::NotRemembered => "notRemembered",
             Self::NotFound(_) => "notFound",
             Self::Invalid(_) => "invalid",
+            Self::Unsupported(_) => "unsupported",
             Self::KeyStore(_) => "keyStore",
             Self::NotesMissing => "notesMissing",
             Self::Corrupt(_) => "corrupt",

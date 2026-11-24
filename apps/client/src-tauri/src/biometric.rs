@@ -4,6 +4,7 @@
 //! Windows Hello, and the Android Keystore with fingerprint or face. Touch ID
 //! and Face ID on Apple plug in here too (untested until CI builds them).
 
+use app_core::commands::vault::Keys;
 use app_core::keystore::{Authenticator, GuardedKeyStore, KeyStore};
 
 /// The verification and where its sealed secrets are kept.
@@ -58,4 +59,12 @@ pub fn device_store() -> Option<&'static dyn KeyStore> {
 /// `None` when this platform has no verification wired in.
 pub fn guarded() -> Option<GuardedKeyStore<&'static dyn Authenticator, &'static dyn KeyStore>> {
     platform().map(|(auth, inner)| GuardedKeyStore::new(auth, inner))
+}
+
+/// Both of the above, for the vault commands of the core.
+pub fn keys() -> Keys<'static> {
+    Keys {
+        device: device_store(),
+        guarded: guarded(),
+    }
 }
