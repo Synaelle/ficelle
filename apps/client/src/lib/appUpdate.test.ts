@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { brand } from '@app/brand'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   appUpdates,
   channel,
@@ -12,6 +12,7 @@ import {
   updateLines,
   waitingForStable,
 } from './appUpdate.svelte'
+import { backend } from './backend'
 import { prefs } from './prefs.svelte'
 
 beforeEach(() => {
@@ -140,5 +141,71 @@ describe('offered', () => {
     appUpdates.close()
     expect(appUpdates.skipped).toBe('0.9.2')
     expect(appUpdates.dismissed).toBe(true)
+  })
+})
+
+describe('the Arch package', () => {
+  beforeEach(() => {
+    appUpdates.pacman = true
+    appUpdates.ready = { version: '0.9.0', notes: '' }
+    appUpdates.downloaded = true
+    appUpdates.installed = false
+    appUpdates.error = null
+  })
+
+  afterEach(() => {
+    appUpdates.pacman = false
+    vi.restoreAllMocks()
+  })
+
+  it('follows Stable only', () => {
+    prefs.channel = 'nightly'
+    expect(channel()).toBe('stable')
+  })
+
+  it('installs, then restarts on the next press', async () => {
+    const install = vi.spyOn(backend, 'appUpdateInstall').mockResolvedValue()
+    const restart = vi.spyOn(backend, 'appUpdateRestart').mockResolvedValue()
+    await appUpdates.install()
+    expect(install).toHaveBeenCalledOnce()
+    expect(restart).not.toHaveBeenCalled()
+    expect(appUpdates.installed).toBe(true)
+    expect(appUpdates.installing).toBe(false)
+    await appUpdates.install()
+    expect(install).toHaveBeenCalledOnce()
+    expect(restart).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the card with the reason and a code when the password window is closed', async () => {
+    vi.spyOn(backend, 'appUpdateInstall').mockRejectedValue({
+      kind: 'passwordCancelled',
+      message: 'the password window was closed',
+    })
+    await appUpdates.install()
+    expect(appUpdates.installed).toBe(false)
+    expect(appUpdates.installing).toBe(false)
+    expect(appUpdates.downloaded).toBe(true)
+    expect(appUpdates.error?.code).toBe('INSTALL-PASSWORD-CANCELLED')
+    expect(appUpdates.error?.reason).toBe(
+      'The password window was closed, so nothing was installed.',
+    )
+  })
+
+  it("says pacman's own error", async () => {
+    vi.spyOn(backend, 'appUpdateInstall').mockRejectedValue({
+      kind: 'pacman',
+      message: 'error: failed to init transaction (unable to lock database)',
+    })
+    await appUpdates.install()
+    expect(appUpdates.error?.code).toBe('INSTALL-PACMAN')
+    expect(appUpdates.error?.reason).toBe(
+      'pacman could not install the update. It said “error: failed to init transaction (unable to lock database)”.',
+    )
+  })
+
+  it('a newer version found starts over', () => {
+    appUpdates.installed = true
+    appUpdates.setChannel('nightly', false)
+    expect(appUpdates.installed).toBe(false)
   })
 })

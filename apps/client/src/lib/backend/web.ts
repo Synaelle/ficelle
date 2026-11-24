@@ -288,7 +288,11 @@ export function coreBackend(send: Send): Backend {
     appUpdateCheck: async () => null,
     appUpdateLatest: async () => null,
     appUpdatePageOnly: async () => false,
+    appUpdatePacman: async () => false,
     appUpdateInstall: async () => {
+      throw unsupported('updates need the app')
+    },
+    appUpdateRestart: async () => {
       throw unsupported('updates need the app')
     },
     notificationsAllowed: async () => false,

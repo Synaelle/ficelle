@@ -17,6 +17,12 @@
 //! The portable Windows exe (`crate::portable`) only reads the list's version
 //! and offers that version's release page, where the new file is.
 //!
+//! The Arch package (`tools/arch/PKGBUILD`, see [`pacman`]) has a file of its
+//! own in the list, `linux-x86_64-pacman`, which older apps never read. It is
+//! checked like the others, then installed with `pacman -U` through
+//! `pkexec`, which shows the system's password window, and the app offers to
+//! restart into it. It never takes the AppImage's way.
+//!
 //! Two lists: Stable's (`appUpdatesUrl`, GitHub's newest release, never a
 //! pre-release) and Nightly's (`appNightlyUpdatesUrl`, on the release tagged
 //! `nightly`, which holds the newest of the nightlies and the stable
@@ -82,7 +88,8 @@ impl AppUpdate {
 
 /// See [`AppUpdate::go_back`].
 fn can_go_back() -> bool {
-    if page_only() {
+    // packages come only from stable releases, an older one is never listed
+    if page_only() || pacman() {
         return false;
     }
     cfg!(any(windows, target_os = "android"))
@@ -113,14 +120,40 @@ impl Channel {
 }
 
 /// This build offers a release page instead of installing: the portable
-/// exe, and a Linux package. On Linux only the AppImage replaces itself, a
-/// package (the AUR, a Flatpak) updates through the system. A Flatpak is
+/// exe, and a Linux package other than the Arch one. On Linux the AppImage
+/// replaces itself and the Arch package updates through pacman, any other
+/// package (the old AUR one, a Flatpak) through the system. A Flatpak is
 /// never an AppImage, even when `APPIMAGE` came in from the starting
 /// process's environment: its own files are read-only.
 fn page_only() -> bool {
     crate::portable::PORTABLE
         || (cfg!(target_os = "linux")
+            && !pacman()
             && (std::env::var_os("APPIMAGE").is_none() || std::env::var_os("FLATPAK_ID").is_some()))
+}
+
+/// This build was installed by the Arch package: it runs as
+/// `/usr/bin/<slug>` and the package's mark is in `/usr/lib/<slug>`. Read
+/// once, from the program the app started as (tauri keeps it), so an update
+/// that replaced the file meanwhile changes nothing. An `APPIMAGE` in the
+/// environment, passed on by an AppImage that started it, never counts.
+fn pacman() -> bool {
+    static PACMAN: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+        cfg!(target_os = "linux")
+            && tauri::utils::platform::current_exe()
+                .is_ok_and(|exe| installed_by_pacman(&exe, std::path::Path::new("/")))
+    });
+    *PACMAN
+}
+
+/// `exe` is the Arch package's program under `root`, its mark beside it.
+fn installed_by_pacman(exe: &std::path::Path, root: &std::path::Path) -> bool {
+    exe == root.join("usr/bin").join(app_brand::SLUG)
+        && root
+            .join("usr/lib")
+            .join(app_brand::SLUG)
+            .join("arch-package")
+            .is_file()
 }
 
 /// The repository's releases, `https://github.com/<owner>/<repo>/releases`,
@@ -307,9 +340,15 @@ mod list {
 
     /// `latest.json`'s key for this device: `windows-x86_64`,
     /// `linux-x86_64`, `android-aarch64`, `android-arm`, `android-x86_64`
-    /// (the last three the same APK).
+    /// (the last three the same APK), and `linux-x86_64-pacman` for the Arch
+    /// package.
     pub fn platform_key() -> String {
-        format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH)
+        key_for(super::pacman())
+    }
+
+    pub fn key_for(pacman: bool) -> String {
+        let key = format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH);
+        if pacman { format!("{key}-pacman") } else { key }
     }
 
     /// The version without a leading `v`, as file names and the ui use it.
@@ -595,7 +634,15 @@ mod platform {
         let Some(ready) = taken else {
             return Err(failed("notFound", "no update is waiting"));
         };
-        replace(app, &ready)
+        let replaced = replace(app, &ready);
+        // nothing changed: the same update can be tried again
+        if replaced.is_err() {
+            *app.state::<Pending>()
+                .0
+                .lock()
+                .map_err(|e| failed("unknown", e))? = Some(ready);
+        }
+        replaced
     }
 
     /// The installer, silent (no window, no questions), as an update,
@@ -646,11 +693,16 @@ mod platform {
     }
 
     /// The AppImage the app runs from, replaced in place: written beside it
-    /// first, then renamed over it, which the running app does not mind.
+    /// first, then renamed over it, which the running app does not mind. The
+    /// Arch package is installed by pacman instead, and the app keeps running
+    /// until the person restarts it.
     #[cfg(target_os = "linux")]
     fn replace(app: &AppHandle, ready: &Ready) -> CommandResult<()> {
         use std::path::PathBuf;
 
+        if super::pacman() {
+            return super::pacman::install(&ready.bytes, &ready.info.version);
+        }
         let Some(current) = std::env::var_os("APPIMAGE").map(PathBuf::from) else {
             return Err(failed(
                 "unsupported",
@@ -681,6 +733,167 @@ mod platform {
     #[cfg(not(any(windows, target_os = "linux")))]
     fn replace(_app: &AppHandle, _ready: &Ready) -> CommandResult<()> {
         Err(failed("unsupported", "this system does not update itself"))
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) mod pacman {
+    //! Installing the Arch package's update: the checked file written to a
+    //! folder of its own that only this user reads, handed to
+    //! `pkexec pacman -U`, then removed whether it installed or not.
+
+    use std::ffi::OsStr;
+    use std::fs;
+    use std::io::Write;
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
+    use std::path::Path;
+    use std::process::{Command, Stdio};
+
+    use super::failed;
+    use crate::error::CommandResult;
+
+    const PACMAN: &str = "/usr/bin/pacman";
+    const PKEXEC: &str = "/usr/bin/pkexec";
+
+    /// pkexec's own exit codes: the password window was closed, and it was
+    /// refused or could not ask (no polkit agent).
+    const CANCELLED: i32 = 126;
+    const NOT_AUTHORIZED: i32 = 127;
+
+    /// What runs pacman as root: pkexec, or nothing when the app already is.
+    fn elevation() -> Vec<&'static OsStr> {
+        let root = fs::metadata("/proc/self").is_ok_and(|m| m.uid() == 0);
+        if root {
+            vec![OsStr::new(PACMAN)]
+        } else {
+            vec![OsStr::new(PKEXEC), OsStr::new(PACMAN)]
+        }
+    }
+
+    /// Installs `bytes`, the package of `version`, already checked against
+    /// its signature.
+    pub fn install(bytes: &[u8], version: &str) -> CommandResult<()> {
+        install_with(&elevation(), &std::env::temp_dir(), bytes, version)
+    }
+
+    /// [`install`] with `program` (pacman and what runs it as root) and the
+    /// folder the file is written in, for the tests.
+    pub(crate) fn install_with(
+        program: &[&OsStr],
+        temp: &Path,
+        bytes: &[u8],
+        version: &str,
+    ) -> CommandResult<()> {
+        // a package is a zstd archive
+        if !bytes.starts_with(&[0x28, 0xb5, 0x2f, 0xfd]) {
+            return Err(failed("update", "the download is not an Arch package"));
+        }
+        let dir = temp.join(format!(
+            "{}-update-{}-{}",
+            app_brand::SLUG,
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos())
+        ));
+        // made here, never one that was waiting under this name
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&dir)
+            .map_err(|e| failed("file", e))?;
+        let installed = write_and_run(program, &dir, bytes, version);
+        let _ = fs::remove_dir_all(&dir);
+        installed
+    }
+
+    fn write_and_run(
+        program: &[&OsStr],
+        dir: &Path,
+        bytes: &[u8],
+        version: &str,
+    ) -> CommandResult<()> {
+        let file = dir.join(format!(
+            "{}_{}_x86_64.pkg.tar.zst",
+            app_brand::DISPLAY_NAME.replace(' ', "-"),
+            super::list::clean(version)
+        ));
+        let mut out = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&file)
+            .map_err(|e| failed("file", e))?;
+        out.write_all(bytes)
+            .and_then(|()| out.sync_all())
+            .map_err(|e| failed("file", e))?;
+        drop(out);
+        // read back right before it installs: the file checked is the one
+        // pacman reads
+        if fs::read(&file).map_err(|e| failed("file", e))? != bytes {
+            return Err(failed("update", "the package changed after it was checked"));
+        }
+        let Some((first, rest)) = program.split_first() else {
+            return Err(failed("unknown", "no program to install with"));
+        };
+        let output = Command::new(first)
+            .args(rest)
+            .args([OsStr::new("-U"), OsStr::new("--noconfirm")])
+            .arg(&file)
+            .env("LC_ALL", "C")
+            .stdin(Stdio::null())
+            .output();
+        let output = match output {
+            Ok(output) => output,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return Err(failed(
+                    "polkitMissing",
+                    format!("{} is missing: {e}", first.to_string_lossy()),
+                ));
+            }
+            Err(e) => return Err(failed("pacman", e)),
+        };
+        if output.status.success() {
+            return Ok(());
+        }
+        let said = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();
+        let stderr = said(&output.stderr);
+        let elevated = program.len() > 1;
+        match output.status.code() {
+            Some(CANCELLED) if elevated => Err(failed(
+                "passwordCancelled",
+                "the password window was closed",
+            )),
+            Some(NOT_AUTHORIZED) if elevated => {
+                let line = last_lines(&stderr);
+                // no agent to show the window, or no polkit running to ask
+                if stderr.contains("authentication agent") || stderr.contains("authority") {
+                    Err(failed("polkitMissing", line))
+                } else {
+                    Err(failed("notAllowed", line))
+                }
+            }
+            _ => Err(failed(
+                "pacman",
+                last_lines(&format!("{}\n{stderr}", said(&output.stdout))),
+            )),
+        }
+    }
+
+    /// What a failed run said last: pacman's `error:` lines, the last two,
+    /// else its last two lines.
+    pub(crate) fn last_lines(text: &str) -> String {
+        let lines: Vec<&str> = text
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .collect();
+        let errors: Vec<&str> = lines
+            .iter()
+            .copied()
+            .filter(|l| l.starts_with("error:"))
+            .collect();
+        let picked = if errors.is_empty() { &lines } else { &errors };
+        picked[picked.len().saturating_sub(2)..].join(" ")
     }
 }
 
@@ -792,6 +1005,29 @@ pub fn app_update_page_only() -> bool {
     page_only()
 }
 
+/// This build is the Arch package, see [`pacman`]: it follows Stable only,
+/// and installs without restarting.
+#[tauri::command]
+#[must_use]
+pub fn app_update_pacman() -> bool {
+    pacman()
+}
+
+/// Starts the app again, into the version the Arch package installed.
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands commands the handle by value"
+)]
+pub fn app_update_restart(app: tauri::AppHandle) {
+    app.restart()
+}
+
+/// The list this build reads: packages come only from stable releases.
+fn followed(channel: Channel) -> Channel {
+    if pacman() { Channel::Stable } else { channel }
+}
+
 /// Looks for a newer version and downloads it, when the person asks for
 /// it: the app never does on its own. `None`: up to date, or this build
 /// does not update itself. `allow_older`: a beta going back to Stable,
@@ -807,6 +1043,7 @@ pub async fn app_update_check(
         return Ok(None);
     }
     let allow_older = allow_older.unwrap_or(false);
+    let channel = followed(channel);
     #[cfg(desktop)]
     if page_only() {
         return tauri::async_runtime::spawn_blocking(move || page::check(channel))
@@ -832,6 +1069,7 @@ pub async fn app_update_latest(
         return Ok(None);
     }
     let allow_older = allow_older.unwrap_or(false);
+    let channel = followed(channel);
     tauri::async_runtime::spawn_blocking(move || {
         let latest = list::latest(channel)?;
         let shown = list::newer(&latest, list::here())
@@ -1230,6 +1468,217 @@ mod tests {
         let bytes = super::list::download(file, &latest.version, &part, &mut |_, _| {}).unwrap();
         let _ = std::fs::remove_file(&part);
         assert!(bytes.starts_with(b"MZ"), "a Windows program");
+    }
+
+    #[test]
+    fn the_arch_package_is_its_program_with_its_mark() {
+        use super::installed_by_pacman;
+
+        let root = std::env::temp_dir().join(format!("update-pacman-{}", std::process::id()));
+        let exe = root.join("usr/bin").join(app_brand::SLUG);
+        let mark = root
+            .join("usr/lib")
+            .join(app_brand::SLUG)
+            .join("arch-package");
+        std::fs::create_dir_all(exe.parent().unwrap()).unwrap();
+        std::fs::write(&exe, "").unwrap();
+        // the old AUR package, or a copy of the program, has no mark
+        assert!(!installed_by_pacman(&exe, &root));
+        std::fs::create_dir_all(mark.parent().unwrap()).unwrap();
+        std::fs::write(&mark, "").unwrap();
+        assert!(installed_by_pacman(&exe, &root));
+        // an AppImage runs its program from where it is mounted
+        let mounted = root
+            .join("tmp/.mount_FicelleX/usr/bin")
+            .join(app_brand::SLUG);
+        assert!(!installed_by_pacman(&mounted, &root));
+        assert!(!installed_by_pacman(
+            &root.join("opt").join(app_brand::SLUG),
+            &root
+        ));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn the_arch_package_has_its_own_file_in_the_list() {
+        use super::list::key_for;
+
+        let latest: Latest = serde_json::from_str(
+            r#"{"version":"0.9.0","platforms":{
+            "linux-x86_64":{"signature":"a","url":"https://example.org/Ficelle_0.9.0_amd64.AppImage"},
+            "linux-x86_64-pacman":{"signature":"p","url":"https://example.org/Ficelle_0.9.0_x86_64.pkg.tar.zst"}}}"#,
+        )
+        .unwrap();
+        #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+        {
+            assert_eq!(key_for(false), "linux-x86_64");
+            assert_eq!(key_for(true), "linux-x86_64-pacman");
+            assert_eq!(latest.platforms[&key_for(true)].signature, "p");
+            // the AppImage keeps its own key, which older apps read
+            assert_eq!(latest.platforms[&key_for(false)].signature, "a");
+        }
+        assert!(key_for(true).ends_with("-pacman"));
+        // a list from before the package has no file for it: nothing offered
+        let before: Latest = serde_json::from_str(
+            r#"{"version":"0.8.6","platforms":{"linux-x86_64":{"signature":"a","url":"u"}}}"#,
+        )
+        .unwrap();
+        assert!(!before.platforms.contains_key(&key_for(true)));
+        // the package's file names its version for the signature's check
+        assert!(signed_for(
+            "timestamp:1\tfile:Ficelle_0.9.0_x86_64.pkg.tar.zst",
+            "0.9.0"
+        ));
+        assert!(!signed_for(
+            "timestamp:1\tfile:Ficelle_0.9.0_x86_64.pkg.tar.zst",
+            "0.9.1"
+        ));
+    }
+
+    #[cfg(target_os = "linux")]
+    mod pacman {
+        use std::ffi::OsStr;
+        use std::path::{Path, PathBuf};
+
+        use super::super::pacman::{install_with, last_lines};
+
+        /// A zstd archive's start, all `install_with` looks at.
+        const PACKAGE: &[u8] = &[0x28, 0xb5, 0x2f, 0xfd, 1, 2, 3];
+
+        fn temp(name: &str) -> PathBuf {
+            let dir = std::env::temp_dir().join(format!("update-{name}-{}", std::process::id()));
+            std::fs::create_dir_all(&dir).unwrap();
+            dir
+        }
+
+        /// What is left in `dir` after a try: nothing, the file is removed.
+        fn left(dir: &Path) -> usize {
+            std::fs::read_dir(dir).unwrap().count()
+        }
+
+        /// pkexec stood in for by a shell running `script`, with pacman's
+        /// arguments after it.
+        fn run(dir: &Path, script: &str) -> Result<(), (String, String)> {
+            let program = ["sh", "-c", script, "pkexec", "/usr/bin/pacman"].map(OsStr::new);
+            install_with(&program, dir, PACKAGE, "0.9.0")
+                .map_err(|e| (e.kind().to_owned(), e.message().to_owned()))
+        }
+
+        #[test]
+        fn installs_the_file_it_was_given_then_removes_it() {
+            let dir = temp("pacman-ok");
+            // pacman gets -U, --noconfirm and the file, still there
+            run(
+                &dir,
+                r#"[ "$1 $2 $3" = "/usr/bin/pacman -U --noconfirm" ] && [ -f "$4" ] && case "$4" in *_0.9.0_x86_64.pkg.tar.zst) ;; *) exit 9 ;; esac"#,
+            )
+            .unwrap();
+            assert_eq!(left(&dir), 0);
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+
+        #[test]
+        fn the_file_is_only_this_users() {
+            let dir = temp("pacman-mode");
+            let modes = dir.join("modes");
+            let script = format!(r#"stat -c %a "$(dirname "$4")" "$4" > {}"#, modes.display());
+            run(&dir, &script).unwrap();
+            assert_eq!(std::fs::read_to_string(&modes).unwrap(), "700\n600\n");
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+
+        #[test]
+        fn a_closed_password_window_changes_nothing() {
+            let dir = temp("pacman-cancel");
+            assert_eq!(run(&dir, "exit 126").unwrap_err().0, "passwordCancelled");
+            assert_eq!(left(&dir), 0);
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+
+        #[test]
+        fn no_polkit_is_said_as_such() {
+            let dir = temp("pacman-polkit");
+            let agent = "echo 'Error executing command as another user: No authentication agent found.' >&2; exit 127";
+            assert_eq!(run(&dir, agent).unwrap_err().0, "polkitMissing");
+            let stopped = "echo 'Error getting authority: Error initializing authority: Could not connect: No such file or directory' >&2; exit 127";
+            assert_eq!(run(&dir, stopped).unwrap_err().0, "polkitMissing");
+            let refused =
+                "echo 'Error executing command as another user: Not authorized' >&2; exit 127";
+            assert_eq!(run(&dir, refused).unwrap_err().0, "notAllowed");
+            let missing = [
+                OsStr::new("/nonexistent/pkexec"),
+                OsStr::new("/usr/bin/pacman"),
+            ];
+            let (kind, _) = install_with(&missing, &dir, PACKAGE, "0.9.0")
+                .map_err(|e| (e.kind(), e.message().to_owned()))
+                .unwrap_err();
+            assert_eq!(kind, "polkitMissing");
+            assert_eq!(left(&dir), 0);
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+
+        #[test]
+        fn a_failed_pacman_says_its_last_errors() {
+            let dir = temp("pacman-fail");
+            let script = "echo 'loading packages...'; echo 'error: failed to commit transaction (conflicting files)' >&2; \
+                echo 'ficelle: /usr/bin/ficelle exists in filesystem' >&2; echo 'Errors occurred, no packages were upgraded.' >&2; exit 1";
+            let (kind, message) = run(&dir, script).unwrap_err();
+            assert_eq!(kind, "pacman");
+            assert_eq!(
+                message,
+                "error: failed to commit transaction (conflicting files)"
+            );
+            assert_eq!(left(&dir), 0);
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+
+        #[test]
+        fn only_a_package_is_handed_to_pacman() {
+            let dir = temp("pacman-elf");
+            let program = ["sh", "-c", "exit 0", "pkexec"].map(OsStr::new);
+            let err = install_with(&program, &dir, b"\x7fELF", "0.9.0").unwrap_err();
+            assert_eq!(err.kind(), "update");
+            assert_eq!(left(&dir), 0);
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+
+        #[test]
+        fn the_last_lines_prefer_pacmans_errors() {
+            assert_eq!(
+                last_lines("a\nerror: one\nb\nerror: two\nerror: three\nc\n"),
+                "error: two error: three"
+            );
+            assert_eq!(last_lines("a\n\nb\nc\n"), "b c");
+            assert_eq!(last_lines(""), "");
+        }
+
+        /// The real thing, as root in an Arch container with a package of
+        /// this app installed: the newer package in `UPDATE_PACKAGE`, its
+        /// signature (tauri's .sig) beside it, signed by the key in
+        /// `UPDATE_KEY` (tauri's .pub), for `UPDATE_VERSION`. Checked and
+        /// installed the way the app does, pacman run straight as root.
+        #[test]
+        #[ignore = "installs a package with pacman, as root"]
+        fn pacman_updates_the_installed_package() {
+            use super::super::list::{signed_for, verify};
+
+            let var = |name| std::env::var(name).unwrap_or_else(|_| panic!("{name} is not set"));
+            let file = PathBuf::from(var("UPDATE_PACKAGE"));
+            let version = var("UPDATE_VERSION");
+            let bytes = std::fs::read(&file).unwrap();
+            let signature = std::fs::read_to_string(format!("{}.sig", file.display())).unwrap();
+            let key = std::fs::read_to_string(var("UPDATE_KEY")).unwrap();
+            let comment = verify(&bytes, &signature, &key).unwrap();
+            assert!(signed_for(&comment, &version), "{comment}");
+            super::super::pacman::install(&bytes, &version).unwrap();
+            // the package is the release's, whatever build runs the test
+            let query = std::process::Command::new("pacman")
+                .args(["-Q", "ficelle"])
+                .output()
+                .unwrap();
+            let installed = String::from_utf8_lossy(&query.stdout);
+            assert_eq!(installed.trim(), format!("ficelle {version}-1"));
+        }
     }
 
     #[test]

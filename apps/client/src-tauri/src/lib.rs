@@ -199,6 +199,8 @@ pub fn run() {
             commands::updates::app_update_latest,
             commands::updates::app_update_install,
             commands::updates::app_update_page_only,
+            commands::updates::app_update_pacman,
+            commands::updates::app_update_restart,
             commands::vault::vault_check_password,
             commands::vault::vault_create_recovery,
             commands::vault::vault_remove_recovery,

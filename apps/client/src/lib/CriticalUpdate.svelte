@@ -58,7 +58,9 @@
           >{busy || appUpdates.installing
             ? phone
               ? t('appUpdate.checking')
-              : t('appUpdate.restarting')
+              : appUpdates.pacman && !appUpdates.installed
+                ? t('appUpdate.installing')
+                : t('appUpdate.restarting')
             : t('appUpdate.criticalUpdate')}</button
         >
         <button class="btn" type="button" disabled={busy} onclick={() => void skip()}

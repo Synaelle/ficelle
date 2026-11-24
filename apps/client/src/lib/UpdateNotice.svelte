@@ -30,6 +30,7 @@
     if (!ready) return ''
     const fix = isFix(ready.version)
     if (!appUpdates.downloaded) return fix ? t('appUpdate.cardFixOut') : t('appUpdate.cardNewOut')
+    if (appUpdates.installed) return t('appUpdate.cardInstalled')
     return fix ? t('appUpdate.cardFixReady') : t('appUpdate.cardNewReady')
   })
 
@@ -97,11 +98,19 @@
         onclick={() => void channelSwitch.update()}
         >{appUpdates.ready.page || !appUpdates.downloaded
           ? t('appUpdate.download')
-          : appUpdates.installing
-            ? t('appUpdate.restarting')
-            : phone
-              ? t('appUpdate.install')
-              : t('appUpdate.restart')}</button
+          : appUpdates.pacman
+            ? appUpdates.installed
+              ? appUpdates.installing
+                ? t('appUpdate.restarting')
+                : t('appUpdate.restartNow')
+              : appUpdates.installing
+                ? t('appUpdate.installing')
+                : t('appUpdate.install')
+            : appUpdates.installing
+              ? t('appUpdate.restarting')
+              : phone
+                ? t('appUpdate.install')
+                : t('appUpdate.restart')}</button
       >
       <button
         class="btn later"

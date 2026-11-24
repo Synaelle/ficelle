@@ -75,7 +75,8 @@
       onclick={() => (prefs.updatesOnMobileData = !prefs.updatesOnMobileData)}
     />
   {/if}
-  {#if channelChoice}
+  <!-- the Arch package comes only from stable releases -->
+  {#if channelChoice && !appUpdates.pacman}
     <Row
       label={t('appUpdate.nightlyVersions')}
       icon="flask"
@@ -86,21 +87,29 @@
   {/if}
   {#if appUpdates.ready}
     <Row
-      label={appUpdates.downloaded
-        ? t('appUpdate.ready', { version: appUpdates.ready.version })
-        : t('appUpdate.out', { version: appUpdates.ready.version })}
+      label={appUpdates.installed
+        ? t('appUpdate.installed', { version: appUpdates.ready.version })
+        : appUpdates.downloaded
+          ? t('appUpdate.ready', { version: appUpdates.ready.version })
+          : t('appUpdate.out', { version: appUpdates.ready.version })}
       icon="export"
       help={appUpdates.progress ? downloadLine(appUpdates.progress) : undefined}
     >
       <button
         class="btn primary"
-        disabled={!!appUpdates.progress}
+        disabled={!!appUpdates.progress || appUpdates.installing}
         onclick={() => void channelSwitch.update()}
         >{appUpdates.ready.page || !appUpdates.downloaded
           ? t('appUpdate.download')
-          : phone
-            ? t('appUpdate.install')
-            : t('appUpdate.restart')}</button
+          : appUpdates.pacman
+            ? appUpdates.installed
+              ? t('appUpdate.restartNow')
+              : appUpdates.installing
+                ? t('appUpdate.installing')
+                : t('appUpdate.install')
+            : phone
+              ? t('appUpdate.install')
+              : t('appUpdate.restart')}</button
       >
       {#if PHONE && appUpdates.offered}
         <button

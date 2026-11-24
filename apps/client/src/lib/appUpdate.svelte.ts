@@ -5,8 +5,10 @@
 // newer version gets a card; it downloads only when the person asks, its
 // progress in the card, then the card offers to restart into it. On Android
 // the system installer takes over from AppInstaller (MainActivity.kt) and
-// asks the person. A critical security fix is asked in the middle of the
-// screen, unless that is turned off, and never installs without a yes.
+// asks the person. The Arch package installs it with pacman, through the
+// system's password window, then the card offers to restart. A critical
+// security fix is asked in the middle of the screen, unless that is turned
+// off, and never installs without a yes.
 //
 // Two channels, Stable and Beta, each its own list (commands/updates.rs).
 // An older version is never
@@ -97,9 +99,10 @@ export const channelChoice = ANDROID || LINUX
  * has no installed identity for Windows to show them under. */
 export const notificationsHere = updatesHere && !__APP_PORTABLE__
 
-/** The list this device follows. */
+/** The list this device follows. The Arch package comes only from stable
+ * releases. */
 export function channel(): UpdateChannel {
-  return channelChoice ? prefs.channel : 'stable'
+  return channelChoice && !appUpdates.pacman ? prefs.channel : 'stable'
 }
 
 /** `major.minor.micro` and a beta's number, null for anything else. */
@@ -139,6 +142,10 @@ class AppUpdates {
   ready: AppUpdate | null = $state(null)
   /** `ready` is downloaded and checked, waiting to be installed. */
   downloaded = $state(false)
+  /** The Arch package: pacman installs the update, the app keeps running. */
+  pacman = $state(false)
+  /** pacman installed `ready`, waiting for a restart. */
+  installed = $state(false)
   /** Bytes so far and the size, while it downloads. */
   progress: { done: number; total: number | null } | null = $state(null)
   /** The notes are open: the card waits while the app is locked. */
@@ -180,7 +187,8 @@ class AppUpdates {
   async start() {
     if (!updatesHere || this.started) return
     this.started = true
-    if (LINUX && (await backend.appUpdatePageOnly())) this.elsewhere = 'package'
+    if (LINUX && (await backend.appUpdatePacman())) this.pacman = true
+    else if (LINUX && (await backend.appUpdatePageOnly())) this.elsewhere = 'package'
     if (this.elsewhere) return
     void this.look()
     this.timer = setInterval(() => void this.look(), EVERY_MS)
@@ -204,7 +212,10 @@ class AppUpdates {
 
   /** What the list offers: kept as downloaded when it is the same version. */
   private found(update: AppUpdate | null) {
-    if (update?.version !== this.ready?.version) this.downloaded = false
+    if (update?.version !== this.ready?.version) {
+      this.downloaded = false
+      this.installed = false
+    }
     this.ready = update
     this.upToDate = !update
     if (!update) return
@@ -302,10 +313,12 @@ class AppUpdates {
   }
 
   /** Downloads first when it is not yet, then installs on the next press;
-   * a release page opens at once. */
+   * a release page opens at once. The Arch package installs, then restarts
+   * on the press after. */
   async install() {
     if (!this.ready) return
     if (!this.ready.page && !this.downloaded) return this.download()
+    if (this.pacman) return this.installed ? this.restart() : this.installPackage()
     if (ANDROID && window.AppInstaller) {
       if (!window.AppInstaller.install()) this.error = namedError('notFound', 'INSTALL')
       return
@@ -316,6 +329,31 @@ class AppUpdates {
       await backend.appUpdateInstall()
     } catch (err) {
       this.error = shownError(err, 'INSTALL')
+      this.installing = false
+    }
+  }
+
+  /** pacman installs the downloaded package, asking for the password in the
+   * system's window. Refused or failed, nothing changed and the card stays. */
+  private async installPackage() {
+    this.error = null
+    this.installing = true
+    try {
+      await backend.appUpdateInstall()
+      this.installed = true
+    } catch (err) {
+      this.error = shownError(err, 'INSTALL')
+    } finally {
+      this.installing = false
+    }
+  }
+
+  private async restart() {
+    this.installing = true
+    try {
+      await backend.appUpdateRestart()
+    } catch (err) {
+      this.error = shownError(err, 'RESTART')
       this.installing = false
     }
   }
@@ -331,6 +369,7 @@ class AppUpdates {
     if (next === 'nightly') resetBetaWelcome()
     this.ready = null
     this.downloaded = false
+    this.installed = false
     this.critical = null
     this.upToDate = false
     this.error = null
@@ -343,6 +382,8 @@ class AppUpdates {
     if (!this.ready) await this.check()
     if (this.ready && !this.ready.page && !this.downloaded) await this.download()
     if (this.downloaded || this.ready?.page) await this.install()
+    // "Update now" is the whole update, as the AppImage restarts on its own
+    if (this.installed) await this.install()
   }
 
   /** "Later" offers waiting for the next start or skipping this version;

@@ -72,12 +72,17 @@ export interface Backend {
    * automatic updates off, looked at only for a critical security fix. */
   appUpdateLatest(channel: UpdateChannel, allowOlder?: boolean): Promise<AppUpdate | null>
   /** Desktop: installs the downloaded update and starts the app again. The
-   * portable exe and a Linux package open the version's release page
+   * Arch package installs it with pacman and keeps running. The portable
+   * exe and other Linux packages open the version's release page
    * instead. */
   appUpdateInstall(): Promise<void>
   /** This build only points to the release page: the portable exe, a Linux
-   * package. */
+   * package other than the Arch one. */
   appUpdatePageOnly(): Promise<boolean>
+  /** This build is the Arch package: it updates through pacman, Stable only. */
+  appUpdatePacman(): Promise<boolean>
+  /** Starts the app again, into the version pacman installed. */
+  appUpdateRestart(): Promise<void>
   /** The system lets this app show notifications, asking the person if it
    * must. False where there are none (the browser). */
   notificationsAllowed(): Promise<boolean>
