@@ -114,7 +114,10 @@ fn holds_everything(store: &Store, blobs: &BlobStore, made: &Made) {
         ("bed.png", 79, PICTURE_SHA256),
         "{made}"
     );
-    let picture = blobs.get(PICTURE_SHA256).unwrap().expect(&made.to_string());
+    let picture = blobs
+        .get(PICTURE_SHA256)
+        .unwrap()
+        .unwrap_or_else(|| panic!("{made}"));
     assert_eq!(sha256_hex(&picture), PICTURE_SHA256, "{made}");
 
     // up to 0.8.6 it sat in a folder, which is a tag of the same name now
@@ -139,24 +142,6 @@ fn holds_everything(store: &Store, blobs: &BlobStore, made: &Made) {
 
     let fence = note("Paint the fence red green");
     assert_eq!(fence.body, "Before the summer.", "{made}");
-    // a backup does not keep conflicts, they are this device's to settle
-    if !made.restored {
-        let conflict = store
-            .note_conflict(fence.id)
-            .unwrap()
-            .expect(&made.to_string());
-        assert_eq!(conflict.kind, "merge", "{made}");
-        assert_eq!(
-            conflict.mine.map(|s| s.title).as_deref(),
-            Some("Paint the fence red"),
-            "{made}"
-        );
-        assert_eq!(
-            conflict.theirs.map(|s| s.title).as_deref(),
-            Some("Paint the fence green"),
-            "{made}"
-        );
-    }
 
     let trash = store
         .list_notes(NoteScope::Trash, NoteSort::TitleAsc)
@@ -174,21 +159,46 @@ fn holds_everything(store: &Store, blobs: &BlobStore, made: &Made) {
     let beds = tags
         .iter()
         .find(|t| t.name.eq_ignore_ascii_case("garden/beds"))
-        .expect(&made.to_string());
+        .unwrap_or_else(|| panic!("{made}"));
     assert_eq!(
         beds.color.as_deref(),
         since_0_6.then_some("green"),
         "{made}"
     );
-    if !made.restored {
-        let theme = store
-            .synced_settings()
-            .unwrap()
-            .into_iter()
-            .find(|(key, _)| key == "theme")
-            .map(|(_, value)| value);
-        assert_eq!(theme.as_deref(), since_0_6.then_some("\"dark\""), "{made}");
-    }
+}
+
+/// Checks a vault kept what stays with it and a backup leaves out: the
+/// conflict waiting to be settled here, the synced settings.
+fn holds_its_own_state(store: &Store, made: &Made) {
+    let since_0_6 = made.version != "0.5.5";
+    let fence = store
+        .list_notes(NoteScope::All, NoteSort::TitleAsc)
+        .unwrap()
+        .into_iter()
+        .find(|n| n.title == "Paint the fence red green")
+        .unwrap();
+    let conflict = store
+        .note_conflict(fence.id)
+        .unwrap()
+        .unwrap_or_else(|| panic!("{made}"));
+    assert_eq!(conflict.kind, "merge", "{made}");
+    assert_eq!(
+        conflict.mine.map(|s| s.title).as_deref(),
+        Some("Paint the fence red"),
+        "{made}"
+    );
+    assert_eq!(
+        conflict.theirs.map(|s| s.title).as_deref(),
+        Some("Paint the fence green"),
+        "{made}"
+    );
+    let theme = store
+        .synced_settings()
+        .unwrap()
+        .into_iter()
+        .find(|(key, _)| key == "theme")
+        .map(|(_, value)| value);
+    assert_eq!(theme.as_deref(), since_0_6.then_some("\"dark\""), "{made}");
 }
 
 #[test]
@@ -216,6 +226,7 @@ fn vaults_made_by_released_versions_open_with_everything_in_them() {
             .unwrap_or_else(|e| panic!("{made}: {e}"));
             let blobs = vault.blobs(&mut store).unwrap();
             holds_everything(&store, &blobs, &made);
+            holds_its_own_state(&store, &made);
         }
     }
 }
