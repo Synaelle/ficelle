@@ -455,7 +455,6 @@ other = "{count} masqués"
 [settings.phone]
 groupLook = "Apparence et écriture"
 groupPrivacy = "Confidentialité"
-dataBackups = "Données et sauvegardes"
 encrypted = "Chiffrées, sur cet appareil"
 plain = "Non chiffrées, sur cet appareil"
 groupPassword = "Mot de passe et récupération"
