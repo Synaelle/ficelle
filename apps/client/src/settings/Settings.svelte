@@ -1,64 +1,19 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Settings dialog. A search box filters sections by their translated text.
-     Phones get their own full screen layout, PhoneSettings. -->
+     Phones get their own full screen layout of the same settings,
+     PhoneSettings. -->
 <script lang="ts">
   import ErrorText from '../lib/ErrorText.svelte'
-  import { MIN_PASSWORD } from '../lib/passwords'
-  import PasswordField from '../lib/PasswordField.svelte'
-  import { brand } from '@app/brand'
   import { modal } from '../lib/modal'
   import { onMount, untrack } from 'svelte'
-  import { biometricMethod } from '../lib/biometric'
-  import { LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
+  import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
-  import type { IconName } from '../lib/icons/sets'
-  import {
-    CODE_FONTS,
-    experimenting,
-    LINE_SPACINGS,
-    prefs,
-    shortcutFor,
-    showTool,
-    TEXT_FONTS,
-  } from '../lib/prefs.svelte'
-  import { TOOL_NAMES } from '../editor/toolNames'
-  import { MODES } from '../lib/theme.svelte'
-  import { LINUX, WEB } from '../lib/platform'
-  import {
-    applyQuickShortcut,
-    DEFAULT_QUICK_SHORTCUT,
-    globalBindingOf,
-    quickNoteSupported,
-  } from '../lib/quickNote'
-  import { ACTIONS, bindingOf, displayBinding, type ActionId } from '../lib/shortcuts'
-  import RecoveryKey from '../screens/RecoveryKey.svelte'
-  import ArrowPicker from './ArrowPicker.svelte'
   import BackupDialog from './BackupDialog.svelte'
   import ResetDialog from './ResetDialog.svelte'
-  import DataSettings from './DataSettings.svelte'
-  import FeedbackSettings from './FeedbackSettings.svelte'
   import PhoneSettings from './PhoneSettings.svelte'
-  import SizePicker from './SizePicker.svelte'
-  import SyncSettings from './SyncSettings.svelte'
-  import TestTools from '../devreport/TestTools.svelte'
-  import AboutSettings from './AboutSettings.svelte'
-  import UpdateCheck from './UpdateCheck.svelte'
-  import { updatesHere } from '../lib/appUpdate.svelte'
-  import { applyDyslexicFont, OPENDYSLEXIC } from '../lib/dyslexicFont'
-  import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
-  import { applyFont, DEFAULT_CODE_FONT, FONT_PACKS, fontStatus } from '../lib/chosenFonts.svelte'
-  import FontLoad from './FontLoad.svelte'
-  import {
-    LOCK_CHOICES,
-    lockLabel,
-    SETTINGS_INSIDE,
-    SettingsState,
-    toolbarState,
-    ways,
-  } from './settingsState.svelte'
-  import Group from './ui/Group.svelte'
-  import Row from './ui/Row.svelte'
-  import Switch from './ui/Switch.svelte'
+  import SettingsSection from './SettingsSection.svelte'
+  import { sectionLabel, settingsInside, settingsSections, type SectionId } from './sections.svelte'
+  import { SettingsState } from './settingsState.svelte'
   import type ImportScreen from './ImportDialog.svelte'
   import { loadPart } from '../lib/pageParts'
 
@@ -68,62 +23,17 @@
     start,
   }: { close: () => void; onlock: () => void; start?: 'sync' | 'updates' } = $props()
 
-  type Section =
-    | 'appearance'
-    | 'accessibility'
-    | 'editor'
-    | 'language'
-    | 'shortcuts'
-    | 'security'
-    | 'sync'
-    | 'data'
-    | 'feedback'
-    | 'testTools'
-    | 'experimental'
-    | 'updates'
-    | 'about'
-  const SECTIONS = $derived([
-    'appearance',
-    'accessibility',
-    'editor',
-    'language',
-    'shortcuts',
-    'security',
-    // the web version cannot reach other devices or a server
-    ...(WEB ? [] : (['sync'] as const)),
-    'data',
-    // the web version has no place to send feedback yet
-    ...(WEB ? [] : (['feedback'] as const)),
-    // dev and preview builds only
-    ...(__APP_DEV_TOOLS__ ? (['testTools'] as const) : []),
-    // what is still being tried, only where it applies and for those who
-    // follow the nightlies
-    ...(experimenting() ? (['experimental'] as const) : []),
-    // release builds only, the web version is always the one served
-    ...(updatesHere ? (['updates'] as const) : []),
-    'about',
-  ] as Section[])
-  const SECTION_ICONS: Record<Section, IconName> = {
-    appearance: 'palette',
-    accessibility: 'textSize',
-    editor: 'textStyle',
-    language: 'language',
-    shortcuts: 'keyboard',
-    security: 'lock',
-    sync: 'synced',
-    data: 'backup',
-    feedback: 'feedback',
-    testTools: 'log',
-    experimental: 'flask',
-    updates: 'export',
-    about: 'info',
-  }
+  const settings = new SettingsState()
+  onMount(() => void settings.refresh())
+  const sections = settingsSections(settings, () => onlock())
+
   /** At phone width the settings fill the screen with their own layout. */
   const PHONE = 640
   let width = $state(window.innerWidth)
   const phone = $derived(width <= PHONE)
   // svelte-ignore state_referenced_locally
-  let section: Section = $state(start ?? 'appearance')
+  let section: SectionId = $state(start ?? 'appearance')
+  const current = $derived(sections.find((s) => s.id === section))
   /** The import dialog open, for this app's own export or another app's. */
   let importing = $state<'ficelle' | 'other' | null>(null)
   /** The importers of every other app load only when an import starts. */
@@ -132,99 +42,43 @@
     ImportDialog ??= (await loadPart(() => import('./ImportDialog.svelte')))?.default ?? null
     if (ImportDialog) importing = ficelle ? 'ficelle' : 'other'
   }
-  /** The formatting buttons' switches, shown under their row. */
-  let toolsShown = $state(false)
   let resetting = $state(false)
   let restoringFile = $state(false)
+  const data = {
+    onimport: (ficelle: boolean) => void startImport(ficelle),
+    onrestorefile: () => (restoringFile = true),
+    onreset: () => (resetting = true),
+  }
   let filter = $state('')
   const visible = $derived.by(() => {
     const words = filter.trim().toLowerCase()
     // a setting found by its own name, as on the phone, shows its section
-    const inside = SETTINGS_INSIDE.filter(([, label]) => t(label).toLowerCase().includes(words))
-    const holds = (s: Section) =>
-      inside.some(([, , page]) => (page === 'notes' ? 'data' : page) === s)
-    return SECTIONS.filter(
+    const inside = settingsInside(sections).filter(([, label]) =>
+      t(label).toLowerCase().includes(words),
+    )
+    return sections.filter(
       (s) =>
         !words ||
-        t(`settings.${s}`).toLowerCase().includes(words) ||
-        t(`settings.${s}Keywords`).toLowerCase().includes(words) ||
-        holds(s),
+        t(sectionLabel(s.id)).toLowerCase().includes(words) ||
+        t(`settings.${s.id}Keywords`).toLowerCase().includes(words) ||
+        inside.some(([, , id]) => id === s.id),
     )
   })
-  function open(next: Section) {
-    section = next
+  function open(next: string) {
+    section = next as SectionId
     settings.message = ''
   }
   // a search shows its first match, not the page that was open before it
   $effect(() => {
-    const first = filter.trim() ? visible[0] : undefined
+    const first = filter.trim() ? visible[0]?.id : undefined
     if (first) untrack(() => section !== first && open(first))
   })
-
-  const settings = new SettingsState()
-  onMount(() => void settings.refresh())
-  const method = $derived(biometricMethod())
-
-  let recording: ActionId | null = $state(null)
-  let recordingQuick = $state(false)
-  let quickTaken = $state(false)
-
-  /** The system may refuse a global shortcut another app holds. */
-  async function setQuick(binding: string | null) {
-    quickTaken = false
-    if (await applyQuickShortcut(binding)) prefs.quickNoteShortcut = binding
-    else {
-      quickTaken = true
-      await applyQuickShortcut(prefs.quickNoteShortcut)
-    }
-  }
-
-  function record(event: KeyboardEvent) {
-    if (recordingQuick) {
-      event.preventDefault()
-      event.stopPropagation()
-      if (event.key === 'Escape') return (recordingQuick = false)
-      const binding = globalBindingOf(event)
-      if (!binding) return
-      recordingQuick = false
-      void setQuick(binding)
-      return
-    }
-    if (!recording) return
-    event.preventDefault()
-    event.stopPropagation()
-    if (event.key === 'Escape') return (recording = null)
-    const binding = bindingOf(event)
-    if (!binding) return
-    prefs.shortcuts = { ...prefs.shortcuts, [recording]: binding }
-    recording = null
-  }
-
-  let oldPassword = $state('')
-  let newPassword = $state('')
-  /** The change password form, open under its row. */
-  let changingPassword = $state(false)
-  async function changePassword(event: SubmitEvent) {
-    event.preventDefault()
-    if (await settings.changePassword(oldPassword, newPassword)) {
-      oldPassword = newPassword = ''
-      changingPassword = false
-    }
-  }
 </script>
 
-<svelte:window onkeydowncapture={record} bind:innerWidth={width} />
+<svelte:window bind:innerWidth={width} />
 
 {#if phone}
-  <PhoneSettings
-    {settings}
-    {close}
-    {onlock}
-    {start}
-    onimport={(ficelle) => void startImport(ficelle)}
-    onrestorefile={() => (restoringFile = true)}
-    onreset={() => (resetting = true)}
-  />
+  <PhoneSettings {sections} {settings} {close} {start} {data} />
 {:else}
   <div
     class="backdrop"
@@ -244,12 +98,12 @@
           type="search"
           placeholder={t('settings.search')}
           bind:value={filter}
-          onkeydown={(e) => e.key === 'Enter' && visible[0] && open(visible[0])}
+          onkeydown={(e) => e.key === 'Enter' && visible[0] && open(visible[0].id)}
         />
-        {#each visible as s (s)}
-          <button class:active={section === s} onclick={() => open(s)}
-            ><span class="tile"><Icon name={SECTION_ICONS[s]} size={14} /></span>{t(
-              `settings.${s}`,
+        {#each visible as s (s.id)}
+          <button class:active={section === s.id} onclick={() => open(s.id)}
+            ><span class="tile"><Icon name={s.icon} size={14} /></span>{t(
+              sectionLabel(s.id),
             )}</button
           >
         {/each}
@@ -257,396 +111,15 @@
 
       <div class="content">
         <header>
-          <h2>{t(`settings.${section}`)}</h2>
+          <h2>{t(sectionLabel(section))}</h2>
           <button class="icon-btn" aria-label={t('common.close')} onclick={close}
             ><Icon name="close" /></button
           >
         </header>
 
         <div class="settings-body">
-          {#if section === 'appearance'}
-            <Group>
-              <Row label={t('settings.theme')}>
-                <div class="segmented" role="radiogroup" aria-label={t('settings.theme')}>
-                  {#each MODES as mode (mode)}
-                    <label class:checked={prefs.mode === mode}>
-                      <input type="radio" name="mode" value={mode} bind:group={prefs.mode} />{t(
-                        `settings.theme_${mode}`,
-                      )}
-                    </label>
-                  {/each}
-                </div>
-              </Row>
-              <!-- only dark has a black to make deeper -->
-              {#if prefs.mode !== 'light'}
-                <Row label={t('settings.pureBlack')}>
-                  <Switch label={t('settings.pureBlack')} bind:checked={prefs.pureBlack} />
-                </Row>
-              {/if}
-            </Group>
-          {:else if section === 'accessibility'}
-            <Group>
-              <Row label={t('settings.uiSize')}>
-                <SizePicker />
-              </Row>
-              <Row label={t('settings.dyslexicFont')}>
-                <Switch label={t('settings.dyslexicFont')} bind:checked={prefs.dyslexicFont} />
-              </Row>
-            </Group>
-            {#if prefs.dyslexicFont}
-              <FontLoad
-                font={OPENDYSLEXIC.family}
-                loading={dyslexicStatus.loading}
-                error={dyslexicStatus.error}
-                onretry={() => applyDyslexicFont(true)}
-              />
-            {/if}
-          {:else if section === 'editor'}
-            <Group>
-              <Row label={t('settings.font')}>
-                <select
-                  class="field compact font-pick"
-                  aria-label={t('settings.font')}
-                  bind:value={prefs.font}
-                >
-                  {#each TEXT_FONTS as font (font)}
-                    <option value={font}
-                      >{font === 'default'
-                        ? t('settings.fontDefault')
-                        : FONT_PACKS[font].family}</option
-                    >
-                  {/each}
-                </select>
-              </Row>
-              <Row label={t('settings.codeFont')}>
-                <select
-                  class="field compact font-pick"
-                  aria-label={t('settings.codeFont')}
-                  bind:value={prefs.codeFont}
-                >
-                  {#each CODE_FONTS as font (font)}
-                    <option value={font}
-                      >{font === 'default' ? DEFAULT_CODE_FONT : FONT_PACKS[font].family}</option
-                    >
-                  {/each}
-                </select>
-              </Row>
-              <Row label={t('settings.lineSpacing')}>
-                <div class="segmented" role="radiogroup" aria-label={t('settings.lineSpacing')}>
-                  {#each LINE_SPACINGS as spacing (spacing)}
-                    <label class:checked={prefs.lineSpacing === spacing}>
-                      <input
-                        type="radio"
-                        name="lineSpacing"
-                        value={spacing}
-                        bind:group={prefs.lineSpacing}
-                      />{t(`settings.lineSpacing_${spacing}`)}
-                    </label>
-                  {/each}
-                </div>
-              </Row>
-            </Group>
-            {#if prefs.font !== 'default'}
-              <FontLoad
-                font={FONT_PACKS[prefs.font].family}
-                loading={fontStatus.text.loading}
-                error={fontStatus.text.error}
-                onretry={() => applyFont('text', prefs.font)}
-              />
-            {/if}
-            {#if prefs.codeFont !== 'default'}
-              <FontLoad
-                font={FONT_PACKS[prefs.codeFont].family}
-                loading={fontStatus.code.loading}
-                error={fontStatus.code.error}
-                onretry={() => applyFont('code', prefs.codeFont)}
-              />
-            {/if}
-            <Group>
-              <Row label={t('settings.autoLists')}>
-                <Switch label={t('settings.autoLists')} bind:checked={prefs.autoLists} />
-              </Row>
-              <Row label={t('settings.emojiShortcodes')}>
-                <Switch
-                  label={t('settings.emojiShortcodes')}
-                  bind:checked={prefs.emojiShortcodes}
-                />
-              </Row>
-              <Row label={t('settings.spellcheck')}>
-                <Switch label={t('settings.spellcheck')} bind:checked={prefs.spellcheck} />
-              </Row>
-              <Row label={t('settings.arrow')} typed>
-                <ArrowPicker />
-              </Row>
-            </Group>
-            <!-- how the app behaves, apart from what typing does -->
-            <Group note={quickTaken ? t('settings.quickNoteTaken') : undefined}>
-              <Row label={t('settings.openNoteFirst')}>
-                <Switch label={t('settings.openNoteFirst')} bind:checked={prefs.openNoteFirst} />
-              </Row>
-              <Row label={t('settings.scopedSearch')}>
-                <Switch label={t('settings.scopedSearch')} bind:checked={prefs.scopedSearch} />
-              </Row>
-              <Row label={t('settings.openLastNote')}>
-                <Switch label={t('settings.openLastNote')} bind:checked={prefs.openLastNote} />
-              </Row>
-              <Row label={t('settings.nameFromAttachment')}>
-                <Switch
-                  label={t('settings.nameFromAttachment')}
-                  bind:checked={prefs.nameFromAttachment}
-                />
-              </Row>
-              {#if quickNoteSupported}
-                <Row label={t('settings.quickNote')}>
-                  {#if prefs.quickNoteShortcut}
-                    <button class="btn key" onclick={() => (recordingQuick = true)}>
-                      {recordingQuick
-                        ? t('settings.pressKeys')
-                        : displayBinding(prefs.quickNoteShortcut)}
-                    </button>
-                  {/if}
-                  <Switch
-                    label={t('settings.quickNote')}
-                    checked={prefs.quickNoteShortcut !== null}
-                    onchange={(on) => void setQuick(on ? DEFAULT_QUICK_SHORTCUT : null)}
-                  />
-                </Row>
-              {/if}
-            </Group>
-            <!-- a long list seldom changed: folded under its row -->
-            <Group>
-              <Row
-                label={t('settings.toolbarButtons')}
-                expanded={toolsShown}
-                controls="toolbar-buttons"
-                onclick={() => (toolsShown = !toolsShown)}
-              >
-                <span class="state">{toolbarState()}</span>
-              </Row>
-              {#if toolsShown}
-                <div id="toolbar-buttons" class="folded">
-                  {#each TOOL_NAMES as tool (tool.icon)}
-                    <Row label={t(tool.label)}>
-                      <Switch
-                        label={t(tool.label)}
-                        checked={!prefs.hiddenTools.includes(tool.icon)}
-                        onchange={(on) => showTool(tool.icon, on)}
-                      />
-                    </Row>
-                  {/each}
-                </div>
-              {/if}
-            </Group>
-          {:else if section === 'language'}
-            <Group>
-              <Row label={t('settings.language')}>
-                <select
-                  class="field compact same-width"
-                  aria-label={t('settings.language')}
-                  value={prefs.language ?? ''}
-                  onchange={(e) =>
-                    (prefs.language = (e.currentTarget.value || null) as Locale | null)}
-                >
-                  <option value="">{t('settings.languageSystem')}</option>
-                  {#each LOCALES as locale (locale.code)}
-                    <option value={locale.code}
-                      >{[locale.name, translatedLine(locale.done)]
-                        .filter(Boolean)
-                        .join(', ')}</option
-                    >
-                  {/each}
-                </select>
-              </Row>
-              <Row label={t('settings.clock')}>
-                <select
-                  class="field compact same-width"
-                  aria-label={t('settings.clock')}
-                  bind:value={prefs.clock}
-                >
-                  {#each ['system', '24', '12'] as const as choice (choice)}
-                    <option value={choice}>{t(`settings.clock_${choice}`)}</option>
-                  {/each}
-                </select>
-              </Row>
-            </Group>
-          {:else if section === 'shortcuts'}
-            <Group>
-              {#each ACTIONS as action (action)}
-                <Row label={t(`shortcuts.${action}`)}>
-                  <button
-                    class="btn key"
-                    aria-label={`${t(`shortcuts.${action}`)}, ${displayBinding(shortcutFor(action))}`}
-                    onclick={() => (recording = action)}
-                  >
-                    {recording === action
-                      ? t('settings.pressKeys')
-                      : displayBinding(shortcutFor(action))}
-                  </button>
-                </Row>
-              {/each}
-            </Group>
-            <!-- only once something was changed -->
-            {#if Object.keys(prefs.shortcuts).length}
-              <div class="settings-actions">
-                <button class="btn" onclick={() => (prefs.shortcuts = {})}
-                  >{t('settings.resetShortcuts')}</button
-                >
-              </div>
-            {/if}
-          {:else if section === 'security'}
-            {@const vault = settings.vault}
-            {#if vault && !vault.encrypted}
-              <Group note={t('settings.encryptNote')}>
-                <Row label={t('settings.phone.plain')}>
-                  <button class="btn primary" onclick={() => settings.encrypt()}
-                    ><Icon name="lock" size={16} />{t('settings.encrypt')}</button
-                  >
-                </Row>
-              </Group>
-            {/if}
-            <!-- a choice only where there is more than the password (not the web version) -->
-            {#if vault?.encrypted && ways(vault).length > 1}
-              <div role="radiogroup" aria-label={t('settings.wayTitle')}>
-                <Group title={t('settings.wayTitle')}>
-                  {#each ways(vault) as option (option)}
-                    <Row
-                      label={t(`settings.way.${option}`, { method })}
-                      help={option === 'device' ? t('settings.wayHelp.device') : undefined}
-                      checked={vault.way === option}
-                      onclick={() => void settings.setWay(option)}
-                    />
-                  {/each}
-                  {#if vault.way === 'pin'}
-                    <Row label={t('pin.change')}>
-                      <button class="btn" onclick={() => settings.setWay('pin')}
-                        >{t('pin.change')}</button
-                      >
-                    </Row>
-                  {/if}
-                </Group>
-              </div>
-            {/if}
-            {#if vault?.encrypted}
-              {#if vault.way === 'guarded' || vault.way === 'pin' || vault.way === 'password'}
-                <Group>
-                  <Row label={t('settings.autoLock')}>
-                    <select
-                      class="field compact"
-                      aria-label={t('settings.autoLock')}
-                      bind:value={prefs.autoLockMinutes}
-                    >
-                      {#each LOCK_CHOICES as minutes (minutes)}
-                        <option value={minutes}>{lockLabel(minutes)}</option>
-                      {/each}
-                    </select>
-                  </Row>
-                  <Row label={t('settings.lockNow')}>
-                    <button class="btn" onclick={onlock}
-                      ><Icon name="lock" size={16} />{t('sidebar.lock')}</button
-                    >
-                  </Row>
-                </Group>
-              {/if}
-              <Group
-                title={t('settings.phone.groupPassword')}
-                note={vault.recovery ? t('recovery.has') : t('recovery.noneNow')}
-              >
-                {#if settings.recoveryCode}
-                  <div class="inside">
-                    <RecoveryKey
-                      code={settings.recoveryCode}
-                      done={() => settings.recoveryShown()}
-                      level="h3"
-                    />
-                  </div>
-                {:else}
-                  <Row label={t('recovery.heading')}>
-                    <span class="state"
-                      >{vault.recovery
-                        ? t('settings.phone.keyCreated')
-                        : t('settings.phone.keyNone')}</span
-                    >
-                    <button class="btn" onclick={() => settings.createRecovery()}
-                      >{vault.recovery ? t('recovery.replace') : t('recovery.create')}</button
-                    >
-                    {#if vault.recovery}
-                      <button class="btn danger" onclick={() => settings.removeRecovery()}
-                        >{t('recovery.remove')}</button
-                      >
-                    {/if}
-                  </Row>
-                {/if}
-                {#if vault.hasPassword}
-                  <Row label={t('settings.password')}>
-                    <button class="btn" onclick={() => (changingPassword = !changingPassword)}
-                      >{changingPassword ? t('common.cancel') : t('settings.change')}</button
-                    >
-                  </Row>
-                  {#if changingPassword}
-                    <form class="inside under" onsubmit={changePassword}>
-                      <input
-                        type="text"
-                        autocomplete="username"
-                        value={brand.displayName}
-                        hidden
-                        readonly
-                      />
-                      <PasswordField
-                        class="field"
-                        autocomplete="current-password"
-                        placeholder={t('settings.oldPassword')}
-                        bind:value={oldPassword}
-                      />
-                      <PasswordField
-                        class="field"
-                        autocomplete="new-password"
-                        placeholder={t('settings.newPassword')}
-                        bind:value={newPassword}
-                      />
-                      <div class="settings-actions">
-                        <button
-                          class="btn primary"
-                          type="submit"
-                          disabled={!oldPassword || newPassword.length < MIN_PASSWORD}
-                          >{t('settings.changePassword')}</button
-                        >
-                      </div>
-                    </form>
-                  {/if}
-                {/if}
-              </Group>
-            {/if}
-          {:else if section === 'sync'}
-            <SyncSettings
-              unencrypted={!!settings.vault && !settings.vault.encrypted}
-              onsecurity={() => open('security')}
-            />
-          {:else if section === 'data'}
-            <DataSettings
-              {settings}
-              onimport={(ficelle) => void startImport(ficelle)}
-              onrestorefile={() => (restoringFile = true)}
-              onreset={() => (resetting = true)}
-            />
-          {:else if section === 'testTools'}
-            <TestTools />
-          {:else if section === 'experimental'}
-            <Group>
-              <Row label={t('settings.evenSpacing')}>
-                <Switch label={t('settings.evenSpacing')} bind:checked={prefs.evenSpacing} />
-              </Row>
-              {#if LINUX}
-                <Row label={t('settings.windowsText')}>
-                  <Switch label={t('settings.windowsText')} bind:checked={prefs.windowsText} />
-                </Row>
-              {/if}
-            </Group>
-          {:else if section === 'feedback'}
-            <FeedbackSettings />
-          {:else if section === 'updates'}
-            <UpdateCheck />
-          {:else if section === 'about'}
-            <AboutSettings />
+          {#if current}
+            <SettingsSection section={current} {settings} onopen={open} {data} />
           {/if}
         </div>
 
@@ -753,57 +226,13 @@
     margin: 0;
     font-size: var(--title-dialog);
   }
-  /* the switches folded under their row, a hairline above like any row */
-  .folded {
-    position: relative;
-  }
-  .folded::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: var(--space-3);
-    right: 0;
-    border-top: 1px solid var(--color-border);
-  }
   /* a menu in a settings row, as wide as its longest choice */
   .content :global(.field.compact) {
     width: auto;
     min-width: 160px;
     height: 30px;
   }
-  /* what opens inside a group, under its row: a form, the new key */
-  .inside {
-    display: grid;
-    justify-items: start;
-    gap: var(--space-2);
-    padding: var(--space-3);
-  }
-  /* opened under its row: the row above gives the space */
-  .inside.under {
-    padding-top: 0;
-  }
-  .state {
-    color: var(--color-text-muted);
-    font-size: 13px;
-  }
-  /* wide enough for the longest default (Ctrl+Backspace), so the keys
-     share a left edge */
-  .key {
-    min-width: 130px;
-    justify-content: center;
-    font-family: var(--font-ui);
-  }
   .message {
     margin: var(--space-5) 0 0;
-  }
-  /* the font boxes line up, wide enough for the default's two names */
-  .field.compact.font-pick {
-    width: 22rem;
-    max-width: 100%;
-  }
-  /* the language and time format boxes line up, whatever their options */
-  .field.compact.same-width {
-    width: 15rem;
-    max-width: 100%;
   }
 </style>

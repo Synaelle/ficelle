@@ -2,9 +2,6 @@
 // What the desktop dialog and the phone settings share: the vault status and
 // the actions that change it. Each view only lays them out its own way.
 
-import { channelChoice, updatesHere } from '../lib/appUpdate.svelte'
-import type { IconName } from '../lib/icons/sets'
-import { HANDHELD } from '../lib/platform'
 import { MIN_PASSWORD } from '../lib/passwords'
 import { encryptFlow } from '../lib/encryptFlow.svelte'
 import { backend, PIN_LENGTH, type VaultStatus, type VaultWay } from '../lib/backend'
@@ -35,51 +32,20 @@ export function ways(vault: VaultStatus): VaultWay[] {
   return out
 }
 
-/** The pages a setting sits on, by the phone's names: the desktop's Data
- * section is the phone's notes page. */
-export type InsidePage =
-  'appearance' | 'accessibility' | 'editor' | 'language' | 'notes' | 'updates' | 'about'
-
-/** Settings inside the pages, found by their own name in a search, with
- * the page they sit on. */
-export const SETTINGS_INSIDE: (readonly [IconName, string, InsidePage])[] = [
-  ['eye', 'settings.theme', 'appearance'],
-  ['backup', 'backups.title', 'notes'],
-  ['restore', 'backups.restoreFrom', 'notes'],
-  ['import', 'settings.importTitle', 'notes'],
-  ['export', 'settings.exportTitle', 'notes'],
-  ['palette', 'settings.pureBlack', 'appearance'],
-  ['textSize', 'settings.uiSize', 'accessibility'],
-  ['font', 'settings.dyslexicFont', 'accessibility'],
-  ['textStyle', 'settings.lineSpacing', 'editor'],
-  ['list', 'settings.autoLists', 'editor'],
-  ['emoji', 'settings.emojiShortcodes', 'editor'],
-  ['allNotes', 'settings.openLastNote', 'editor'],
-  ['search', 'settings.scopedSearch', 'editor'],
-  ['attachment', 'settings.nameFromAttachment', 'editor'],
-  ['right', 'settings.arrow', 'editor'],
-  ['font', 'settings.font', 'editor'],
-  ['code', 'settings.codeFont', 'editor'],
-  ['bold', 'settings.toolbarButtons', 'editor'],
-  ['timer', 'settings.clock', 'language'],
-  ['info', 'settings.credits', 'about'],
-  // a phone spells with its system and never lists beside the note
-  ...(HANDHELD
-    ? []
-    : ([
-        ['pencil', 'settings.spellcheck', 'editor'],
-        ['pin', 'settings.openNoteFirst', 'editor'],
-      ] as const)),
-  ...(updatesHere ? ([['search', 'appUpdate.check', 'updates']] as const) : []),
-  ...(updatesHere && channelChoice
-    ? ([['flask', 'appUpdate.nightlyVersions', 'updates']] as const)
-    : []),
-]
-
 /** The formatting buttons in a few words: all shown, or how many are hidden. */
 export function toolbarState(): string {
   const hidden = TOOL_NAMES.filter((tool) => prefs.hiddenTools.includes(tool.icon)).length
   return hidden ? t('settings.toolbarHidden', { count: hidden }) : t('settings.toolbarAll')
+}
+
+/** What the Data section opens over the settings. */
+export interface DataActions {
+  /** The import from another app, `true` for this app's own export. */
+  onimport: (ficelle: boolean) => void
+  /** Restoring a backup from a file. */
+  onrestorefile: () => void
+  /** Deleting everything on this device. */
+  onreset: () => void
 }
 
 export class SettingsState {

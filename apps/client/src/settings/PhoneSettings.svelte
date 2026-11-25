@@ -5,394 +5,128 @@
      Every row is one tap from the first screen, details open a page. -->
 <script lang="ts">
   import ErrorText from '../lib/ErrorText.svelte'
-  import { localSync } from '../lib/localSync.svelte'
-  import { sync } from '../lib/sync.svelte'
-  import SyncSettings from './SyncSettings.svelte'
   import { brand } from '@app/brand'
   import Knot from '@app/ui/Knot.svelte'
   import Group from './ui/Group.svelte'
+  import ListRow from './ui/ListRow.svelte'
   import Row from './ui/Row.svelte'
-  import Switch from './ui/Switch.svelte'
   import { tick, untrack } from 'svelte'
   import { onBack } from '../lib/back'
   import { modal } from '../lib/modal'
-  import { biometricMethod } from '../lib/biometric'
-  import { LOCALES, t, translatedLine, type Locale } from '../lib/i18n.svelte'
+  import { t } from '../lib/i18n.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import type { IconName } from '../lib/icons/sets'
-  import { overlay, type MenuItem } from '../lib/overlay.svelte'
-  import {
-    CODE_FONTS,
-    experimenting,
-    LINE_SPACINGS,
-    prefs,
-    showTool,
-    TEXT_FONTS,
-  } from '../lib/prefs.svelte'
-  import { TOOL_NAMES } from '../editor/toolNames'
-  import ArrowPicker from './ArrowPicker.svelte'
-  import DataSettings from './DataSettings.svelte'
-  import FeedbackSettings from './FeedbackSettings.svelte'
-  import TestTools from '../devreport/TestTools.svelte'
-  import AboutSettings from './AboutSettings.svelte'
-  import UpdateCheck from './UpdateCheck.svelte'
-  import { MODES } from '../lib/theme.svelte'
-  import { HANDHELD, LINUX, MOBILE, WEB } from '../lib/platform'
-  import { UI_SIZES } from '../lib/uiSize'
   import RecoveryKey from '../screens/RecoveryKey.svelte'
-  import { updatesHere } from '../lib/appUpdate.svelte'
-  import { applyFont, DEFAULT_CODE_FONT, FONT_PACKS, fontStatus } from '../lib/chosenFonts.svelte'
-  import { applyDyslexicFont, OPENDYSLEXIC } from '../lib/dyslexicFont'
-  import { dyslexicStatus } from '../lib/dyslexicStatus.svelte'
-  import FontLoad from './FontLoad.svelte'
+  import SettingsSection from './SettingsSection.svelte'
   import {
-    LOCK_CHOICES,
-    lockLabel,
-    SETTINGS_INSIDE,
-    toolbarState,
-    ways,
-    type SettingsState,
-  } from './settingsState.svelte'
+    sectionLabel,
+    settingsInside,
+    showing,
+    type ChoiceItem,
+    type Item,
+    type Section,
+  } from './sections.svelte'
+  import type { DataActions, SettingsState } from './settingsState.svelte'
 
   let {
+    sections,
     settings,
     close,
-    onlock,
-    onimport,
-    onrestorefile,
-    onreset,
+    data,
     start,
   }: {
+    sections: Section[]
     settings: SettingsState
     close: () => void
-    onlock: () => void
-    /** Opens the import from another app, `true` for this app's own export. */
-    onimport: (ficelle: boolean) => void
-    /** Opens restoring a backup from a file. */
-    onrestorefile: () => void
-    /** Opens deleting everything on this device. */
-    onreset: () => void
+    data: DataActions
     start?: 'sync' | 'updates'
   } = $props()
 
-  type Page =
-    | 'home'
-    | 'appearance'
-    | 'accessibility'
-    | 'editor'
-    | 'language'
-    | 'lock'
-    | 'way'
-    | 'sync'
-    | 'notes'
-    | 'feedback'
-    | 'testTools'
-    | 'experimental'
-    | 'updates'
-    | 'about'
+  /** The first screen, a section or a choice's own page, by its label. */
   // svelte-ignore state_referenced_locally
-  let page: Page = $state(start ?? 'home')
+  let page: string = $state(start ?? 'home')
   let query = $state('')
 
-  const method = $derived(biometricMethod())
-  const vault = $derived(settings.vault)
-  const encrypted = $derived(vault?.encrypted === true)
-  /** Only a vault that asks for something to open has anything to lock. */
-  const lockable = $derived(
-    vault?.way === 'guarded' || vault?.way === 'pin' || vault?.way === 'password',
+  const encrypted = $derived(settings.vault?.encrypted === true)
+  const section = $derived(sections.find((s) => s.id === page))
+  const choice = $derived(
+    sections
+      .flatMap((s) => s.groups.flatMap((g) => g.items))
+      .find((item): item is ChoiceItem => item.kind === 'choice' && item.label === page),
   )
 
-  interface SettingRow {
+  /** The first screen's groups: rows opening the sections, and the rows of
+   * those that show their own there. */
+  const blocks = $derived.by(() => {
+    const out: { home: Section['home']; sections: Section[] }[] = []
+    for (const s of sections.filter((s) => s.home)) {
+      const last = out.at(-1)
+      if (last && last.home === s.home) last.sections.push(s)
+      else out.push({ home: s.home, sections: [s] })
+    }
+    return out
+  })
+  const HOME_TITLES: Partial<Record<NonNullable<Section['home']>, string>> = {
+    look: 'settings.phone.groupLook',
+    sync: 'settings.sync',
+  }
+
+  interface Found {
     icon: IconName
     label: string
     value?: string
-    /** More words the search finds the row by. */
     keywords?: string
-    /** A switch instead of a value. */
-    on?: boolean
-    /** Does its thing at once, no page opens: no arrow. */
-    action?: boolean
-    danger?: boolean
-    /** Shown, but nothing to do here (the browser has no files). */
-    disabled?: boolean
-    /** Opens its choices in place, under it: the id of their list. */
-    folds?: string
-    /** The label shows typed characters (->) that no font may join. */
-    typed?: boolean
-    run: (event: MouseEvent) => void
+    run: () => void
   }
-
-  const languageName = $derived(
-    LOCALES.find((l) => l.code === prefs.language)?.name ?? t('settings.languageSystem'),
-  )
-
-  // a page shows one choice list at a time, the others folded into their
-  // rows, so it stays short
-  type Fold = 'language' | 'clock' | 'font' | 'codeFont' | 'lineSpacing' | 'arrow' | 'tools'
-  let unfolded: Fold | null = $state(null)
-  function fold(list: Fold) {
-    unfolded = unfolded === list ? null : list
-  }
-  /** A choice made: its list folds and the focus goes back to its row. */
-  function chosen() {
-    const list = unfolded
-    unfolded = null
-    void tick().then(() =>
-      screen?.querySelector<HTMLElement>(`[aria-controls="choices-${list}"]`)?.focus(),
-    )
-  }
-
-  function recoveryMenu(event: MouseEvent) {
-    if (!vault?.recovery) return void settings.createRecovery()
-    const items: MenuItem[] = [
-      { label: t('recovery.replace'), icon: 'key', run: () => void settings.createRecovery() },
-      {
-        label: t('recovery.remove'),
-        icon: 'trash',
-        danger: true,
-        run: () => void settings.removeRecovery(),
-      },
-    ]
-    overlay.openMenuBelow(event.currentTarget as HTMLElement, items)
-  }
-
-  const lookRows = $derived<SettingRow[]>([
-    {
-      icon: 'palette',
-      label: t('settings.appearance'),
-      keywords: t('settings.appearanceKeywords'),
-      value:
-        prefs.mode === 'dark' && prefs.pureBlack
-          ? t('settings.pureBlack')
-          : t(`settings.theme_${prefs.mode}`),
-      run: () => (page = 'appearance'),
-    },
-    {
-      icon: 'textSize',
-      label: t('settings.accessibility'),
-      keywords: t('settings.accessibilityKeywords'),
-      value: t(`settings.uiSize_${prefs.uiSize}`),
-      run: () => (page = 'accessibility'),
-    },
-    {
-      icon: 'textStyle',
-      label: t('settings.editor'),
-      keywords: t('settings.editorKeywords'),
-      run: () => (page = 'editor'),
-    },
-    {
-      icon: 'language',
-      label: t('settings.language'),
-      keywords: t('settings.languageKeywords'),
-      value: languageName,
-      run: () => (page = 'language'),
-    },
-  ])
-
-  /** Notes out of screenshots and the recent apps, where Android can. */
-  const canHide = typeof window.AppSystem?.setHidden === 'function'
-  let hidden = $state(window.AppSystem?.hidden?.() ?? false)
-  const hideRows = $derived<SettingRow[]>(
-    canHide
-      ? [
-          {
-            icon: 'eyeOff',
-            label: t('settings.phone.hideScreens'),
-            on: hidden,
-            run: () => {
-              hidden = !hidden
-              window.AppSystem?.setHidden?.(hidden)
-            },
-          },
-        ]
-      : [],
-  )
-
-  const lockRows = $derived<SettingRow[]>(
-    !vault
-      ? []
-      : !encrypted
-        ? [{ icon: 'lock', label: t('settings.encrypt'), run: () => void settings.encrypt() }]
-        : [
-            // a choice only where there is more than the password
-            ...(ways(vault).length > 1
-              ? [
-                  {
-                    icon: 'fingerprint' as const,
-                    label: t('settings.wayTitle'),
-                    value: t(`settings.way.${vault.way}`, { method }),
-                    run: () => (page = 'way' as const),
-                  },
-                ]
-              : []),
-            ...(lockable
-              ? [
-                  {
-                    icon: 'timer' as const,
-                    label: t('settings.autoLock'),
-                    value: lockLabel(prefs.autoLockMinutes),
-                    run: () => (page = 'lock'),
-                  },
-                  {
-                    icon: 'lock' as const,
-                    label: t('settings.lockNow'),
-                    action: true,
-                    run: onlock,
-                  },
-                ]
-              : []),
-          ],
-  )
-  const privacyRows = $derived<SettingRow[]>([...lockRows, ...hideRows])
-
-  const passwordRows = $derived<SettingRow[]>(
-    encrypted
-      ? [
-          {
-            icon: 'key',
-            label: vault?.recovery ? t('recovery.heading') : t('recovery.create'),
-            value: vault?.recovery ? t('settings.phone.keyCreated') : undefined,
-            run: recoveryMenu,
-          },
-          ...(vault?.hasPassword
-            ? [
-                {
-                  icon: 'pencil' as const,
-                  label: t('settings.changePassword'),
-                  run: () => void settings.changePasswordAsked(),
-                },
-              ]
-            : []),
-        ]
-      : [],
-  )
-
-  const syncRows = $derived<SettingRow[]>([
-    {
-      icon: sync.status.state === 'off' && !localSync.summary ? 'offline' : 'synced',
-      label: t('settings.sync'),
-      keywords: t('settings.syncKeywords'),
-      // a device syncs with a server or with its paired devices
-      value:
-        sync.status.state === 'off' && localSync.summary
-          ? t(`local.status.${localSync.summary.key}`, { name: localSync.summary.name })
-          : t(`sync.state.${sync.status.state}`),
-      run: () => (page = 'sync'),
-    },
-  ])
-
-  const dataRow = $derived<SettingRow>({
-    icon: 'backup',
-    label: t('settings.phone.dataBackups'),
-    keywords: t('settings.dataKeywords'),
-    run: () => (page = 'notes'),
+  const sectionRow = (s: Section): Found => ({
+    icon: s.narrowIcon?.() ?? s.icon,
+    label: t(sectionLabel(s.id)),
+    value: s.value?.(),
+    keywords: t(`settings.${s.id}Keywords`),
+    run: () => (page = s.id),
   })
 
-  const aboutRows = $derived<SettingRow[]>([
-    // the web version has no place to send feedback yet
-    ...(WEB
-      ? []
-      : [
-          {
-            icon: 'feedback' as const,
-            label: t('settings.feedback'),
-            keywords: t('settings.feedbackKeywords'),
-            run: () => (page = 'feedback' as const),
-          },
-        ]),
-    // dev and preview builds only
-    ...(__APP_DEV_TOOLS__
-      ? [
-          {
-            icon: 'log' as const,
-            label: t('settings.testTools'),
-            keywords: t('settings.testToolsKeywords'),
-            run: () => (page = 'testTools'),
-          },
-        ]
-      : []),
-    // what is still being tried, only where it applies and for those who
-    // follow the nightlies
-    ...(experimenting()
-      ? [
-          {
-            icon: 'flask' as const,
-            label: t('settings.experimental'),
-            keywords: t('settings.experimentalKeywords'),
-            run: () => (page = 'experimental'),
-          },
-        ]
-      : []),
-    // release builds only, the web version is always the one served
-    ...(updatesHere
-      ? [
-          {
-            icon: 'export' as const,
-            label: t('settings.updates'),
-            keywords: t('settings.updatesKeywords'),
-            run: () => (page = 'updates'),
-          },
-        ]
-      : []),
-    {
-      icon: 'info',
-      label: t('settings.about'),
-      keywords: t('settings.aboutKeywords'),
-      value: __APP_VERSION__,
-      run: () => (page = 'about'),
-    },
-  ])
-
-  /** Settings inside the pages, found by their own name: the page they sit
-   * on shows as the value, a tap opens it. */
-  const innerRows = $derived<SettingRow[]>(
-    SETTINGS_INSIDE.map(([icon, label, to]) => ({
-      icon,
-      label: t(label),
-      value: t(titles[to]),
-      run: () => (page = to),
-    })),
-  )
-
+  /** What a search finds: the first screen's rows, the security rows
+   * among them, then the settings inside the pages, whose page shows as the
+   * value. A row reached two ways shows once. */
   const matches = $derived.by(() => {
     const q = query.trim().toLowerCase()
-    const found = (r: SettingRow) =>
-      r.label.toLowerCase().includes(q) || !!r.keywords?.toLowerCase().includes(q)
-    // the PC's Security section is the phone's Privacy and Password groups,
-    // both found by its words
-    const security = [...lockRows, ...passwordRows].map((r) => ({
-      ...r,
-      keywords: t('settings.securityKeywords'),
-    }))
-    const rows = [
-      ...lookRows,
-      ...security,
-      ...hideRows,
-      ...(WEB ? [] : syncRows),
-      dataRow,
-      ...aboutRows,
-      ...innerRows,
-    ].filter(found)
-    // a row reached two ways shows once
-    return rows.filter((r, i) => rows.findIndex((o) => o.label === r.label) === i)
+    const found = (label: string, keywords?: string) =>
+      label.toLowerCase().includes(q) || !!keywords?.toLowerCase().includes(q)
+    const seen: string[] = []
+    const once = (label: string) => !seen.includes(label) && !!seen.push(label)
+    const rows = (list: typeof blocks) =>
+      list
+        .flatMap((block) => block.sections.map(sectionRow))
+        .filter((r) => found(r.label, r.keywords) && once(r.label))
+    const at = blocks.findIndex((block) => block.home === 'inline')
+    const before = rows(blocks.slice(0, at))
+    // the desktop's Security section, found by its words
+    const inline = (blocks[at]?.sections ?? []).flatMap((s) =>
+      s.groups
+        .flatMap((g) => g.items.filter(showing))
+        .filter(
+          (item) => found(t(item.label), t(`settings.${s.id}Keywords`)) && once(t(item.label)),
+        ),
+    )
+    const after = rows(blocks.slice(at + 1)).concat(
+      settingsInside(sections.filter((s) => s.home))
+        .map(([icon, label, id]) => ({
+          icon,
+          label: t(label),
+          value: t(sectionLabel(id)),
+          run: () => (page = id),
+        }))
+        .filter((r) => found(r.label) && once(r.label)),
+    )
+    return { before, inline, after, none: !before.length && !inline.length && !after.length }
   })
+  const security = $derived(sections.find((s) => s.home === 'inline'))
 
-  const titles: Record<Exclude<Page, 'home'>, string> = {
-    appearance: 'settings.appearance',
-    accessibility: 'settings.accessibility',
-    editor: 'settings.editor',
-    language: 'settings.language',
-    lock: 'settings.autoLock',
-    way: 'settings.wayTitle',
-    sync: 'settings.sync',
-    notes: 'settings.phone.dataBackups',
-    feedback: 'settings.feedback',
-    testTools: 'settings.testTools',
-    experimental: 'settings.experimental',
-    updates: 'settings.updates',
-    about: 'settings.about',
+  function open(to: string) {
+    if (to === 'security') back()
+    else page = to
   }
-
   function back() {
     page = 'home'
     settings.message = ''
@@ -405,9 +139,9 @@
   // each page keeps its place: going back finds the list where it was left,
   // a page opened starts at its top
   let screen: HTMLDivElement | undefined = $state()
-  const places: Partial<Record<Page, number>> = {}
+  const places: Record<string, number> = {}
   // the page as last drawn, apart from `page` which already moved on
-  let shown: Page = untrack(() => page)
+  let shown = untrack(() => page)
   $effect.pre(() => {
     const next = page
     if (!screen || next === shown) return
@@ -419,33 +153,12 @@
   })
 </script>
 
-{#snippet row(r: SettingRow)}
-  <button
-    class="row"
-    class:danger={r.danger}
-    role={r.on === undefined ? undefined : 'switch'}
-    aria-checked={r.on}
-    aria-controls={r.folds}
-    aria-expanded={r.folds ? r.folds === `choices-${unfolded}` : undefined}
-    disabled={r.disabled}
-    onclick={(e) => r.run(e)}
-  >
-    <span class="tile"><Icon name={r.icon} size={16} /></span>
-    <!-- the value under its label: long words in any language keep room -->
-    <span class="text">
-      <span class="label" class:as-typed={r.typed}>{r.label}</span>
-      {#if r.on === undefined && r.value}<span class="value">{r.value}</span>{/if}
-    </span>
-    {#if r.on !== undefined}
-      <Switch drawn checked={r.on} />
-    {:else if r.folds}
-      <span class="chev" class:open={r.folds === `choices-${unfolded}`}
-        ><Icon name="down" size={16} /></span
-      >
-    {:else if !r.action}
-      <Icon name="right" size={16} />
-    {/if}
-  </button>
+{#snippet row(r: Found)}
+  <ListRow icon={r.icon} label={r.label} value={r.value} onclick={r.run} />
+{/snippet}
+
+{#snippet sectionRows(s: Section, rows?: Item[])}
+  <SettingsSection section={s} narrow {rows} {settings} onopen={open} {data} />
 {/snippet}
 
 <div
@@ -474,11 +187,16 @@
 
     <div class="groups">
       {#if query.trim()}
-        {#if matches.length === 0}
+        {#if matches.none}
           <p class="empty">{t('list.noResults')}</p>
         {:else}
           <Group>
-            {#each matches as r (r.label)}{@render row(r)}{/each}
+            {#each matches.before as r (r.label)}{@render row(r)}{/each}
+            {#if security && matches.inline.length}{@render sectionRows(
+                security,
+                matches.inline,
+              )}{/if}
+            {#each matches.after as r (r.label)}{@render row(r)}{/each}
           </Group>
         {/if}
       {:else}
@@ -489,37 +207,16 @@
             <span>{encrypted ? t('settings.phone.encrypted') : t('settings.phone.plain')}</span>
           </span>
         </div>
-        <Group title={t('settings.phone.groupLook')}>
-          {#each lookRows as r (r.label)}{@render row(r)}{/each}
-        </Group>
-        {#if privacyRows.length}
-          <Group
-            title={t('settings.phone.groupPrivacy')}
-            note={vault && !encrypted ? t('settings.encryptNote') : undefined}
-          >
-            {#each privacyRows as r (r.label)}{@render row(r)}{/each}
-          </Group>
-          <!-- an unencrypted vault has no password, recovery key or way to unlock -->
-          {#if passwordRows.length}
-            <Group
-              title={t('settings.phone.groupPassword')}
-              note={vault?.recovery ? t('recovery.has') : t('recovery.noneNow')}
-            >
-              {#each passwordRows as r (r.label)}{@render row(r)}{/each}
+        {#each blocks as block, b (b)}
+          {#if block.home === 'inline'}
+            {#each block.sections as s (s.id)}{@render sectionRows(s)}{/each}
+          {:else}
+            {@const title = HOME_TITLES[block.home ?? 'more']}
+            <Group title={title ? t(title) : undefined}>
+              {#each block.sections as s (s.id)}{@render row(sectionRow(s))}{/each}
             </Group>
           {/if}
-        {/if}
-        {#if !WEB}
-          <Group title={t('settings.sync')}>
-            {#each syncRows as r (r.label)}{@render row(r)}{/each}
-          </Group>
-        {/if}
-        <Group>
-          {@render row(dataRow)}
-        </Group>
-        <Group>
-          {#each aboutRows as r (r.label)}{@render row(r)}{/each}
-        </Group>
+        {/each}
       {/if}
     </div>
   {:else}
@@ -527,349 +224,27 @@
       <button class="back" onclick={back}
         ><Icon name="back" size={20} /><span>{t('settings.title')}</span></button
       >
-      <b>{t(titles[page])}</b>
+      <b>{t(section ? sectionLabel(section.id) : page)}</b>
       <span></span>
     </header>
 
     <div class="groups page">
-      {#if page === 'appearance'}
-        <Group title={t('settings.theme')}>
-          {#each MODES as mode (mode)}
+      {#if section}
+        {@render sectionRows(section)}
+      {:else if choice}
+        <Group>
+          {#each choice.options() as option (option.label)}
             <Row
-              label={t(`settings.theme_${mode}`)}
-              checked={prefs.mode === mode}
-              onclick={() => (prefs.mode = mode)}
+              label={option.label}
+              help={option.help}
+              checked={option.picked}
+              onclick={option.pick}
             />
           {/each}
-        </Group>
-        <!-- only dark has a black to make deeper -->
-        {#if prefs.mode !== 'light'}
-          <Group>
-            {@render row({
-              icon: 'palette',
-              label: t('settings.pureBlack'),
-              on: prefs.pureBlack,
-              run: () => (prefs.pureBlack = !prefs.pureBlack),
-            })}
-          </Group>
-        {/if}
-      {:else if page === 'accessibility'}
-        <Group title={t('settings.uiSize')}>
-          {#each UI_SIZES as size (size)}
-            <Row
-              label={t(`settings.uiSize_${size}`)}
-              checked={prefs.uiSize === size}
-              onclick={() => (prefs.uiSize = size)}
-            />
-          {/each}
-        </Group>
-        {#if MOBILE}
-          <Group>
-            {@render row({
-              icon: 'vibrate',
-              label: t('settings.haptics'),
-              on: prefs.haptics,
-              run: () => (prefs.haptics = !prefs.haptics),
-            })}
-          </Group>
-        {/if}
-        <Group>
-          {@render row({
-            icon: 'font',
-            label: t('settings.dyslexicFont'),
-            on: prefs.dyslexicFont,
-            run: () => (prefs.dyslexicFont = !prefs.dyslexicFont),
-          })}
-          {#if prefs.dyslexicFont && (dyslexicStatus.loading || dyslexicStatus.error)}
-            <div class="under">
-              <FontLoad
-                font={OPENDYSLEXIC.family}
-                loading={dyslexicStatus.loading}
-                error={dyslexicStatus.error}
-                onretry={() => applyDyslexicFont(true)}
-              />
-            </div>
+          {#if choice.extra?.shown()}
+            <Row label={t(choice.extra.label)} opens onclick={choice.extra.run} />
           {/if}
         </Group>
-      {:else if page === 'editor'}
-        <Group>
-          {@render row({
-            icon: 'font',
-            label: t('settings.font'),
-            value:
-              prefs.font === 'default' ? t('settings.fontDefault') : FONT_PACKS[prefs.font].family,
-            folds: 'choices-font',
-            run: () => fold('font'),
-          })}
-          {#if unfolded === 'font'}
-            <div id="choices-font" class="choices">
-              {#each TEXT_FONTS as font (font)}
-                <Row
-                  label={font === 'default' ? t('settings.fontDefault') : FONT_PACKS[font].family}
-                  checked={prefs.font === font}
-                  onclick={() => {
-                    prefs.font = font
-                    chosen()
-                  }}
-                />
-              {/each}
-            </div>
-          {/if}
-          {#if prefs.font !== 'default' && (fontStatus.text.loading || fontStatus.text.error)}
-            <div class="under">
-              <FontLoad
-                font={FONT_PACKS[prefs.font].family}
-                loading={fontStatus.text.loading}
-                error={fontStatus.text.error}
-                onretry={() => applyFont('text', prefs.font)}
-              />
-            </div>
-          {/if}
-          {@render row({
-            icon: 'code',
-            label: t('settings.codeFont'),
-            value:
-              prefs.codeFont === 'default' ? DEFAULT_CODE_FONT : FONT_PACKS[prefs.codeFont].family,
-            folds: 'choices-codeFont',
-            run: () => fold('codeFont'),
-          })}
-          {#if unfolded === 'codeFont'}
-            <div id="choices-codeFont" class="choices">
-              {#each CODE_FONTS as font (font)}
-                <Row
-                  label={font === 'default' ? DEFAULT_CODE_FONT : FONT_PACKS[font].family}
-                  checked={prefs.codeFont === font}
-                  onclick={() => {
-                    prefs.codeFont = font
-                    chosen()
-                  }}
-                />
-              {/each}
-            </div>
-          {/if}
-          {#if prefs.codeFont !== 'default' && (fontStatus.code.loading || fontStatus.code.error)}
-            <div class="under">
-              <FontLoad
-                font={FONT_PACKS[prefs.codeFont].family}
-                loading={fontStatus.code.loading}
-                error={fontStatus.code.error}
-                onretry={() => applyFont('code', prefs.codeFont)}
-              />
-            </div>
-          {/if}
-          {@render row({
-            icon: 'textStyle',
-            label: t('settings.lineSpacing'),
-            value: t(`settings.lineSpacing_${prefs.lineSpacing}`),
-            folds: 'choices-lineSpacing',
-            run: () => fold('lineSpacing'),
-          })}
-          {#if unfolded === 'lineSpacing'}
-            <div id="choices-lineSpacing" class="choices">
-              {#each LINE_SPACINGS as spacing (spacing)}
-                <Row
-                  label={t(`settings.lineSpacing_${spacing}`)}
-                  checked={prefs.lineSpacing === spacing}
-                  onclick={() => {
-                    prefs.lineSpacing = spacing
-                    chosen()
-                  }}
-                />
-              {/each}
-            </div>
-          {/if}
-        </Group>
-        <Group>
-          {@render row({
-            icon: 'list',
-            label: t('settings.autoLists'),
-            on: prefs.autoLists,
-            run: () => (prefs.autoLists = !prefs.autoLists),
-          })}
-          {@render row({
-            icon: 'emoji',
-            label: t('settings.emojiShortcodes'),
-            on: prefs.emojiShortcodes,
-            run: () => (prefs.emojiShortcodes = !prefs.emojiShortcodes),
-          })}
-          {#if !HANDHELD}
-            {@render row({
-              icon: 'pencil',
-              label: t('settings.spellcheck'),
-              on: prefs.spellcheck,
-              run: () => (prefs.spellcheck = !prefs.spellcheck),
-            })}
-          {/if}
-          {@render row({
-            icon: 'right',
-            label: t('settings.arrow'),
-            typed: true,
-            value: prefs.arrow || t('settings.arrowOff'),
-            folds: 'choices-arrow',
-            run: () => fold('arrow'),
-          })}
-          {#if unfolded === 'arrow'}
-            <div id="choices-arrow" class="choices inside"><ArrowPicker /></div>
-          {/if}
-        </Group>
-        <Group>
-          {#if !HANDHELD}
-            {@render row({
-              icon: 'pin',
-              label: t('settings.openNoteFirst'),
-              on: prefs.openNoteFirst,
-              run: () => (prefs.openNoteFirst = !prefs.openNoteFirst),
-            })}
-          {/if}
-          {@render row({
-            icon: 'allNotes',
-            label: t('settings.openLastNote'),
-            on: prefs.openLastNote,
-            run: () => (prefs.openLastNote = !prefs.openLastNote),
-          })}
-          {@render row({
-            icon: 'search',
-            label: t('settings.scopedSearch'),
-            on: prefs.scopedSearch,
-            run: () => (prefs.scopedSearch = !prefs.scopedSearch),
-          })}
-          {@render row({
-            icon: 'attachment',
-            label: t('settings.nameFromAttachment'),
-            on: prefs.nameFromAttachment,
-            run: () => (prefs.nameFromAttachment = !prefs.nameFromAttachment),
-          })}
-        </Group>
-        <Group>
-          {@render row({
-            icon: 'bold',
-            label: t('settings.toolbarButtons'),
-            value: toolbarState(),
-            folds: 'choices-tools',
-            run: () => fold('tools'),
-          })}
-          {#if unfolded === 'tools'}
-            <div id="choices-tools" class="choices">
-              {#each TOOL_NAMES as tool (tool.icon)}
-                {@render row({
-                  icon: tool.icon,
-                  label: t(tool.label),
-                  on: !prefs.hiddenTools.includes(tool.icon),
-                  run: () => showTool(tool.icon, prefs.hiddenTools.includes(tool.icon)),
-                })}
-              {/each}
-            </div>
-          {/if}
-        </Group>
-      {:else if page === 'language'}
-        <Group>
-          {@render row({
-            icon: 'language',
-            label: t('settings.language'),
-            value: languageName,
-            folds: 'choices-language',
-            run: () => fold('language'),
-          })}
-          {#if unfolded === 'language'}
-            <div id="choices-language" class="choices">
-              <Row
-                label={t('settings.languageSystem')}
-                checked={prefs.language === null}
-                onclick={() => {
-                  prefs.language = null
-                  chosen()
-                }}
-              />
-              {#each LOCALES as locale (locale.code)}
-                <Row
-                  label={locale.name}
-                  help={translatedLine(locale.done)}
-                  checked={prefs.language === locale.code}
-                  onclick={() => {
-                    prefs.language = locale.code as Locale
-                    chosen()
-                  }}
-                />
-              {/each}
-            </div>
-          {/if}
-        </Group>
-        <Group>
-          {@render row({
-            icon: 'timer',
-            label: t('settings.clock'),
-            value: t(`settings.clock_${prefs.clock}`),
-            folds: 'choices-clock',
-            run: () => fold('clock'),
-          })}
-          {#if unfolded === 'clock'}
-            <div id="choices-clock" class="choices">
-              {#each ['system', '24', '12'] as const as choice (choice)}
-                <Row
-                  label={t(`settings.clock_${choice}`)}
-                  checked={prefs.clock === choice}
-                  onclick={() => {
-                    prefs.clock = choice
-                    chosen()
-                  }}
-                />
-              {/each}
-            </div>
-          {/if}
-        </Group>
-      {:else if page === 'lock'}
-        <Group>
-          {#each LOCK_CHOICES as minutes (minutes)}
-            <Row
-              label={lockLabel(minutes)}
-              checked={prefs.autoLockMinutes === minutes}
-              onclick={() => (prefs.autoLockMinutes = minutes)}
-            />
-          {/each}
-        </Group>
-      {:else if page === 'way' && vault}
-        <Group>
-          {#each ways(vault) as option (option)}
-            <Row
-              label={t(`settings.way.${option}`, { method })}
-              help={option === 'device' ? t('settings.wayHelp.device') : undefined}
-              checked={vault.way === option}
-              onclick={() => void settings.setWay(option)}
-            />
-          {/each}
-          {#if vault.way === 'pin'}
-            <Row label={t('pin.change')} opens onclick={() => settings.setWay('pin')} />
-          {/if}
-        </Group>
-      {:else if page === 'sync'}
-        <SyncSettings phone unencrypted={!!vault && !encrypted} onsecurity={back} />
-      {:else if page === 'notes'}
-        <DataSettings {settings} {onimport} {onrestorefile} {onreset} />
-      {:else if page === 'feedback'}
-        <FeedbackSettings />
-      {:else if page === 'testTools'}
-        <TestTools />
-      {:else if page === 'experimental'}
-        <Group>
-          {@render row({
-            icon: 'list',
-            label: t('settings.evenSpacing'),
-            on: prefs.evenSpacing,
-            run: () => (prefs.evenSpacing = !prefs.evenSpacing),
-          })}
-          {#if LINUX}
-            {@render row({
-              icon: 'textStyle',
-              label: t('settings.windowsText'),
-              on: prefs.windowsText,
-              run: () => (prefs.windowsText = !prefs.windowsText),
-            })}
-          {/if}
-        </Group>
-      {:else if page === 'updates'}
-        <UpdateCheck />
-      {:else if page === 'about'}
-        <AboutSettings phone />
       {/if}
     </div>
   {/if}
@@ -960,7 +335,6 @@
     border: 1px solid var(--color-border-strong);
     background: transparent;
   }
-  :global(:root[data-black='true']) .tile,
   :global(:root[data-black='true']) .screen :global(.settings-row > .tile) {
     background: transparent;
   }
@@ -1068,100 +442,6 @@
   .screen :global(.settings-row .control) {
     padding-block: var(--space-1);
   }
-  .inside {
-    padding: var(--space-2) var(--space-4);
-  }
-  .under {
-    margin: 0;
-    padding: 0 var(--space-4) var(--space-2);
-    color: var(--color-text-muted);
-    font-size: 13px;
-  }
-
-  .row {
-    position: relative;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    min-height: 52px;
-    padding: 0 var(--space-4);
-    border: 0;
-    background: none;
-    color: var(--color-text);
-    font: inherit;
-    font-size: 16px;
-    text-align: left;
-  }
-  .row:active:not(:disabled) {
-    background: var(--color-surface-2);
-  }
-  .row:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  /* hairlines between rows start after the icon, like a phone's own lists,
-     also under choices or a download line folded in between */
-  .row + .row::before,
-  .choices + .row::before,
-  .under + .row::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: calc(var(--space-4) + var(--space-3) + 30px);
-    right: var(--space-4);
-    border-top: 1px solid var(--color-border);
-  }
-  .row.danger .label {
-    color: var(--color-danger);
-  }
-  .row :global(.icon) {
-    flex: none;
-  }
-  .row > :global(.icon:last-child) {
-    color: var(--color-text-faint);
-  }
-  .tile {
-    width: 30px;
-    height: 30px;
-    flex: none;
-    display: grid;
-    place-items: center;
-    border-radius: var(--radius-control);
-    /* one quiet tile for every row, the icon in the accent: the colour
-       says "a setting", not which kind */
-    background: var(--color-surface-2);
-    color: var(--color-accent);
-  }
-  .tile :global(.icon) {
-    color: inherit;
-  }
-  .chev {
-    display: grid;
-    flex: none;
-    color: var(--color-text-faint);
-    transition: transform var(--dur-fast) var(--ease-out);
-  }
-  .chev.open {
-    transform: rotate(180deg);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .chev {
-      transition: none;
-    }
-  }
-  /* the choices opened under their row, a hairline between like any row */
-  .choices {
-    position: relative;
-  }
-  .choices::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: var(--space-4);
-    right: var(--space-4);
-    border-top: 1px solid var(--color-border);
-  }
   /* a shared row with an icon (settings/ui/Row) gets the same tile, and its
      hairline starts after it. The tile is level with the first line, so a
      row whose control went under its name keeps it beside the name */
@@ -1179,31 +459,6 @@
   }
   .screen :global(.settings-row:has(> .tile))::before {
     left: calc(var(--space-4) + var(--space-3) + 30px);
-  }
-  /* with a large text size the value gives way first, cut short, and the
-     label wraps if it still has no room: never drawn over each other. A
-     label with its value fits the height of a row without one */
-  .text {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    padding: var(--space-1) 0;
-  }
-  .label {
-    overflow-wrap: anywhere;
-    hyphens: auto;
-  }
-  .value {
-    color: var(--color-text-muted);
-    font-size: 14px;
-    line-height: 1.35;
-    overflow-wrap: anywhere;
-  }
-  /* a value in a shared row (About): nothing else beside it to give way to */
-  :global(.settings-row) .value {
-    max-width: none;
   }
   .bar {
     position: sticky;
