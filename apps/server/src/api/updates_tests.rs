@@ -235,6 +235,7 @@ async fn the_checklist_says_what_to_fix() {
                 target: serde_json::from_value(json!({ "kind": "folder", "path": "/nowhere" }))
                     .unwrap(),
                 password: "p".into(),
+                locked_by: None,
                 schedule: serde_json::from_value(json!("daily")).unwrap(),
                 policy: serde_json::from_value(
                     json!({ "last": 1, "daily": 1, "weekly": 0, "monthly": 0, "yearly": 0 }),

@@ -19,7 +19,7 @@
     type SecondFactorNeeded,
     type Session,
   } from './api.svelte'
-  import { kindOf, secondStepCode, signIn as e2eeSignIn, type AppKey } from './e2ee'
+  import { kindOf, lockBackups, secondStepCode, signIn as e2eeSignIn, type AppKey } from './e2ee'
   import { errorText } from './format'
   import { passkeysSupported, usePasskey } from './webauthn'
 
@@ -91,6 +91,10 @@
 
   function signedIn(session: Session) {
     keep(session)
+    // the server's backups may wait for this account's keys. Not in the
+    // way of the sign-in: Backups tries again and says what went wrong
+    if (e2ee && !forApp && session.user.role === 'admin' && !session.user.factorRequired)
+      void lockBackups().catch((err: unknown) => console.error(err))
     done(sealed)
   }
 

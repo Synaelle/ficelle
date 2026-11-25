@@ -14,7 +14,8 @@
 //!
 //! The link and the session live in memory: a restart prints a new link and
 //! forgets any session. The lock is a row in the database, set with the
-//! first admin, and never lifted.
+//! first admin, and never lifted. A backup restored from the setup page
+//! ends setup too, until the restart that puts it in place.
 
 use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -40,6 +41,7 @@ const MAX_FAILURES: u32 = 5;
 pub struct Setup {
     inner: Mutex<Inner>,
     done: AtomicBool,
+    restored: AtomicBool,
 }
 
 #[derive(Default)]
@@ -87,12 +89,25 @@ impl Setup {
         *self.inner() = Inner::default();
     }
 
+    /// A backup was restored from the setup page: the link and any session
+    /// go, and none comes until the restart puts the backup in place.
+    pub fn set_restored(&self) {
+        self.restored.store(true, Ordering::Release);
+        *self.inner() = Inner::default();
+    }
+
+    /// Whether a backup waits for the restart.
+    pub fn is_restored(&self) -> bool {
+        self.restored.load(Ordering::Acquire)
+    }
+
     /// Whether a new link should be printed: none is usable and no session
     /// is under way.
     pub fn link_needed(&self, now: i64) -> bool {
         let inner = self.inner();
         let live = |s: Option<&Secret>| s.is_some_and(|s| s.expires_at > now);
         !(self.is_done()
+            || self.is_restored()
             || live(inner.link.as_ref())
             || live(inner.session.as_ref().map(|s| &s.secret)))
     }

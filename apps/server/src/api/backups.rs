@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The instance's backups on the admin page (`/admin/backups`): set up,
-//! how many to keep, run, list, check and test restore. A whole instance
-//! is restored from the command line, the server stopped.
+//! how many to keep, run, list, check and test restore, and the backup key
+//! that locks them on a server with only end-to-end encrypted accounts. A
+//! whole instance is restored from the command line, the server stopped,
+//! or for locked backups from the setup page of a fresh server.
 
 use axum::Json;
 use axum::extract::State;
@@ -13,14 +15,14 @@ use super::admin::{admin, admin_event};
 use super::extract::{Body, ClientIp, CurrentUser};
 use crate::accounts::e2ee;
 use crate::backups::{
-    self, BackupConfig, BackupStatus, Schedule, ServerTarget, instance::TestRestore,
+    self, BackupConfig, BackupStatus, LockedBy, Schedule, ServerTarget, instance::TestRestore,
 };
 use crate::db::DbError;
 use crate::error::Error;
 use crate::routes::AppState;
 use app_repo::CheckReport;
 
-fn failed(why: impl Into<String>) -> Error {
+pub(super) fn failed(why: impl Into<String>) -> Error {
     Error::new(
         StatusCode::BAD_GATEWAY,
         app_protocol::error_code::BACKUP_FAILED,
@@ -39,6 +41,9 @@ pub struct ConfigView {
     keep: u32,
     /// The backups have a password: restoring asks for it.
     with_password: bool,
+    /// The backups are locked by a backup key, which the admin's recovery
+    /// code opens.
+    locked: bool,
 }
 
 /// `GET /api/v1/admin/backups`
@@ -55,6 +60,9 @@ pub struct BackupsView {
     /// A standard account exists: backups need a password, and carry the
     /// master key that opens its notes.
     password_needed: bool,
+    /// Backups without a password wait for a backup key from an admin's
+    /// page after an end-to-end encrypted sign-in.
+    key_wanted: bool,
     /// The master key is read from a file of its own (`storage.master_key_file`).
     master_key_apart: bool,
     /// Where the simple setup puts backups: `storage.backups_dir` when the
@@ -93,17 +101,23 @@ async fn view(state: &AppState) -> Result<BackupsView, Error> {
         .await?;
     let (suggested, suggested_apart) = suggested_folder(&state.config.storage);
     let there = u32::try_from(status.snapshots).unwrap_or(backups::MAX_KEEP);
+    let key_wanted = !password_needed
+        && config
+            .as_ref()
+            .is_some_and(|c| c.password == backups::NO_PASSWORD);
     Ok(BackupsView {
         config: config.map(|c| ConfigView {
             keep: c
                 .keep()
                 .unwrap_or_else(|| there.clamp(1, backups::MAX_KEEP)),
-            with_password: c.password != backups::NO_PASSWORD,
+            with_password: c.password != backups::NO_PASSWORD && c.locked_by.is_none(),
+            locked: c.locked_by.is_some(),
             target: c.target,
         }),
         status,
         running: backups::running(),
         password_needed,
+        key_wanted,
         master_key_apart: !state.config.storage.master_key_file.as_os_str().is_empty(),
         suggested_folder: suggested.display().to_string(),
         suggested_apart,
@@ -159,6 +173,7 @@ pub async fn connect(
     let config = BackupConfig {
         target: connect.target,
         password,
+        locked_by: None,
         schedule: old.as_ref().map_or(Schedule::Daily, |o| o.schedule),
         policy: old
             .as_ref()
@@ -179,6 +194,84 @@ pub async fn connect(
             backups::set_config(c, &master, Some(&config))?;
             backups::set_status(c, &BackupStatus::default())?;
             admin_event(c, now, "backup_set_up", None, &me, &ip_text, "")
+        })
+        .await?;
+    Ok(Json(view(&state).await?))
+}
+
+/// `PUT /api/v1/admin/backups/key`: a backup key made by the admin's
+/// page, and its wrapping by the admin's master key.
+#[derive(Deserialize)]
+pub struct Lock {
+    key: String,
+    wrapped: String,
+}
+
+/// `PUT /api/v1/admin/backups/key`: locks backups without a password with
+/// the key. The repository keeps its contents, its password becomes the
+/// key, and the wrapped copy goes beside it first, so the backups are never
+/// locked without it.
+pub async fn lock(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    CurrentUser(me): CurrentUser,
+    Body(lock): Body<Lock>,
+) -> Result<Json<BackupsView>, Error> {
+    admin(&me)?;
+    if me.user.kind != app_protocol::e2ee::AccountKind::E2ee {
+        return Err(Error::invalid(
+            "only an end-to-end encrypted account locks backups",
+        ));
+    }
+    let key_ok = app_e2ee::decode(&lock.key, "backup key").is_ok_and(|k| k.len() == 32);
+    let wrapped_ok = lock.wrapped.len() <= 512
+        && app_e2ee::decode(&lock.wrapped, "wrapped key").is_ok_and(|w| w.len() > 32);
+    if !key_ok || !wrapped_ok {
+        return Err(Error::invalid("backup key: unknown format"));
+    }
+    let master = state.master.clone();
+    let user_id = me.user.id.clone();
+    let wrapped = lock.wrapped;
+    let found = state
+        .db
+        .call(move |c| {
+            let config = backups::config(c, &master)?;
+            let standard = e2ee::standard_accounts_exist(c)?;
+            let locked = LockedBy { user_id, wrapped };
+            let file = backups::key_file(c, &locked)?;
+            Ok((config, standard, locked, file))
+        })
+        .await?;
+    let (Some(mut config), false, locked, Some(file)) = found else {
+        return Err(Error::invalid(
+            "there are no backups without a password to lock",
+        ));
+    };
+    if config.password != backups::NO_PASSWORD {
+        return Err(Error::invalid("these backups are locked already"));
+    }
+    let now = state.clock.now();
+    let opening = config.clone();
+    let key = zeroize::Zeroizing::new(lock.key);
+    let password = key.clone();
+    tokio::task::spawn_blocking(move || {
+        let repo = backups::open(&opening, false, now)?;
+        backups::write_key_file(repo.target(), &file)?;
+        repo.change_password(&password, app_repo::KdfParams::DEFAULT, now)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| Error::internal(&e.to_string()))?
+    .map_err(failed)?;
+    config.password = key.to_string();
+    config.locked_by = Some(locked);
+    let ip_text = ip.0.to_string();
+    let master = state.master.clone();
+    state
+        .db
+        .call(move |c| {
+            backups::set_config(c, &master, Some(&config))?;
+            admin_event(c, now, "backup_locked", None, &me, &ip_text, "")
         })
         .await?;
     Ok(Json(view(&state).await?))

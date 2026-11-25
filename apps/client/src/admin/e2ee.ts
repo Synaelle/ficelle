@@ -2,7 +2,8 @@
 // End-to-end encrypted accounts on the web pages. The OPAQUE math and the
 // account keys run in WebAssembly built from the same Rust crate as the
 // apps (crates/e2ee-web). It loads on first use, a standard sign-in never
-// fetches it. The password is only ever handed to that module.
+// fetches it. The password is only ever handed to that module, and the
+// export key of the page's sign-in stays in it, for the backup key.
 
 import { api, type AccountKind, type KeyBundle, type Session } from './api.svelte'
 
@@ -186,4 +187,40 @@ export async function recover(
     keys: done.keys,
     device,
   })
+}
+
+/** Locks the server's backups when they wait for it: a new backup key,
+ * wrapped by the signed in account's master key, which the export key of
+ * this page's sign-in opens inside the module. Whether it did. Asked twice
+ * at once, the second waits for the first. */
+export function lockBackups(): Promise<boolean> {
+  locking ??= lock().finally(() => (locking = null))
+  return locking
+}
+
+let locking: Promise<boolean> | null = null
+
+async function lock(): Promise<boolean> {
+  const wasm = await client()
+  if (!wasm.holdsKey()) return false
+  const view = await api<{ keyWanted: boolean }>('GET', '/admin/backups')
+  if (!view.keyWanted) return false
+  const { keys } = await api<{ keys: KeyBundle }>('GET', '/me/keys')
+  const made = JSON.parse(wasm.backupKey(JSON.stringify(keys))) as { key: string; wrapped: string }
+  await api('PUT', '/admin/backups/key', made)
+  return true
+}
+
+/** What a fresh server finds beside backups locked by a backup key. */
+export interface KeyFile {
+  username: string
+  keys: KeyBundle
+  backupKey: string
+}
+
+/** The backup key, opened with the account's recovery code. The code
+ * stays here, the key goes to the server that restores. */
+export async function openBackupKey(code: string, file: KeyFile): Promise<string> {
+  const wasm = await client()
+  return wasm.openBackupKey(code, JSON.stringify(file.keys), file.backupKey)
 }

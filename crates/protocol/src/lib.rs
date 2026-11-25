@@ -111,6 +111,9 @@ pub mod error_code {
     pub const SETUP_DONE: &str = "setupDone";
     /// The setup link is wrong, used or expired, or its session ended.
     pub const SETUP_LINK_INVALID: &str = "setupLinkInvalid";
+    /// A backup was restored from the setup page, the server's restart puts
+    /// it in place.
+    pub const SETUP_RESTORED: &str = "setupRestored";
     /// The server is waiting for its first admin, nothing else answers yet.
     pub const SETUP_PENDING: &str = "setupPending";
     /// Setup runs over https, or from the server itself.

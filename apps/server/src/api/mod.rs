@@ -41,6 +41,8 @@ pub fn router() -> Router<AppState> {
         .route("/setup/checks", post(setup::checks))
         .route("/setup/upload", post(setup::upload))
         .route("/setup/socket", get(setup::socket))
+        .route("/setup/restore/look", post(setup::restore_look))
+        .route("/setup/restore", post(setup::restore))
         .route("/admin/updates", get(updates::get).put(updates::set))
         .route("/admin/updates/check", post(updates::check))
         .route("/admin/checklist", get(updates::checklist))
@@ -174,6 +176,7 @@ fn backup_routes() -> Router<AppState> {
                 .delete(backups::stop),
         )
         .route("/admin/backups/settings", put(backups::settings))
+        .route("/admin/backups/key", put(backups::lock))
         .route("/admin/backups/run", post(backups::run))
         .route("/admin/backups/snapshots", get(backups::snapshots))
         .route("/admin/backups/check", post(backups::check))

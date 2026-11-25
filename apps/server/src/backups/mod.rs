@@ -4,7 +4,12 @@
 //! the password, how many to keep. Runs daily in the background, the admin
 //! page shows how they went, a failure is logged. People back up their own
 //! notes from their apps. A server with only end-to-end encrypted accounts
-//! backs up without a password: their notes are sealed by their devices.
+//! backs up without a password at first: their notes are sealed by their
+//! devices. Once its admin signs in on the admin page, the page makes a
+//! random backup key, wrapped by the admin's account master key: the server
+//! keeps the key to back up unattended, and the wrapped copy goes beside the
+//! backups, so a fresh server restores them with the account's recovery
+//! code alone.
 
 pub mod instance;
 
@@ -12,6 +17,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use app_protocol::e2ee::KeyBundle;
 use app_repo::{FolderTarget, KdfParams, Policy, Repo, Target};
 use base64::Engine;
 use rusqlite::{Connection, OptionalExtension};
@@ -33,7 +39,10 @@ fn readme() -> String {
     format!(
         "These are backups of a {app} server.\n\n\
          The files only work together, so do not rename, edit or remove any of them.\n\n\
-         To restore, stop the server and run\n\
+         With a {KEY_FILE} file, they open with the recovery code of the account named \
+         in it. To restore, start a new server with this folder, open its setup link and \
+         choose Restore a backup.\n\n\
+         Otherwise, stop the server and run\n\
          {binary} backup restore --target <target.json> --into <empty folder>\n\
          with the backup password, if they have one, in {}_BACKUP_PASSWORD. The target file \
          is the one shown on the admin page, Backups, under To restore the whole instance.\n",
@@ -44,6 +53,52 @@ fn readme() -> String {
 /// The password of backups made without one, on a server with only end-to-end
 /// encrypted accounts.
 pub const NO_PASSWORD: &str = "ficelle-backup-without-password";
+
+/// The file beside the repository that holds its backup key, wrapped.
+pub const KEY_FILE: &str = "backup-key.json";
+
+/// What opens backups locked by a backup key, beside them: everything a
+/// fresh server and the person's recovery code need, nothing either opens
+/// alone.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyFile {
+    /// Format of the file.
+    pub format: u32,
+    /// The account whose master key wraps the backup key.
+    pub username: String,
+    /// That account's master key, wrapped by its password and its recovery
+    /// code, as the server keeps them.
+    pub keys: KeyBundle,
+    /// The backup key, wrapped by the master key.
+    pub backup_key: String,
+}
+
+/// Writes the key file beside the repository at `target`.
+///
+/// # Errors
+///
+/// The target refused, in words.
+pub fn write_key_file(target: &dyn Target, file: &KeyFile) -> Result<(), String> {
+    let text = serde_json::to_vec_pretty(file).map_err(|e| e.to_string())?;
+    target.put(KEY_FILE, &text).map_err(|e| e.to_string())
+}
+
+/// The key file beside the repository at `target`, `None` when the backups
+/// are not locked by a backup key.
+///
+/// # Errors
+///
+/// The target refused, or a file that does not read, in words.
+pub fn read_key_file(target: &dyn Target) -> Result<Option<KeyFile>, String> {
+    match target.get(KEY_FILE) {
+        Ok(bytes) => serde_json::from_slice(&bytes)
+            .map(Some)
+            .map_err(|e| format!("{KEY_FILE} does not read: {e}")),
+        Err(app_repo::Error::NotFound(_)) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
 
 /// How many backups stay when nothing else is said.
 pub const DEFAULT_KEEP: u32 = 30;
@@ -151,6 +206,16 @@ impl Schedule {
     }
 }
 
+/// Who locked backups with a backup key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LockedBy {
+    /// The account whose master key wraps it.
+    pub user_id: String,
+    /// The backup key, wrapped by that master key.
+    pub wrapped: String,
+}
+
 /// The instance's backup settings. The admin page sets a daily schedule
 /// and a policy of the newest few: settings from before, with another
 /// schedule or policy, keep them until a number is chosen.
@@ -159,8 +224,12 @@ impl Schedule {
 pub struct BackupConfig {
     /// Where.
     pub target: ServerTarget,
-    /// The repository's password, [`NO_PASSWORD`] for none.
+    /// The repository's password, [`NO_PASSWORD`] for none, the backup
+    /// key when [`Self::locked_by`] says so.
     pub password: String,
+    /// Set when the backups are locked by a backup key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locked_by: Option<LockedBy>,
     /// When.
     pub schedule: Schedule,
     /// What to keep.
@@ -326,13 +395,78 @@ pub fn open(config: &BackupConfig, create: bool, now: i64) -> Result<Repo, Strin
     } else {
         Repo::open(target, &config.password)
     }
-    .map_err(|e| match e {
+    .map_err(open_error)
+}
+
+/// Why a repository did not open, in words.
+pub fn open_error(e: app_repo::Error) -> String {
+    match e {
         app_repo::Error::WrongPassword => "wrong password for this backup".into(),
         app_repo::Error::NotFound(_) => {
             "there is no backup at this place: it was moved or the place is not reachable".into()
         }
         other => other.to_string(),
-    })
+    }
+}
+
+/// The key file for backups locked by `locked`, from the account as it is
+/// now (a new password changes its wrapping). `None` when the account is
+/// gone: the file beside the backups stays as it was.
+///
+/// # Errors
+///
+/// Database errors.
+pub fn key_file(conn: &Connection, locked: &LockedBy) -> Result<Option<KeyFile>, DbError> {
+    let Some(user) = crate::accounts::store::user_by_id(conn, &locked.user_id)? else {
+        return Ok(None);
+    };
+    Ok(
+        crate::accounts::e2ee::keys(conn, &user.id)?.map(|keys| KeyFile {
+            format: 1,
+            username: user.username,
+            keys,
+            backup_key: locked.wrapped.clone(),
+        }),
+    )
+}
+
+/// Gives a backup restored for the next start, in `staged`, the backup key
+/// it was restored with: its newest snapshot may predate the lock, and its
+/// settings would then still open the backups at `path` without a
+/// password. Settings for another place stay as they are.
+///
+/// # Errors
+///
+/// The restored master key or database does not open, in words.
+pub fn carry_key(
+    staged: &Path,
+    server: &crate::config::Config,
+    path: &str,
+    key: &str,
+    file: &KeyFile,
+) -> Result<(), String> {
+    let mut at_staged = server.clone();
+    at_staged.storage.data_dir = staged.to_path_buf();
+    let master = MasterKey::load(&at_staged)?;
+    let conn = Connection::open(staged.join(crate::db::DB_FILE)).map_err(|e| e.to_string())?;
+    let Some(mut config) = config(&conn, &master).map_err(|e| e.to_string())? else {
+        return Ok(());
+    };
+    let ServerTarget::Folder { path: kept } = &config.target;
+    let Some(user) =
+        crate::accounts::store::user_by_name(&conn, &file.username).map_err(|e| e.to_string())?
+    else {
+        return Ok(());
+    };
+    if kept.trim() != path.trim() || config.password == key {
+        return Ok(());
+    }
+    key.clone_into(&mut config.password);
+    config.locked_by = Some(LockedBy {
+        user_id: user.id,
+        wrapped: file.backup_key.clone(),
+    });
+    set_config(&conn, &master, Some(&config)).map_err(|e| e.to_string())
 }
 
 /// One run at a time on this server.
@@ -451,20 +585,27 @@ pub async fn run(state: &AppState, by: &str) -> Result<BackupStatus, String> {
 
 async fn run_once(state: &AppState) -> Result<(RunReport, u64, u64), String> {
     let master = state.master.clone();
-    let (config, standard) = state
+    let (config, standard, key_file) = state
         .db
         .call(move |c| {
+            let config = config(c, &master)?;
+            let key_file = match config.as_ref().and_then(|c| c.locked_by.as_ref()) {
+                Some(locked) => key_file(c, locked)?,
+                None => None,
+            };
             Ok((
-                config(c, &master)?,
+                config,
                 crate::accounts::e2ee::standard_accounts_exist(c)?,
+                key_file,
             ))
         })
         .await
         .map_err(|e| e.to_string())?;
     let config = config.ok_or("backups are not set up")?;
     // the server reads a standard account's notes with the master key, which
-    // the backups carry: never into backups without a password
-    if standard && config.password == NO_PASSWORD {
+    // the backups carry: never into backups without a password a person
+    // chose, kept apart from the server
+    if standard && (config.password == NO_PASSWORD || config.locked_by.is_some()) {
         return Err(
             "this server has a standard account now, so its backups need a password: \
              set backups up again in a new folder, with a password"
@@ -493,6 +634,10 @@ async fn run_once(state: &AppState) -> Result<(RunReport, u64, u64), String> {
     let result = tokio::task::spawn_blocking(move || {
         let now = || clock.now();
         let repo = open(&config, false, now())?;
+        // the account's wrappings as they are now, beside the backups
+        if let Some(file) = &key_file {
+            write_key_file(repo.target(), file)?;
+        }
         let report = instance::backup(&repo, &copy, key.as_deref(), files.as_ref(), &now)?;
         let snapshots: Vec<(String, i64)> = repo
             .snapshots()
@@ -607,6 +752,7 @@ mod sealed_tests {
                     )
                     .unwrap(),
                     password: "the repository password".into(),
+                    locked_by: None,
                     schedule: Schedule::Daily,
                     policy: Policy::default(),
                     offset_seconds: 0,

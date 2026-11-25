@@ -180,6 +180,7 @@ pub(super) async fn e2ee_person(state: &AppState, name: &str) -> (Value, E2eeMad
         E2eeMade {
             export_key: finish.export_key,
             bundle: made.bundle,
+            recovery_code: made.recovery_code,
         },
     )
 }
@@ -235,6 +236,7 @@ pub(super) async fn e2ee_device(state: &AppState, app: &Router, name: &str) -> (
 pub(super) struct E2eeMade {
     pub(super) export_key: zeroize::Zeroizing<Vec<u8>>,
     pub(super) bundle: app_e2ee::KeyBundle,
+    pub(super) recovery_code: zeroize::Zeroizing<String>,
 }
 
 pub(super) fn token(session: &Value) -> &str {

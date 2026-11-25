@@ -6,18 +6,20 @@
      simple, a new backup in the suggested folder and a password; Advanced
      also opens a backup already there. A server with only end-to-end
      encrypted accounts backs up without a password, their notes are sealed
-     by the devices. -->
+     by the devices, until this page, signed in to such an account, locks
+     them with a backup key only the account's recovery code opens. -->
 <script lang="ts">
   import PasswordField from '../lib/PasswordField.svelte'
   import Icon from '../lib/icons/Icon.svelte'
   import { t } from '../lib/i18n.svelte'
   import { overlay } from '../lib/overlay.svelte'
   import { api } from './api.svelte'
+  import { lockBackups } from './e2ee'
   import { bytes, dateTime, errorText, relative } from './format'
 
   type Target = { kind: 'folder'; path: string }
   interface View {
-    config: { target: Target; keep: number; withPassword: boolean } | null
+    config: { target: Target; keep: number; withPassword: boolean; locked: boolean } | null
     status: {
       lastRunAt: number | null
       lastSuccessAt: number | null
@@ -29,6 +31,8 @@
     running: boolean
     /** A standard account exists: a password, and the master key in the backups. */
     passwordNeeded: boolean
+    /** Backups without a password wait for a backup key from this page. */
+    keyWanted: boolean
     masterKeyApart: boolean
     suggestedFolder: string
     suggestedApart: boolean
@@ -87,7 +91,16 @@
     if (next.config) keep = next.config.keep
   }
 
-  void act(async () => show(await api<View>('GET', '/admin/backups')))
+  /** Locks backups waiting for a backup key, when this page signed in to
+   * an encrypted account and so holds its keys. */
+  async function lockIfWanted() {
+    if (view?.keyWanted && (await lockBackups())) show(await api<View>('GET', '/admin/backups'))
+  }
+
+  void act(async () => {
+    show(await api<View>('GET', '/admin/backups'))
+    await lockIfWanted()
+  })
 
   function edit() {
     const target = view?.config?.target
@@ -136,6 +149,7 @@
       editing = false
       snapshots = null
       show(await api<View>('POST', '/admin/backups/run'))
+      await lockIfWanted()
     }, t('admin.backups.connected'))
   }
 
@@ -271,6 +285,18 @@
         >
       </span>
     </li>
+    {#if view.config.locked || view.keyWanted}
+      <li class={['dash-row', view.config.locked ? 'ok' : 'warn']} data-backups-lock>
+        <span class="dash-lead"
+          ><Icon name={view.config.locked ? 'lock' : 'warning'} size={18} /></span
+        >
+        <span class="dash-words">
+          <span class="dash-label"
+            >{view.config.locked ? t('admin.backups.locked') : t('admin.backups.notLocked')}</span
+          >
+        </span>
+      </li>
+    {/if}
     {#if check}
       <li class={['dash-row', check.problems.length ? 'fail' : 'ok']} data-backups-check>
         <span class="dash-words">
@@ -350,9 +376,11 @@
     <details class="recovery">
       <summary>{t('admin.backups.recovery')}</summary>
       <p class="dash-help">
-        {view.config.withPassword
-          ? t('admin.backups.recoveryHelp')
-          : t('admin.backups.recoveryHelpOpen')}
+        {view.config.locked
+          ? t('admin.backups.recoveryHelpLocked')
+          : view.config.withPassword
+            ? t('admin.backups.recoveryHelp')
+            : t('admin.backups.recoveryHelpOpen')}
       </p>
       <pre data-backups-recovery>{recovery}</pre>
     </details>

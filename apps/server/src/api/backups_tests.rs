@@ -2,7 +2,8 @@
 
 //! The instance's backups through the full router: set up by an admin,
 //! run, listed, checked, test restored; a whole instance restored into an
-//! empty folder.
+//! empty folder; locked by a backup key and restored from a fresh server's
+//! setup page with the recovery code.
 
 use axum::http::StatusCode;
 use serde_json::{Value, json};
@@ -236,7 +237,14 @@ async fn a_backup_that_cannot_be_made_says_why_and_is_logged() {
 /// A server whose master key is a file in `data`, as a real one keeps it,
 /// with cheap password hashing.
 async fn keyed_server(data: &std::path::Path) -> (AppState, axum::Router) {
-    let config = Config {
+    let (state, app) = fresh_server(data);
+    state.db.call(|c| crate::setup::lock(c)).await.unwrap();
+    (state, app)
+}
+
+/// As [`keyed_server`], not set up yet.
+fn fresh_server(data: &std::path::Path) -> (AppState, axum::Router) {
+    let mut config = Config {
         storage: StorageConfig {
             data_dir: data.to_owned(),
             ..StorageConfig::default()
@@ -248,6 +256,8 @@ async fn keyed_server(data: &std::path::Path) -> (AppState, axum::Router) {
         },
         ..Config::default()
     };
+    // test requests come from no address, the setup page from this machine
+    config.setup.allow_http = true;
     let master = crate::keys::MasterKey::load(&config).unwrap();
     let state = AppState::new(
         config,
@@ -256,9 +266,15 @@ async fn keyed_server(data: &std::path::Path) -> (AppState, axum::Router) {
         Db::feedback_in_memory().unwrap(),
         std::sync::Arc::new(crate::files::Memory::default()),
     );
-    state.db.call(|c| crate::setup::lock(c)).await.unwrap();
     let app = router(state.clone());
     (state, app)
+}
+
+/// A setup session on a fresh server, as its link gives.
+fn setup_session(state: &AppState) -> String {
+    let now = state.clock.now();
+    let link = state.setup.new_link(now);
+    state.setup.start(&link, now).unwrap().0
 }
 
 /// An OPAQUE sign-in with the password `e2ee_person` gives: its status.
@@ -446,4 +462,196 @@ async fn older_settings_keep_their_schedule_and_policy_until_a_number_is_chosen(
         .unwrap();
     assert_eq!(now.schedule, crate::backups::Schedule::Daily);
     assert_eq!(now.keep(), Some(3));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[expect(clippy::too_many_lines, reason = "one story, read top to bottom")]
+async fn locked_backups_restore_on_a_fresh_server_with_the_recovery_code() {
+    let _turn = ONE_AT_A_TIME.lock().await;
+    let data = tempfile::tempdir().unwrap();
+    let place = tempfile::tempdir().unwrap();
+    let (state, app) = keyed_server(data.path()).await;
+    let (session, made) = e2ee_person(&state, "root").await;
+    state
+        .db
+        .call(|c| Ok(c.execute("UPDATE users SET role = 'admin'", [])?))
+        .await
+        .unwrap();
+    let admin = token(&session).to_owned();
+    let (status, view) = set_up(&app, &admin, place.path(), true, "").await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+    assert_eq!(view["keyWanted"], true);
+    assert_eq!(view["config"]["locked"], false);
+    let (status, _) = call(&app, "POST", "/admin/backups/run", Some(&admin), None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // the admin's page makes the key and wraps it with the master key
+    let master = app_e2ee::AccountKeys::open_with_password(&made.bundle, &made.export_key).unwrap();
+    let key = app_e2ee::AccountKeys::new_backup_key(&master);
+    let lock = json!({ "key": *key.key, "wrapped": key.wrapped });
+    let (status, body) = call(
+        &app,
+        "PUT",
+        "/admin/backups/key",
+        Some(&admin),
+        Some(json!({ "key": "short", "wrapped": key.wrapped })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    let (status, view) = call(
+        &app,
+        "PUT",
+        "/admin/backups/key",
+        Some(&admin),
+        Some(lock.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+    assert_eq!(view["keyWanted"], false);
+    assert_eq!(view["config"]["locked"], true);
+    assert_eq!(view["config"]["withPassword"], false);
+    let (status, _) = call(&app, "PUT", "/admin/backups/key", Some(&admin), Some(lock)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "once");
+
+    // without the key nothing opens, the snapshot made before included;
+    // beside the backups, only what the recovery code opens
+    let target: crate::backups::ServerTarget =
+        serde_json::from_value(json!({ "kind": "folder", "path": place.path() })).unwrap();
+    let target = target.open().unwrap();
+    assert!(matches!(
+        app_repo::Repo::open(target.clone(), crate::backups::NO_PASSWORD),
+        Err(app_repo::Error::WrongPassword)
+    ));
+    let file: Value =
+        serde_json::from_slice(&target.get(crate::backups::KEY_FILE).unwrap()).unwrap();
+    assert_eq!(file["format"], 1);
+    assert_eq!(file["username"], "root");
+    assert_eq!(file["backupKey"], key.wrapped.as_str());
+    assert_eq!(file["keys"]["byRecovery"], made.bundle.by_recovery.as_str());
+    let text = file.to_string();
+    assert!(!text.contains(key.key.as_str()), "the key itself stays out");
+
+    // a fresh server: the page opens the key with the recovery code
+    let fresh = tempfile::tempdir().unwrap();
+    let fresh_data = fresh.path().join("data");
+    let (new_state, new_app) = fresh_server(&fresh_data);
+    let setup = setup_session(&new_state);
+    let path = place.path().to_string_lossy().into_owned();
+    let (status, looked) = call(
+        &new_app,
+        "POST",
+        "/setup/restore/look",
+        None,
+        Some(json!({ "session": setup, "path": path })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{looked}");
+    let keys: app_e2ee::KeyBundle =
+        serde_json::from_value(looked["keyFile"]["keys"].clone()).unwrap();
+    let opened = app_e2ee::AccountKeys::open_with_recovery(&keys, &made.recovery_code).unwrap();
+    let backup_key = app_e2ee::AccountKeys::open_backup_key(
+        &opened,
+        looked["keyFile"]["backupKey"].as_str().unwrap(),
+    )
+    .unwrap();
+    let (status, body) = call(
+        &new_app,
+        "POST",
+        "/setup/restore",
+        None,
+        Some(json!({ "session": setup, "path": path })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY, "no key: {body}");
+    let (status, restored) = call(
+        &new_app,
+        "POST",
+        "/setup/restore",
+        None,
+        Some(json!({ "session": setup, "path": path, "key": *backup_key })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{restored}");
+    assert_eq!(restored["users"], 1);
+    let (status, body) = call(&new_app, "GET", "/setup", None, None).await;
+    assert_eq!(status, StatusCode::GONE);
+    assert_eq!(body["error"], "setupRestored");
+    assert!(!new_state.setup.link_needed(new_state.clock.now()));
+
+    // the restart puts it in place: the account signs in, backups go on
+    // with the key, though the snapshot restored was made before the lock
+    drop((new_state, new_app));
+    assert!(crate::backups::instance::take_restored(&fresh_data).unwrap());
+    assert!(!fresh_data.join("restored").exists());
+    let (again, again_app) = fresh_server(&fresh_data);
+    assert!(again.setup.is_done() || again.db.call(|c| crate::setup::is_locked(c)).await.unwrap());
+    assert_eq!(sign_in(&again_app, "root").await, StatusCode::OK);
+    let (_, view) = call(&again_app, "GET", "/admin/backups", Some(&admin), None).await;
+    assert_eq!(view["config"]["locked"], true, "{view}");
+    let (status, view) = call(&again_app, "POST", "/admin/backups/run", Some(&admin), None).await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+    assert_eq!(view["status"]["snapshots"], 2);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn backups_without_a_password_restore_from_the_setup_page_too() {
+    let _turn = ONE_AT_A_TIME.lock().await;
+    let data = tempfile::tempdir().unwrap();
+    let place = tempfile::tempdir().unwrap();
+    let (state, app) = keyed_server(data.path()).await;
+    let (session, _) = e2ee_person(&state, "root").await;
+    state
+        .db
+        .call(|c| Ok(c.execute("UPDATE users SET role = 'admin'", [])?))
+        .await
+        .unwrap();
+    let admin = token(&session).to_owned();
+    set_up(&app, &admin, place.path(), true, "").await;
+    let (status, _) = call(&app, "POST", "/admin/backups/run", Some(&admin), None).await;
+    assert_eq!(status, StatusCode::OK);
+    let path = place.path().to_string_lossy().into_owned();
+
+    let fresh = tempfile::tempdir().unwrap();
+    let fresh_data = fresh.path().join("data");
+    let (new_state, new_app) = fresh_server(&fresh_data);
+    let setup = setup_session(&new_state);
+    let (status, body) = call(
+        &new_app,
+        "POST",
+        "/setup/restore/look",
+        None,
+        Some(json!({ "session": setup, "path": fresh.path().to_string_lossy() })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY, "no backup there: {body}");
+    let (_, looked) = call(
+        &new_app,
+        "POST",
+        "/setup/restore/look",
+        None,
+        Some(json!({ "session": setup, "path": path })),
+    )
+    .await;
+    assert!(looked["keyFile"].is_null(), "{looked}");
+    let (status, restored) = call(
+        &new_app,
+        "POST",
+        "/setup/restore",
+        None,
+        Some(json!({ "session": setup, "path": path })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{restored}");
+
+    // a data folder set up meanwhile is never replaced
+    drop((new_state, new_app));
+    let (other, _) = fresh_server(&fresh_data);
+    other.db.call(|c| crate::setup::lock(c)).await.unwrap();
+    drop(other);
+    let refused = crate::backups::instance::take_restored(&fresh_data).unwrap_err();
+    assert!(refused.contains("set up after"), "{refused}");
+    std::fs::remove_file(fresh_data.join(crate::db::DB_FILE)).unwrap();
+    assert!(crate::backups::instance::take_restored(&fresh_data).unwrap());
+    let (_, again_app) = keyed_server(&fresh_data).await;
+    assert_eq!(sign_in(&again_app, "root").await, StatusCode::OK);
 }

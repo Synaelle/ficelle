@@ -78,7 +78,9 @@ const USAGE: &str = "usage: ficelle-server [--config <file>] [--check] [--versio
   backup restore --target <file> --into <folder> [--snapshot <id>]
                    restores a backup (the newest without --snapshot) into an
                    empty folder: the database, the master key, every file.
-                   Point storage.data_dir at it, the server stopped.
+                   Point storage.data_dir at it, the server stopped. Backups
+                   locked by a backup key restore from the setup page of a
+                   new server, with the account's recovery code.
 
 Every key can also come from {ENV}_SECTION__KEY.";
 
@@ -140,6 +142,13 @@ fn backup_command(words: &[String]) -> Result<(), String> {
     let target = target.open()?;
     let repo = if let Ok(p) = std::env::var(format!("{}_BACKUP_PASSWORD", app_brand::ENV_PREFIX)) {
         app_repo::Repo::open(target, &p)
+    } else if backups::read_key_file(target.as_ref())?.is_some() {
+        return Err(format!(
+            "these backups are locked by a backup key that only their account's recovery code \
+             opens ({}): start a new server with this folder, open its setup link and choose \
+             Restore a backup",
+            backups::KEY_FILE
+        ));
     } else {
         // backups of a server with only end-to-end encrypted accounts have
         // no password to ask for
@@ -291,6 +300,11 @@ async fn main() {
             .init(),
     }
 
+    match backups::instance::take_restored(&config.storage.data_dir) {
+        Ok(true) => tracing::warn!("the backup restored from the setup page is in place"),
+        Ok(false) => {}
+        Err(why) => fail(&format!("restored backup: {why}"), 1),
+    }
     let (db, feedback, master) = open_stores(&config, args.config.as_deref());
     if args.check {
         println!("configuration, master key and database ok");

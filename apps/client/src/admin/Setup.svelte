@@ -6,7 +6,9 @@
      encrypted, with a passkey first or an authenticator app, the encrypted
      account's recovery code (which stands in for the second step too) or the
      standard account's second step recovery codes, and the first choices
-     made with the admin's session: files, backups. -->
+     made with the admin's session: files, backups. Or, on a fresh server, a
+     backup restored in place of all that: one locked by a backup key opens
+     with the account's recovery code, here in the page. -->
 <script lang="ts">
   import { COPIED_MS } from '../lib/clipboard'
   import PasswordField from '../lib/PasswordField.svelte'
@@ -25,8 +27,9 @@
     type TotpSetup,
   } from './api.svelte'
   import Backups from './Backups.svelte'
-  import { setupAccount, type SetupE2ee } from './e2ee'
-  import { bytes, errorText } from './format'
+  import { errorCode, errorLine } from '../lib/errors'
+  import { openBackupKey, setupAccount, type KeyFile, type SetupE2ee } from './e2ee'
+  import { bytes, dateTime, errorText } from './format'
   import { createPasskey, passkeysSupported } from './webauthn'
 
   interface Status {
@@ -52,7 +55,7 @@
     state: State
     detail: string
   }
-  type Step = 'checks' | 'admin' | 'key' | 'codes' | 'backups' | 'done'
+  type Step = 'checks' | 'admin' | 'key' | 'codes' | 'backups' | 'done' | 'restore'
   const steps: Step[] = ['checks', 'admin', 'backups', 'done']
   const SESSION_KEY = 'setup-session'
   /** The server's own rule, it cannot check an encrypted admin's password. */
@@ -84,8 +87,8 @@
 
   let status = $state<Status | null>(null)
   let session = $state(stored())
-  /** Why the page cannot go on: no link, setup done, plain http. */
-  let blocked = $state<'insecure' | 'noLink' | 'done' | ''>('')
+  /** Why the page cannot go on: no link, setup done, a backup restored, plain http. */
+  let blocked = $state<'insecure' | 'noLink' | 'done' | 'restored' | ''>('')
   let problem = $state('')
   let busy = $state(false)
   let step = $state<Step>('checks')
@@ -98,6 +101,7 @@
       status = await api<Status>('GET', '/setup')
     } catch (err) {
       if (err instanceof ApiError && err.code === 'setupDone') blocked = 'done'
+      else if (err instanceof ApiError && err.code === 'setupRestored') blocked = 'restored'
       else problem = errorText(err)
       return
     }
@@ -329,6 +333,56 @@
 
   const afterKey = (): Step => (codes.length ? 'codes' : 'backups')
 
+  // a backup instead
+  let restorePath = $state('')
+  /** What the folder needs, once looked at: the key file of locked backups. */
+  let looked = $state<{ keyFile: KeyFile | null } | null>(null)
+  let restoreCode = $state('')
+  /** When the restored backup was made, once it waits for the restart. */
+  let restoredAt = $state<number | null>(null)
+
+  async function restoreBackup(event: SubmitEvent) {
+    event.preventDefault()
+    problem = ''
+    busy = true
+    try {
+      if (!looked) {
+        looked = await api<{ keyFile: KeyFile | null }>('POST', '/setup/restore/look', {
+          session,
+          path: restorePath,
+        })
+        return
+      }
+      let key = ''
+      if (looked.keyFile) {
+        try {
+          key = await openBackupKey(restoreCode, looked.keyFile)
+        } catch {
+          // the module says only that the code does not open these keys
+          problem = errorLine({
+            kind: 'wrongKey',
+            reason: t('admin.setup.restoreCodeWrong'),
+            code: errorCode('RESTORE', 'wrongKey'),
+          })
+          return
+        }
+      }
+      const done = await api<{ time: number }>('POST', '/setup/restore', {
+        session,
+        path: restorePath,
+        key,
+      })
+      remember('')
+      restoreCode = ''
+      restoredAt = done.time
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'setupLinkInvalid') lost(err)
+      else problem = errorText(err)
+    } finally {
+      busy = false
+    }
+  }
+
   async function copyCode() {
     try {
       await navigator.clipboard.writeText(recoveryCode)
@@ -400,6 +454,8 @@
     {#if blocked === 'done'}
       <p>{t('admin.setup.done')}</p>
       <a class="btn primary" href="admin">{t('admin.setup.openAdmin')}</a>
+    {:else if blocked === 'restored'}
+      <p>{t('admin.errors.setupRestored')}</p>
     {:else if blocked === 'insecure'}
       <p class="problem" role="alert">{t('admin.setup.insecure')}</p>
       <p class="muted">{t('admin.setup.insecureHelp')}</p>
@@ -408,13 +464,15 @@
     {:else if !status && !problem}
       <p class="muted" aria-busy="true">{t('admin.loading')}</p>
     {:else}
-      <ol class="steps" aria-label={t('admin.setup.stepsLabel')}>
-        {#each steps as name, i (name)}
-          <li class:current={i === position} class:past={i < position}>
-            {t(`admin.setup.step.${name}`)}
-          </li>
-        {/each}
-      </ol>
+      {#if step !== 'restore'}
+        <ol class="steps" aria-label={t('admin.setup.stepsLabel')}>
+          {#each steps as name, i (name)}
+            <li class:current={i === position} class:past={i < position}>
+              {t(`admin.setup.step.${name}`)}
+            </li>
+          {/each}
+        </ol>
+      {/if}
 
       {#if step === 'checks'}
         <ul class="checks">
@@ -445,7 +503,62 @@
             disabled={running || httpsFailed || !seen}
             onclick={() => (step = 'admin')}>{t('admin.setup.next')}</button
           >
+          <button
+            class="btn"
+            type="button"
+            disabled={running || httpsFailed || !seen}
+            onclick={() => (step = 'restore')}
+            data-restore>{t('admin.setup.restoreBackup')}</button
+          >
         </div>
+      {:else if step === 'restore'}
+        {#if restoredAt !== null}
+          <p role="status" data-restored>
+            {t('admin.setup.restored', { date: dateTime(restoredAt) })}
+          </p>
+        {:else}
+          <form class="form" onsubmit={restoreBackup} data-restore-form>
+            <h2>{t('admin.setup.restoreBackup')}</h2>
+            <label>
+              {t('admin.setup.restoreFolder')}
+              <input
+                class="field"
+                autocomplete="off"
+                spellcheck="false"
+                required
+                bind:value={restorePath}
+                oninput={() => (looked = null)}
+              />
+            </label>
+            {#if looked?.keyFile}
+              <label>
+                {t('admin.setup.restoreCode', { name: looked.keyFile.username })}
+                <input
+                  class="field mono"
+                  autocomplete="off"
+                  spellcheck="false"
+                  required
+                  bind:value={restoreCode}
+                />
+              </label>
+            {/if}
+            {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+            <div class="row">
+              <button
+                class="btn"
+                type="button"
+                disabled={busy}
+                onclick={() => {
+                  problem = ''
+                  step = 'checks'
+                }}>{t('admin.setup.back')}</button
+              >
+              <button class="btn primary" type="submit" disabled={busy}
+                >{looked ? t('admin.setup.restore') : t('admin.setup.next')}</button
+              >
+            </div>
+          </form>
+        {/if}
       {:else if step === 'admin'}
         <form class="form" onsubmit={createAdmin}>
           <p class="muted">
@@ -679,6 +792,10 @@
   h1 {
     margin: 0;
     font-size: 20px;
+  }
+  h2 {
+    margin: 0;
+    font-size: 16px;
   }
   p {
     margin: 0;

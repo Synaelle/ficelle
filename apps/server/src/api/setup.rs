@@ -4,7 +4,10 @@
 //! Each call is rate limited per address, refused unless the request passes
 //! the https rule, and answers 410 once setup is locked, for good. The admin
 //! is a standard account or, registered over OPAQUE from the browser, an
-//! end-to-end encrypted one.
+//! end-to-end encrypted one. Instead, a fresh server may restore a backup
+//! without a password, or one locked by a backup key, which the browser
+//! opens with the account's recovery code: the code never reaches the
+//! server, the backup key does.
 
 use app_e2ee::server::Setup;
 use app_protocol::e2ee::{KeyBundle, OpaqueRegistrationResponse};
@@ -24,6 +27,7 @@ use super::auth::{hash_password, new_credentials, rate_limit, session};
 use super::extract::{Body, ClientIp, Peer, Secure};
 use crate::accounts::store::{self, Event};
 use crate::accounts::{device_info, display_name, e2ee, factors, normal_username, totp};
+use crate::backups::{self, KeyFile, ServerTarget};
 use crate::error::Error;
 use crate::routes::AppState;
 use crate::setup;
@@ -60,6 +64,13 @@ fn no_session(state: &AppState) -> Error {
 async fn not_locked(state: &AppState) -> Result<(), Error> {
     if state.setup.is_done() {
         return Err(gone());
+    }
+    if state.setup.is_restored() {
+        return Err(Error::new(
+            StatusCode::GONE,
+            error_code::SETUP_RESTORED,
+            "a backup was restored here: restart the server to open it",
+        ));
     }
     if state.db.call(|c| setup::is_locked(c)).await? {
         state.setup.set_done();
@@ -564,4 +575,126 @@ pub async fn finish(
             recovery_codes,
         }),
     ))
+}
+
+/// `POST /api/v1/setup/restore/look`: a backup folder on the server.
+#[derive(serde::Deserialize)]
+pub struct RestoreLook {
+    session: String,
+    path: String,
+}
+
+/// What a backup folder needs to restore.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreLooked {
+    /// For backups locked by a backup key, what the recovery code opens it
+    /// with. `None` for backups without a password.
+    key_file: Option<KeyFile>,
+}
+
+fn backup_target(path: String) -> Result<std::sync::Arc<dyn app_repo::Target>, Error> {
+    ServerTarget::Folder { path }
+        .open()
+        .map_err(super::backups::failed)
+}
+
+/// `POST /api/v1/setup/restore/look`: whether the folder holds backups
+/// this page restores, and what opens them. Backups with a person's
+/// password restore from the command line.
+pub async fn restore_look(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    secure: Secure,
+    Body(req): Body<RestoreLook>,
+) -> Result<Json<RestoreLooked>, Error> {
+    guard(&state, ip, secure).await?;
+    live_session(&state, &req.session)?;
+    let target = backup_target(req.path)?;
+    let looked = tokio::task::spawn_blocking(move || {
+        if !app_repo::Repo::exists(target.as_ref()).map_err(|e| e.to_string())? {
+            return Err("there is no backup in this folder".to_owned());
+        }
+        if let Some(file) = backups::read_key_file(target.as_ref())? {
+            return Ok(Some(file));
+        }
+        match app_repo::Repo::open(target, backups::NO_PASSWORD) {
+            Ok(_) => Ok(None),
+            Err(app_repo::Error::WrongPassword) => Err(
+                "these backups have a password: restore them from the command line, the server stopped"
+                    .to_owned(),
+            ),
+            Err(e) => Err(backups::open_error(e)),
+        }
+    })
+    .await
+    .map_err(|e| Error::internal(&e.to_string()))?
+    .map_err(super::backups::failed)?;
+    Ok(Json(RestoreLooked { key_file: looked }))
+}
+
+/// `POST /api/v1/setup/restore`: the backup folder and, for locked
+/// backups, the backup key the browser opened.
+#[derive(serde::Deserialize)]
+pub struct RestoreRequest {
+    session: String,
+    path: String,
+    #[serde(default)]
+    key: String,
+}
+
+/// The snapshot restored.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Restored {
+    time: i64,
+    users: u64,
+    files: u64,
+}
+
+/// `POST /api/v1/setup/restore`: restores the newest backup for the next
+/// start, which puts it in place of this fresh instance. Setup ends here.
+pub async fn restore(
+    State(state): State<AppState>,
+    ip: ClientIp,
+    secure: Secure,
+    Body(req): Body<RestoreRequest>,
+) -> Result<Json<Restored>, Error> {
+    guard(&state, ip, secure).await?;
+    live_session(&state, &req.session)?;
+    let target = backup_target(req.path.clone())?;
+    let password = zeroize::Zeroizing::new(if req.key.is_empty() {
+        backups::NO_PASSWORD.to_owned()
+    } else {
+        req.key
+    });
+    let scratch = backups::scratch(&state, "restore");
+    let server = state.config.clone();
+    let key_apart = !server.storage.master_key_file.as_os_str().is_empty();
+    let path = req.path;
+    let snapshot = tokio::task::spawn_blocking(move || {
+        let file = backups::read_key_file(target.as_ref())?;
+        let repo = app_repo::Repo::open(target, &password).map_err(backups::open_error)?;
+        let data_dir = &server.storage.data_dir;
+        let snapshot = backups::instance::restore_for_start(&repo, &scratch, data_dir, key_apart)?;
+        if let Some(file) = file {
+            let staged = data_dir.join(backups::instance::RESTORED);
+            backups::carry_key(&staged, &server, &path, &password, &file)?;
+        }
+        Ok::<_, String>(snapshot)
+    })
+    .await
+    .map_err(|e| Error::internal(&e.to_string()))?
+    .map_err(super::backups::failed)?;
+    state.setup.set_restored();
+    tracing::warn!(
+        "a backup was restored from the setup page from {}: restart the server to open it",
+        ip.0
+    );
+    let count = |name: &str| snapshot.counts.get(name).copied().unwrap_or(0);
+    Ok(Json(Restored {
+        time: snapshot.time,
+        users: count("users"),
+        files: count("files"),
+    }))
 }

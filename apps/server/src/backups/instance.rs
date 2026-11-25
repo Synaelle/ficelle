@@ -257,6 +257,94 @@ pub fn restore(repo: &Repo, snapshot_id: &str, data_dir: &Path) -> Result<Snapsh
     Ok(snapshot)
 }
 
+/// Where a restore from the setup page waits for the next start, in the
+/// data folder.
+pub const RESTORED: &str = "restored";
+
+/// Restores the newest snapshot for a fresh server, from its setup page:
+/// into `scratch`, then to [`RESTORED`] in `data_dir`, where the next start
+/// puts it in place. `key_apart` says the master key is read from a file of
+/// its own, so a snapshot without it restores.
+///
+/// # Errors
+///
+/// No snapshot of an instance, a snapshot made with the master key kept
+/// apart on a server that keeps it in the data folder, restore errors.
+pub fn restore_for_start(
+    repo: &Repo,
+    scratch: &Path,
+    data_dir: &Path,
+    key_apart: bool,
+) -> Result<Snapshot> {
+    let newest = repo
+        .snapshots()
+        .map_err(repo_error)?
+        .into_iter()
+        .rfind(|s| s.kind == KIND)
+        .ok_or("there is no backup of an instance there")?;
+    if newest.item("master.key").is_none() && !key_apart {
+        return Err("this backup was made with the master key kept apart: set \
+             storage.master_key_file to that key, restart the server, then restore"
+            .into());
+    }
+    let result = restore(repo, &newest.id, scratch).and_then(|snapshot| {
+        let to = data_dir.join(RESTORED);
+        if to.exists() {
+            std::fs::remove_dir_all(&to).map_err(|e| e.to_string())?;
+        }
+        std::fs::rename(scratch, &to).map_err(|e| e.to_string())?;
+        Ok(snapshot)
+    });
+    if result.is_err() && scratch.exists() {
+        let _ = std::fs::remove_dir_all(scratch);
+    }
+    result
+}
+
+/// At start, before the databases open: a restore from the setup page put
+/// in place of the fresh instance it was made on. Returns whether there was
+/// one. A database that was set up since is never replaced.
+///
+/// # Errors
+///
+/// The data folder was set up meanwhile, file errors.
+pub fn take_restored(data_dir: &Path) -> Result<bool> {
+    let restored = data_dir.join(RESTORED);
+    if !restored.join(crate::db::DB_FILE).is_file() {
+        return Ok(false);
+    }
+    let current = data_dir.join(crate::db::DB_FILE);
+    if current.exists() {
+        let conn = Connection::open_with_flags(&current, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(|e| e.to_string())?;
+        if crate::setup::is_locked(&conn).map_err(|e| e.to_string())? {
+            return Err(format!(
+                "this server was set up after the backup was restored, so it stays as it is. \
+                 Remove {} to start without the restored backup",
+                restored.display()
+            ));
+        }
+    }
+    for name in ["server.db-wal", "server.db-shm"] {
+        match std::fs::remove_file(data_dir.join(name)) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
+            _ => {}
+        }
+    }
+    for entry in std::fs::read_dir(&restored).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let to = data_dir.join(entry.file_name());
+        if to.is_dir() {
+            std::fs::remove_dir_all(&to).map_err(|e| e.to_string())?;
+        } else if to.exists() {
+            std::fs::remove_file(&to).map_err(|e| e.to_string())?;
+        }
+        std::fs::rename(entry.path(), &to).map_err(|e| e.to_string())?;
+    }
+    std::fs::remove_dir(&restored).map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
 /// What a test restore found.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]

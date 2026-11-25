@@ -39,6 +39,7 @@
     'updates_check',
     'backup_set_up',
     'backup_stopped',
+    'backup_locked',
     'backup_done',
     'backup_failed',
     'feedback_settings',
