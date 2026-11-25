@@ -10,7 +10,11 @@ Restore brings back what is missing and changes nothing still there.
 
 ## On a server
 
-Set up backups to a folder on the admin page. The server backs up once a day and keeps as many backups as you choose. With a standard account, a backup opens your notes with its password, so keep that password off the server. With an end-to-end encrypted account, your devices already seal your notes, and the backups have no password. To restore a whole server, stop it and restore into an empty folder. Leave out `FICELLE_BACKUP_PASSWORD` for backups without a password.
+Set up backups to a folder on the admin page. The server backs up once a day and keeps as many backups as you choose. With a standard account, a backup opens your notes with its password, so keep that password off the server. With an end-to-end encrypted account, your devices already seal your notes, and the backups need no password of their own. The first time you sign in to the admin page with your password, it locks them with a random key that only your recovery code opens. Until then they open without a password, and the admin page says so.
+
+To restore locked backups, start a new server that can read the backup folder, open its setup link and choose Restore a backup. Give the folder and your recovery code, then restart the server. Your recovery code stays in your browser.
+
+To restore other backups, stop the server and restore into an empty folder. Leave out `FICELLE_BACKUP_PASSWORD` for backups without a password.
 
 ```bash
 FICELLE_BACKUP_PASSWORD='…' ficelle-server backup restore --target target.json --into /var/lib/ficelle
