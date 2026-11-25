@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- A row of the phone settings, a button as a whole: its icon in a tile,
+<!-- A row of the phone settings, a button as a whole: its icon,
      its name with the current value under it, and on the right a switch, a
      chevron for choices folded under it or an arrow for a page. -->
 <script lang="ts">
@@ -99,15 +99,8 @@
     flex: none;
     display: grid;
     place-items: center;
-    border-radius: var(--radius-control);
-    /* one quiet tile for every row, the icon in the accent: the colour
-       says "a setting", not which kind */
-    background: var(--color-surface-2);
+    /* the icon in the accent: the colour says "a setting", not which kind */
     color: var(--color-accent);
-  }
-  /* pure black means black: what would be a shade of grey is an outline */
-  :global(:root[data-black='true']) .tile {
-    background: transparent;
   }
   .tile :global(.icon) {
     color: inherit;

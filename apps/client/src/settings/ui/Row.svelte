@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- One setting in a Group: its name and an optional short help on the
-     left, its control on the right. Its icon shows as a tile on the phone
+     left, its control on the right. Its icon shows on the phone
      only, like the phone's own rows. When both do not fit, in a long
      language or on a phone, the control moves under the name instead of
      squeezing it. A row with `onclick` is a button as a whole (a choice in

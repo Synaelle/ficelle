@@ -195,16 +195,14 @@
   nav button.active {
     background: var(--color-selection);
   }
-  /* one quiet tile for every section, the icon in the accent, as on the
-     phone: the colour says "a setting", not which kind */
+  /* the icon in the accent, as on the phone: the colour says "a setting",
+     not which kind */
   .tile {
     display: grid;
     width: 22px;
     height: 22px;
     flex: none;
     place-items: center;
-    border-radius: var(--radius-control);
-    background: var(--color-surface-2);
     color: var(--color-accent-text);
   }
   .content {

@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Settings on phones, grouped lists like a phone's own settings: rows flat
-     on the page with hairlines between, a title over each group, icon tiles,
+     on the page with hairlines between, a title over each group, icons,
      the current value on the right, a short note under groups.
      Every row is one tap from the first screen, details open a page. -->
 <script lang="ts">
@@ -299,8 +299,7 @@
     background: transparent;
     color: var(--color-text);
   }
-  /* the app's name and state on the page itself, the mark in a tile like the
-     rows' icons */
+  /* the app's name and state on the page itself, beside its mark */
   .hero {
     display: flex;
     align-items: center;
@@ -308,17 +307,11 @@
     padding: var(--space-1) 0;
   }
   .hero .mark {
-    --knot-behind: var(--color-surface-2);
     display: grid;
     flex: none;
     place-items: center;
     width: 48px;
     height: 48px;
-    border-radius: var(--radius-control);
-    background: var(--knot-behind);
-  }
-  :global(:root[data-black='true']) .hero .mark {
-    --knot-behind: transparent;
   }
   .hero > span {
     display: grid;
@@ -333,9 +326,6 @@
   /* pure black means black: what would be a shade of grey is an outline */
   :global(:root[data-black='true']) .search {
     border: 1px solid var(--color-border-strong);
-    background: transparent;
-  }
-  :global(:root[data-black='true']) .screen :global(.settings-row > .tile) {
     background: transparent;
   }
   /* every page the same: groups one under the other, the same gap between */
@@ -453,8 +443,6 @@
     flex: none;
     margin-top: calc((52px - 30px) / 2 - var(--space-1));
     place-items: center;
-    border-radius: var(--radius-control);
-    background: var(--color-surface-2);
     color: var(--color-accent);
   }
   .screen :global(.settings-row:has(> .tile))::before {

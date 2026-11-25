@@ -84,17 +84,11 @@
     padding: var(--space-3);
   }
   .mark {
-    --knot-behind: var(--color-surface-2);
     display: grid;
     flex: none;
     place-items: center;
     width: 48px;
     height: 48px;
-    border-radius: var(--radius-control);
-    background: var(--knot-behind);
-  }
-  :global(:root[data-black='true']) .mark {
-    --knot-behind: transparent;
   }
   .words {
     display: grid;
