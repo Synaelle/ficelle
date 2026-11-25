@@ -2,7 +2,8 @@
 
 //! The account master key and its two wrappings, one opened by the
 //! password (through the OPAQUE export key), one by the recovery code. The
-//! server stores both wrappings and can open neither.
+//! server stores both wrappings and can open neither. Below the master key
+//! hangs the key of the server's backups, wrapped by it.
 
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
@@ -28,6 +29,8 @@ const RECOVERY_KEK: &[u8] = b"notes e2ee v1 recovery kek";
 const RECOVERY_VERIFIER: &[u8] = b"notes e2ee v1 recovery verifier";
 const WRAP_PASSWORD: &[u8] = b"notes e2ee v1 master key by password";
 const WRAP_RECOVERY: &[u8] = b"notes e2ee v1 master key by recovery code";
+const BACKUP_KEK: &[u8] = b"notes e2ee v1 backup kek";
+const WRAP_BACKUP: &[u8] = b"notes e2ee v1 backup key by master key";
 
 /// The random key every other key of the account hangs from: note keys,
 /// identity keys. 256 bits.
@@ -60,6 +63,17 @@ pub struct NewAccount {
 
 /// Helpers over a bundle.
 pub struct AccountKeys;
+
+/// A new key for the server's backups, made by the client.
+pub struct BackupKey {
+    /// The key as the server uses it, the backups' password: 256 random
+    /// bits as text. Sent to the server, which keeps it to back up
+    /// unattended.
+    pub key: Zeroizing<String>,
+    /// The key wrapped by the account's master key, kept beside the
+    /// backups: only the account opens it.
+    pub wrapped: String,
+}
 
 fn derive(ikm: &[u8], info: &[u8]) -> Zeroizing<[u8; 32]> {
     let mut out = Zeroizing::new([0u8; 32]);
@@ -215,5 +229,31 @@ impl AccountKeys {
         Ok(encode(
             derive(normal.as_bytes(), RECOVERY_VERIFIER).as_slice(),
         ))
+    }
+
+    /// A new random backup key and its wrapping by `master`.
+    pub fn new_backup_key(master: &MasterKey) -> BackupKey {
+        let mut bytes = Zeroizing::new([0u8; 32]);
+        OsRng.fill_bytes(bytes.as_mut());
+        let key = Zeroizing::new(encode(bytes.as_slice()));
+        let wrapped = wrap(
+            &derive(master.as_bytes(), BACKUP_KEK),
+            key.as_bytes(),
+            WRAP_BACKUP,
+        );
+        BackupKey { key, wrapped }
+    }
+
+    /// Opens a backup key wrapped by [`Self::new_backup_key`].
+    ///
+    /// # Errors
+    ///
+    /// [`Error::WrongKey`] when another account wrapped it,
+    /// [`Error::Malformed`] when it is not a wrapped key.
+    pub fn open_backup_key(master: &MasterKey, wrapped: &str) -> Result<Zeroizing<String>> {
+        let key = unwrap(&derive(master.as_bytes(), BACKUP_KEK), wrapped, WRAP_BACKUP)?;
+        String::from_utf8(key.to_vec())
+            .map(Zeroizing::new)
+            .map_err(|_| Error::Malformed("backup key"))
     }
 }

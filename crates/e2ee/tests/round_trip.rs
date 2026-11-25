@@ -152,3 +152,38 @@ fn stretching_numbers_round_trip() {
     assert_eq!(Ksf::from_number(3), None);
     assert_eq!(Ksf::CURRENT, Ksf::V2);
 }
+
+#[test]
+fn the_backup_key_opens_with_the_recovery_code_of_its_account_only() {
+    let setup = Setup::generate();
+    let (_, export_key) = register(&setup, "anna", "correct horse");
+    let account = new_account(&export_key);
+    let made = AccountKeys::new_backup_key(&account.master);
+    assert_eq!(made.key.len(), 43, "256 bits as base64url text");
+    assert_ne!(
+        *AccountKeys::new_backup_key(&account.master).key,
+        *made.key,
+        "each key is new"
+    );
+
+    // a fresh server has the bundle and the wrapped key, the person the code
+    let master = AccountKeys::open_with_recovery(&account.bundle, &account.recovery_code).unwrap();
+    let opened = AccountKeys::open_backup_key(&master, &made.wrapped);
+    assert_eq!(opened.as_deref().map(String::as_str), Ok(made.key.as_str()));
+
+    let (_, other_export) = register(&setup, "bob", "battery staple");
+    let other = new_account(&other_export);
+    assert_eq!(
+        AccountKeys::open_backup_key(&other.master, &made.wrapped).map(|_| ()),
+        Err(Error::WrongKey)
+    );
+    assert_eq!(
+        AccountKeys::open_backup_key(&master, "not a key").map(|_| ()),
+        Err(Error::Malformed("wrapped key"))
+    );
+    // a master key wrapping is not a backup key wrapping
+    assert_eq!(
+        AccountKeys::open_backup_key(&master, &account.bundle.by_recovery).map(|_| ()),
+        Err(Error::WrongKey)
+    );
+}

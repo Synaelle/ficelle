@@ -10,6 +10,7 @@
 //! ```text
 //! export key --HKDF--> password KEK --wraps--> account master key (random)
 //! recovery code --HKDF--> recovery KEK --wraps--> account master key
+//! account master key --HKDF--> backup KEK --wraps--> server backup key (random)
 //! ```
 //!
 //! Everything here is plain Rust without I/O so it builds for the apps, the
@@ -34,11 +35,13 @@ pub use files::{
     seal_file, sealed_size,
 };
 pub use handoff::{Handoff, public_key_ok, seal_export_key};
-pub use keys::{AccountKeys, KeyBundle, MasterKey, NewAccount, new_account};
+pub use keys::{AccountKeys, BackupKey, KeyBundle, MasterKey, NewAccount, new_account};
 pub use opaque_ke;
 pub use recovery::{generate as recovery_code, normalize as normalize_recovery_code};
 pub use suite::{CONTEXT, Ksf, Suite, decode, encode, identifiers, username};
 pub use sync::{DocKey, doc_key, open_change, seal_change};
+/// Secrets here are given back in it, cleared from memory when dropped.
+pub use zeroize::Zeroizing;
 
 /// Why an end-to-end operation failed.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
