@@ -865,18 +865,9 @@
   .tag-input:focus-visible {
     box-shadow: inset 0 -2px 0 var(--color-accent);
   }
-  /* on pure black the chips' grey is lost: an edge instead, and the field
-     after them gets one as well, the chips' size */
+  /* on pure black the chips' grey is lost: an edge instead */
   :global(:root[data-black='true']) .tag {
     box-shadow: inset 0 0 0 1px var(--color-border-strong);
-  }
-  :global(:root[data-black='true']) .tag-input {
-    padding: 1px var(--space-2);
-    border-radius: var(--radius-chip);
-    box-shadow: inset 0 0 0 1px var(--color-border-strong);
-  }
-  :global(:root[data-black='true']) .tag-input:focus-visible {
-    box-shadow: inset 0 0 0 1px var(--color-accent);
   }
   .backlinks {
     margin-top: var(--space-7);
